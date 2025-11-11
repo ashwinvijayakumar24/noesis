@@ -1,3 +1,1 @@
-# Noesis
-
-in development
+starting this shiii soon
