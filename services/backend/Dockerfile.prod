@@ -1,0 +1,74 @@
+# ============================================
+# Multi-stage build for minimal production image
+# ============================================
+# Stage 1: Builder - Install dependencies
+# ============================================
+FROM python:3.11-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# ============================================
+# Stage 2: Production - Minimal runtime image
+# ============================================
+FROM python:3.11-slim
+
+# Install runtime dependencies only (no build tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN useradd -m -u 1000 noesis && \
+    mkdir -p /app/pdfs /app/logs && \
+    chown -R noesis:noesis /app
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python packages from builder stage
+COPY --from=builder --chown=noesis:noesis /root/.local /home/noesis/.local
+
+# Copy application code
+COPY --chown=noesis:noesis . .
+
+# Update PATH to include user-installed packages
+ENV PATH=/home/noesis/.local/bin:$PATH
+
+# Switch to non-root user
+USER noesis
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Production server with optimized settings for micro instance
+# - Single worker (memory constraint)
+# - uvloop for better async performance
+# - Proxy headers for Nginx
+# - Limited concurrency to prevent overload
+CMD ["uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "1", \
+     "--loop", "uvloop", \
+     "--log-level", "info", \
+     "--proxy-headers", \
+     "--forwarded-allow-ips", "*", \
+     "--timeout-keep-alive", "10", \
+     "--limit-concurrency", "50"]
