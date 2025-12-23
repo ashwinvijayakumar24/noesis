@@ -261,7 +261,7 @@ export default function ProjectInsights({ projectId, onOpenLiteratureReview: _on
     <div className="space-y-6">
       {/* Success Banner */}
       <div className="bg-green-900/20 border border-green-600/30 rounded-lg p-4 flex items-start gap-3">
-        <CheckCircleIcon className="h-6 w-6 text-green-400 flex-shrink-0 mt-0.5" />
+        <CheckCircleIcon className="h-6 w-6 text-green-400 shrink-0 mt-0.5" />
         <div className="flex-1">
           <h4 className="text-green-200 font-medium">Insights Analysis Complete</h4>
           <p className="text-green-300/70 text-sm mt-1">
@@ -273,7 +273,7 @@ export default function ProjectInsights({ projectId, onOpenLiteratureReview: _on
       {/* Stale Insights Warning Banner */}
       {isStale && (
         <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-4 flex items-start gap-3">
-          <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <h4 className="text-yellow-200 font-medium">New Documents Added</h4>
             <p className="text-yellow-300/70 text-sm mt-1">
@@ -569,7 +569,7 @@ export default function ProjectInsights({ projectId, onOpenLiteratureReview: _on
         <div className="space-y-6">
           {/* Loading State Message */}
           <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4 flex items-start gap-3">
-            <div className="p-2 bg-blue-600/20 rounded-lg flex-shrink-0">
+            <div className="p-2 bg-blue-600/20 rounded-lg shrink-0">
               <ClockIcon className="h-5 w-5 text-blue-400" />
             </div>
             <div className="flex-1">

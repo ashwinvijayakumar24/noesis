@@ -322,7 +322,7 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {paper.status === 'new' && (
                         <>
                           <button

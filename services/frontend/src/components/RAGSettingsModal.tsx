@@ -173,7 +173,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
 
                 {/* Warning Banner */}
                 <div className="mx-6 mt-4 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg flex gap-3">
-                  <InformationCircleIcon className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <InformationCircleIcon className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
                   <div className="text-sm text-yellow-200">
                     <strong>Note:</strong> Changing these settings only affects newly uploaded documents.
                     To apply changes to existing documents, you'll need to re-process them manually.

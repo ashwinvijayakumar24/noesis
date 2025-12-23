@@ -558,21 +558,21 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
                 <h4 className="text-lg font-semibold text-cyan-400 mb-3">Understanding the Visualization</h4>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-full bg-pink-500/20 border-2 border-pink-500 flex-shrink-0 mt-0.5"></div>
+                    <div className="h-8 w-8 rounded-full bg-pink-500/20 border-2 border-pink-500 shrink-0 mt-0.5"></div>
                     <div>
                       <div className="font-medium text-white">Nodes (Circles)</div>
                       <p className="text-sm text-gray-400">Each node represents a paper. Larger nodes = more citations. Darker color = more influence in the network.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="h-0.5 w-8 bg-gray-600 flex-shrink-0 mt-4"></div>
+                    <div className="h-0.5 w-8 bg-gray-600 shrink-0 mt-4"></div>
                     <div>
                       <div className="font-medium text-white">Edges (Lines)</div>
                       <p className="text-sm text-gray-400">Lines connecting nodes show citation relationships. An edge from Paper A to Paper B means Paper A cites Paper B.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="text-xl text-gray-300 flex-shrink-0">📍</div>
+                    <div className="text-xl text-gray-300 shrink-0">📍</div>
                     <div>
                       <div className="font-medium text-white">Node Position</div>
                       <p className="text-sm text-gray-400">Papers that cite each other tend to cluster together. Isolated nodes are papers with no internal citations.</p>

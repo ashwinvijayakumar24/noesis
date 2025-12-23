@@ -274,7 +274,7 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
     <div className="space-y-6">
       {/* Success Banner */}
       <div className="bg-green-900/20 border border-green-600/30 rounded-lg p-4 flex items-start gap-3">
-        <CheckCircleIcon className="h-6 w-6 text-green-400 flex-shrink-0 mt-0.5" />
+        <CheckCircleIcon className="h-6 w-6 text-green-400 shrink-0 mt-0.5" />
         <div className="flex-1">
           <h4 className="text-green-200 font-medium">Analysis Complete</h4>
           <p className="text-green-300/70 text-sm mt-1">
