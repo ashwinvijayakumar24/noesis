@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { XMarkIcon, ArrowRightIcon, CheckIcon } from '@heroicons/react/24/outline'
 
 interface OnboardingStep {
   title: string
   description: string
   action?: string
-  icon: JSX.Element
+  icon: React.ReactElement
 }
 
 interface OnboardingTourProps {

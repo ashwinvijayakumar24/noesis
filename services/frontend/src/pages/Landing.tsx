@@ -6,7 +6,6 @@ import {
   LightBulbIcon,
   BeakerIcon,
   ArrowRightIcon,
-  AcademicCapIcon,
 } from '@heroicons/react/24/outline'
 import { useEffect } from 'react'
 

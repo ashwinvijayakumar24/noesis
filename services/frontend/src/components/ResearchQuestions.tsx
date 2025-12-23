@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
-import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import MethodologyRecommendations from './MethodologyRecommendations'
 import {
@@ -210,7 +209,7 @@ export default function ResearchQuestions({ projectId, insightsStatus }: Researc
     })
   }
 
-  const handleGetMethodology = async (questionId: string, question: string) => {
+  const handleGetMethodology = async (questionId: string, _question: string) => {
     if (!session?.access_token) return
 
     setLoadingMethodology(prev => new Set(prev).add(questionId))
