@@ -224,7 +224,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
           .attr('stroke-width', 3)
 
         // Show tooltip
-        const tooltip = d3.select('body').append('div')
+        d3.select('body').append('div')
           .attr('class', 'citation-tooltip')
           .style('position', 'absolute')
           .style('background', 'rgba(17, 24, 39, 0.95)')
@@ -259,20 +259,20 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
         d3.selectAll('.citation-tooltip').remove()
       })
       .call(d3.drag<SVGCircleElement, Node>()
-        .on('start', (event, d) => {
+        .on('start', (event, d: Node) => {
           if (!event.active) simulation.alphaTarget(0.3).restart()
           d.fx = d.x
           d.fy = d.y
         })
-        .on('drag', (event, d) => {
+        .on('drag', (event, d: Node) => {
           d.fx = event.x
           d.fy = event.y
         })
-        .on('end', (event, d) => {
+        .on('end', (event, d: Node) => {
           if (!event.active) simulation.alphaTarget(0)
           d.fx = null
           d.fy = null
-        }))
+        }) as any)
 
     // Add labels for influential nodes (in-degree > 2)
     const label = g.append('g')

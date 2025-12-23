@@ -1,6 +1,6 @@
-import { Fragment, useState } from 'react'
+import { Fragment } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
-import { XMarkIcon, DocumentTextIcon, SparklesIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 import DocumentOverview from './DocumentOverview'
 
 interface DocumentDetailModalProps {

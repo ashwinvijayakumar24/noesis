@@ -1,14 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.supabase_client import supabase
+from app.core.config import settings
 from app.api.routes import auth, projects, documents, rag, chat, search, tags, literature_review, research_questions, methodology_recommendations, paper_recommendations, analytics, analytics_tracking
 
 app = FastAPI(title="Noesis API")
 
 # CORS middleware to allow frontend to connect
+# Parse CORS_ORIGINS from environment variable (comma-separated string to list)
+allowed_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

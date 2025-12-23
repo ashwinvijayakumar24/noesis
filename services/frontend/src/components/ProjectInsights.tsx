@@ -96,13 +96,13 @@ const GAP_CATEGORY_COLORS = {
 
 type InsightsTab = 'overview' | 'gaps' | 'discover'
 
-export default function ProjectInsights({ projectId, onOpenLiteratureReview }: ProjectInsightsProps) {
+export default function ProjectInsights({ projectId, onOpenLiteratureReview: _onOpenLiteratureReview }: ProjectInsightsProps) {
   const { session } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<'not_analyzed' | 'analyzing' | 'analyzed' | 'failed'>('not_analyzed')
   const [insights, setInsights] = useState<Insights | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+  const [pollingInterval, setPollingInterval] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview')
   const [insightsDocCount, setInsightsDocCount] = useState<number>(0)
   const [currentAnalyzedCount, setCurrentAnalyzedCount] = useState<number>(0)

@@ -64,7 +64,7 @@
 
 - [ ] **EC2 → Elastic IPs → Allocate**
 
-- [ ] **Associate with instance:**  
+- [ ] **Associate with instance:**
   - [ ] Select IP → Actions → Associate
   - [ ] Instance: `noesis-production`
   - [ ] Associate
@@ -136,7 +136,7 @@ Copy and paste these commands one by one:
   sudo systemctl enable nginx
   ```
 
-- [ x] **Logout and login again:**
+- [ ] **Logout and login again:**
   ```bash
   exit
   # Then SSH back in
@@ -231,10 +231,7 @@ Copy and paste these commands one by one:
   ls db-init/
 
   # Run each migration in order
-  for file in db-init/*.sql; do
-    docker compose -f docker-compose.prod.yml exec db \
-      psql -U noesis_prod -d noesis_prod -f /docker-entrypoint-initdb.d/$(basename $file)
-  done
+for file in db-init/*.sql; do docker compose -f docker-compose.prod.yml exec db psql -U noesis_prod -d noesis_prod -f /docker-entrypoint-initdb.d/$(basename $file); done
   ```
 
 ### ✅ Phase 9: Deploy All Services
