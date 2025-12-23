@@ -95,7 +95,7 @@ export default function MethodologyRecommendations({ recommendations, question }
           <ol className="space-y-2">
             {primary_methodology.approach.map((step, i) => (
               <li key={i} className="flex gap-3 text-sm text-neutral-300">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-600/30 text-blue-400 rounded-full flex items-center justify-center text-xs font-bold">
+                <span className="shrink-0 w-6 h-6 bg-blue-600/30 text-blue-400 rounded-full flex items-center justify-center text-xs font-bold">
                   {i + 1}
                 </span>
                 <span>{step}</span>

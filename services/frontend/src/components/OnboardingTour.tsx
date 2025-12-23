@@ -50,7 +50,7 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-gray-900 rounded-2xl border-2 border-pink-600/30 shadow-2xl max-w-2xl w-full overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-pink-600/20 to-rose-600/20 border-b border-gray-800 p-6">
+        <div className="bg-linear-to-r from-pink-600/20 to-rose-600/20 border-b border-gray-800 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-pink-600/20 rounded-lg">
@@ -94,7 +94,7 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
                   key={index}
                   className={`h-1.5 flex-1 rounded-full transition ${
                     index <= currentStep
-                      ? 'bg-gradient-to-r from-pink-600 to-rose-600'
+                      ? 'bg-linear-to-r from-pink-600 to-rose-600'
                       : 'bg-gray-700'
                   }`}
                 />
@@ -121,7 +121,7 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
               </button>
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 text-white font-medium rounded-lg hover:from-pink-700 hover:to-rose-700 transition"
+                className="flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-pink-600 to-rose-600 text-white font-medium rounded-lg hover:from-pink-700 hover:to-rose-700 transition"
               >
                 {isLastStep ? (
                   <>

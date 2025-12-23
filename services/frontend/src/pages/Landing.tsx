@@ -313,7 +313,7 @@ export default function Landing() {
                 className="flex flex-col md:flex-row gap-8 items-start"
               >
                 {/* Number */}
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   <div className="text-6xl font-serif font-bold text-neutral-800">
                     {step.number}
                   </div>

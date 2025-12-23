@@ -711,7 +711,7 @@ export default function ProjectDetail() {
 
         {/* Chat Tab */}
         {activeTab === 'chat' && !isFullScreen && (
-          <div className="flex flex-col h-[calc(100vh-280px)] min-h-[500px]">
+          <div className="flex flex-col h-[calc(100vh-280px)] min-h-125">
           {/* Chat Header */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-t-lg px-4 py-3 flex justify-between items-center">
             <div className="flex items-center gap-2 text-sm font-mono text-neutral-400">
@@ -746,7 +746,7 @@ export default function ProjectDetail() {
           >
             <div className="max-w-3xl mx-auto px-4 py-8">
               {messages.length === 0 && !isStreaming && (
-                <div className="flex items-center justify-center min-h-[400px]">
+                <div className="flex items-center justify-center min-h-100">
                   <div className="text-center max-w-md">
                     <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-accent-primary/10 flex items-center justify-center">
                       <svg className="h-8 w-8 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -914,7 +914,7 @@ export default function ProjectDetail() {
           >
             <div className="max-w-4xl mx-auto px-4 py-8">
               {messages.length === 0 && !isStreaming && (
-                <div className="flex items-center justify-center min-h-[500px]">
+                <div className="flex items-center justify-center min-h-125">
                   <div className="text-center max-w-md">
                     <div className="h-20 w-20 mx-auto mb-6 rounded-full bg-accent-primary/10 flex items-center justify-center">
                       <svg className="h-10 w-10 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">

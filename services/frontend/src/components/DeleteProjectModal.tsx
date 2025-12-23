@@ -70,7 +70,7 @@ export default function DeleteProjectModal({
                 {/* Header */}
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <ExclamationTriangleIcon className="h-6 w-6 text-red-500" />
                     </div>
                     <div>

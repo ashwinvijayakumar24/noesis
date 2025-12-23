@@ -43,7 +43,7 @@ export default function DocumentDetailModal({ isOpen, onClose, document }: Docum
             >
               <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-lg bg-neutral-900 border border-neutral-800 shadow-2xl transition-all max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-800 flex-shrink-0">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-800 shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-accent-primary/10 rounded-lg">
                       <DocumentTextIcon className="h-6 w-6 text-accent-primary" />
@@ -71,7 +71,7 @@ export default function DocumentDetailModal({ isOpen, onClose, document }: Docum
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-neutral-900/50 border-t border-neutral-800 flex justify-end flex-shrink-0">
+                <div className="px-6 py-4 bg-neutral-900/50 border-t border-neutral-800 flex justify-end shrink-0">
                   <button
                     onClick={onClose}
                     className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-50 transition-colors"
