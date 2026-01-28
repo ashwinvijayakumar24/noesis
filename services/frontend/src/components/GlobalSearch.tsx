@@ -166,13 +166,13 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-xl bg-gray-900 border border-gray-700 shadow-2xl transition-all">
+              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-2xl transition-all">
                 {/* Search Input */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
-                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-border-base">
+                  <MagnifyingGlassIcon className="h-5 w-5 text-text-tertiary" />
                   <input
                     type="text"
-                    className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-lg"
+                    className="flex-1 bg-transparent text-text-primary placeholder-text-muted outline-none text-lg"
                     placeholder="Search projects, documents, and datasets..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -180,7 +180,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                   />
                   <button
                     onClick={onClose}
-                    className="text-gray-400 hover:text-gray-200 transition"
+                    className="text-text-tertiary hover:text-text-secondary transition"
                   >
                     <XMarkIcon className="h-5 w-5" />
                   </button>
@@ -191,13 +191,9 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                   {/* Empty State */}
                   {showEmptyState && (
                     <div className="px-4 py-12 text-center">
-                      <MagnifyingGlassIcon className="h-12 w-12 mx-auto text-gray-600 mb-3" />
-                      <p className="text-gray-400 text-sm">
+                      <MagnifyingGlassIcon className="h-12 w-12 mx-auto text-text-muted mb-3" />
+                      <p className="text-text-tertiary text-sm">
                         Search across all your projects, documents, and datasets
-                      </p>
-                      <p className="text-gray-500 text-xs mt-2">
-                        Use <kbd className="px-2 py-1 bg-gray-800 rounded text-xs">⌘K</kbd> or{' '}
-                        <kbd className="px-2 py-1 bg-gray-800 rounded text-xs">Ctrl+K</kbd> to open search
                       </p>
                     </div>
                   )}
@@ -207,16 +203,16 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                     <div className="px-4 py-3 space-y-4">
                       {recentSearches.length > 0 && (
                         <div>
-                          <h3 className="text-xs font-medium text-gray-500 uppercase mb-2 px-2">Recent Searches</h3>
+                          <h3 className="text-xs font-medium text-text-muted uppercase mb-2 px-2">Recent Searches</h3>
                           <div className="space-y-1">
                             {recentSearches.map((recentQuery, idx) => (
                               <button
                                 key={idx}
                                 onClick={() => handleRecentSearchClick(recentQuery)}
-                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-left"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover transition text-left"
                               >
-                                <ClockIcon className="h-4 w-4 text-gray-500" />
-                                <span className="text-gray-300 text-sm">{recentQuery}</span>
+                                <ClockIcon className="h-4 w-4 text-text-muted" />
+                                <span className="text-text-secondary text-sm">{recentQuery}</span>
                               </button>
                             ))}
                           </div>
@@ -225,19 +221,19 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
 
                       {recentProjects.length > 0 && (
                         <div>
-                          <h3 className="text-xs font-medium text-gray-500 uppercase mb-2 px-2">Recently Viewed</h3>
+                          <h3 className="text-xs font-medium text-text-muted uppercase mb-2 px-2">Recently Viewed</h3>
                           <div className="space-y-1">
                             {recentProjects.map((project) => (
                               <button
                                 key={project.id}
                                 onClick={() => handleResultClick('project', project)}
-                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-left"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover transition text-left"
                               >
                                 <FolderIcon className="h-4 w-4 text-pink-500" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-gray-300 text-sm font-medium truncate">{project.title}</p>
+                                  <p className="text-text-secondary text-sm font-medium truncate">{project.title}</p>
                                   {project.description && (
-                                    <p className="text-gray-500 text-xs truncate">{project.description}</p>
+                                    <p className="text-text-muted text-xs truncate">{project.description}</p>
                                   )}
                                 </div>
                               </button>
@@ -252,7 +248,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                   {loading && showResults && (
                     <div className="px-4 py-8 text-center">
                       <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-pink-600 border-r-transparent"></div>
-                      <p className="text-gray-400 text-sm mt-2">Searching...</p>
+                      <p className="text-text-tertiary text-sm mt-2">Searching...</p>
                     </div>
                   )}
 
@@ -262,7 +258,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                       {/* No Results */}
                       {!hasResults && (
                         <div className="py-8 text-center">
-                          <p className="text-gray-400 text-sm">No results found for "{query}"</p>
+                          <p className="text-text-tertiary text-sm">No results found for "{query}"</p>
                         </div>
                       )}
 
@@ -270,11 +266,11 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                       {results.projects.length > 0 && (
                         <div>
                           <div className="flex items-center justify-between mb-2 px-2">
-                            <h3 className="text-xs font-medium text-gray-500 uppercase">
+                            <h3 className="text-xs font-medium text-text-muted uppercase">
                               Projects ({results.projects.length})
                             </h3>
                             {results.has_more.projects && (
-                              <span className="text-xs text-gray-500">+more</span>
+                              <span className="text-xs text-text-muted">+more</span>
                             )}
                           </div>
                           <div className="space-y-1">
@@ -282,15 +278,15 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                               <button
                                 key={project.id}
                                 onClick={() => handleResultClick('project', project)}
-                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-left"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover transition text-left"
                               >
                                 <FolderIcon className="h-5 w-5 text-pink-500" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-gray-200 text-sm font-medium">
+                                  <p className="text-text-secondary text-sm font-medium">
                                     {highlightMatch(project.title, query)}
                                   </p>
                                   {project.description && (
-                                    <p className="text-gray-400 text-xs truncate">
+                                    <p className="text-text-tertiary text-xs truncate">
                                       {highlightMatch(project.description, query)}
                                     </p>
                                   )}
@@ -305,11 +301,11 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                       {results.documents.length > 0 && (
                         <div>
                           <div className="flex items-center justify-between mb-2 px-2">
-                            <h3 className="text-xs font-medium text-gray-500 uppercase">
+                            <h3 className="text-xs font-medium text-text-muted uppercase">
                               Documents ({results.documents.length})
                             </h3>
                             {results.has_more.documents && (
-                              <span className="text-xs text-gray-500">+more</span>
+                              <span className="text-xs text-text-muted">+more</span>
                             )}
                           </div>
                           <div className="space-y-1">
@@ -317,14 +313,14 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                               <button
                                 key={doc.id}
                                 onClick={() => handleResultClick('document', doc)}
-                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-left"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover transition text-left"
                               >
                                 <DocumentIcon className="h-5 w-5 text-blue-500" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-gray-200 text-sm">
+                                  <p className="text-text-secondary text-sm">
                                     {highlightMatch(doc.title, query)}
                                   </p>
-                                  <p className="text-gray-500 text-xs truncate">
+                                  <p className="text-text-muted text-xs truncate">
                                     in {doc.projects?.title || 'Unknown Project'}
                                   </p>
                                 </div>
@@ -338,11 +334,11 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                       {results.datasets.length > 0 && (
                         <div>
                           <div className="flex items-center justify-between mb-2 px-2">
-                            <h3 className="text-xs font-medium text-gray-500 uppercase">
+                            <h3 className="text-xs font-medium text-text-muted uppercase">
                               Datasets ({results.datasets.length})
                             </h3>
                             {results.has_more.datasets && (
-                              <span className="text-xs text-gray-500">+more</span>
+                              <span className="text-xs text-text-muted">+more</span>
                             )}
                           </div>
                           <div className="space-y-1">
@@ -350,14 +346,14 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                               <button
                                 key={dataset.id}
                                 onClick={() => handleResultClick('dataset', dataset)}
-                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-left"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover transition text-left"
                               >
-                                <TableCellsIcon className="h-5 w-5 text-green-500" />
+                                <TableCellsIcon className="h-5 w-5 text-emerald-500" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-gray-200 text-sm">
+                                  <p className="text-text-secondary text-sm">
                                     {highlightMatch(dataset.filename, query)}
                                   </p>
-                                  <p className="text-gray-500 text-xs truncate">
+                                  <p className="text-text-muted text-xs truncate">
                                     in {dataset.projects?.title || 'Unknown Project'}
                                   </p>
                                 </div>
@@ -371,16 +367,16 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2 border-t border-gray-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <kbd className="px-2 py-1 bg-gray-800 rounded">↑↓</kbd>
+                <div className="px-4 py-2 border-t border-border-base flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-text-muted">
+                    <kbd className="px-2 py-1 bg-surface-hover rounded">↑↓</kbd>
                     <span>Navigate</span>
-                    <kbd className="px-2 py-1 bg-gray-800 rounded">↵</kbd>
+                    <kbd className="px-2 py-1 bg-surface-hover rounded">↵</kbd>
                     <span>Select</span>
-                    <kbd className="px-2 py-1 bg-gray-800 rounded">Esc</kbd>
+                    <kbd className="px-2 py-1 bg-surface-hover rounded">Esc</kbd>
                     <span>Close</span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-text-muted">
                     {results && results.total > 0 && (
                       <span>{results.total} result{results.total !== 1 ? 's' : ''}</span>
                     )}

@@ -177,7 +177,7 @@ export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
             e.stopPropagation()
             setShowInput(true)
           }}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs text-gray-400 hover:text-gray-300 border border-dashed border-gray-700 hover:border-gray-600 transition"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs text-text-tertiary hover:text-text-secondary border border-dashed border-border-subtle hover:border-border-base transition"
         >
           <PlusIcon className="h-3 w-3" />
           Add tag
@@ -200,12 +200,12 @@ export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
             }}
             placeholder="Type tag name..."
             disabled={loading}
-            className="w-32 px-2 py-0.5 text-xs bg-gray-800 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:border-pink-500"
+            className="w-32 px-2 py-0.5 text-xs bg-surface-hover border border-border-base rounded-md text-text-primary placeholder-text-muted focus:outline-none focus:border-pink-500"
           />
 
           {/* Suggestions dropdown */}
           {inputValue && filteredSuggestions.length > 0 && (
-            <div className="absolute top-full left-0 mt-1 w-40 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-1 w-40 bg-surface-hover border border-border-base rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
               {filteredSuggestions.map((suggestion) => {
                 const colors = getColorClasses(suggestion.color)
                 return (
@@ -215,7 +215,7 @@ export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
                       e.stopPropagation()
                       addTag(suggestion.name)
                     }}
-                    className="w-full px-3 py-2 text-xs text-left text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+                    className="w-full px-3 py-2 text-xs text-left text-text-secondary hover:bg-surface-active flex items-center gap-2"
                   >
                     <span className={`w-2 h-2 rounded-full ${colors.bg.replace('/20', '')}`} />
                     {suggestion.name}

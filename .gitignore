@@ -43,6 +43,7 @@ dist-ssr/
 .env.production
 .env.development
 .env.staging
+.env.prod
 
 # AWS deployment
 *.pem
@@ -60,6 +61,7 @@ logs/
 *.swp
 *.swo
 *~
+/.claude
 
 # OS
 .DS_Store

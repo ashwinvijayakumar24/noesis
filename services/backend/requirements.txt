@@ -15,8 +15,26 @@ python-multipart
 pandas
 pymupdf
 pypdf
+python-docx
 openai
 tiktoken
 requests
 weasyprint
 markdown
+slowapi==0.1.9
+sentry-sdk[fastapi]==1.40.0
+
+# LangGraph and LangChain for adaptive workflows (Phase 2)
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+
+# Celery and Redis for task queue (Phase 3)
+celery[redis]==5.3.4
+redis==4.6.0
+
+# Testing
+pytest
+pytest-asyncio
+hypothesis
+faker

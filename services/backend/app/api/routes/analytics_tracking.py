@@ -7,10 +7,13 @@ Provides endpoints for tracking user analytics events.
 from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from pydantic import BaseModel, Field
 from app.core.supabase_client import supabase
+from app.core.security_middleware import SecureAuthValidator, limiter
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # Pydantic models
@@ -27,18 +30,27 @@ class BatchAnalyticsEvents(BaseModel):
 # Helper to extract user info from token
 def get_current_user(authorization: str = Header(None)):
     if supabase is None:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    token = authorization.split("Bearer ")[-1]
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase not configured"  # Don't expose environment details
+        )
+
+    # Use secure token validator
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+
     try:
         user = supabase.auth.get_user(token)
         return user.user.id
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid or expired token: {e}")
+        logger.error(f"Token validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"  # Don't expose error details
+        )
 
 
 @router.post("/track")
+@limiter.limit("100/minute")  # Max 100 analytics events per minute per IP
 async def track_event(
     event: AnalyticsEvent,
     request: Request,
@@ -46,6 +58,8 @@ async def track_event(
 ):
     """
     Track a single analytics event.
+
+    Rate limit: 100 events per minute per IP address
 
     This endpoint stores user analytics events in the database for:
     - Feature usage tracking
@@ -89,6 +103,7 @@ async def track_event(
 
 
 @router.post("/track/batch")
+@limiter.limit("20/minute")  # Max 20 batch requests per minute per IP
 async def track_batch_events(
     batch: BatchAnalyticsEvents,
     request: Request,
@@ -96,6 +111,8 @@ async def track_batch_events(
 ):
     """
     Track multiple analytics events in a single request.
+
+    Rate limit: 20 batch requests per minute per IP address
 
     Useful for:
     - Reducing network requests

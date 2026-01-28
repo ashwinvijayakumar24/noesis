@@ -1,16 +1,19 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, HTMLAttributes } from 'react'
 
-interface CardProps {
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
   className?: string
   hover?: boolean
+  clickable?: boolean
 }
 
-export function Card({ children, className = '', hover = true }: CardProps) {
-  const hoverStyles = hover ? 'hover:border-neutral-700' : ''
+export function Card({ children, className = '', hover = false, clickable = false, ...props }: CardProps) {
+  const baseStyles = 'bg-surface border border-border-base rounded-lg p-6 transition-all'
+  const hoverStyles = hover ? 'hover:border-accent-primary hover:bg-surface-hover' : 'hover:border-border-subtle'
+  const clickableStyles = clickable ? 'cursor-pointer' : ''
 
   return (
-    <div className={`border border-neutral-800 rounded-lg p-6 transition-colors ${hoverStyles} ${className}`}>
+    <div className={`${baseStyles} ${hoverStyles} ${clickableStyles} ${className}`} {...props}>
       {children}
     </div>
   )
@@ -23,7 +26,7 @@ interface CardTitleProps {
 
 export function CardTitle({ children, className = '' }: CardTitleProps) {
   return (
-    <h3 className={`text-xl font-serif font-semibold text-neutral-50 mb-2 ${className}`}>
+    <h3 className={`text-2xl font-serif font-semibold text-text-primary mb-4 ${className}`}>
       {children}
     </h3>
   )
@@ -36,7 +39,7 @@ interface CardDescriptionProps {
 
 export function CardDescription({ children, className = '' }: CardDescriptionProps) {
   return (
-    <p className={`text-neutral-400 ${className}`}>
+    <p className={`text-sm text-text-secondary ${className}`}>
       {children}
     </p>
   )

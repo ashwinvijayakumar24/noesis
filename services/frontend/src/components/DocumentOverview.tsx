@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import {
-  SparklesIcon,
   BeakerIcon,
   LightBulbIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline'
+import { SkeletonInsight, SkeletonList } from './ui/Skeleton'
+import { ProgressIndicator, useEstimatedProgress } from './ui/ProgressIndicator'
 
 interface DocumentOverviewProps {
   documentId: string
@@ -54,6 +56,9 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
   const [error, setError] = useState<string | null>(null)
   const [pollingIntervalId, setPollingIntervalId] = useState<ReturnType<typeof setInterval> | null>(null)
 
+  // Progress tracking for analysis (estimated 30 seconds)
+  const { progress, elapsedTime, estimatedTimeRemaining, complete: completeProgress, reset: resetProgress } = useEstimatedProgress(30)
+
   // Reset all state when documentId changes
   useEffect(() => {
     setLoading(true)
@@ -95,6 +100,7 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       if (data.status === 'analyzed') {
         setAnalysis(data.analysis)
         setError(null)
+        completeProgress()
         // Stop polling if it's running
         if (pollingIntervalId) {
           clearInterval(pollingIntervalId)
@@ -111,6 +117,7 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
               if (pollData.status === 'analyzed') {
                 setAnalysis(pollData.analysis)
                 setError(null)
+                completeProgress()
                 clearInterval(interval)
                 setPollingIntervalId(null)
               } else if (pollData.status === 'failed') {
@@ -146,6 +153,7 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
     try {
       setLoading(true)
       setError(null)
+      resetProgress()
 
       // Clear any existing polling first
       if (pollingIntervalId) {
@@ -167,6 +175,7 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
           if (pollData.status === 'analyzed') {
             setAnalysis(pollData.analysis)
             setError(null)
+            completeProgress()
             clearInterval(interval)
             setPollingIntervalId(null)
           } else if (pollData.status === 'failed') {
@@ -194,33 +203,29 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
 
   if (loading && status === 'not_analyzed') {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent"></div>
-          <p className="text-neutral-400 text-sm mt-3">Loading...</p>
-        </div>
+      <div className="space-y-6">
+        <SkeletonList count={5} ItemComponent={SkeletonInsight} />
       </div>
     )
   }
 
   if (status === 'not_analyzed') {
     return (
-      <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-8 text-center">
+      <div className="bg-surface rounded-lg border border-border-base p-8 text-center">
         <div className="max-w-md mx-auto">
           <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-accent-primary/10 flex items-center justify-center">
-            <SparklesIcon className="h-8 w-8 text-accent-primary" />
+            <DocumentTextIcon className="h-8 w-8 text-accent-primary" />
           </div>
-          <h3 className="text-xl font-serif font-semibold text-neutral-50 mb-2">
+          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
             AI-Powered Paper Analysis
           </h3>
-          <p className="text-neutral-400 mb-6">
+          <p className="text-text-tertiary mb-6">
             Get instant structured insights including methodology, findings, limitations, and key citations in just 30 seconds.
           </p>
           <button
             onClick={handleAnalyze}
-            className="px-6 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2 mx-auto"
+            className="px-6 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors mx-auto"
           >
-            <SparklesIcon className="h-5 w-5" />
             Analyze This Paper
           </button>
         </div>
@@ -230,29 +235,52 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
 
   if (status === 'analyzing') {
     return (
-      <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-8 text-center">
-        <div className="max-w-md mx-auto">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent mb-4"></div>
-          <h3 className="text-xl font-serif font-semibold text-neutral-50 mb-2">
-            Analyzing Paper...
-          </h3>
-          <p className="text-neutral-400">
-            Our AI is extracting structured insights from your research paper. This usually takes 20-30 seconds.
-          </p>
-        </div>
+      <div className="max-w-3xl mx-auto">
+        <ProgressIndicator
+          progress={progress}
+          status="Analyzing Paper with AI"
+          estimatedTimeRemaining={estimatedTimeRemaining}
+          showElapsedTime={true}
+          steps={[
+            {
+              label: 'Extracting document structure',
+              description: 'Identifying sections, headings, and content blocks',
+              completed: elapsedTime > 5,
+              active: elapsedTime <= 5
+            },
+            {
+              label: 'Analyzing methodology and findings',
+              description: 'Understanding research approach and key results',
+              completed: elapsedTime > 15,
+              active: elapsedTime > 5 && elapsedTime <= 15
+            },
+            {
+              label: 'Extracting citations and references',
+              description: 'Identifying key papers and their relevance',
+              completed: elapsedTime > 25,
+              active: elapsedTime > 15 && elapsedTime <= 25
+            },
+            {
+              label: 'Generating structured insights',
+              description: 'Creating comprehensive analysis report',
+              completed: false,
+              active: elapsedTime > 25
+            }
+          ]}
+        />
       </div>
     )
   }
 
   if (status === 'failed') {
     return (
-      <div className="bg-neutral-900 rounded-lg border border-red-900/50 p-8 text-center">
+      <div className="bg-surface rounded-lg border border-red-900/50 p-8 text-center">
         <div className="max-w-md mx-auto">
           <XCircleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-xl font-serif font-semibold text-neutral-50 mb-2">
+          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
             Analysis Failed
           </h3>
-          <p className="text-neutral-400 mb-4">
+          <p className="text-text-tertiary mb-4">
             {error || 'The analysis could not be completed. Please try again.'}
           </p>
           <button
@@ -284,32 +312,32 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       </div>
 
       {/* Executive Summary */}
-      <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
+      <div className="bg-surface rounded-lg border border-border-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-accent-primary/10 rounded-lg">
-            <SparklesIcon className="h-5 w-5 text-accent-primary" />
+            <DocumentTextIcon className="h-5 w-5 text-accent-primary" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-neutral-50">Executive Summary</h3>
+          <h3 className="text-lg font-serif font-semibold text-text-primary">Executive Summary</h3>
         </div>
-        <p className="text-neutral-300 leading-relaxed">{analysis.executive_summary}</p>
+        <p className="text-text-secondary leading-relaxed">{analysis.executive_summary}</p>
       </div>
 
       {/* Research Problem */}
-      <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
+      <div className="bg-surface rounded-lg border border-border-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-blue-600/20 rounded-lg">
             <ExclamationTriangleIcon className="h-5 w-5 text-blue-400" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-neutral-50">Research Problem</h3>
+          <h3 className="text-lg font-serif font-semibold text-text-primary">Research Problem</h3>
         </div>
-        <p className="text-neutral-300 leading-relaxed">{analysis.research_problem}</p>
+        <p className="text-text-secondary leading-relaxed">{analysis.research_problem}</p>
 
         {analysis.key_questions && analysis.key_questions.length > 0 && (
           <div className="mt-4">
-            <h4 className="text-sm font-medium text-neutral-400 mb-2">Key Research Questions:</h4>
+            <h4 className="text-sm font-medium text-text-tertiary mb-2">Key Research Questions:</h4>
             <ul className="list-disc list-outside ml-5 space-y-1">
               {analysis.key_questions.map((q, i) => (
-                <li key={i} className="text-neutral-300 leading-relaxed">{q}</li>
+                <li key={i} className="text-text-secondary leading-relaxed">{q}</li>
               ))}
             </ul>
           </div>
@@ -317,18 +345,18 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       </div>
 
       {/* Methodology */}
-      <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
+      <div className="bg-surface rounded-lg border border-border-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-purple-600/20 rounded-lg">
             <BeakerIcon className="h-5 w-5 text-purple-400" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-neutral-50">Methodology</h3>
+          <h3 className="text-lg font-serif font-semibold text-text-primary">Methodology</h3>
         </div>
-        <p className="text-neutral-300 leading-relaxed mb-4">{analysis.methodology.approach}</p>
+        <p className="text-text-secondary leading-relaxed mb-4">{analysis.methodology.approach}</p>
 
         {analysis.methodology.techniques && analysis.methodology.techniques.length > 0 && (
           <div className="mb-4">
-            <h4 className="text-sm font-medium text-neutral-400 mb-2">Techniques Used:</h4>
+            <h4 className="text-sm font-medium text-text-tertiary mb-2">Techniques Used:</h4>
             <div className="flex flex-wrap gap-2">
               {analysis.methodology.techniques.map((tech, i) => (
                 <span key={i} className="px-3 py-1 bg-purple-900/30 text-purple-200 rounded-full text-sm">
@@ -341,45 +369,45 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
 
         {analysis.methodology.dataset && analysis.methodology.dataset !== 'Not applicable' && (
           <div>
-            <h4 className="text-sm font-medium text-neutral-400 mb-2">Dataset:</h4>
-            <p className="text-neutral-300">{analysis.methodology.dataset}</p>
+            <h4 className="text-sm font-medium text-text-tertiary mb-2">Dataset:</h4>
+            <p className="text-text-secondary">{analysis.methodology.dataset}</p>
           </div>
         )}
       </div>
 
       {/* Key Findings */}
       {analysis.key_findings && analysis.key_findings.length > 0 && (
-        <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
+        <div className="bg-surface rounded-lg border border-border-base p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-green-600/20 rounded-lg">
-              <LightBulbIcon className="h-5 w-5 text-green-400" />
+            <div className="p-2 bg-emerald-600/20 rounded-lg">
+              <LightBulbIcon className="h-5 w-5 text-emerald-400" />
             </div>
-            <h3 className="text-lg font-serif font-semibold text-neutral-50">Key Findings</h3>
+            <h3 className="text-lg font-serif font-semibold text-text-primary">Key Findings</h3>
           </div>
           <ul className="list-disc list-outside ml-5 space-y-2">
             {analysis.key_findings.map((finding, i) => (
-              <li key={i} className="text-neutral-300 leading-relaxed">{finding}</li>
+              <li key={i} className="text-text-secondary leading-relaxed">{finding}</li>
             ))}
           </ul>
         </div>
       )}
 
       {/* Results */}
-      <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
+      <div className="bg-surface rounded-lg border border-border-base p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-yellow-600/20 rounded-lg">
-            <CheckCircleIcon className="h-5 w-5 text-yellow-400" />
+          <div className="p-2 bg-amber-600/20 rounded-lg">
+            <CheckCircleIcon className="h-5 w-5 text-amber-400" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-neutral-50">Results</h3>
+          <h3 className="text-lg font-serif font-semibold text-text-primary">Results</h3>
         </div>
-        <p className="text-neutral-300 leading-relaxed mb-4">{analysis.results.summary}</p>
+        <p className="text-text-secondary leading-relaxed mb-4">{analysis.results.summary}</p>
 
         {analysis.results.metrics && analysis.results.metrics.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-neutral-400 mb-2">Key Metrics:</h4>
+            <h4 className="text-sm font-medium text-text-tertiary mb-2">Key Metrics:</h4>
             <ul className="list-disc list-outside ml-5 space-y-1">
               {analysis.results.metrics.map((metric, i) => (
-                <li key={i} className="text-neutral-300">{metric}</li>
+                <li key={i} className="text-text-secondary">{metric}</li>
               ))}
             </ul>
           </div>
@@ -389,22 +417,22 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       {/* Limitations & Future Work */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {analysis.limitations && analysis.limitations.length > 0 && analysis.limitations[0] !== 'Not mentioned in the paper' && (
-          <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
-            <h3 className="text-lg font-serif font-semibold text-neutral-50 mb-4">Limitations</h3>
+          <div className="bg-surface rounded-lg border border-border-base p-6">
+            <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Limitations</h3>
             <ul className="list-disc list-outside ml-5 space-y-1">
               {analysis.limitations.map((lim, i) => (
-                <li key={i} className="text-neutral-300">{lim}</li>
+                <li key={i} className="text-text-secondary">{lim}</li>
               ))}
             </ul>
           </div>
         )}
 
         {analysis.future_work && analysis.future_work.length > 0 && analysis.future_work[0] !== 'Not mentioned in the paper' && (
-          <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
-            <h3 className="text-lg font-serif font-semibold text-neutral-50 mb-4">Future Work</h3>
+          <div className="bg-surface rounded-lg border border-border-base p-6">
+            <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Future Work</h3>
             <ul className="list-disc list-outside ml-5 space-y-1">
               {analysis.future_work.map((work, i) => (
-                <li key={i} className="text-neutral-300">{work}</li>
+                <li key={i} className="text-text-secondary">{work}</li>
               ))}
             </ul>
           </div>
@@ -413,16 +441,16 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
 
       {/* Key Citations */}
       {analysis.key_citations && analysis.key_citations.length > 0 && (
-        <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
-          <h3 className="text-lg font-serif font-semibold text-neutral-50 mb-4">Key Citations</h3>
+        <div className="bg-surface rounded-lg border border-border-base p-6">
+          <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Key Citations</h3>
           <div className="space-y-4">
             {analysis.key_citations.map((citation, i) => (
               <div key={i} className="border-l-4 border-accent-primary pl-4">
-                <p className="text-neutral-200 font-medium">
+                <p className="text-text-secondary font-medium">
                   {citation.authors} ({citation.year})
                 </p>
-                <p className="text-neutral-300 italic">{citation.title}</p>
-                <p className="text-neutral-400 text-sm mt-1">{citation.relevance}</p>
+                <p className="text-text-secondary italic">{citation.title}</p>
+                <p className="text-text-tertiary text-sm mt-1">{citation.relevance}</p>
               </div>
             ))}
           </div>

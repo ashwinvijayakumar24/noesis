@@ -2,75 +2,29 @@ version: '3.8'
 
 services:
   # ============================================
-  # PostgreSQL with pgvector (Primary Data Store)
-  # ============================================
-  db:
-    image: pgvector/pgvector:pg15
-    container_name: noesis-db-prod
-    restart: unless-stopped
-
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: noesis_prod
-      # Performance tuning for 1GB RAM instance
-      POSTGRES_SHARED_BUFFERS: 128MB
-      POSTGRES_EFFECTIVE_CACHE_SIZE: 256MB
-      POSTGRES_WORK_MEM: 4MB
-
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db-init:/docker-entrypoint-initdb.d:ro
-
-    # CRITICAL: Memory limits for micro instance
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
-
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-    # No port exposure - only accessible within Docker network
-    networks:
-      - noesis-network
-
-  # ============================================
-  # Redis (Caching Layer)
+  # Redis (Celery Task Queue - Phase 3)
   # ============================================
   redis:
     image: redis:7-alpine
     container_name: noesis-redis-prod
     restart: unless-stopped
 
-    command: >
-      redis-server
-      --maxmemory 100mb
-      --maxmemory-policy allkeys-lru
-      --save 60 1
-      --appendonly yes
-
-    volumes:
-      - redis_data:/data
-
     deploy:
       resources:
         limits:
           memory: 128M
+          cpus: '0.25'
         reservations:
           memory: 64M
 
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
+
+    volumes:
+      - redis-data:/data
 
     networks:
       - noesis-network
@@ -81,6 +35,7 @@ services:
   grobid:
     image: lfoppiano/grobid:0.7.0
     container_name: noesis-grobid-prod
+    platform: linux/amd64  # Run with emulation on ARM-based hosts
     restart: unless-stopped
 
     # CRITICAL: Run with minimal resources
@@ -93,12 +48,8 @@ services:
         reservations:
           memory: 256M
 
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8070/api/isalive"]
-      interval: 60s
-      timeout: 15s
-      retries: 3
-      start_period: 90s
+    # Note: GROBID image doesn't include curl/wget, so we skip healthcheck
+    # The backend and celery workers handle GROBID failures gracefully
 
     networks:
       - noesis-network
@@ -118,9 +69,10 @@ services:
 
     environment:
       # Docker internal networking
-      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/noesis_prod
-      REDIS_URL: redis://redis:6379
       GROBID_URL: http://grobid:8070
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
       ENVIRONMENT: production
       LOG_LEVEL: INFO
 
@@ -139,12 +91,10 @@ services:
           memory: 256M
 
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
       grobid:
-        condition: service_healthy
+        condition: service_started
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -160,16 +110,67 @@ services:
     networks:
       - noesis-network
 
+  # ============================================
+  # Celery Worker (Background Tasks - Phase 3)
+  # ============================================
+  celery-worker:
+    build:
+      context: ../services/backend
+      dockerfile: Dockerfile.prod
+    container_name: noesis-celery-worker-prod
+    restart: unless-stopped
+
+    env_file:
+      - ../services/backend/.env.production
+
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      GROBID_URL: http://grobid:8070
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 --queues=default,analysis,insights
+
+    volumes:
+      # Logs for debugging
+      - celery_logs:/app/logs
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 384M
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      grobid:
+        condition: service_started
+
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+
+    networks:
+      - noesis-network
+
 networks:
   noesis-network:
     driver: bridge
 
 volumes:
-  postgres_data:
-    driver: local
-  redis_data:
+  redis-data:
     driver: local
   pdf_storage:
     driver: local
   backend_logs:
+    driver: local
+  celery_logs:
     driver: local

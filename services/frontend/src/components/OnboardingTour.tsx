@@ -48,24 +48,24 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-2xl border-2 border-pink-600/30 shadow-2xl max-w-2xl w-full overflow-hidden">
+      <div className="bg-surface rounded-2xl border-2 border-pink-600/30 shadow-2xl max-w-2xl w-full overflow-hidden">
         {/* Header */}
-        <div className="bg-linear-to-r from-pink-600/20 to-rose-600/20 border-b border-gray-800 p-6">
+        <div className="bg-linear-to-r from-pink-600/20 to-rose-600/20 border-b border-border-base p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-pink-600/20 rounded-lg">
                 {step.icon}
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">{step.title}</h2>
-                <p className="text-sm text-gray-400 mt-1">
+                <h2 className="text-2xl font-serif font-bold text-text-primary">{step.title}</h2>
+                <p className="text-sm text-text-tertiary mt-1">
                   Step {currentStep + 1} of {steps.length}
                 </p>
               </div>
             </div>
             <button
               onClick={handleSkip}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition"
+              className="p-2 text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded-lg transition"
               title="Skip tour"
             >
               <XMarkIcon className="h-6 w-6" />
@@ -75,14 +75,14 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
 
         {/* Content */}
         <div className="p-8">
-          <p className="text-gray-300 text-lg leading-relaxed mb-6">
+          <p className="text-text-secondary text-lg leading-relaxed mb-6">
             {step.description}
           </p>
 
           {step.action && (
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-400 mb-2">Next step:</p>
-              <p className="text-white font-medium">{step.action}</p>
+            <div className="bg-surface-hover border border-border-base rounded-lg p-4 mb-6">
+              <p className="text-sm text-text-tertiary mb-2">Next step:</p>
+              <p className="text-text-primary font-medium">{step.action}</p>
             </div>
           )}
 
@@ -95,7 +95,7 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
                   className={`h-1.5 flex-1 rounded-full transition ${
                     index <= currentStep
                       ? 'bg-linear-to-r from-pink-600 to-rose-600'
-                      : 'bg-gray-700'
+                      : 'bg-border-base'
                   }`}
                 />
               ))}
@@ -107,7 +107,7 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
             <button
               onClick={handlePrevious}
               disabled={currentStep === 0}
-              className="px-4 py-2 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="px-4 py-2 text-text-tertiary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               Previous
             </button>
@@ -115,7 +115,7 @@ export default function OnboardingTour({ onComplete, steps }: OnboardingTourProp
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSkip}
-                className="px-4 py-2 text-gray-400 hover:text-white transition"
+                className="px-4 py-2 text-text-tertiary hover:text-text-primary transition"
               >
                 Skip tour
               </button>

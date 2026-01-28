@@ -1,0 +1,530 @@
+/**
+ * Example Integration Test for DraftAnalysisModal
+ *
+ * This file demonstrates how to test the DraftAnalysisModal component
+ * once vitest and @testing-library/react are installed.
+ *
+ * To use this file:
+ * 1. Install testing dependencies (see DRAFT_INTEGRATION_TESTS.md)
+ * 2. Rename this file to remove the .example extension
+ * 3. Run: npm test DraftAnalysisModal.integration.test.tsx
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { rest } from 'msw'
+import { setupServer } from 'msw/node'
+import DraftAnalysisModal from '../DraftAnalysisModal'
+
+// Mock API responses
+const mockClaims = {
+  claims: [
+    {
+      id: 'claim-1',
+      claim_text: 'Machine learning models can achieve 95% accuracy on this task',
+      claim_type: 'empirical',
+      section_location: 'Results',
+      importance_score: 0.92,
+      requires_citation: true,
+      existing_citations: ['[1]', '[2]']
+    },
+    {
+      id: 'claim-2',
+      claim_text: 'Our novel architecture improves upon previous approaches',
+      claim_type: 'theoretical',
+      section_location: 'Methods',
+      importance_score: 0.85,
+      requires_citation: true,
+      existing_citations: []
+    }
+  ]
+}
+
+const mockGaps = {
+  gaps: [
+    {
+      id: 'gap-1',
+      gap_type: 'missing_seminal',
+      description: 'Missing citation to foundational work by Smith et al.',
+      priority: 'high',
+      suggested_papers: [
+        { title: 'Foundational ML Paper', year: 2020 },
+        { title: 'Related Work', year: 2021 }
+      ]
+    },
+    {
+      id: 'gap-2',
+      gap_type: 'methodology_gap',
+      description: 'Lack of discussion on alternative methodologies',
+      priority: 'medium',
+      suggested_papers: []
+    }
+  ]
+}
+
+const mockFeedback = {
+  feedback: [
+    {
+      id: 'feedback-1',
+      feedback_type: 'positioning',
+      severity: 'critical',
+      feedback_text: 'The introduction does not clearly position this work within the existing literature',
+      suggested_improvements: [
+        'Add a paragraph comparing to recent approaches',
+        'Cite the three most relevant papers from 2023-2024'
+      ]
+    },
+    {
+      id: 'feedback-2',
+      feedback_type: 'methodology',
+      severity: 'major',
+      feedback_text: 'The experimental setup lacks detail about hyperparameter selection',
+      suggested_improvements: [
+        'Document the hyperparameter search process',
+        'Include a table of final hyperparameters'
+      ]
+    },
+    {
+      id: 'feedback-3',
+      feedback_type: 'clarity',
+      severity: 'minor',
+      feedback_text: 'Figure 3 could benefit from clearer axis labels',
+      suggested_improvements: [
+        'Increase font size on axis labels',
+        'Add units to Y-axis label'
+      ]
+    }
+  ]
+}
+
+// Setup MSW server
+const server = setupServer(
+  rest.get('http://localhost:8000/drafts/:draftId/claims', (req, res, ctx) => {
+    return res(ctx.json(mockClaims))
+  }),
+  rest.get('http://localhost:8000/drafts/:draftId/gaps', (req, res, ctx) => {
+    return res(ctx.json(mockGaps))
+  }),
+  rest.get('http://localhost:8000/drafts/:draftId/feedback', (req, res, ctx) => {
+    return res(ctx.json(mockFeedback))
+  })
+)
+
+// Enable API mocking
+beforeEach(() => server.listen())
+afterEach(() => server.resetHandlers())
+afterEach(() => server.close())
+
+describe('DraftAnalysisModal Integration Tests', () => {
+  const mockToken = 'test-token-123'
+  const mockDraftId = 'draft-test-123'
+  const mockOnClose = vi.fn()
+
+  beforeEach(() => {
+    mockOnClose.mockClear()
+  })
+
+  describe('Initial Load', () => {
+    it('should show loading spinner while fetching analysis', () => {
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      expect(screen.getByText('Loading analysis...')).toBeInTheDocument()
+    })
+
+    it('should call all three API endpoints in parallel', async () => {
+      const claimsSpy = vi.fn()
+      const gapsSpy = vi.fn()
+      const feedbackSpy = vi.fn()
+
+      server.use(
+        rest.get('http://localhost:8000/drafts/:draftId/claims', (req, res, ctx) => {
+          claimsSpy()
+          return res(ctx.json(mockClaims))
+        }),
+        rest.get('http://localhost:8000/drafts/:draftId/gaps', (req, res, ctx) => {
+          gapsSpy()
+          return res(ctx.json(mockGaps))
+        }),
+        rest.get('http://localhost:8000/drafts/:draftId/feedback', (req, res, ctx) => {
+          feedbackSpy()
+          return res(ctx.json(mockFeedback))
+        })
+      )
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(claimsSpy).toHaveBeenCalled()
+        expect(gapsSpy).toHaveBeenCalled()
+        expect(feedbackSpy).toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('Tabs Display', () => {
+    it('should show three tabs with correct counts', async () => {
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/Feedback \(3\)/)).toBeInTheDocument()
+        expect(screen.getByText(/Coverage Gaps \(2\)/)).toBeInTheDocument()
+        expect(screen.getByText(/Claims \(2\)/)).toBeInTheDocument()
+      })
+    })
+
+    it('should default to Feedback tab', async () => {
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        // Feedback tab should be selected (has specific styling)
+        const feedbackTab = screen.getByRole('tab', { name: /Feedback/ })
+        expect(feedbackTab).toHaveClass('bg-white', 'text-blue-700', 'shadow')
+      })
+    })
+
+    it('should switch tabs when clicked', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/Feedback \(3\)/)).toBeInTheDocument()
+      })
+
+      // Click Coverage Gaps tab
+      const gapsTab = screen.getByRole('tab', { name: /Coverage Gaps/ })
+      await user.click(gapsTab)
+
+      // Should now show gaps content
+      await waitFor(() => {
+        expect(screen.getByText('Missing citation to foundational work by Smith et al.')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Feedback Tab', () => {
+    it('should display feedback items sorted by severity', async () => {
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        const feedbackItems = screen.getAllByText(/feedback_text/)
+        // Critical should come first, then major, then minor
+        expect(feedbackItems[0]).toHaveTextContent('introduction')
+        expect(feedbackItems[1]).toHaveTextContent('experimental setup')
+        expect(feedbackItems[2]).toHaveTextContent('Figure 3')
+      })
+    })
+
+    it('should show correct severity colors', async () => {
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        // Critical feedback should have red styling
+        const criticalBadge = screen.getByText('critical')
+        expect(criticalBadge.closest('div')).toHaveClass('bg-red-100', 'text-red-800')
+
+        // Major feedback should have orange styling
+        const majorBadge = screen.getByText('major')
+        expect(majorBadge.closest('div')).toHaveClass('bg-orange-100', 'text-orange-800')
+
+        // Minor feedback should have yellow styling
+        const minorBadge = screen.getByText('minor')
+        expect(minorBadge.closest('div')).toHaveClass('bg-yellow-100', 'text-yellow-800')
+      })
+    })
+
+    it('should display suggested improvements as bullet lists', async () => {
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('Add a paragraph comparing to recent approaches')).toBeInTheDocument()
+        expect(screen.getByText('Cite the three most relevant papers from 2023-2024')).toBeInTheDocument()
+      })
+    })
+
+    it('should show empty state when no feedback', async () => {
+      server.use(
+        rest.get('http://localhost:8000/drafts/:draftId/feedback', (req, res, ctx) => {
+          return res(ctx.json({ feedback: [] }))
+        })
+      )
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('No feedback available yet')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Coverage Gaps Tab', () => {
+    it('should display gaps sorted by priority', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/Coverage Gaps/)).toBeInTheDocument()
+      })
+
+      // Switch to Coverage Gaps tab
+      const gapsTab = screen.getByRole('tab', { name: /Coverage Gaps/ })
+      await user.click(gapsTab)
+
+      await waitFor(() => {
+        const gaps = screen.getAllByText(/priority/)
+        // High priority should come first
+        expect(gaps[0]).toHaveTextContent('high')
+        expect(gaps[1]).toHaveTextContent('medium')
+      })
+    })
+
+    it('should display suggested papers from literature', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/Coverage Gaps/)).toBeInTheDocument()
+      })
+
+      const gapsTab = screen.getByRole('tab', { name: /Coverage Gaps/ })
+      await user.click(gapsTab)
+
+      await waitFor(() => {
+        expect(screen.getByText(/Foundational ML Paper \(2020\)/)).toBeInTheDocument()
+        expect(screen.getByText(/Related Work \(2021\)/)).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Claims Tab', () => {
+    it('should display claims sorted by importance score', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/Claims/)).toBeInTheDocument()
+      })
+
+      const claimsTab = screen.getByRole('tab', { name: /Claims/ })
+      await user.click(claimsTab)
+
+      await waitFor(() => {
+        // First claim should have higher importance (92%)
+        expect(screen.getByText('Importance: 92%')).toBeInTheDocument()
+        // Second claim should have lower importance (85%)
+        expect(screen.getByText('Importance: 85%')).toBeInTheDocument()
+      })
+    })
+
+    it('should show warning icon for missing citations', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/Claims/)).toBeInTheDocument()
+      })
+
+      const claimsTab = screen.getByRole('tab', { name: /Claims/ })
+      await user.click(claimsTab)
+
+      await waitFor(() => {
+        // Second claim has no citations, should show warning
+        expect(screen.getByText('⚠️ Missing citations')).toBeInTheDocument()
+      })
+    })
+
+    it('should show checkmark for claims with citations', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/Claims/)).toBeInTheDocument()
+      })
+
+      const claimsTab = screen.getByRole('tab', { name: /Claims/ })
+      await user.click(claimsTab)
+
+      await waitFor(() => {
+        // First claim has citations
+        expect(screen.getByText('Citations:')).toBeInTheDocument()
+        expect(screen.getByText('[1], [2]')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Modal Interaction', () => {
+    it('should close modal when X button clicked', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('Draft Analysis Results')).toBeInTheDocument()
+      })
+
+      const closeButton = screen.getByRole('button', { name: /close/i })
+      await user.click(closeButton)
+
+      expect(mockOnClose).toHaveBeenCalled()
+    })
+
+    it('should close modal when Close button clicked', async () => {
+      const user = userEvent.setup()
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('Draft Analysis Results')).toBeInTheDocument()
+      })
+
+      const closeButton = screen.getByRole('button', { name: 'Close' })
+      await user.click(closeButton)
+
+      expect(mockOnClose).toHaveBeenCalled()
+    })
+  })
+
+  describe('Error Handling', () => {
+    it('should handle API errors gracefully', async () => {
+      server.use(
+        rest.get('http://localhost:8000/drafts/:draftId/claims', (req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ detail: 'Internal server error' }))
+        })
+      )
+
+      render(
+        <DraftAnalysisModal
+          isOpen={true}
+          onClose={mockOnClose}
+          draftId={mockDraftId}
+          token={mockToken}
+        />
+      )
+
+      await waitFor(() => {
+        // Should still render without crashing
+        expect(screen.getByText('Draft Analysis Results')).toBeInTheDocument()
+        // Claims should be empty
+        expect(screen.getByText(/Claims \(0\)/)).toBeInTheDocument()
+      })
+    })
+  })
+})

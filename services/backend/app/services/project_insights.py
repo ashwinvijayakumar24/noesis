@@ -107,14 +107,19 @@ def analyze_project_insights(document_analyses: List[Dict[str, Any]]) -> Dict[st
     """
     Analyze multiple document analyses to extract cross-paper insights.
 
+    Now enhanced with LangGraph-extracted structured data for richer context!
+
     Args:
         document_analyses: List of document analysis objects, each containing:
             - title: Document title
             - analysis: The GPT-4o analysis with executive_summary, methodology, etc.
+            - document_id: UUID to fetch structured claims/methods/findings
 
     Returns:
         Dictionary containing insights across all papers
     """
+    from app.core.supabase_client import supabase
+
     if not document_analyses or len(document_analyses) == 0:
         raise ValueError("No document analyses provided")
 
@@ -122,9 +127,48 @@ def analyze_project_insights(document_analyses: List[Dict[str, Any]]) -> Dict[st
     papers_context = []
     for i, doc in enumerate(document_analyses, 1):
         title = doc.get('title', f'Document {i}')
+        document_id = doc.get('id')  # Need document ID to fetch structured data
         analysis = doc.get('analysis', {})
 
-        # Extract key parts of the analysis
+        # Fetch LangGraph-extracted structured data for richer context
+        structured_claims = []
+        structured_methods = []
+        structured_findings = []
+
+        if document_id:
+            try:
+                # Fetch claims (top 10 most important)
+                claims_res = supabase.table("document_claims").select("claim_text, claim_type, importance_score").eq("document_id", document_id).order("importance_score", desc=True).limit(10).execute()
+                structured_claims = [f"{c['claim_text']} [{c['claim_type']}]" for c in claims_res.data] if claims_res.data else []
+
+                # Fetch methods (top 8)
+                methods_res = supabase.table("document_methods").select("method_name, method_type, description, datasets_used, evaluation_metrics").eq("document_id", document_id).limit(8).execute()
+                structured_methods = []
+                for m in (methods_res.data if methods_res.data else []):
+                    method_str = f"{m['method_name']}"
+                    if m.get('method_type'):
+                        method_str += f" ({m['method_type']})"
+                    if m.get('datasets_used'):
+                        method_str += f" - Datasets: {', '.join(m['datasets_used'][:3])}"
+                    if m.get('evaluation_metrics'):
+                        method_str += f" - Metrics: {', '.join(m['evaluation_metrics'][:3])}"
+                    structured_methods.append(method_str)
+
+                # Fetch findings (top 10 with metrics)
+                findings_res = supabase.table("document_findings").select("finding_text, finding_type, metrics, comparison_baseline").eq("document_id", document_id).order("confidence_score", desc=True).limit(10).execute()
+                structured_findings = []
+                for f in (findings_res.data if findings_res.data else []):
+                    finding_str = f['finding_text']
+                    if f.get('metrics'):
+                        finding_str += f" (Metrics: {f['metrics']})"
+                    if f.get('comparison_baseline'):
+                        finding_str += f" vs. {f['comparison_baseline']}"
+                    structured_findings.append(finding_str)
+            except Exception as e:
+                print(f"[INSIGHTS] Warning: Could not fetch structured data for {title}: {e}")
+                # Continue without structured data if fetch fails
+
+        # Build comprehensive paper summary with both traditional and structured data
         paper_summary = f"""
 Paper {i}: {title}
 
@@ -138,10 +182,35 @@ Methodology:
 - Approach: {analysis.get('methodology', {}).get('approach', 'N/A')}
 - Techniques: {', '.join(analysis.get('methodology', {}).get('techniques', []))}
 - Dataset: {analysis.get('methodology', {}).get('dataset', 'N/A')}
+"""
 
+        # Add structured methods if available (LangGraph data)
+        if structured_methods:
+            paper_summary += f"""
+Structured Methods Extracted (LangGraph):
+{chr(10).join('- ' + m for m in structured_methods)}
+"""
+
+        paper_summary += f"""
 Key Findings:
 {chr(10).join('- ' + f for f in analysis.get('key_findings', []))}
+"""
 
+        # Add structured findings if available (LangGraph data)
+        if structured_findings:
+            paper_summary += f"""
+Structured Quantitative Findings (LangGraph):
+{chr(10).join('- ' + f for f in structured_findings)}
+"""
+
+        # Add structured claims if available (LangGraph data)
+        if structured_claims:
+            paper_summary += f"""
+Key Claims Extracted (LangGraph):
+{chr(10).join('- ' + c for c in structured_claims[:8])}
+"""
+
+        paper_summary += f"""
 Results Summary:
 {analysis.get('results', {}).get('summary', 'N/A')}
 
@@ -178,6 +247,7 @@ Key Citations:
     insights['analysis_metadata'] = {
         'num_papers_analyzed': len(document_analyses),
         'model': 'gpt-4o',
+        'enhanced_with_langgraph': True,  # Using structured claims/methods/findings
         'timestamp': None  # Will be set by caller
     }
 

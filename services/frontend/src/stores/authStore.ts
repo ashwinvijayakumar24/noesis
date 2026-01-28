@@ -15,6 +15,7 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   initialize: () => Promise<void>
+  setSession: (session: Session) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -131,6 +132,19 @@ export const useAuthStore = create<AuthState>()(
           console.error('Failed to initialize auth:', error)
           set({ initialized: true })
         }
+      },
+
+      setSession: (session: Session) => {
+        // Set analytics auth token
+        if (session?.access_token) {
+          analytics.setAuthToken(session.access_token)
+        }
+
+        set({
+          user: session?.user ?? null,
+          session: session,
+          loading: false,
+        })
       },
     }),
     {

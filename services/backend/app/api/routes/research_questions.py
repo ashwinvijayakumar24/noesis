@@ -6,24 +6,35 @@ Provides endpoints for generating and managing research questions.
 
 from fastapi import APIRouter, HTTPException, Depends, Header
 from app.core.supabase_client import supabase
+from app.core.security_middleware import SecureAuthValidator
 from pydantic import BaseModel
 from typing import Optional, List
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # Helper to extract user info from token
 def get_current_user(authorization: str = Header(None)):
     if supabase is None:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    token = authorization.split("Bearer ")[-1]
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase not configured"  # Don't expose environment details
+        )
+
+    # Use secure token validator
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+
     try:
         user = supabase.auth.get_user(token)
         return user.user.id
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid or expired token: {e}")
+        logger.error(f"Token validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"  # Don't expose error details
+        )
 
 
 class UpdateQuestionRequest(BaseModel):

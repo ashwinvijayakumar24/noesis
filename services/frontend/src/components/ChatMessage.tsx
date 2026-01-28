@@ -9,6 +9,8 @@ interface Source {
   chunk_id: string
   similarity?: number
   content_preview?: string
+  source_type?: 'draft' | 'literature'  // NEW: distinguish between draft and literature
+  source_icon?: string  // NEW: emoji indicator (📄 or 📚)
 }
 
 interface ChatMessageProps {
@@ -32,11 +34,19 @@ function Citation({ number, source }: { number: number; source?: Source }) {
         [{number}]
       </sup>
       {showTooltip && source && (
-        <div className="absolute z-50 bottom-full left-0 mb-2 w-64 p-3 bg-gray-900 border border-pink-500/30 rounded-lg shadow-xl text-xs">
-          <div className="font-semibold text-pink-400 mb-1">{source.document_title}</div>
-          <div className="text-gray-300">{source.content_preview}</div>
+        <div className="absolute z-50 bottom-full left-0 mb-2 w-64 p-3 bg-surface border border-pink-500/30 rounded-lg shadow-xl text-xs">
+          <div className="font-semibold text-pink-400 mb-1 flex items-center gap-1">
+            {source.source_icon && <span>{source.source_icon}</span>}
+            {source.document_title}
+          </div>
+          {source.source_type && (
+            <div className="text-xs text-text-tertiary mb-1">
+              {source.source_type === 'draft' ? 'From your draft' : 'From literature'}
+            </div>
+          )}
+          <div className="text-text-secondary">{source.content_preview}</div>
           {source.similarity && (
-            <div className="text-gray-500 mt-1 text-[10px]">
+            <div className="text-text-muted mt-1 text-[10px]">
               {Math.round(source.similarity * 100)}% match
             </div>
           )}
@@ -87,7 +97,7 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
     <div className="w-full">
       {/* Role Label */}
       <div className="mb-2">
-        <span className={`text-base font-semibold ${isUser ? 'text-gray-300' : 'text-pink-400'}`}>
+        <span className={`text-base font-semibold ${isUser ? 'text-text-secondary' : 'text-pink-400'}`}>
           {isUser ? 'You' : 'Noesis'}
         </span>
       </div>
@@ -98,8 +108,8 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
         <div
           className={`${
             isUser
-              ? 'text-white text-base'
-              : 'bg-gray-900/50 border border-gray-800 rounded-lg px-4 py-3 text-gray-100'
+              ? 'text-text-primary text-base'
+              : 'bg-surface border border-border-base rounded-lg px-4 py-3 text-text-primary'
           }`}
         >
           <div className="text-base prose prose-invert prose-base max-w-none leading-relaxed">
@@ -131,7 +141,7 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                   )
                 },
                 // Bold text
-                strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+                strong: ({ children }) => <strong className="font-bold text-text-primary">{children}</strong>,
                 // Italic text
                 em: ({ children }) => <em className="italic">{children}</em>,
                 // Lists - improved spacing and formatting
@@ -162,7 +172,7 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                   )
                 },
                 // Code
-                code: ({ children }) => <code className="bg-gray-900 px-1.5 py-0.5 rounded text-pink-300">{children}</code>,
+                code: ({ children }) => <code className="bg-surface px-1.5 py-0.5 rounded text-pink-300">{children}</code>,
                 // Links
                 a: ({ href, children }) => (
                   <a href={href} className="text-pink-300 hover:text-pink-200 underline" target="_blank" rel="noopener noreferrer">
@@ -170,18 +180,18 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                   </a>
                 ),
                 // Headings - improved hierarchy and spacing
-                h1: ({ children }) => <h1 className="text-2xl font-bold mb-3 mt-4 first:mt-0 text-white">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-xl font-bold mb-2 mt-3 first:mt-0 text-white">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-lg font-semibold mb-2 mt-2 first:mt-0 text-gray-100">{children}</h3>,
-                h4: ({ children }) => <h4 className="text-base font-semibold mb-1 mt-2 first:mt-0 text-gray-200">{children}</h4>,
+                h1: ({ children }) => <h1 className="text-2xl font-serif font-bold mb-3 mt-4 first:mt-0 text-text-primary">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-xl font-serif font-bold mb-2 mt-3 first:mt-0 text-text-primary">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-lg font-serif font-semibold mb-2 mt-2 first:mt-0 text-text-primary">{children}</h3>,
+                h4: ({ children }) => <h4 className="text-base font-serif font-semibold mb-1 mt-2 first:mt-0 text-text-secondary">{children}</h4>,
                 // Blockquotes
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-pink-500 pl-4 my-3 italic text-gray-300">
+                  <blockquote className="border-l-4 border-pink-500 pl-4 my-3 italic text-text-secondary">
                     {children}
                   </blockquote>
                 ),
                 // Horizontal rule
-                hr: () => <hr className="my-4 border-gray-700" />,
+                hr: () => <hr className="my-4 border-border-subtle" />,
               }}
             >
               {content}
@@ -190,19 +200,27 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
 
             {/* References Section */}
             {!isStreaming && citedSources.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-700">
-                <div className="text-xs font-semibold text-gray-400 mb-2">References:</div>
+              <div className="mt-4 pt-3 border-t border-border-subtle">
+                <div className="text-xs font-semibold text-text-tertiary mb-2">References:</div>
                 <div className="space-y-1.5">
                   {citedSources.map((source) => (
                     <div
                       key={source.citation_number}
-                      className="text-xs flex items-start gap-2 p-2 rounded transition hover:bg-gray-700/30"
+                      className="text-xs flex items-start gap-2 p-2 rounded transition hover:bg-surface-active/30"
                     >
                       <span className="font-mono text-pink-400 shrink-0">[{source.citation_number}]</span>
                       <div className="flex-1">
-                        <div className="text-gray-200 font-medium">{source.document_title}</div>
+                        <div className="text-text-secondary font-medium flex items-center gap-1">
+                          {source.source_icon && <span>{source.source_icon}</span>}
+                          {source.document_title}
+                        </div>
+                        {source.source_type && (
+                          <div className="text-text-tertiary text-[10px] mt-0.5">
+                            {source.source_type === 'draft' ? 'From your draft' : 'From literature'}
+                          </div>
+                        )}
                         {source.similarity && (
-                          <div className="text-gray-500 mt-0.5">
+                          <div className="text-text-muted mt-0.5">
                             {Math.round(source.similarity * 100)}% relevance
                           </div>
                         )}
@@ -220,7 +238,7 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
           <div className="mt-4">
             <button
               onClick={() => setShowSources(!showSources)}
-              className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-300 transition"
+              className="flex items-center gap-2 text-xs text-text-tertiary hover:text-text-secondary transition"
             >
               {showSources ? (
                 <ChevronUpIcon className="h-4 w-4" />
@@ -238,13 +256,13 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                 {uniqueDocuments.map((doc) => (
                   <div
                     key={doc.document_id}
-                    className="text-xs bg-gray-900 border border-gray-800 rounded-lg overflow-hidden"
+                    className="text-xs bg-surface border border-border-base rounded-lg overflow-hidden"
                   >
                     {/* Document Header */}
-                    <div className="px-3 py-2 bg-gray-800/50 border-b border-gray-800 flex items-center gap-2">
+                    <div className="px-3 py-2 bg-surface-hover border-b border-border-base flex items-center gap-2">
                       <DocumentTextIcon className="h-4 w-4 text-pink-400" />
-                      <span className="text-gray-200 font-medium">{doc.document_title || 'Unknown Document'}</span>
-                      <span className="ml-auto text-gray-500">
+                      <span className="text-text-secondary font-medium">{doc.document_title || 'Unknown Document'}</span>
+                      <span className="ml-auto text-text-muted">
                         {doc.chunks.length} chunk{doc.chunks.length !== 1 ? 's' : ''}
                       </span>
                     </div>
@@ -252,11 +270,11 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                     {/* Chunks */}
                     <div className="px-3 py-2 space-y-1">
                       {doc.chunks.map((chunk, idx) => (
-                        <div key={chunk.chunk_id || idx} className="text-gray-400 flex items-center gap-2">
-                          <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                        <div key={chunk.chunk_id || idx} className="text-text-tertiary flex items-center gap-2">
+                          <span className="w-1 h-1 rounded-full bg-border-base"></span>
                           <span>Chunk {idx + 1}</span>
                           {chunk.similarity && (
-                            <span className="ml-auto text-gray-500">
+                            <span className="ml-auto text-text-muted">
                               {Math.round(chunk.similarity * 100)}% match
                             </span>
                           )}
