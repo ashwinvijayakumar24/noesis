@@ -29,6 +29,8 @@ interface StructureRecommendation {
   outline: {
     sections: Section[]
   }
+  pros: string[]
+  cons: string[]
 }
 
 interface Section {
@@ -255,6 +257,7 @@ export default function LiteratureReviewCompass({
                           <CoverageGapsTab
                             gaps={insights.research_gaps || []}
                             themes={insights.common_themes || []}
+                            positioningPrompts={insights.positioning_prompts || []}
                           />
                         </Tab.Panel>
                       </>

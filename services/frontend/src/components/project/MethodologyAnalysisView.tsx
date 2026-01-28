@@ -58,7 +58,7 @@ interface CitationPattern {
   papers_citing?: string[]
 }
 
-export default function MethodologyAnalysisView({ insights, projectId }: MethodologyAnalysisViewProps) {
+export default function MethodologyAnalysisView({ insights, projectId: _projectId }: MethodologyAnalysisViewProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['summary']))
 
   const toggleSection = (section: string) => {

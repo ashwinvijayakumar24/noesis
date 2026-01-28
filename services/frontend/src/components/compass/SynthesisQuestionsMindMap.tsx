@@ -149,13 +149,13 @@ export default function SynthesisQuestionsMindMap({ questions }: MindMapProps) {
       .style('stroke', '#1f2937')
       .style('stroke-width', 2)
       .style('cursor', d => d.data.type !== 'paper' ? 'pointer' : 'default')
-      .on('mouseenter', function(event, d) {
+      .on('mouseenter', function(_event, d) {
         d3.select(this)
           .transition()
           .duration(200)
           .attr('r', getNodeSize(d) * 1.5)
       })
-      .on('mouseleave', function(event, d) {
+      .on('mouseleave', function(_event, d) {
         d3.select(this)
           .transition()
           .duration(200)

@@ -66,7 +66,6 @@ export default function DocumentListItem({ document, onClick }: DocumentListItem
           <div className="flex items-center gap-2 mt-0.5">
             <Badge
               variant={statusBadge.variant}
-              animate={statusBadge.animate}
               className="text-xs"
             >
               {statusBadge.label}

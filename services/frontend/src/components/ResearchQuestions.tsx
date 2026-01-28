@@ -9,7 +9,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   TrashIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon as _MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 
 const MAX_RESEARCH_QUESTIONS = 30
