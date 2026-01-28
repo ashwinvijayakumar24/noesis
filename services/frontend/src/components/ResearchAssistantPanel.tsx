@@ -15,8 +15,8 @@ interface ResearchAssistantPanelProps {
 }
 
 export default function ResearchAssistantPanel({
-  projectId,
-  token,
+  projectId: _projectId,
+  token: _token,
   currentTab,
   chatMessages,
   chatInput,

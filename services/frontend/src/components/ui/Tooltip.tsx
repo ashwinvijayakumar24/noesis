@@ -6,7 +6,7 @@
  */
 
 import { QuestionMarkCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
-import { ReactNode, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 
 interface TooltipProps {
   /**
@@ -46,7 +46,7 @@ export function Tooltip({
   delay = 200
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null)
+  const [timeoutId, setTimeoutId] = useState<number | null>(null)
 
   const handleMouseEnter = () => {
     const id = setTimeout(() => setIsVisible(true), delay)

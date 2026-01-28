@@ -6,7 +6,7 @@ import {
   ChevronRightIcon,
   PencilSquareIcon
 } from '@heroicons/react/24/outline'
-import { Badge, type BadgeVariant } from '../ui/Badge'
+import { Badge, type BadgeVariant as _BadgeVariant } from '../ui/Badge'
 import DocumentListItem from './DocumentListItem'
 import ChatBox from './ChatBox'
 import { useAuthStore } from '../../stores/authStore'

@@ -92,7 +92,7 @@ export default function DraftAnalysis() {
   const [claims, setClaims] = useState<Claim[]>([])
   const [gaps, setGaps] = useState<Gap[]>([])
   const [feedback, setFeedback] = useState<Feedback[]>([])
-  const [generatingSuggestions, setGeneratingSuggestions] = useState<string | null>(null)
+  const [_generatingSuggestions, setGeneratingSuggestions] = useState<string | null>(null)
   const [isRegeneratingAll, setIsRegeneratingAll] = useState(false)
   const [isReanalyzing, setIsReanalyzing] = useState(false)
   const [showActionItems, setShowActionItems] = useState(true)

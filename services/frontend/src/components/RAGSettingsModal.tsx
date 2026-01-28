@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { XMarkIcon, Cog6ToothIcon, ArrowPathIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
-import { api } from '../lib/api'
+// import { api } from '../lib/api' // Disabled - RAG settings API removed
 import { useAuthStore } from '../stores/authStore'
 import toast from 'react-hot-toast'
 
@@ -30,7 +30,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
     max_chunks: 5,
     similarity_threshold: 0.0,
   })
-  const [originalEmbeddingModel, setOriginalEmbeddingModel] = useState<string>('text-embedding-3-small')
+  const [originalEmbeddingModel, _setOriginalEmbeddingModel] = useState<string>('text-embedding-3-small')
 
   useEffect(() => {
     if (isOpen && session?.access_token) {
@@ -43,9 +43,10 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
 
     try {
       setLoading(true)
-      const data = await api.ragSettings.get(session.access_token, projectId)
-      setSettings(data)
-      setOriginalEmbeddingModel(data.embedding_model) // Track original model
+      // TODO: api.ragSettings endpoints removed - to be re-implemented
+      // const data = await api.ragSettings.get(session.access_token, projectId)
+      // setSettings(data)
+      // _setOriginalEmbeddingModel(data.embedding_model)
     } catch (error: any) {
       console.error('Failed to load RAG settings:', error)
       toast.error('Failed to load settings')
@@ -78,19 +79,9 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
 
     try {
       setSaving(true)
-      await api.ragSettings.update(session.access_token, projectId, settings)
-      toast.success('RAG settings updated successfully')
-
-      if (modelChanged) {
-        toast(
-          'Remember to re-upload all documents to use the new embedding model!',
-          {
-            duration: 6000,
-            icon: '⚠️'
-          }
-        )
-      }
-
+      // TODO: api.ragSettings endpoints removed - to be re-implemented
+      // await api.ragSettings.update(session.access_token, projectId, settings)
+      toast.error('RAG settings feature temporarily disabled')
       onClose()
     } catch (error: any) {
       console.error('Failed to update RAG settings:', error)
@@ -109,10 +100,11 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
 
     try {
       setSaving(true)
-      const data = await api.ragSettings.reset(session.access_token, projectId)
-      setSettings(data.rag_settings)
-      setOriginalEmbeddingModel(data.rag_settings.embedding_model) // Update original model after reset
-      toast.success('Settings reset to defaults')
+      // TODO: api.ragSettings endpoints removed - to be re-implemented
+      // const data = await api.ragSettings.reset(session.access_token, projectId)
+      // setSettings(data.rag_settings)
+      // _setOriginalEmbeddingModel(data.rag_settings.embedding_model)
+      toast.error('RAG settings feature temporarily disabled')
     } catch (error: any) {
       console.error('Failed to reset RAG settings:', error)
       toast.error('Failed to reset settings')

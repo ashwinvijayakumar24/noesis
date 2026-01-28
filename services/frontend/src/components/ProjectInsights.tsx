@@ -12,7 +12,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ArrowPathIcon,
-  ArrowsRightLeftIcon
+  ArrowsRightLeftIcon as _ArrowsRightLeftIcon
 } from '@heroicons/react/24/outline'
 
 interface ProjectInsightsProps {
@@ -104,8 +104,8 @@ export default function ProjectInsights({ projectId, onOpenLiteratureReview: _on
   const [pollingInterval, setPollingInterval] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview')
   const [insightsDocCount, setInsightsDocCount] = useState<number>(0)
-  const [currentAnalyzedCount, setCurrentAnalyzedCount] = useState<number>(0)
-  const [isStale, setIsStale] = useState<boolean>(false)
+  const [_currentAnalyzedCount, setCurrentAnalyzedCount] = useState<number>(0)
+  const [_isStale, setIsStale] = useState<boolean>(false)
 
   useEffect(() => {
     if (session?.access_token && projectId) {

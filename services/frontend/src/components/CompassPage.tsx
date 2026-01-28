@@ -28,6 +28,8 @@ interface StructureRecommendation {
   outline: {
     sections: Section[]
   }
+  pros: string[]
+  cons: string[]
 }
 
 interface Section {

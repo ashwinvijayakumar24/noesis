@@ -130,7 +130,7 @@ export default function ProjectDetail() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   // Insights state (used by Compass and Insights tabs)
-  const [insights, setInsights] = useState<any | null>(null)
+  const [_insights, setInsights] = useState<any | null>(null)
   const [insightsStatus, setInsightsStatus] = useState<'not_analyzed' | 'analyzing' | 'analyzed' | 'failed'>('not_analyzed')
   const [insightsPolling, setInsightsPolling] = useState<number | null>(null)
 
@@ -490,7 +490,7 @@ export default function ProjectDetail() {
         `${import.meta.env.VITE_API_URL}/projects/${projectId}/export-bibtex`,
         {
           headers: {
-            'Authorization': `Bearer ${session.access_token}`
+            'Authorization': `Bearer ${session?.access_token}`
           }
         }
       )
@@ -955,8 +955,9 @@ export default function ProjectDetail() {
           </div>
         )}
 
-        {/* Chat Tab */}
-        {activeTab === 'chat' && !isFullScreen && (
+        {/* Chat Tab - Disabled (use Research Assistant Panel instead) */}
+        {/* {activeTab === 'chat' && !isFullScreen && (*/}
+        {false && (
           <div className="flex flex-col h-[calc(100vh-280px)] min-h-125">
           {/* Chat Header */}
           <div className="bg-surface border border-border-base rounded-t-lg px-4 py-3 flex justify-between items-center">

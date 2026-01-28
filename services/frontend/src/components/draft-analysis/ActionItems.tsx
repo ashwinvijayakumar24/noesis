@@ -4,6 +4,7 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
   CheckIcon,
+  CheckCircleIcon,
   ChevronDownIcon,
   SparklesIcon,
   EyeIcon
@@ -14,9 +15,12 @@ interface Claim {
   claim_text: string
   claim_type: string
   section_location: string
+  importance_score: number
   requires_citation: boolean
   existing_citations: string[]
   line_number?: number
+  char_start?: number
+  char_end?: number
 }
 
 interface Gap {
@@ -56,7 +60,7 @@ interface ActionItemsProps {
   addressedItems: string[]
   onToggleAddressed: (itemId: string) => void
   onViewInDocument: (item: ActionItem) => void
-  onViewSuggestions?: (claim: Claim) => void
+  onViewSuggestions?: (claim: Claim) => void | Promise<void>
 }
 
 export default function ActionItems({
