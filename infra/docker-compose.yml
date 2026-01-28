@@ -1,23 +1,7 @@
 services:
-  db:
-    image: pgvector/pgvector:pg15
-    container_name: noesis-db
-    environment:
-      POSTGRES_USER: noesis
-      POSTGRES_PASSWORD: noesis_password
-      POSTGRES_DB: noesis_dev
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U noesis"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+  # Redis for Celery task queue (Phase 3)
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: noesis-redis
     ports:
       - "6379:6379"
@@ -25,18 +9,19 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+    volumes:
+      - redis-data:/data
 
   grobid:
     image: lfoppiano/grobid:0.7.0
     container_name: noesis-grobid
+    platform: linux/amd64  # Run with emulation on Apple Silicon
     ports:
       - "8070:8070"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8070/api/isalive"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # Note: GROBID image doesn't include curl/wget, so we skip healthcheck
+    # The backend handles GROBID failures gracefully
+    restart: unless-stopped
 
   backend:
     build:
@@ -46,14 +31,13 @@ services:
     env_file:
       - ../services/backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://noesis:noesis_password@db:5432/noesis_dev
-      REDIS_URL: redis://redis:6379
       GROBID_URL: http://grobid:8070
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
     ports:
       - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -62,6 +46,32 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+
+  celery-worker:
+    build:
+      context: ../services/backend
+      dockerfile: Dockerfile
+    container_name: noesis-celery-worker
+    env_file:
+      - ../services/backend/.env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      GROBID_URL: http://grobid:8070
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 --queues=default,analysis,insights
+    depends_on:
+      redis:
+        condition: service_healthy
+      grobid:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   frontend:
     build:
@@ -77,4 +87,4 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres_data:
+  redis-data:

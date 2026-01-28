@@ -147,34 +147,34 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-lg bg-neutral-900 border border-neutral-800 shadow-2xl transition-all">
+              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-2xl transition-all">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-800">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-accent-primary/10 rounded-lg">
                       <Cog6ToothIcon className="h-6 w-6 text-accent-primary" />
                     </div>
                     <div>
-                      <Dialog.Title className="text-2xl font-serif font-semibold text-neutral-50">
+                      <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
                         RAG Configuration
                       </Dialog.Title>
-                      <p className="text-sm text-neutral-500 mt-1">
+                      <p className="text-sm text-text-muted mt-1">
                         Customize how documents are processed and searched
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="text-neutral-400 hover:text-neutral-200 transition-colors"
+                    className="text-text-tertiary hover:text-text-primary transition-colors"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
                 </div>
 
                 {/* Warning Banner */}
-                <div className="mx-6 mt-4 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg flex gap-3">
-                  <InformationCircleIcon className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
-                  <div className="text-sm text-yellow-200">
+                <div className="mx-6 mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg flex gap-3">
+                  <InformationCircleIcon className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                  <div className="text-sm text-warning">
                     <strong>Note:</strong> Changing these settings only affects newly uploaded documents.
                     To apply changes to existing documents, you'll need to re-process them manually.
                   </div>
@@ -185,13 +185,13 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                   {loading ? (
                     <div className="text-center py-8">
                       <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent"></div>
-                      <p className="text-neutral-400 text-sm mt-3">Loading settings...</p>
+                      <p className="text-text-tertiary text-sm mt-3">Loading settings...</p>
                     </div>
                   ) : (
                     <>
                       {/* Chunk Size */}
                       <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        <label className="block text-sm font-medium text-text-secondary mb-2">
                           Chunk Size: <span className="text-accent-primary">{settings.chunk_size}</span> tokens (~{Math.round(settings.chunk_size * 0.75)} words)
                         </label>
                         <input
@@ -201,19 +201,19 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="50"
                           value={settings.chunk_size}
                           onChange={(e) => setSettings({ ...settings, chunk_size: parseInt(e.target.value) })}
-                          className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
                         />
                         <div className="mt-2 space-y-1">
-                          <p className="text-xs text-neutral-400">
+                          <p className="text-xs text-text-tertiary">
                             <strong>Trade-offs:</strong>
                           </p>
-                          <p className="text-xs font-mono text-neutral-500">
+                          <p className="text-xs font-mono text-text-muted">
                             • <strong>500-800 tokens:</strong> Best for specific, factual questions. More precise but may miss broader context.
                           </p>
-                          <p className="text-xs font-mono text-neutral-500">
+                          <p className="text-xs font-mono text-text-muted">
                             • <strong>1000-1500 tokens:</strong> ⭐ Recommended for research papers. Captures full arguments and context for broad questions.
                           </p>
-                          <p className="text-xs font-mono text-neutral-500">
+                          <p className="text-xs font-mono text-text-muted">
                             • <strong>1500+ tokens:</strong> Maximum context per chunk, but may include irrelevant information.
                           </p>
                         </div>
@@ -221,7 +221,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
 
                       {/* Chunk Overlap */}
                       <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        <label className="block text-sm font-medium text-text-secondary mb-2">
                           Chunk Overlap: <span className="text-accent-primary">{settings.chunk_overlap}</span> tokens ({Math.round((settings.chunk_overlap / settings.chunk_size) * 100)}% overlap)
                         </label>
                         <input
@@ -231,16 +231,16 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="10"
                           value={settings.chunk_overlap}
                           onChange={(e) => setSettings({ ...settings, chunk_overlap: parseInt(e.target.value) })}
-                          className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
                         />
-                        <p className="text-xs font-mono text-neutral-500 mt-2">
+                        <p className="text-xs font-mono text-text-muted mt-2">
                           Overlap between chunks to preserve context across boundaries. Recommended: 10-15% of chunk size (e.g., 150 tokens for 1000-token chunks).
                         </p>
                       </div>
 
                       {/* Embedding Model */}
                       <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        <label className="block text-sm font-medium text-text-secondary mb-2">
                           Embedding Model
                           {settings.embedding_model !== originalEmbeddingModel && (
                             <span className="ml-2 text-xs text-yellow-400">⚠️ Changed</span>
@@ -249,31 +249,31 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                         <select
                           value={settings.embedding_model}
                           onChange={(e) => setSettings({ ...settings, embedding_model: e.target.value })}
-                          className={`w-full px-4 py-3 bg-neutral-950 border rounded-lg text-neutral-50 focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors ${
+                          className={`w-full px-4 py-3 bg-bg-base border rounded-lg text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors ${
                             settings.embedding_model !== originalEmbeddingModel
                               ? 'border-yellow-500/50'
-                              : 'border-neutral-700'
+                              : 'border-border-subtle'
                           }`}
                         >
                           <option value="text-embedding-3-small">text-embedding-3-small (Faster, cheaper) ⭐ Recommended</option>
                           <option value="text-embedding-3-large">text-embedding-3-large (Higher quality, 6.5x cost)</option>
                         </select>
                         <div className="mt-2 space-y-1">
-                          <p className="text-xs text-neutral-400">
+                          <p className="text-xs text-text-tertiary">
                             <strong>Trade-offs:</strong>
                           </p>
-                          <p className="text-xs font-mono text-neutral-500">
+                          <p className="text-xs font-mono text-text-muted">
                             • <strong>small:</strong> ⭐ $0.02/1M tokens, 62.3% accuracy, 2-3x faster. Best for most use cases.
                           </p>
-                          <p className="text-xs font-mono text-neutral-500">
+                          <p className="text-xs font-mono text-text-muted">
                             • <strong>large:</strong> $0.13/1M tokens, 64.6% accuracy. Only use for highly specialized/technical content.
                           </p>
-                          <p className="text-xs font-mono text-neutral-500 italic">
+                          <p className="text-xs font-mono text-text-muted italic">
                             For research papers, the small model is typically sufficient. The ~2% accuracy gain rarely justifies 6.5x cost.
                           </p>
                         </div>
                         {settings.embedding_model !== originalEmbeddingModel && (
-                          <div className="mt-2 p-2 bg-yellow-900/20 border border-yellow-600/30 rounded text-xs text-yellow-200">
+                          <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-xs text-warning">
                             ⚠️ Changing models requires re-uploading all documents
                           </div>
                         )}
@@ -281,9 +281,9 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
 
                       {/* Max Chunks */}
                       <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        <label className="block text-sm font-medium text-text-secondary mb-2">
                           Max Chunks Retrieved: <span className="text-accent-primary">{settings.max_chunks}</span>
-                          <span className="text-neutral-500 text-xs font-mono ml-2">
+                          <span className="text-text-muted text-xs font-mono ml-2">
                             (~{settings.max_chunks * settings.chunk_size} tokens total)
                           </span>
                         </label>
@@ -294,16 +294,16 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="1"
                           value={settings.max_chunks}
                           onChange={(e) => setSettings({ ...settings, max_chunks: parseInt(e.target.value) })}
-                          className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
                         />
-                        <p className="text-xs font-mono text-neutral-500 mt-2">
+                        <p className="text-xs font-mono text-text-muted mt-2">
                           Number of chunks to retrieve per query. With 1000-token chunks, 5 chunks = ~5000 tokens of context. More chunks = more context but higher LLM costs.
                         </p>
                       </div>
 
                       {/* Similarity Threshold */}
                       <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        <label className="block text-sm font-medium text-text-secondary mb-2">
                           Similarity Threshold: <span className="text-accent-primary">{settings.similarity_threshold.toFixed(2)}</span>
                         </label>
                         <input
@@ -313,9 +313,9 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="0.05"
                           value={settings.similarity_threshold}
                           onChange={(e) => setSettings({ ...settings, similarity_threshold: parseFloat(e.target.value) })}
-                          className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
                         />
-                        <p className="text-xs font-mono text-neutral-500 mt-2">
+                        <p className="text-xs font-mono text-text-muted mt-2">
                           Minimum similarity score (0-1). Higher = only very relevant results, lower = more results.
                         </p>
                       </div>
@@ -324,11 +324,11 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-neutral-900/50 border-t border-neutral-800 flex items-center justify-between">
+                <div className="px-6 py-4 bg-surface/50 border-t border-border-subtle flex items-center justify-between">
                   <button
                     onClick={handleReset}
                     disabled={loading || saving}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-400 hover:text-neutral-50 border border-neutral-700 rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-text-tertiary hover:text-text-primary border border-border-subtle rounded-lg hover:bg-surface-hover transition-colors disabled:opacity-50"
                   >
                     <ArrowPathIcon className="h-4 w-4" />
                     Reset to Defaults
@@ -337,7 +337,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                     <button
                       onClick={onClose}
                       disabled={saving}
-                      className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-50 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 text-sm text-text-tertiary hover:text-text-primary transition-colors disabled:opacity-50"
                     >
                       Cancel
                     </button>

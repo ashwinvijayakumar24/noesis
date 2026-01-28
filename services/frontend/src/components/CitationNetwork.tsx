@@ -331,12 +331,12 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
 
   if (!data || data.nodes.length === 0) {
     return (
-      <div className="bg-neutral-900/30 rounded-lg border border-neutral-800/50 p-8 text-center">
-        <svg className="h-16 w-16 text-neutral-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="bg-surface/30 rounded-lg border border-border-base/50 p-8 text-center">
+        <svg className="h-16 w-16 text-text-muted mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
         </svg>
-        <p className="text-neutral-400 mb-2">No citation data available</p>
-        <p className="text-sm text-neutral-500">Upload documents with citation metadata to see the citation network</p>
+        <p className="text-text-tertiary mb-2">No citation data available</p>
+        <p className="text-sm text-text-muted">Upload documents with citation metadata to see the citation network</p>
       </div>
     )
   }
@@ -349,40 +349,40 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
     <div ref={containerRef} className="space-y-4">
       {/* Metrics Overview */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-800">
-          <div className="text-sm text-neutral-400 font-mono mb-1">Total Papers</div>
-          <div className="text-2xl font-bold text-neutral-50">{data.metrics.total_papers}</div>
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+          <div className="text-sm text-text-tertiary font-mono mb-1">Total Papers</div>
+          <div className="text-2xl font-bold text-text-primary">{data.metrics.total_papers}</div>
         </div>
-        <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-800">
-          <div className="text-sm text-neutral-400 font-mono mb-1">Total Citations</div>
-          <div className="text-2xl font-bold text-neutral-50">{data.metrics.total_citations}</div>
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+          <div className="text-sm text-text-tertiary font-mono mb-1">Total Citations</div>
+          <div className="text-2xl font-bold text-text-primary">{data.metrics.total_citations}</div>
         </div>
-        <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-800">
-          <div className="text-sm text-neutral-400 font-mono mb-1">Avg Citations</div>
-          <div className="text-2xl font-bold text-neutral-50">{data.metrics.avg_citations_per_paper}</div>
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+          <div className="text-sm text-text-tertiary font-mono mb-1">Avg Citations</div>
+          <div className="text-2xl font-bold text-text-primary">{data.metrics.avg_citations_per_paper}</div>
         </div>
-        <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-800">
-          <div className="text-sm text-neutral-400 font-mono mb-1">Internal Links</div>
-          <div className="text-2xl font-bold text-neutral-50">{data.metrics.total_internal_citations}</div>
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+          <div className="text-sm text-text-tertiary font-mono mb-1">Internal Links</div>
+          <div className="text-2xl font-bold text-text-primary">{data.metrics.total_internal_citations}</div>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-800 space-y-4">
+      <div className="bg-surface/50 rounded-lg p-4 border border-border-base space-y-4">
         {/* Search */}
         <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" />
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-tertiary" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by title or author..."
-            className="w-full pl-10 pr-10 py-2 bg-neutral-950 border border-neutral-700 rounded-lg text-neutral-50 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition-colors"
+            className="w-full pl-10 pr-10 py-2 bg-bg-base border border-border-subtle rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition-colors"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-50 transition-colors"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-tertiary hover:text-text-primary transition-colors"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -392,7 +392,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
         {/* Filters */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm text-neutral-400 font-mono mb-2">Min Year: {yearFilter.min || minYear}</label>
+            <label className="block text-sm text-text-tertiary font-mono mb-2">Min Year: {yearFilter.min || minYear}</label>
             <input
               type="range"
               min={minYear}
@@ -403,7 +403,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
             />
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 font-mono mb-2">Max Year: {yearFilter.max || maxYear}</label>
+            <label className="block text-sm text-text-tertiary font-mono mb-2">Max Year: {yearFilter.max || maxYear}</label>
             <input
               type="range"
               min={minYear}
@@ -414,7 +414,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
             />
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 font-mono mb-2">Min Citations: {citationThreshold}</label>
+            <label className="block text-sm text-text-tertiary font-mono mb-2">Min Citations: {citationThreshold}</label>
             <input
               type="range"
               min={0}
@@ -434,7 +434,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
               setYearFilter({ min: minYear, max: maxYear })
               setCitationThreshold(0)
             }}
-            className="px-4 py-2 text-sm bg-neutral-700 text-neutral-300 font-semibold rounded hover:bg-neutral-600 transition-colors"
+            className="px-4 py-2 text-sm bg-surface-active text-text-secondary font-semibold rounded hover:bg-surface-hover transition-colors"
           >
             Reset Filters
           </button>
@@ -449,7 +449,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
             </button>
             <button
               onClick={toggleFullscreen}
-              className="px-4 py-2 text-sm bg-neutral-700 text-neutral-300 font-semibold rounded hover:bg-neutral-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-sm bg-surface-active text-text-secondary font-semibold rounded hover:bg-surface-hover transition-colors flex items-center gap-2"
             >
               {isFullscreen ? <ArrowsPointingInIcon className="h-4 w-4" /> : <ArrowsPointingOutIcon className="h-4 w-4" />}
               {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
@@ -459,45 +459,45 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
       </div>
 
       {/* Graph Visualization */}
-      <div className="bg-neutral-950 rounded-lg border border-neutral-800 overflow-hidden" style={{ height: isFullscreen ? '90vh' : '600px' }}>
+      <div className="bg-bg-base rounded-lg border border-border-base overflow-hidden" style={{ height: isFullscreen ? '90vh' : '600px' }}>
         <svg ref={svgRef} className="w-full h-full"></svg>
       </div>
 
       {/* Selected Node Details */}
       {selectedNode && (
-        <div className="bg-neutral-900/50 rounded-lg p-6 border border-neutral-800">
+        <div className="bg-surface/50 rounded-lg p-6 border border-border-base">
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-lg font-serif font-semibold text-neutral-50">{selectedNode.title}</h3>
-            <button onClick={() => setSelectedNode(null)} className="text-neutral-400 hover:text-neutral-50 transition-colors">
+            <h3 className="text-lg font-serif font-semibold text-text-primary">{selectedNode.title}</h3>
+            <button onClick={() => setSelectedNode(null)} className="text-text-tertiary hover:text-text-primary transition-colors">
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex gap-2">
-              <span className="text-neutral-400 font-mono">Authors:</span>
-              <span className="text-neutral-300">{selectedNode.authors.join(', ') || 'Unknown'}</span>
+              <span className="text-text-tertiary font-mono">Authors:</span>
+              <span className="text-text-secondary">{selectedNode.authors.join(', ') || 'Unknown'}</span>
             </div>
             <div className="flex gap-2">
-              <span className="text-neutral-400 font-mono">Year:</span>
-              <span className="text-neutral-300">{selectedNode.year || 'Unknown'}</span>
+              <span className="text-text-tertiary font-mono">Year:</span>
+              <span className="text-text-secondary">{selectedNode.year || 'Unknown'}</span>
             </div>
             {selectedNode.journal && (
               <div className="flex gap-2">
-                <span className="text-neutral-400 font-mono">Journal:</span>
-                <span className="text-neutral-300">{selectedNode.journal}</span>
+                <span className="text-text-tertiary font-mono">Journal:</span>
+                <span className="text-text-secondary">{selectedNode.journal}</span>
               </div>
             )}
             <div className="flex gap-2">
-              <span className="text-neutral-400 font-mono">Total Citations:</span>
-              <span className="text-neutral-300">{selectedNode.citation_count}</span>
+              <span className="text-text-tertiary font-mono">Total Citations:</span>
+              <span className="text-text-secondary">{selectedNode.citation_count}</span>
             </div>
             <div className="flex gap-2">
-              <span className="text-neutral-400 font-mono">Citations in Project:</span>
-              <span className="text-neutral-300">{selectedNode.in_degree}</span>
+              <span className="text-text-tertiary font-mono">Citations in Project:</span>
+              <span className="text-text-secondary">{selectedNode.in_degree}</span>
             </div>
             {selectedNode.doi && (
               <div className="flex gap-2">
-                <span className="text-neutral-400 font-mono">DOI:</span>
+                <span className="text-text-tertiary font-mono">DOI:</span>
                 <a href={`https://doi.org/${selectedNode.doi}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
                   {selectedNode.doi}
                 </a>
@@ -509,15 +509,15 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
 
       {/* Most Influential Papers */}
       {data.metrics.most_influential_papers.length > 0 && (
-        <div className="bg-neutral-900/50 rounded-lg p-6 border border-neutral-800">
-          <h3 className="text-lg font-serif font-semibold text-neutral-50 mb-4">Most Influential Papers in Project</h3>
+        <div className="bg-surface/50 rounded-lg p-6 border border-border-base">
+          <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Most Influential Papers in Project</h3>
           <div className="space-y-2">
             {data.metrics.most_influential_papers.map((paper, idx) => (
               <div key={paper.id} className="flex items-start gap-3 text-sm">
-                <span className="text-neutral-500 font-mono">{idx + 1}.</span>
+                <span className="text-text-muted font-mono">{idx + 1}.</span>
                 <div className="flex-1">
-                  <div className="text-neutral-300">{paper.title}</div>
-                  <div className="text-neutral-500 text-xs font-mono">{paper.in_degree} citations within project</div>
+                  <div className="text-text-secondary">{paper.title}</div>
+                  <div className="text-text-muted text-xs font-mono">{paper.in_degree} citations within project</div>
                 </div>
               </div>
             ))}
@@ -528,16 +528,16 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
       {/* Help Modal */}
       {showHelpModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowHelpModal(false)}>
-          <div className="bg-neutral-950 rounded-lg border border-cyan-600/30 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-bg-base rounded-lg border border-cyan-600/30 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-cyan-900/20 px-6 py-4 border-b border-cyan-600/30 flex items-center justify-between sticky top-0">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 bg-cyan-600/20 rounded-lg flex items-center justify-center">
                   <QuestionMarkCircleIcon className="h-6 w-6 text-cyan-400" />
                 </div>
-                <h3 className="text-xl font-serif font-semibold text-neutral-50">How to Use the Citation Network</h3>
+                <h3 className="text-xl font-serif font-semibold text-text-primary">How to Use the Citation Network</h3>
               </div>
-              <button onClick={() => setShowHelpModal(false)} className="text-neutral-400 hover:text-neutral-50 transition-colors">
+              <button onClick={() => setShowHelpModal(false)} className="text-text-tertiary hover:text-text-primary transition-colors">
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
@@ -663,7 +663,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
             </div>
 
             {/* Footer */}
-            <div className="bg-neutral-900/50 px-6 py-4 border-t border-neutral-800 flex justify-end sticky bottom-0">
+            <div className="bg-surface/50 px-6 py-4 border-t border-border-base flex justify-end sticky bottom-0">
               <button
                 onClick={() => setShowHelpModal(false)}
                 className="px-6 py-2 bg-cyan-600 text-white font-semibold rounded-lg hover:bg-cyan-700 transition-colors"

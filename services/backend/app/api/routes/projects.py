@@ -1,24 +1,36 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Response
 from app.core.supabase_client import supabase
+from app.services.citation_management import format_citation_bibtex
+from app.core.security_middleware import SecureAuthValidator, limiter
 from app.schemas.projects import ProjectBundle, Dataset, Document
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 import datetime
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Helper to extract user info from token
 def get_current_user(authorization: str = Header(None)):
     if supabase is None:
-        raise HTTPException(status_code=500, detail="Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.")
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    token = authorization.split("Bearer ")[-1]
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase not configured"  # Don't expose environment details
+        )
+
+    # Use secure token validator
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+
     try:
         user = supabase.auth.get_user(token)
         return user.user.id
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid or expired token: {e}")
+        logger.error(f"Token validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"  # Don't expose error details
+        )
 
 # CREATE
 @router.post("/")
@@ -73,10 +85,81 @@ def update_project(project_id: str, title: Optional[str] = None, description: Op
 # DELETE
 @router.delete("/{project_id}")
 def delete_project(project_id: str, user_id: str = Depends(get_current_user)):
-    res = supabase.table("projects").delete().eq("id", project_id).eq("user_id", user_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Project not found or already deleted")
-    return {"message": "Project deleted"}
+    """
+    Delete a project and all associated data:
+    - Storage files (documents, drafts)
+    - Database records (CASCADE handled by DB constraints)
+    """
+    try:
+        # Verify project exists and belongs to user
+        project_res = supabase.table("projects").select("*").eq("id", project_id).eq("user_id", user_id).execute()
+        if not project_res.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Step 1: Clean up document storage files
+        documents_res = supabase.table("documents")\
+            .select("file_url")\
+            .eq("project_id", project_id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        deleted_documents = 0
+        if documents_res.data:
+            for doc in documents_res.data:
+                if doc.get("file_url"):
+                    try:
+                        # Extract storage path from URL
+                        # Format: https://{project}.supabase.co/storage/v1/object/public/documents/{user_id}/{filename}
+                        storage_path = doc["file_url"].split("/documents/")[-1]
+                        supabase.storage.from_("documents").remove([storage_path])
+                        deleted_documents += 1
+                        logger.info(f"Deleted document file: {storage_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete document file {doc['file_url']}: {str(e)}")
+
+        # Step 2: Clean up draft storage files
+        drafts_res = supabase.table("drafts")\
+            .select("file_url")\
+            .eq("project_id", project_id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        deleted_drafts = 0
+        if drafts_res.data:
+            for draft in drafts_res.data:
+                if draft.get("file_url"):
+                    try:
+                        # Extract storage path from URL
+                        storage_path = draft["file_url"].split("/drafts/")[-1]
+                        supabase.storage.from_("drafts").remove([storage_path])
+                        deleted_drafts += 1
+                        logger.info(f"Deleted draft file: {storage_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete draft file {draft['file_url']}: {str(e)}")
+
+        # Step 3: Delete project (CASCADE will handle all database records)
+        res = supabase.table("projects").delete().eq("id", project_id).eq("user_id", user_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Project not found or already deleted")
+
+        logger.info(
+            f"Project {project_id} deleted successfully. "
+            f"Cleaned up {deleted_documents} document files and {deleted_drafts} draft files."
+        )
+
+        return {
+            "message": "Project and all associated data deleted successfully",
+            "storage_cleanup": {
+                "documents_deleted": deleted_documents,
+                "drafts_deleted": deleted_drafts
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting project {project_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete project: {str(e)}")
 
 # ATTACH DATASET TO PROJECT
 @router.post("/{project_id}/attach-dataset/{dataset_id}")
@@ -135,123 +218,6 @@ def get_project_bundle(project_id: str, user_id: str = Depends(get_current_user)
     }
 
     return bundle
-
-
-# RAG SETTINGS SCHEMA
-class RAGSettingsUpdate(BaseModel):
-    chunk_size: Optional[int] = Field(None, ge=200, le=2000, description="Chunk size in tokens (200-2000)")
-    chunk_overlap: Optional[int] = Field(None, ge=0, le=200, description="Chunk overlap in tokens (0-200)")
-    embedding_model: Optional[str] = Field(None, description="Embedding model (text-embedding-3-small or text-embedding-3-large)")
-    max_chunks: Optional[int] = Field(None, ge=1, le=20, description="Max chunks to retrieve (1-20)")
-    similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Minimum similarity score (0.0-1.0)")
-
-
-# GET RAG SETTINGS
-@router.get("/{project_id}/rag-settings")
-def get_rag_settings(project_id: str, user_id: str = Depends(get_current_user)):
-    """
-    Get RAG configuration settings for a project.
-    """
-    project_res = supabase.table("projects").select("rag_settings").eq("id", project_id).eq("user_id", user_id).execute()
-
-    if not project_res.data:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    rag_settings = project_res.data[0].get("rag_settings", {})
-
-    # Return defaults if not set
-    return {
-        "chunk_size": rag_settings.get("chunk_size", 1000),
-        "chunk_overlap": rag_settings.get("chunk_overlap", 150),
-        "embedding_model": rag_settings.get("embedding_model", "text-embedding-3-small"),
-        "max_chunks": rag_settings.get("max_chunks", 5),
-        "similarity_threshold": rag_settings.get("similarity_threshold", 0.0)
-    }
-
-
-# UPDATE RAG SETTINGS
-@router.patch("/{project_id}/rag-settings")
-def update_rag_settings(project_id: str, settings: RAGSettingsUpdate, user_id: str = Depends(get_current_user)):
-    """
-    Update RAG configuration settings for a project.
-
-    Note: Changing these settings does NOT automatically re-process existing documents.
-    You will need to manually re-ingest documents for changes to take effect.
-    """
-    # Verify project exists and belongs to user
-    project_res = supabase.table("projects").select("rag_settings").eq("id", project_id).eq("user_id", user_id).execute()
-
-    if not project_res.data:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    # Get current settings
-    current_settings = project_res.data[0].get("rag_settings", {})
-
-    # Validate embedding model
-    if settings.embedding_model and settings.embedding_model not in ["text-embedding-3-small", "text-embedding-3-large"]:
-        raise HTTPException(status_code=400, detail="Invalid embedding model. Must be 'text-embedding-3-small' or 'text-embedding-3-large'")
-
-    # Update only provided fields
-    updated_settings = {**current_settings}
-    if settings.chunk_size is not None:
-        updated_settings["chunk_size"] = settings.chunk_size
-    if settings.chunk_overlap is not None:
-        updated_settings["chunk_overlap"] = settings.chunk_overlap
-    if settings.embedding_model is not None:
-        updated_settings["embedding_model"] = settings.embedding_model
-    if settings.max_chunks is not None:
-        updated_settings["max_chunks"] = settings.max_chunks
-    if settings.similarity_threshold is not None:
-        updated_settings["similarity_threshold"] = settings.similarity_threshold
-
-    # Update in database
-    update_res = supabase.table("projects").update({
-        "rag_settings": updated_settings,
-        "updated_at": datetime.datetime.utcnow().isoformat()
-    }).eq("id", project_id).eq("user_id", user_id).execute()
-
-    if not update_res.data:
-        raise HTTPException(status_code=400, detail="Failed to update RAG settings")
-
-    return {
-        "message": "RAG settings updated successfully",
-        "rag_settings": updated_settings
-    }
-
-
-# RESET RAG SETTINGS TO DEFAULTS
-@router.post("/{project_id}/rag-settings/reset")
-def reset_rag_settings(project_id: str, user_id: str = Depends(get_current_user)):
-    """
-    Reset RAG settings to default values.
-    """
-    # Verify project exists
-    project_res = supabase.table("projects").select("id").eq("id", project_id).eq("user_id", user_id).execute()
-
-    if not project_res.data:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    default_settings = {
-        "chunk_size": 1000,
-        "chunk_overlap": 150,
-        "embedding_model": "text-embedding-3-small",
-        "max_chunks": 5,
-        "similarity_threshold": 0.0
-    }
-
-    # Update in database
-    update_res = supabase.table("projects").update({
-        "rag_settings": default_settings,
-        "updated_at": datetime.datetime.utcnow().isoformat()
-    }).eq("id", project_id).eq("user_id", user_id).execute()
-
-    if not update_res.data:
-        raise HTTPException(status_code=400, detail="Failed to reset RAG settings")
-
-    return {
-        "message": "RAG settings reset to defaults",
-        "rag_settings": default_settings
-    }
 
 
 # ============================================
@@ -397,11 +363,11 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
         "updated_at": datetime.datetime.utcnow().isoformat()
     }).eq("id", project_id).eq("user_id", user_id).execute()
 
-    # 6. Submit background task
-    from app.services.background_tasks import submit_task
-    submit_task(_run_insights_analysis_task, project_id, user_id)
+    # 6. Submit Celery task (Phase 3.3)
+    from app.tasks.insights_analysis import generate_insights_task
+    task_result = generate_insights_task.delay(project_id, user_id)
 
-    print(f"[INSIGHTS] Background insights analysis task submitted for project_id={project_id}")
+    print(f"[INSIGHTS] Celery insights analysis task submitted for project_id={project_id} (task_id={task_result.id})")
 
     return {
         "message": "Insights analysis started",
@@ -473,3 +439,112 @@ def get_project_insights(project_id: str, user_id: str = Depends(get_current_use
             "status": "not_analyzed",
             "message": "Insights have not been generated yet"
         }
+
+
+@router.get("/{project_id}/export-bibtex")
+async def export_project_bibtex(
+    project_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Export all documents in a project as a BibTeX (.bib) file.
+
+    Args:
+        project_id: Project ID to export citations from
+        user_id: Authenticated user ID (from JWT token)
+
+    Returns:
+        BibTeX file content with all project citations
+    """
+    try:
+        # Verify project ownership
+        project = supabase.table("projects")\
+            .select("*")\
+            .eq("id", project_id)\
+            .eq("user_id", user_id)\
+            .single()\
+            .execute()
+
+        if not project.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Fetch all documents in the project
+        documents = supabase.table("documents")\
+            .select("*")\
+            .eq("project_id", project_id)\
+            .eq("user_id", user_id)\
+            .order("title")\
+            .execute()
+
+        if not documents.data:
+            raise HTTPException(status_code=404, detail="No documents found in project")
+
+        # Generate BibTeX entries
+        bibtex_entries = []
+        for doc in documents.data:
+            analysis = doc.get("analysis", {})
+            citation_metadata = analysis.get("citation_metadata", {})
+
+            # Skip documents without metadata
+            if not citation_metadata:
+                logger.warning(f"Document {doc['id']} has no citation metadata, skipping")
+                continue
+
+            # Extract metadata fields
+            title = citation_metadata.get("title", doc.get("title", "Untitled"))
+            authors = citation_metadata.get("authors", [])
+            year = citation_metadata.get("year", "n.d.")
+            journal = citation_metadata.get("venue") or citation_metadata.get("journal")
+            volume = citation_metadata.get("volume")
+            issue = citation_metadata.get("issue")
+            pages = citation_metadata.get("pages")
+            doi = citation_metadata.get("doi")
+            url = doc.get("file_url")
+
+            # Determine entry type (article vs inproceedings)
+            booktitle = citation_metadata.get("booktitle")
+            entry_type = "inproceedings" if booktitle else "article"
+
+            # Generate BibTeX entry
+            bibtex_entry = format_citation_bibtex(
+                title=title,
+                authors=authors,
+                year=year,
+                journal=journal,
+                volume=volume,
+                issue=issue,
+                pages=pages,
+                doi=doi,
+                url=url,
+                booktitle=booktitle,
+                entry_type=entry_type
+            )
+
+            bibtex_entries.append(bibtex_entry)
+
+        if not bibtex_entries:
+            raise HTTPException(status_code=404, detail="No documents with citation metadata found")
+
+        # Combine all entries
+        bibtex_content = "\n\n".join(bibtex_entries)
+
+        # Add header comment
+        project_title = project.data.get("title", "Noesis Project")
+        header = f"% BibTeX export from Noesis\n% Project: {project_title}\n% Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n% Total entries: {len(bibtex_entries)}\n\n"
+        bibtex_content = header + bibtex_content
+
+        # Return as downloadable file
+        safe_filename = project_title.replace(" ", "_").replace("/", "_")
+        return Response(
+            content=bibtex_content,
+            media_type="application/x-bibtex",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_filename}_citations.bib"'
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to export BibTeX: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export BibTeX: {str(e)}")

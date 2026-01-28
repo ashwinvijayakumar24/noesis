@@ -41,25 +41,25 @@ export default function DocumentDetailModal({ isOpen, onClose, document }: Docum
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-lg bg-neutral-900 border border-neutral-800 shadow-2xl transition-all max-h-[90vh] flex flex-col">
+              <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-2xl transition-all max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-800 shrink-0">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-accent-primary/10 rounded-lg">
                       <DocumentTextIcon className="h-6 w-6 text-accent-primary" />
                     </div>
                     <div>
-                      <Dialog.Title className="text-2xl font-serif font-semibold text-neutral-50">
+                      <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
                         {document.title}
                       </Dialog.Title>
-                      <p className="text-sm font-mono text-neutral-500 mt-1 capitalize">
+                      <p className="text-sm font-mono text-text-muted mt-1 capitalize">
                         Status: {document.status}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="text-neutral-400 hover:text-neutral-200 transition-colors"
+                    className="text-text-tertiary hover:text-text-primary transition-colors"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
@@ -71,10 +71,10 @@ export default function DocumentDetailModal({ isOpen, onClose, document }: Docum
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-neutral-900/50 border-t border-neutral-800 flex justify-end shrink-0">
+                <div className="px-6 py-4 bg-surface/50 border-t border-border-subtle flex justify-end shrink-0">
                   <button
                     onClick={onClose}
-                    className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-50 transition-colors"
+                    className="px-4 py-2 text-sm text-text-tertiary hover:text-text-primary transition-colors"
                   >
                     Close
                   </button>

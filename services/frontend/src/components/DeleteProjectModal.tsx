@@ -66,56 +66,60 @@ export default function DeleteProjectModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-neutral-900 border border-neutral-800 p-6 shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-xl transition-all">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-start gap-3">
-                    <div className="shrink-0">
-                      <ExclamationTriangleIcon className="h-6 w-6 text-red-500" />
+                <div className="px-6 py-5 border-b border-border-subtle">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="shrink-0">
+                        <ExclamationTriangleIcon className="h-6 w-6 text-red-500" />
+                      </div>
+                      <div>
+                        <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
+                          Delete Project
+                        </Dialog.Title>
+                      </div>
                     </div>
-                    <div>
-                      <Dialog.Title className="text-2xl font-serif font-semibold text-neutral-50">
-                        Delete Project
-                      </Dialog.Title>
-                    </div>
+                    <button
+                      onClick={onClose}
+                      disabled={loading}
+                      className="text-text-tertiary hover:text-text-primary transition-colors"
+                    >
+                      <XMarkIcon className="h-6 w-6" />
+                    </button>
                   </div>
-                  <button
-                    onClick={onClose}
-                    disabled={loading}
-                    className="text-neutral-400 hover:text-neutral-200 transition-colors"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
                 </div>
 
                 {/* Content */}
-                <div className="ml-9 mb-6">
-                  <p className="text-neutral-300 mb-2">
-                    Are you sure you want to delete <span className="font-semibold text-neutral-50">{projectTitle}</span>?
-                  </p>
-                  <p className="text-sm text-neutral-400">
-                    This will permanently delete the project and all its documents. This action cannot be undone.
-                  </p>
-                </div>
+                <div className="p-6">
+                  <div className="ml-9 mb-6">
+                    <p className="text-text-secondary mb-2">
+                      Are you sure you want to delete <span className="font-semibold text-text-primary">{projectTitle}</span>?
+                    </p>
+                    <p className="text-sm text-text-tertiary">
+                      This will permanently delete the project and all its documents. This action cannot be undone.
+                    </p>
+                  </div>
 
-                {/* Actions */}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={loading}
-                    className="flex-1 px-4 py-3 border border-neutral-700 text-neutral-300 font-medium rounded-lg hover:border-neutral-600 hover:text-neutral-50 transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={loading}
-                    className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Deleting...' : 'Delete Project'}
-                  </button>
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      disabled={loading}
+                      className="flex-1 px-4 py-3 border border-border-base text-text-secondary font-medium rounded-lg hover:border-border-subtle hover:text-text-primary transition-colors disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={loading}
+                      className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Deleting...' : 'Delete Project'}
+                    </button>
+                  </div>
                 </div>
               </Dialog.Panel>
             </Transition.Child>

@@ -8,9 +8,12 @@ from fastapi import APIRouter, HTTPException, Depends, Header, BackgroundTasks
 from app.services.rag_ingest import ingest_document
 from app.services.rag_retrieval import retrieve_relevant_chunks, generate_rag_answer
 from app.core.supabase_client import supabase
+from app.core.security_middleware import SecureAuthValidator
 from typing import Optional
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # Helper to extract user info from token
@@ -18,16 +21,21 @@ def get_current_user(authorization: str = Header(None)):
     if supabase is None:
         raise HTTPException(
             status_code=500,
-            detail="Supabase not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables."
+            detail="Supabase not configured"  # Don't expose environment details
         )
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    token = authorization.split("Bearer ")[-1]
+
+    # Use secure token validator
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+
     try:
         user = supabase.auth.get_user(token)
         return user.user.id
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid or expired token: {e}")
+        logger.error(f"Token validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"  # Don't expose error details
+        )
 
 
 @router.post("/ingest/{document_id}")
@@ -48,24 +56,42 @@ async def ingest_document_endpoint(
 
     The ingestion happens in the background.
     """
+    import traceback
+    print(f"[RAG-ENDPOINT] ========== RAG INGESTION REQUEST ==========")
+    print(f"[RAG-ENDPOINT] document_id={document_id}, user_id={user_id}")
+
     try:
         # Verify document exists and belongs to user
+        print(f"[RAG-ENDPOINT] Verifying document exists and belongs to user...")
         doc_response = supabase.table("documents").select("*").eq("id", document_id).eq("user_id", user_id).execute()
 
         if not doc_response.data:
+            print(f"[RAG-ENDPOINT] ✗ Document not found: {document_id}")
             raise HTTPException(status_code=404, detail="Document not found")
 
         document = doc_response.data[0]
         project_id = document.get("project_id")
+        print(f"[RAG-ENDPOINT] ✓ Found document: title={document.get('title')}, project_id={project_id}")
 
         if not project_id:
+            print(f"[RAG-ENDPOINT] ✗ Document not attached to project")
             raise HTTPException(
                 status_code=400,
                 detail="Document must be attached to a project before ingestion"
             )
 
+        # Update document status to 'processing' immediately
+        print(f"[RAG-ENDPOINT] Updating document status to 'processing'...")
+        supabase.table("documents").update({
+            "status": "processing",
+            "updated_at": "now()"
+        }).eq("id", document_id).execute()
+        print(f"[RAG-ENDPOINT] ✓ Status updated to 'processing'")
+
         # Trigger background ingestion
+        print(f"[RAG-ENDPOINT] Adding background task for RAG ingestion...")
         background_tasks.add_task(ingest_document, document_id, project_id)
+        print(f"[RAG-ENDPOINT] ✓ Background task added successfully")
 
         return {
             "message": "Document ingestion started in background",
@@ -76,6 +102,8 @@ async def ingest_document_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[RAG-ENDPOINT] ✗ ERROR: {type(e).__name__}: {str(e)}")
+        print(f"[RAG-ENDPOINT] Traceback:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 

@@ -1,1 +1,115 @@
 @import "tailwindcss";
+
+/* Tailwind v4 Theme Configuration */
+@theme {
+  /* Background Hierarchy - Slate/Charcoal theme inspired by VS Code */
+  --color-bg-base: #1a1d23;
+  --color-surface: #242832;
+  --color-surface-hover: #2d3340;
+  --color-surface-active: #363d4e;
+
+  /* Border Colors - Complementary slate tones */
+  --color-border-base: #363d4e;
+  --color-border-subtle: #2d3340;
+
+  /* Text Hierarchy - Slate-complementary text colors */
+  --color-text-primary: #e6e8eb;
+  --color-text-secondary: #b4b8c0;
+  --color-text-tertiary: #7d8290;
+  --color-text-muted: #6b7280;
+
+  /* Accent Colors */
+  --color-accent-primary: #DC2626;
+  --color-accent-hover: #B91C1C;
+  --color-accent-light: #FEE2E2;
+
+  /* Semantic Colors */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  /* Font Families */
+  --font-family-serif: 'Lora', 'Georgia', serif;
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Base Styles */
+body {
+  font-family: var(--font-family-sans);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-serif);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Enhanced Focus States for Better Accessibility */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+}
+
+/* Input-specific focus states with glow */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-accent-primary) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Button focus states */
+button:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
+}
+
+/* Enhanced Button Hover States */
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+  transition: all 0.1s ease;
+}
+
+/* Icon button hover states */
+button:hover svg {
+  transition: all 0.2s ease;
+}
+
+/* Colored Loading Indicators */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Primary accent colored spinners */
+.animate-spin.border-accent-primary,
+.animate-spin.border-b-2.border-accent-primary {
+  border-color: var(--color-accent-primary);
+}
+
+/* Add color to generic gray spinners */
+.animate-spin.border-text-tertiary,
+.animate-spin.border-b-2.border-text-tertiary {
+  border-color: var(--color-accent-primary) !important;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

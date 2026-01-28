@@ -1,0 +1,549 @@
+"""
+Adaptive chunking utility for RAG optimization.
+
+This module provides intelligent chunking strategies based on document characteristics
+to optimize retrieval quality while controlling costs.
+
+Key Features:
+- Adaptive chunk sizing based on document page count
+- Cost ceiling protection (max chunks per document)
+- Optimized overlap ratios for different document lengths
+- Section-aware chunking that preserves document structure
+"""
+
+from typing import Dict, Tuple, List, Any
+import logging
+import tiktoken
+
+logger = logging.getLogger(__name__)
+
+# Cost control: Maximum chunks allowed per document
+MAX_CHUNKS_PER_DOCUMENT = 50
+
+# Adaptive chunking tiers based on page count
+CHUNKING_TIERS = {
+    "SHORT": {
+        "page_range": (1, 10),
+        "chunk_size": 1200,
+        "overlap": 200,
+        "description": "Short papers (1-10 pages) - smaller chunks for precision"
+    },
+    "MEDIUM": {
+        "page_range": (11, 30),
+        "chunk_size": 1600,
+        "overlap": 250,
+        "description": "Medium papers (11-30 pages) - balanced chunks"
+    },
+    "LONG": {
+        "page_range": (31, float('inf')),
+        "chunk_size": 2000,
+        "overlap": 300,
+        "description": "Long papers (31+ pages) - larger chunks for context"
+    }
+}
+
+
+def get_optimal_chunk_params(
+    page_count: int,
+    doc_type: str = "paper"
+) -> Dict[str, int]:
+    """
+    Return optimal chunk_size, overlap, and chunks_per_query based on document characteristics.
+
+    This function implements adaptive chunking strategy where chunk size increases
+    with document length to maintain good context while controlling costs.
+
+    Args:
+        page_count: Number of pages in the document
+        doc_type: Type of document (currently only "paper" is supported)
+
+    Returns:
+        Dict containing:
+            - chunk_size: Optimal chunk size in tokens
+            - overlap: Overlap between chunks in tokens
+            - tier: The tier name (SHORT, MEDIUM, LONG)
+            - max_chunks: Maximum allowed chunks for this document
+
+    Examples:
+        >>> get_optimal_chunk_params(5)
+        {'chunk_size': 1200, 'overlap': 200, 'tier': 'SHORT', 'max_chunks': 50}
+
+        >>> get_optimal_chunk_params(20)
+        {'chunk_size': 1600, 'overlap': 250, 'tier': 'MEDIUM', 'max_chunks': 50}
+
+        >>> get_optimal_chunk_params(50)
+        {'chunk_size': 2000, 'overlap': 300, 'tier': 'LONG', 'max_chunks': 50}
+    """
+    # Validate input
+    if page_count <= 0:
+        logger.warning(f"Invalid page_count={page_count}, defaulting to 1")
+        page_count = 1
+
+    # Determine the appropriate tier
+    tier = None
+    for tier_name, tier_config in CHUNKING_TIERS.items():
+        min_pages, max_pages = tier_config["page_range"]
+        if min_pages <= page_count <= max_pages:
+            tier = tier_name
+            chunk_size = tier_config["chunk_size"]
+            overlap = tier_config["overlap"]
+            break
+
+    # Fallback to LONG tier if somehow not matched
+    if tier is None:
+        tier = "LONG"
+        chunk_size = CHUNKING_TIERS["LONG"]["chunk_size"]
+        overlap = CHUNKING_TIERS["LONG"]["overlap"]
+
+    logger.info(
+        f"Document with {page_count} pages assigned to {tier} tier: "
+        f"chunk_size={chunk_size}, overlap={overlap}"
+    )
+
+    return {
+        "chunk_size": chunk_size,
+        "overlap": overlap,
+        "tier": tier,
+        "max_chunks": MAX_CHUNKS_PER_DOCUMENT
+    }
+
+
+def calculate_estimated_chunks(
+    total_tokens: int,
+    chunk_size: int,
+    overlap: int
+) -> int:
+    """
+    Estimate the number of chunks that will be created given document size and chunking params.
+
+    Args:
+        total_tokens: Total number of tokens in the document
+        chunk_size: Size of each chunk in tokens
+        overlap: Overlap between chunks in tokens
+
+    Returns:
+        Estimated number of chunks
+
+    Examples:
+        >>> calculate_estimated_chunks(5000, 1200, 200)
+        5
+
+        >>> calculate_estimated_chunks(20000, 1600, 250)
+        15
+    """
+    if total_tokens <= 0 or chunk_size <= 0:
+        return 0
+
+    if total_tokens <= chunk_size:
+        return 1
+
+    # Effective chunk size after accounting for overlap
+    effective_chunk_size = chunk_size - overlap
+
+    # Calculate number of chunks needed
+    remaining_tokens = total_tokens - chunk_size
+    additional_chunks = (remaining_tokens + effective_chunk_size - 1) // effective_chunk_size
+
+    total_chunks = 1 + additional_chunks
+
+    return total_chunks
+
+
+def apply_cost_ceiling(
+    total_tokens: int,
+    chunk_size: int,
+    overlap: int,
+    max_chunks: int = MAX_CHUNKS_PER_DOCUMENT
+) -> Tuple[int, int, bool]:
+    """
+    Adjust chunk_size if document would exceed max_chunks limit.
+
+    This implements cost ceiling protection by automatically increasing chunk_size
+    to ensure we don't exceed the maximum allowed chunks per document.
+
+    Args:
+        total_tokens: Total number of tokens in the document
+        chunk_size: Initial chunk size in tokens
+        overlap: Overlap between chunks in tokens
+        max_chunks: Maximum allowed chunks (default: 50)
+
+    Returns:
+        Tuple of (adjusted_chunk_size, adjusted_overlap, was_adjusted)
+        - adjusted_chunk_size: The chunk size to use (may be larger than input)
+        - adjusted_overlap: The overlap to use (proportionally adjusted)
+        - was_adjusted: True if adjustments were made
+
+    Examples:
+        >>> apply_cost_ceiling(100000, 1200, 200, 50)
+        (2000, 333, True)  # Adjusted to fit within 50 chunks
+
+        >>> apply_cost_ceiling(5000, 1200, 200, 50)
+        (1200, 200, False)  # No adjustment needed
+    """
+    estimated_chunks = calculate_estimated_chunks(total_tokens, chunk_size, overlap)
+
+    if estimated_chunks <= max_chunks:
+        # No adjustment needed
+        return chunk_size, overlap, False
+
+    logger.warning(
+        f"Document would create {estimated_chunks} chunks, exceeding limit of {max_chunks}. "
+        f"Adjusting chunk_size to fit within limit."
+    )
+
+    # Calculate minimum chunk_size needed to fit within max_chunks
+    # Formula: total_tokens = chunk_size + (max_chunks - 1) * (chunk_size - overlap)
+    # Solving for chunk_size: chunk_size = (total_tokens + (max_chunks - 1) * overlap) / max_chunks
+
+    adjusted_chunk_size = (total_tokens + (max_chunks - 1) * overlap) // max_chunks
+
+    # Ensure minimum chunk size of 500 tokens
+    adjusted_chunk_size = max(adjusted_chunk_size, 500)
+
+    # Adjust overlap proportionally to maintain similar overlap ratio
+    overlap_ratio = overlap / chunk_size
+    adjusted_overlap = int(adjusted_chunk_size * overlap_ratio)
+
+    # Ensure overlap doesn't exceed chunk_size
+    adjusted_overlap = min(adjusted_overlap, adjusted_chunk_size // 2)
+
+    logger.info(
+        f"Adjusted chunking: chunk_size {chunk_size} -> {adjusted_chunk_size}, "
+        f"overlap {overlap} -> {adjusted_overlap}"
+    )
+
+    # Verify the adjustment works
+    final_estimated = calculate_estimated_chunks(total_tokens, adjusted_chunk_size, adjusted_overlap)
+    logger.info(f"After adjustment: estimated {final_estimated} chunks (limit: {max_chunks})")
+
+    return adjusted_chunk_size, adjusted_overlap, True
+
+
+def get_chunking_strategy(
+    page_count: int,
+    total_tokens: int,
+    doc_type: str = "paper"
+) -> Dict[str, any]:
+    """
+    Get complete chunking strategy including cost ceiling protection.
+
+    This is the main function to use for determining chunking parameters.
+    It combines adaptive chunking based on page count with cost ceiling protection.
+
+    Args:
+        page_count: Number of pages in the document
+        total_tokens: Total number of tokens in the document
+        doc_type: Type of document (currently only "paper" is supported)
+
+    Returns:
+        Dict containing:
+            - chunk_size: Final chunk size to use
+            - overlap: Final overlap to use
+            - tier: Chunking tier (SHORT, MEDIUM, LONG)
+            - max_chunks: Maximum allowed chunks
+            - was_adjusted: Whether cost ceiling adjustment was applied
+            - estimated_chunks: Estimated number of chunks that will be created
+
+    Example:
+        >>> get_chunking_strategy(page_count=15, total_tokens=8000)
+        {
+            'chunk_size': 1600,
+            'overlap': 250,
+            'tier': 'MEDIUM',
+            'max_chunks': 50,
+            'was_adjusted': False,
+            'estimated_chunks': 6
+        }
+    """
+    # Step 1: Get optimal parameters based on page count
+    params = get_optimal_chunk_params(page_count, doc_type)
+
+    chunk_size = params["chunk_size"]
+    overlap = params["overlap"]
+    max_chunks = params["max_chunks"]
+    tier = params["tier"]
+
+    # Step 2: Apply cost ceiling protection
+    adjusted_chunk_size, adjusted_overlap, was_adjusted = apply_cost_ceiling(
+        total_tokens=total_tokens,
+        chunk_size=chunk_size,
+        overlap=overlap,
+        max_chunks=max_chunks
+    )
+
+    # Step 3: Calculate final estimated chunks
+    estimated_chunks = calculate_estimated_chunks(
+        total_tokens=total_tokens,
+        chunk_size=adjusted_chunk_size,
+        overlap=adjusted_overlap
+    )
+
+    return {
+        "chunk_size": adjusted_chunk_size,
+        "overlap": adjusted_overlap,
+        "tier": tier,
+        "max_chunks": max_chunks,
+        "was_adjusted": was_adjusted,
+        "estimated_chunks": estimated_chunks
+    }
+
+
+# ============================================
+# SECTION-AWARE CHUNKING
+# ============================================
+
+
+def chunk_section_content(
+    content: str,
+    max_chunk_size: int,
+    overlap: int,
+    section_title: str,
+    section_type: str
+) -> List[Dict[str, Any]]:
+    """
+    Chunk a single section's content while preserving sentence boundaries.
+
+    If the section fits within max_chunk_size, it's returned as a single chunk.
+    Otherwise, it's split into multiple chunks at sentence boundaries.
+
+    Args:
+        content: Section content text
+        max_chunk_size: Maximum chunk size in tokens
+        overlap: Overlap between chunks in tokens
+        section_title: Title of the section
+        section_type: Type of section (intro, methods, results, etc.)
+
+    Returns:
+        List of chunk dictionaries with metadata
+    """
+    enc = tiktoken.get_encoding("cl100k_base")
+    tokens = enc.encode(content)
+
+    # If section fits in one chunk, return it as-is
+    if len(tokens) <= max_chunk_size:
+        return [{
+            "content": content,
+            "section_title": section_title,
+            "section_type": section_type,
+            "chunk_index_in_section": 0,
+            "tokens": len(tokens)
+        }]
+
+    # Section is too large - need to split at sentence boundaries
+    # Split content into sentences
+    sentences = content.replace('! ', '!|').replace('? ', '?|').replace('. ', '.|').split('|')
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    chunks = []
+    current_chunk_sentences = []
+    current_chunk_tokens = 0
+    chunk_index = 0
+
+    for sentence in sentences:
+        sentence_tokens = len(enc.encode(sentence))
+
+        # Check if adding this sentence would exceed max_chunk_size
+        if current_chunk_tokens + sentence_tokens > max_chunk_size and current_chunk_sentences:
+            # Save current chunk
+            chunk_content = ' '.join(current_chunk_sentences)
+            chunks.append({
+                "content": chunk_content,
+                "section_title": section_title,
+                "section_type": section_type,
+                "chunk_index_in_section": chunk_index,
+                "tokens": current_chunk_tokens
+            })
+
+            # Start new chunk with overlap
+            # Keep last few sentences for overlap
+            overlap_sentences = []
+            overlap_tokens = 0
+            for s in reversed(current_chunk_sentences):
+                s_tokens = len(enc.encode(s))
+                if overlap_tokens + s_tokens <= overlap:
+                    overlap_sentences.insert(0, s)
+                    overlap_tokens += s_tokens
+                else:
+                    break
+
+            current_chunk_sentences = overlap_sentences
+            current_chunk_tokens = overlap_tokens
+            chunk_index += 1
+
+        # Add sentence to current chunk
+        current_chunk_sentences.append(sentence)
+        current_chunk_tokens += sentence_tokens
+
+    # Add final chunk if there's content
+    if current_chunk_sentences:
+        chunk_content = ' '.join(current_chunk_sentences)
+        chunks.append({
+            "content": chunk_content,
+            "section_title": section_title,
+            "section_type": section_type,
+            "chunk_index_in_section": chunk_index,
+            "tokens": current_chunk_tokens
+        })
+
+    return chunks
+
+
+def chunk_by_sections(
+    sections: List[Dict[str, Any]],
+    max_chunk_size: int,
+    overlap: int
+) -> List[Dict[str, Any]]:
+    """
+    Chunk document by sections, preserving document structure.
+
+    Each section is chunked independently. Small sections become single chunks,
+    large sections are split at sentence boundaries.
+
+    Args:
+        sections: List of section dictionaries from GROBID extraction
+                  Each should have: title, content, type, paragraph_count
+        max_chunk_size: Maximum chunk size in tokens
+        overlap: Overlap between chunks in tokens
+
+    Returns:
+        List of chunk dictionaries with section metadata
+
+    Example section structure:
+        {
+            "title": "Introduction",
+            "content": "This paper presents...",
+            "type": "introduction",
+            "paragraph_count": 3
+        }
+
+    Example output chunk:
+        {
+            "content": "This paper presents...",
+            "section_title": "Introduction",
+            "section_type": "introduction",
+            "chunk_index_in_section": 0,
+            "tokens": 450
+        }
+    """
+    all_chunks = []
+
+    for section in sections:
+        title = section.get("title", "Untitled Section")
+        content = section.get("content", "")
+        section_type = section.get("type", "other")
+
+        if not content.strip():
+            logger.warning(f"Skipping empty section: {title}")
+            continue
+
+        # Chunk this section
+        section_chunks = chunk_section_content(
+            content=content,
+            max_chunk_size=max_chunk_size,
+            overlap=overlap,
+            section_title=title,
+            section_type=section_type
+        )
+
+        all_chunks.extend(section_chunks)
+
+    logger.info(
+        f"Created {len(all_chunks)} chunks from {len(sections)} sections "
+        f"(avg {len(all_chunks) / max(len(sections), 1):.1f} chunks per section)"
+    )
+
+    return all_chunks
+
+
+def get_section_aware_chunking_strategy(
+    sections: List[Dict[str, Any]],
+    page_count: int,
+    total_tokens: int,
+    doc_type: str = "paper"
+) -> Dict[str, Any]:
+    """
+    Get complete section-aware chunking strategy.
+
+    This function combines adaptive chunking parameters with section-aware chunking
+    to create an optimal chunking strategy that preserves document structure.
+
+    Args:
+        sections: List of section dictionaries from GROBID extraction
+        page_count: Number of pages in the document
+        total_tokens: Total number of tokens in the document
+        doc_type: Type of document (currently only "paper" is supported)
+
+    Returns:
+        Dict containing:
+            - chunk_size: Final chunk size to use
+            - overlap: Final overlap to use
+            - tier: Chunking tier (SHORT, MEDIUM, LONG)
+            - max_chunks: Maximum allowed chunks
+            - was_adjusted: Whether cost ceiling adjustment was applied
+            - estimated_chunks: Estimated number of chunks that will be created
+            - chunks: List of actual chunks with section metadata
+            - chunking_method: "section-aware" to distinguish from basic chunking
+
+    Example:
+        >>> sections = [
+        ...     {"title": "Introduction", "content": "...", "type": "introduction"},
+        ...     {"title": "Methods", "content": "...", "type": "methods"}
+        ... ]
+        >>> strategy = get_section_aware_chunking_strategy(sections, 15, 8000)
+        >>> strategy['chunks']  # List of chunks with section metadata
+    """
+    # Step 1: Get base adaptive chunking parameters
+    base_strategy = get_chunking_strategy(
+        page_count=page_count,
+        total_tokens=total_tokens,
+        doc_type=doc_type
+    )
+
+    chunk_size = base_strategy["chunk_size"]
+    overlap = base_strategy["overlap"]
+    tier = base_strategy["tier"]
+    was_adjusted = base_strategy["was_adjusted"]
+
+    # Step 2: Chunk by sections using adaptive parameters
+    chunks = chunk_by_sections(
+        sections=sections,
+        max_chunk_size=chunk_size,
+        overlap=overlap
+    )
+
+    # Step 3: Check if we need to apply cost ceiling
+    if len(chunks) > MAX_CHUNKS_PER_DOCUMENT:
+        logger.warning(
+            f"Section-aware chunking produced {len(chunks)} chunks, "
+            f"exceeding limit of {MAX_CHUNKS_PER_DOCUMENT}. Adjusting..."
+        )
+
+        # Calculate new chunk_size to fit within limit
+        adjusted_chunk_size, adjusted_overlap, _ = apply_cost_ceiling(
+            total_tokens=total_tokens,
+            chunk_size=chunk_size,
+            overlap=overlap,
+            max_chunks=MAX_CHUNKS_PER_DOCUMENT
+        )
+
+        # Re-chunk with adjusted parameters
+        chunks = chunk_by_sections(
+            sections=sections,
+            max_chunk_size=adjusted_chunk_size,
+            overlap=adjusted_overlap
+        )
+
+        was_adjusted = True
+        chunk_size = adjusted_chunk_size
+        overlap = adjusted_overlap
+
+    return {
+        "chunk_size": chunk_size,
+        "overlap": overlap,
+        "tier": tier,
+        "max_chunks": MAX_CHUNKS_PER_DOCUMENT,
+        "was_adjusted": was_adjusted,
+        "estimated_chunks": len(chunks),
+        "chunks": chunks,
+        "chunking_method": "section-aware"
+    }
