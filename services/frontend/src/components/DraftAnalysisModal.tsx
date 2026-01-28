@@ -295,7 +295,7 @@ export default function DraftAnalysisModal({
                       </div>
                     ) : (
                       <Tab.Group as="div" className="flex flex-col h-full">
-                      <Tab.List className="flex space-x-2 border-b border-border-subtle px-6 pt-4 flex-shrink-0">
+                      <Tab.List className="flex space-x-2 border-b border-border-subtle px-6 pt-4 shrink-0">
                         <Tab className={({ selected }) =>
                           `px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
                             selected
