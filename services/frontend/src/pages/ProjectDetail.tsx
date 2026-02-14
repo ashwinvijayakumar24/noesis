@@ -144,8 +144,16 @@ export default function ProjectDetail() {
     if (session?.access_token && projectId) {
       loadProjectDetails()
       loadChatHistory()
+      loadDraftCount()
     }
   }, [projectId])
+
+  // Reload draft count when drafts are uploaded/deleted
+  useEffect(() => {
+    if (session?.access_token && projectId && draftRefreshTrigger > 0) {
+      loadDraftCount()
+    }
+  }, [draftRefreshTrigger])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -307,6 +315,18 @@ export default function ProjectDetail() {
       console.error('Failed to load chat history:', error)
       // Set empty array on error to prevent map errors
       setMessages([])
+    }
+  }
+
+  const loadDraftCount = async () => {
+    if (!session?.access_token || !projectId) return
+
+    try {
+      const drafts = await api.drafts.list(session.access_token, projectId)
+      setDraftCount(drafts?.length || 0)
+    } catch (error: any) {
+      console.error('Failed to load draft count:', error)
+      // Silent fail - draft count not critical for page load
     }
   }
 
