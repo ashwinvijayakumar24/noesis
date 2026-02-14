@@ -350,17 +350,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                           v{draft.version}
                         </span>
                       )}
-                      <Badge variant={getStatusBadge(draft.status)}>
-                        {draft.status === 'analyzed' ? 'Processed' : draft.status.charAt(0).toUpperCase() + draft.status.slice(1).toLowerCase()}
-                      </Badge>
-
-                      {/* Health Badge for analyzed drafts */}
-                      {draft.status === 'analyzed' && healthBadge && (
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${healthBadge.bgColor} ${healthBadge.textColor} border ${healthBadge.borderColor}`}>
-                          {healthBadge.icon}
-                          {healthBadge.label}
-                        </span>
-                      )}
                     </div>
 
                     {/* Basic info */}
@@ -395,12 +384,19 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                 </div>
 
                 <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
-                  {draft.status === 'processing' && (
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent-primary"></div>
-                      <span className="text-xs text-text-secondary font-mono">Analyzing...</span>
-                    </div>
+                  {/* Status Badge */}
+                  <Badge variant={getStatusBadge(draft.status)}>
+                    {draft.status === 'analyzed' ? 'Processed' : draft.status.charAt(0).toUpperCase() + draft.status.slice(1).toLowerCase()}
+                  </Badge>
+
+                  {/* Health Badge for analyzed drafts */}
+                  {draft.status === 'analyzed' && healthBadge && (
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${healthBadge.bgColor} ${healthBadge.textColor} border ${healthBadge.borderColor}`}>
+                      {healthBadge.icon}
+                      {healthBadge.label}
+                    </span>
                   )}
+
                   {draft.status === 'analyzed' && (
                     <div className="relative group">
                       <button

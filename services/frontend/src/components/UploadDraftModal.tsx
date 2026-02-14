@@ -77,7 +77,7 @@ export default function UploadDraftModal({
 
       // Enhanced progress notification
       toast.success(
-        'Draft uploaded! Analysis will complete in ~60 seconds. Citation suggestions will appear when ready.',
+        'Draft uploaded! Analysis will complete in 2-3 minutes. Citation suggestions will appear when ready.',
         { duration: 5000 }
       )
 
