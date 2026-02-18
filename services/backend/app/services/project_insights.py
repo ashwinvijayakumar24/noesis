@@ -10,13 +10,12 @@ Analyzes all documents in a project to identify:
 - Citation patterns
 """
 
-from openai import OpenAI
-import os
 from typing import List, Dict, Any
 import json
+from app.core.openai_client import get_openai_client, get_completion_params
 
 # Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 INSIGHTS_SYSTEM_PROMPT = """You are an expert research analyst. Analyze a collection of research paper summaries to identify cross-paper patterns, gaps, and insights.
 
@@ -237,7 +236,8 @@ Key Citations:
         ],
         response_format={"type": "json_object"},
         temperature=0.3,
-        max_tokens=3000
+        max_tokens=3000,
+        **get_completion_params()  # Enable zero data retention
     )
 
     insights_json = response.choices[0].message.content

@@ -1,6 +1,6 @@
 import { Fragment, useState, useRef, type FormEvent } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
-import { XMarkIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, DocumentArrowUpIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
 import { trackEvent } from '../lib/analytics'
@@ -24,6 +24,7 @@ export default function UploadDraftModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,6 +154,43 @@ export default function UploadDraftModal({
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                  {/* Privacy Notice */}
+                  <div className="mb-4 rounded-md bg-blue-50 p-4 border border-blue-200">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <ShieldCheckIcon className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <h3 className="text-sm font-medium text-blue-800">
+                          Your research is private and secure
+                        </h3>
+                        <div className="mt-2 text-sm text-blue-700">
+                          <ul className="list-disc space-y-1 pl-5">
+                            <li>Your drafts are never shared with other users</li>
+                            <li>AI analysis uses zero data retention (OpenAI does not store your content)</li>
+                            <li>Your work is isolated to your account only</li>
+                            <li>No data is used for model training or indexing</li>
+                          </ul>
+                          <button
+                            type="button"
+                            onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                            className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-500"
+                          >
+                            {showPrivacyInfo ? 'Hide details' : 'Learn more about our privacy practices'}
+                          </button>
+                          {showPrivacyInfo && (
+                            <div className="mt-3 text-xs text-blue-600 space-y-2 border-t border-blue-200 pt-2">
+                              <p><strong>Database Security:</strong> Row-Level Security ensures your data is isolated by user ID.</p>
+                              <p><strong>AI Processing:</strong> We use OpenAI's API with zero data retention enabled. Your content is processed but never stored by OpenAI.</p>
+                              <p><strong>Storage:</strong> Files are stored in private buckets with user-specific access controls.</p>
+                              <p><strong>No Internal Reuse:</strong> Noesis does not cross-reference your work with other projects or users.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* File Picker */}
                   <div>
                     <label className="block text-sm font-medium text-text-secondary mb-2">

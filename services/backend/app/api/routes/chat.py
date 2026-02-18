@@ -2,11 +2,10 @@ from fastapi import APIRouter, HTTPException, Depends, Header, Query, Request
 from fastapi.responses import StreamingResponse
 from app.core.supabase_client import supabase
 from app.core.security_middleware import SecureAuthValidator, limiter
+from app.core.openai_client import get_async_openai_client, get_completion_params
 from typing import Optional, List, AsyncGenerator
 import json
 import asyncio
-from openai import AsyncOpenAI
-import os
 from datetime import datetime
 from starlette.background import BackgroundTask
 import logging
@@ -15,7 +14,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
-openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = get_async_openai_client()
 
 # Helper to extract user info from token
 def get_current_user(authorization: str = Header(None)):
@@ -292,7 +291,8 @@ The study found that caffeine improves cognitive performance [1] and increases a
             messages=messages,
             stream=True,
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=1000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         # Send sources first

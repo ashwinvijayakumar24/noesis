@@ -16,7 +16,6 @@ import { Badge, type BadgeVariant } from '../components/ui/Badge'
 
 // Lazy load heavy components for better performance
 const InsightsTab = lazy(() => import('../components/InsightsTab'))
-const CitationNetwork = lazy(() => import('../components/CitationNetwork'))
 
 interface Project {
   id: string
@@ -85,7 +84,7 @@ const getDocumentBorderColor = (status: string): string => {
     case 'failed':
       return 'border-l-4 border-l-red-600'
     case 'analyzed':
-      return 'border-l-4 border-l-emerald-600'
+      return 'border-l-4 border-l-green-700'
     default:
       return 'border-l-4 border-l-slate-500'
   }
@@ -918,35 +917,6 @@ export default function ProjectDetail() {
                 </div>
               )}
             </div>
-
-            {/* Citation Network Section - Collapsible */}
-            {documents.length >= 2 && (
-              <div className="bg-surface rounded-lg border border-border-base overflow-hidden">
-                <details className="group">
-                  <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-hover transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-slate-700/50 rounded-lg border-2 border-cyan-500/60">
-                        <svg className="h-5 w-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-text-primary">Citation Network</h4>
-                        <p className="text-sm text-text-muted">Interactive visualization of paper relationships</p>
-                      </div>
-                    </div>
-                    <svg className="h-5 w-5 text-text-muted group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </summary>
-                  <div className="border-t border-border-base p-4">
-                    <Suspense fallback={<ComponentLoader />}>
-                      <CitationNetwork projectId={projectId!} />
-                    </Suspense>
-                  </div>
-                </details>
-              </div>
-            )}
           </div>
         )}
 

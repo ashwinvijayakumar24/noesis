@@ -14,12 +14,10 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ArrowPathIcon,
-  MapIcon,
   AcademicCapIcon
 } from '@heroicons/react/24/outline'
 
 // Lazy load compass sub-components
-const StructureAdvisorTab = lazy(() => import('../compass/StructureAdvisorTab'))
 const SynthesisQuestionsTab = lazy(() => import('../compass/SynthesisQuestionsTab'))
 
 interface InsightsTabProps {
@@ -107,9 +105,8 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     overview: true,
     gaps: true,
-    questions: false,
-    recommendations: false,
-    structure: false,
+    questions: true,
+    recommendations: true,
     synthesis: false
   })
 
@@ -418,18 +415,26 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
         iconBorderColor="border-orange-500/60"
         expanded={expandedSections.gaps}
         onToggle={() => toggleSection('gaps')}
-        badge={insights.research_gaps?.length || 0}
       >
         {insights.research_gaps && insights.research_gaps.length > 0 ? (
           <div className="space-y-3">
-            {insights.research_gaps.map((gap, i) => (
-              <div key={i} className="bg-surface/50 border border-border-subtle rounded-lg p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-medium text-text-primary">{gap.title}</h4>
-                  <span className="text-xs uppercase px-2 py-1 rounded bg-surface/50 font-mono text-text-muted">
-                    {gap.category}
-                  </span>
-                </div>
+            {insights.research_gaps.map((gap, i) => {
+              const categoryColors: Record<string, string> = {
+                methodological: 'bg-[#1e40af] text-white border-[#1e40af]',
+                population: 'bg-[#166534] text-white border-[#166534]',
+                theoretical: 'bg-[#6b21a8] text-white border-[#6b21a8]',
+                temporal: 'bg-[#9a3412] text-white border-[#9a3412]',
+              }
+              const colorClass = categoryColors[gap.category] || 'bg-[#334155] text-white border-[#334155]'
+
+              return (
+                <div key={i} className="bg-surface/50 border border-border-subtle rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="font-medium text-text-primary">{gap.title}</h4>
+                    <span className={`text-xs px-2 py-1 rounded border font-mono ${colorClass}`}>
+                      {gap.category.charAt(0).toUpperCase() + gap.category.slice(1)}
+                    </span>
+                  </div>
                 <p className="text-sm text-text-secondary mb-3">{gap.description}</p>
 
                 {gap.suggested_directions && gap.suggested_directions.length > 0 && (
@@ -445,15 +450,29 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
                     </ul>
                   </div>
                 )}
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <p className="text-text-muted text-sm">No research gaps identified yet.</p>
         )}
       </SectionHeader>
 
-      {/* Section 3: Research Questions */}
+      {/* Section 3: Paper Recommendations */}
+      <SectionHeader
+        title="Paper Recommendations"
+        icon={<DocumentTextIcon className="h-5 w-5" />}
+        iconBg="bg-slate-700/50"
+        iconColor="text-green-400"
+        iconBorderColor="border-green-500/60"
+        expanded={expandedSections.recommendations}
+        onToggle={() => toggleSection('recommendations')}
+      >
+        <PaperRecommendations projectId={projectId} insightsStatus={status} />
+      </SectionHeader>
+
+      {/* Section 4: Research Questions */}
       <SectionHeader
         title="Research Questions"
         icon={<AcademicCapIcon className="h-5 w-5" />}
@@ -466,37 +485,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
         <ResearchQuestions projectId={projectId} insightsStatus={status} hideMethodology={true} />
       </SectionHeader>
 
-      {/* Section 4: Paper Recommendations */}
-      <SectionHeader
-        title="Paper Recommendations"
-        icon={<DocumentTextIcon className="h-5 w-5" />}
-        iconBg="bg-slate-700/50"
-        iconColor="text-green-400"
-        iconBorderColor="border-green-500/60"
-        expanded={expandedSections.recommendations}
-        onToggle={() => toggleSection('recommendations')}
-      >
-        <PaperRecommendations projectId={projectId} />
-      </SectionHeader>
-
-      {/* Section 5: Structure Guidance (from Compass) */}
-      {guidance?.structure_recommendations && guidance.structure_recommendations.length > 0 && (
-        <SectionHeader
-          title="Structure Guidance"
-          icon={<MapIcon className="h-5 w-5" />}
-          iconBg="bg-slate-700/50"
-          iconColor="text-cyan-400"
-          iconBorderColor="border-cyan-500/60"
-          expanded={expandedSections.structure}
-          onToggle={() => toggleSection('structure')}
-        >
-          <Suspense fallback={<ComponentLoader />}>
-            <StructureAdvisorTab recommendations={guidance.structure_recommendations} />
-          </Suspense>
-        </SectionHeader>
-      )}
-
-      {/* Section 6: Synthesis Questions (from Compass) */}
+      {/* Section 5: Synthesis Questions (from Compass) */}
       {guidance?.synthesis_questions && guidance.synthesis_questions.length > 0 && (
         <SectionHeader
           title="Synthesis Questions"

@@ -37,12 +37,56 @@ if settings.SENTRY_DSN:
         # Send all events in non-development environments
         return event
 
+    def scrub_sensitive_data(event, hint):
+        """
+        Remove sensitive research content from Sentry events.
+        Redacts: draft text, claims, document content, file data
+
+        This prevents unpublished research from being exposed in error logs.
+        """
+        # Apply environment filter first
+        event = before_send_filter(event, hint)
+        if event is None:
+            return None
+
+        # Sensitive keys to redact
+        sensitive_keys = [
+            'claim_text', 'draft_text', 'content', 'document_text',
+            'file_content', 'chunk_content', 'analysis', 'feedback_text',
+            'citation_text', 'description', 'methodology', 'findings',
+            'abstract', 'summary', 'text', 'message', 'body'
+        ]
+
+        # Scrub request data
+        if 'request' in event and 'data' in event['request']:
+            data = event['request']['data']
+            if isinstance(data, dict):
+                for key in sensitive_keys:
+                    if key in data:
+                        data[key] = '[REDACTED]'
+
+        # Scrub extra context
+        if 'extra' in event:
+            for key in sensitive_keys:
+                if key in event['extra']:
+                    event['extra'][key] = '[REDACTED]'
+
+        # Truncate long messages in breadcrumbs
+        if 'breadcrumbs' in event and 'values' in event['breadcrumbs']:
+            for breadcrumb in event['breadcrumbs']['values']:
+                if 'message' in breadcrumb and len(breadcrumb['message']) > 200:
+                    breadcrumb['message'] = breadcrumb['message'][:200] + '... [TRUNCATED]'
+
+        return event
+
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
         integrations=[FastApiIntegration()],
         traces_sample_rate=0.1,  # 10% performance monitoring
         environment=settings.ENVIRONMENT,
-        before_send=before_send_filter
+        before_send=scrub_sensitive_data,  # Changed from before_send_filter
+        send_default_pii=False,  # Prevent default PII collection
+        max_breadcrumbs=20
     )
 
 # Initialize rate limiter

@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     # OpenAI Configuration
     OPENAI_API_KEY: Optional[str] = None
+    OPENAI_ZERO_DATA_RETENTION: bool = True  # Privacy-first default
+    OPENAI_ORGANIZATION_ID: Optional[str] = None
 
     # Sentry Configuration (Error Tracking)
     SENTRY_DSN: Optional[str] = None

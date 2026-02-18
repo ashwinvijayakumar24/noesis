@@ -25,7 +25,49 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-# Helper to extract user info from token
+# Helper functions
+def generate_signed_url_for_draft(file_url: str, draft_id: str) -> Optional[dict]:
+    """
+    Generate a signed URL for a draft file.
+
+    Args:
+        file_url: The public file URL from storage
+        draft_id: Draft ID (for logging)
+
+    Returns:
+        Dict with 'signed_url' and 'expires_at' keys, or None if generation fails
+    """
+    if not file_url or "/drafts/" not in file_url:
+        return None
+
+    try:
+        # Extract storage path from public URL
+        path_parts = file_url.split("/drafts/")
+        if len(path_parts) < 2:
+            return None
+
+        storage_path = path_parts[1]
+
+        # Generate signed URL with 1-hour expiration
+        signed_url_response = supabase.storage.from_("drafts").create_signed_url(storage_path, 3600)
+        signed_url = signed_url_response.get("signedURL")
+
+        if signed_url:
+            expires_at = (datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)).isoformat()
+            logger.debug(f"Generated signed URL for draft {draft_id}")
+            return {
+                "signed_url": signed_url,
+                "expires_at": expires_at
+            }
+        else:
+            logger.warning(f"Failed to generate signed URL for draft {draft_id}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Error generating signed URL for draft {draft_id}: {e}")
+        return None
+
+
 def get_current_user(authorization: str = Header(None)):
     """Extract and validate user from Authorization header"""
     if supabase is None:
@@ -214,6 +256,7 @@ def list_drafts(
     project_id: Optional[str] = None,
     limit: int = Query(50, ge=1, le=100, description="Number of drafts to return (max 100)"),
     offset: int = Query(0, ge=0, description="Number of drafts to skip"),
+    include_signed_urls: bool = Query(False, description="Generate signed URLs for file access (slower)"),
     user_id: str = Depends(get_current_user)
 ):
     """
@@ -224,6 +267,9 @@ def list_drafts(
     - limit: Number of drafts to return (default: 50, max: 100)
     - offset: Number of drafts to skip (default: 0)
     - Returns total count and has_more flag
+
+    Security:
+    - include_signed_urls: Generate time-limited signed URLs instead of public URLs (default: false for performance)
 
     Returns drafts ordered by created_at (newest first).
     """
@@ -244,8 +290,19 @@ def list_drafts(
     response = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     print(f"[DRAFT-LIST] Found {len(response.data) if response.data else 0} drafts (total: {total})")
 
+    drafts = response.data if response.data else []
+
+    # Optionally generate signed URLs for each draft
+    if include_signed_urls and drafts:
+        for draft in drafts:
+            file_url = draft.get("file_url")
+            signed_url_data = generate_signed_url_for_draft(file_url, draft.get("id"))
+            if signed_url_data:
+                draft["file_url"] = signed_url_data["signed_url"]
+                draft["file_url_expires_at"] = signed_url_data["expires_at"]
+
     return {
-        "drafts": response.data,
+        "drafts": drafts,
         "pagination": {
             "total": total,
             "limit": limit,
@@ -256,10 +313,17 @@ def list_drafts(
 
 
 @router.get("/projects/{project_id}/drafts")
-def list_project_drafts(project_id: str, user_id: str = Depends(get_current_user)):
+def list_project_drafts(
+    project_id: str,
+    include_signed_urls: bool = Query(False, description="Generate signed URLs for file access (slower)"),
+    user_id: str = Depends(get_current_user)
+):
     """
     List all drafts for a specific project.
     Ordered by version (newest first).
+
+    Security:
+    - include_signed_urls: Generate time-limited signed URLs instead of public URLs (default: false for performance)
     """
     # Verify project exists and belongs to user
     project_res = supabase.table("projects").select("id").eq("id", project_id).eq("user_id", user_id).execute()
@@ -272,7 +336,18 @@ def list_project_drafts(project_id: str, user_id: str = Depends(get_current_user
         .order("version", desc=True)\
         .execute()
 
-    return response.data
+    drafts = response.data if response.data else []
+
+    # Optionally generate signed URLs for each draft
+    if include_signed_urls and drafts:
+        for draft in drafts:
+            file_url = draft.get("file_url")
+            signed_url_data = generate_signed_url_for_draft(file_url, draft.get("id"))
+            if signed_url_data:
+                draft["file_url"] = signed_url_data["signed_url"]
+                draft["file_url_expires_at"] = signed_url_data["expires_at"]
+
+    return drafts
 
 
 @router.get("/{draft_id}/signed-url")
@@ -337,13 +412,27 @@ def get_draft(draft_id: str, user_id: str = Depends(get_current_user)):
     - processing: Analysis in progress
     - analyzed: Analysis complete (includes structure data)
     - failed: Analysis failed (check metadata for error)
+
+    Security: Returns signed URL for file access (1-hour expiration) instead of public URL.
     """
     response = supabase.table("drafts").select("*").eq("id", draft_id).eq("user_id", user_id).execute()
 
     if not response.data:
         raise HTTPException(status_code=404, detail="Draft not found")
 
-    return response.data[0]
+    draft = response.data[0]
+
+    # Generate signed URL for secure file access (defense-in-depth)
+    file_url = draft.get("file_url")
+    signed_url_data = generate_signed_url_for_draft(file_url, draft_id)
+
+    if signed_url_data:
+        # Replace public URL with signed URL
+        draft["file_url"] = signed_url_data["signed_url"]
+        draft["file_url_expires_at"] = signed_url_data["expires_at"]
+    # Otherwise, fallback to public URL (graceful degradation)
+
+    return draft
 
 
 @router.put("/{draft_id}")

@@ -8,15 +8,14 @@ Each claim is categorized by type (empirical, theoretical, methodological) and i
 from app.workflows.draft_analysis.state import DraftAnalysisState, Claim
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 import json
 import uuid
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 CLAIM_EXTRACTION_PROMPT = """You are an expert academic reviewer. Analyze this research draft and extract all significant claims made by the authors.
@@ -131,7 +130,8 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=3000
+            max_tokens=3000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         result = json.loads(response.choices[0].message.content)

@@ -7,14 +7,13 @@ Generates expert academic reviewer-style feedback based on the analysis.
 from app.workflows.draft_analysis.state import DraftAnalysisState, Feedback
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 import json
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 REVIEWER_FEEDBACK_PROMPT = """You are an expert academic reviewer providing constructive feedback on a research draft.
@@ -184,7 +183,8 @@ Coverage Gaps:
             ],
             response_format={"type": "json_object"},
             temperature=0.4,
-            max_tokens=2000
+            max_tokens=2000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         result = json.loads(response.choices[0].message.content)

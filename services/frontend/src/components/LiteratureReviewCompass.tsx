@@ -238,6 +238,7 @@ export default function LiteratureReviewCompass({
                           {guidance && (
                             <StructureAdvisorTab
                               recommendations={guidance.structure_recommendations}
+                              structureGuidance={guidance.structure_guidance}
                             />
                           )}
                         </Tab.Panel>

@@ -7,9 +7,22 @@ import {
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { Badge } from '../ui/Badge'
+import InsightCard from './InsightCard'
 
 interface StructureAdvisorTabProps {
   recommendations: StructureRecommendation[]
+  structureGuidance?: StructureGuidanceItem[]
+}
+
+interface StructureGuidanceItem {
+  text: string
+  type: 'gap' | 'conflict' | 'pattern' | 'general'
+  priority: number
+  source_data: {
+    conflicts: string[]
+    gaps: string[]
+    patterns: string[]
+  }
 }
 
 interface StructureRecommendation {
@@ -30,7 +43,7 @@ interface Section {
   synthesis_prompt: string
 }
 
-export default function StructureAdvisorTab({ recommendations }: StructureAdvisorTabProps) {
+export default function StructureAdvisorTab({ recommendations, structureGuidance = [] }: StructureAdvisorTabProps) {
   const [selectedStructure, setSelectedStructure] = useState<string>(
     recommendations.length > 0 ? recommendations[0].type : ''
   )
@@ -98,6 +111,64 @@ export default function StructureAdvisorTab({ recommendations }: StructureAdviso
           Select a structure to preview its outline.
         </p>
       </div>
+
+      {/* Structure Guidance (NEW - using template variations) */}
+      {structureGuidance && structureGuidance.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-text-primary">Structure Guidance</h4>
+          <div className="space-y-3">
+            {structureGuidance.map((guidance, index) => {
+              const sourceCount =
+                guidance.source_data.conflicts.length +
+                guidance.source_data.gaps.length +
+                guidance.source_data.patterns.length
+
+              return (
+                <InsightCard
+                  key={index}
+                  title={`Guidance ${index + 1}`}
+                  type={guidance.type}
+                  priority={guidance.priority}
+                  metadata={{
+                    sourceCount,
+                    actionable: true
+                  }}
+                >
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    {guidance.text}
+                  </p>
+
+                  {/* Source data breakdown */}
+                  {sourceCount > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border-subtle/50">
+                      <div className="text-xs text-text-muted space-y-1">
+                        {guidance.source_data.conflicts.length > 0 && (
+                          <div>
+                            <span className="font-semibold">Conflicts:</span>{' '}
+                            {guidance.source_data.conflicts.join(', ')}
+                          </div>
+                        )}
+                        {guidance.source_data.gaps.length > 0 && (
+                          <div>
+                            <span className="font-semibold">Gaps:</span>{' '}
+                            {guidance.source_data.gaps.join(', ')}
+                          </div>
+                        )}
+                        {guidance.source_data.patterns.length > 0 && (
+                          <div>
+                            <span className="font-semibold">Patterns:</span>{' '}
+                            {guidance.source_data.patterns.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </InsightCard>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Structure Selection Cards */}
       <div className="space-y-3">

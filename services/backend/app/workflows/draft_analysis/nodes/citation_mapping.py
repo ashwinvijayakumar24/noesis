@@ -7,15 +7,14 @@ Uses parallel processing for significant speedup (30-60s → 5-10s).
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, ClaimWithCitation
 from app.core.logging_config import get_logger
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 import json
 import asyncio
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 CITATION_QUALITY_PROMPT = """You are an expert academic reviewer. Assess the quality of citations for a research claim.
@@ -93,7 +92,8 @@ Found Literature:
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=800
+            max_tokens=800,
+            **get_completion_params()  # Enable zero data retention
         )
 
         return json.loads(response.choices[0].message.content)

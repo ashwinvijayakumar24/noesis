@@ -9,10 +9,11 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   TrashIcon,
-  MagnifyingGlassIcon as _MagnifyingGlassIcon
+  PlusCircleIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 
-const MAX_RESEARCH_QUESTIONS = 30
+const MAX_RESEARCH_QUESTIONS = 10
 
 interface ResearchQuestion {
   id: string
@@ -20,7 +21,7 @@ interface ResearchQuestion {
   rationale: string
   suggested_methodology: string
   gap_category: string | null
-  status: 'new' | 'exploring' | 'answered'
+  status: 'new' | 'added' | 'dismissed'
   notes: string | null
   created_at: string
 }
@@ -33,17 +34,11 @@ interface ResearchQuestionsProps {
 }
 
 const GAP_CATEGORY_COLORS = {
-  methodological: 'bg-blue-600/20 text-blue-400 border-blue-600/30',
-  population: 'bg-green-600/20 text-green-400 border-green-600/30',
-  theoretical: 'bg-purple-600/20 text-purple-400 border-purple-600/30',
-  temporal: 'bg-orange-600/20 text-orange-400 border-orange-600/30',
+  methodological: 'bg-[#1e40af] text-white border-[#1e40af]',
+  population: 'bg-[#166534] text-white border-[#166534]',
+  theoretical: 'bg-[#6b21a8] text-white border-[#6b21a8]',
+  temporal: 'bg-[#9a3412] text-white border-[#9a3412]',
 }
-
-const STATUS_OPTIONS = [
-  { value: 'new', label: 'New', color: 'text-text-tertiary' },
-  { value: 'exploring', label: 'Exploring', color: 'text-blue-400' },
-  { value: 'answered', label: 'Answered', color: 'text-emerald-400' },
-]
 
 export default function ResearchQuestions({
   projectId,
@@ -55,7 +50,8 @@ export default function ResearchQuestions({
   const [questions, setQuestions] = useState<ResearchQuestion[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set())
+  const [activeTab, setActiveTab] = useState<'new' | 'accepted' | 'dismissed'>('new')
+  const [selectedDismissed, setSelectedDismissed] = useState<Set<string>>(new Set())
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set())
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
@@ -64,8 +60,10 @@ export default function ResearchQuestions({
   const [customQuestion, setCustomQuestion] = useState('')
   const [generatingCustomMethodology, setGeneratingCustomMethodology] = useState(false)
   const [customMethodology, setCustomMethodology] = useState<any>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const MAX_METHODOLOGY_PER_QUESTION = 3
+  const QUESTIONS_PER_PAGE = 10
 
   useEffect(() => {
     if (insightsStatus === 'analyzed') {
@@ -149,7 +147,7 @@ export default function ResearchQuestions({
     }
   }
 
-  const handleStatusChange = async (questionId: string, newStatus: string) => {
+  const handleKeepQuestion = async (questionId: string) => {
     if (!session?.access_token) return
 
     try {
@@ -161,18 +159,45 @@ export default function ResearchQuestions({
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify({ status: 'added' }),
         }
       )
 
       if (!response.ok) throw new Error('Failed to update status')
 
       const data = await response.json()
-      setQuestions(prev => prev.map(q => q.id === questionId ? data.question : q))
-      toast.success('Status updated')
+      setQuestions(prev => prev.map(q => q.id === questionId ? { ...data.question, status: 'added' } : q))
+      toast.success('Question saved to Accepted!')
     } catch (error: any) {
-      console.error('Failed to update status:', error)
-      toast.error('Failed to update status')
+      console.error('Failed to keep question:', error)
+      toast.error('Failed to keep question')
+    }
+  }
+
+  const handleDismiss = async (questionId: string) => {
+    if (!session?.access_token) return
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/research-questions/questions/${questionId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ status: 'dismissed' }),
+        }
+      )
+
+      if (!response.ok) throw new Error('Failed to dismiss')
+
+      const data = await response.json()
+      setQuestions(prev => prev.map(q => q.id === questionId ? { ...data.question, status: 'dismissed' } : q))
+      toast.success('Question dismissed')
+    } catch (error: any) {
+      console.error('Failed to dismiss:', error)
+      toast.error('Failed to dismiss question')
     }
   }
 
@@ -205,18 +230,18 @@ export default function ResearchQuestions({
     }
   }
 
-  const handleBulkDelete = async () => {
+  const handlePermanentDelete = async () => {
     if (!session?.access_token) return
-    if (selectedQuestions.size === 0) {
+    if (selectedDismissed.size === 0) {
       toast.error('Please select questions to delete')
       return
     }
 
-    const confirmed = confirm(`Delete ${selectedQuestions.size} selected question(s)?`)
+    const confirmed = confirm(`Permanently delete ${selectedDismissed.size} question(s)? This will free up space in your quota.`)
     if (!confirmed) return
 
     try {
-      const questionIds = Array.from(selectedQuestions)
+      const questionIds = Array.from(selectedDismissed)
 
       // Delete each question
       await Promise.all(
@@ -234,37 +259,51 @@ export default function ResearchQuestions({
       )
 
       // Update local state
-      setQuestions(prev => prev.filter(q => !selectedQuestions.has(q.id)))
-      setSelectedQuestions(new Set())
-      toast.success(`Deleted ${questionIds.length} question(s)`)
+      setQuestions(prev => prev.filter(q => !selectedDismissed.has(q.id)))
+      setSelectedDismissed(new Set())
+      toast.success(`Permanently deleted ${questionIds.length} question(s)`)
     } catch (error: any) {
       console.error('Failed to delete questions:', error)
       toast.error('Failed to delete questions')
     }
   }
 
-  const handleDelete = async (questionId: string) => {
+  const handleRestore = async () => {
     if (!session?.access_token) return
-    if (!confirm('Delete this research question?')) return
+    if (selectedDismissed.size === 0) {
+      toast.error('Please select questions to restore')
+      return
+    }
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/research-questions/questions/${questionId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
+      const questionIds = Array.from(selectedDismissed)
+
+      // Restore each question to 'new' status
+      await Promise.all(
+        questionIds.map(id =>
+          fetch(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/research-questions/questions/${id}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ status: 'new' }),
+            }
+          )
+        )
       )
 
-      if (!response.ok) throw new Error('Failed to delete question')
-
-      setQuestions(prev => prev.filter(q => q.id !== questionId))
-      toast.success('Question deleted')
+      // Update local state
+      setQuestions(prev => prev.map(q =>
+        selectedDismissed.has(q.id) ? { ...q, status: 'new' } : q
+      ))
+      setSelectedDismissed(new Set())
+      toast.success(`Restored ${questionIds.length} question(s) to New`)
     } catch (error: any) {
-      console.error('Failed to delete question:', error)
-      toast.error('Failed to delete question')
+      console.error('Failed to restore questions:', error)
+      toast.error('Failed to restore questions')
     }
   }
 
@@ -398,8 +437,33 @@ export default function ResearchQuestions({
     )
   }
 
-  const isAtCapacity = questions.length >= MAX_RESEARCH_QUESTIONS
-  const isNearCapacity = questions.length >= MAX_RESEARCH_QUESTIONS - 5
+  const tabQuestions = activeTab === 'new'
+    ? questions.filter(q => q.status === 'new')
+    : activeTab === 'accepted'
+    ? questions.filter(q => q.status === 'added')
+    : questions.filter(q => q.status === 'dismissed')
+
+  const totalQuestions = questions.length
+  const isAtCapacity = totalQuestions >= MAX_RESEARCH_QUESTIONS
+  const isNearCapacity = totalQuestions >= MAX_RESEARCH_QUESTIONS - 5
+
+  // Pagination calculations
+  const totalPages = Math.ceil(tabQuestions.length / QUESTIONS_PER_PAGE)
+  const startIndex = (currentPage - 1) * QUESTIONS_PER_PAGE
+  const endIndex = startIndex + QUESTIONS_PER_PAGE
+  const paginatedQuestions = tabQuestions.slice(startIndex, endIndex)
+
+  // Reset to page 1 when tab changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab])
+
+  // Adjust page if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages)
+    }
+  }, [totalPages, currentPage])
 
   return (
     <div className="space-y-4">
@@ -414,43 +478,87 @@ export default function ResearchQuestions({
               <h3 className="text-lg font-serif font-semibold text-text-primary">Research Questions</h3>
               <div className="flex items-center gap-2">
                 <Badge variant={isAtCapacity ? 'error' : isNearCapacity ? 'warning' : 'neutral'}>
-                  {questions.length} / {MAX_RESEARCH_QUESTIONS}
+                  {totalQuestions} / {MAX_RESEARCH_QUESTIONS}
                 </Badge>
                 {isAtCapacity && (
                   <p className="text-sm text-text-tertiary">
-                    ⚠️ At capacity - delete some to generate more
+                    ⚠️ At capacity - permanently delete dismissed questions to generate more
                   </p>
                 )}
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            {selectedQuestions.size > 0 && (
-              <button
-                onClick={handleBulkDelete}
-                className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-              >
-                <TrashIcon className="h-5 w-5" />
-                Delete Selected ({selectedQuestions.size})
-              </button>
+          <button
+            onClick={handleGenerate}
+            disabled={generating || isAtCapacity}
+            className="px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generating ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
+                Exploring...
+              </>
+            ) : (
+              <>
+                Explore More Questions
+              </>
             )}
-            <button
-              onClick={handleGenerate}
-              disabled={generating || isAtCapacity}
-              className="px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generating ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                  Exploring...
-                </>
-              ) : (
-                <>
-                  Explore More Questions
-                </>
-              )}
-            </button>
-          </div>
+          </button>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      {!methodologyOnly && questions.length > 0 && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('new')}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              activeTab === 'new'
+                ? 'bg-purple-800 text-purple-100 border border-purple-700'
+                : 'bg-surface-hover text-text-secondary hover:bg-surface border border-border-base'
+            }`}
+          >
+            New ({questions.filter(q => q.status === 'new').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('accepted')}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              activeTab === 'accepted'
+                ? 'bg-purple-800 text-purple-100 border border-purple-700'
+                : 'bg-surface-hover text-text-secondary hover:bg-surface border border-border-base'
+            }`}
+          >
+            Accepted ({questions.filter(q => q.status === 'added').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('dismissed')}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              activeTab === 'dismissed'
+                ? 'bg-purple-800 text-purple-100 border border-purple-700'
+                : 'bg-surface-hover text-text-secondary hover:bg-surface border border-border-base'
+            }`}
+          >
+            Dismissed ({questions.filter(q => q.status === 'dismissed').length})
+          </button>
+        </div>
+      )}
+
+      {/* Dismissed Tab Actions */}
+      {!methodologyOnly && activeTab === 'dismissed' && selectedDismissed.size > 0 && (
+        <div className="flex gap-2">
+          <button
+            onClick={handleRestore}
+            className="px-4 py-2 bg-purple-800 text-purple-100 font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 border border-purple-700"
+          >
+            Restore ({selectedDismissed.size})
+          </button>
+          <button
+            onClick={handlePermanentDelete}
+            className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+          >
+            <TrashIcon className="h-5 w-5" />
+            Delete Permanently ({selectedDismissed.size})
+          </button>
         </div>
       )}
 
@@ -500,58 +608,96 @@ export default function ResearchQuestions({
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent"></div>
         </div>
-      ) : questions.length === 0 ? (
+      ) : tabQuestions.length === 0 ? (
         <div className="bg-surface/30 rounded-lg border border-border-subtle p-8 text-center">
-          <p className="text-text-tertiary">No research questions yet. Click "Explore More Questions" to discover potential avenues for your research.</p>
+          <LightBulbIcon className="h-12 w-12 text-text-muted mx-auto mb-4" />
+          <p className="text-text-tertiary">
+            {questions.length === 0
+              ? 'No research questions yet. Click "Explore More Questions" to discover potential avenues for your research.'
+              : activeTab === 'new'
+              ? 'No new questions. Generate more or check other tabs.'
+              : activeTab === 'accepted'
+              ? 'No accepted questions yet. Keep questions from the New tab to see them here.'
+              : 'No dismissed questions.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {questions.map((question) => {
+          {paginatedQuestions.map((question) => {
             const isExpanded = expandedQuestions.has(question.id)
             const isEditingNotes = editingNotes === question.id
-            const currentStatus = STATUS_OPTIONS.find(s => s.value === question.status)
 
             return (
               <div key={question.id} className="bg-surface/50 rounded-lg border border-border-base hover:border-border-subtle transition-colors">
                 {/* Question Header */}
                 <div className="p-4">
                   <div className="flex items-start gap-3">
-                    {/* Checkbox for bulk selection */}
-                    <input
-                      type="checkbox"
-                      checked={selectedQuestions.has(question.id)}
-                      onChange={(e) => {
-                        const newSelected = new Set(selectedQuestions)
-                        if (e.target.checked) {
-                          newSelected.add(question.id)
-                        } else {
-                          newSelected.delete(question.id)
-                        }
-                        setSelectedQuestions(newSelected)
-                      }}
-                      className="mt-1 h-4 w-4 text-accent-primary border-border-base rounded focus:ring-2 focus:ring-accent-primary"
-                    />
+                    {/* Checkbox only for dismissed tab */}
+                    {activeTab === 'dismissed' && (
+                      <input
+                        type="checkbox"
+                        checked={selectedDismissed.has(question.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedDismissed)
+                          if (e.target.checked) {
+                            newSelected.add(question.id)
+                          } else {
+                            newSelected.delete(question.id)
+                          }
+                          setSelectedDismissed(newSelected)
+                        }}
+                        className="mt-1 h-4 w-4 text-accent-primary border-border-base rounded focus:ring-2 focus:ring-accent-primary shrink-0"
+                      />
+                    )}
                     <div className="flex-1 flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         {question.gap_category && (
                           <span className={`text-xs px-2 py-1 rounded border font-mono ${GAP_CATEGORY_COLORS[question.gap_category as keyof typeof GAP_CATEGORY_COLORS] || 'bg-surface-hover text-text-secondary'}`}>
-                            {question.gap_category}
+                            {question.gap_category.charAt(0).toUpperCase() + question.gap_category.slice(1)}
                           </span>
                         )}
-                        <select
-                          value={question.status}
-                          onChange={(e) => handleStatusChange(question.id, e.target.value)}
-                          className={`text-xs px-2 py-1 rounded bg-bg-base border border-border-subtle ${currentStatus?.color} focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors`}
-                        >
-                          {STATUS_OPTIONS.map(option => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
                       </div>
                       <h4 className="text-text-primary font-medium leading-relaxed">{question.question}</h4>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                      {activeTab === 'new' && (
+                        <>
+                          <button
+                            onClick={() => handleKeepQuestion(question.id)}
+                            className="px-3 py-1.5 bg-green-800 text-green-100 text-sm font-semibold rounded hover:bg-green-700 transition-colors flex items-center gap-1 border border-green-700"
+                          >
+                            <PlusCircleIcon className="h-4 w-4" />
+                            Keep Question
+                          </button>
+                          <button
+                            onClick={() => handleDismiss(question.id)}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
+                            title="Dismiss question"
+                          >
+                            <XMarkIcon className="h-5 w-5" />
+                          </button>
+                        </>
+                      )}
+                      {activeTab === 'accepted' && (
+                        <>
+                          <span className="px-3 py-1.5 bg-green-900/40 text-green-200 text-sm font-semibold rounded border border-green-800">
+                            Kept
+                          </span>
+                          <button
+                            onClick={() => handleDismiss(question.id)}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
+                            title="Dismiss question"
+                          >
+                            <XMarkIcon className="h-5 w-5" />
+                          </button>
+                        </>
+                      )}
+                      {activeTab === 'dismissed' && (
+                        <span className="px-3 py-1.5 bg-surface-hover text-text-muted text-sm rounded">
+                          Dismissed
+                        </span>
+                      )}
                       <button
                         onClick={() => toggleExpanded(question.id)}
                         className="text-text-tertiary hover:text-text-primary transition-colors"
@@ -561,12 +707,6 @@ export default function ResearchQuestions({
                         ) : (
                           <ChevronDownIcon className="h-5 w-5" />
                         )}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(question.id)}
-                        className="text-text-tertiary hover:text-red-400 transition-colors"
-                      >
-                        <TrashIcon className="h-5 w-5" />
                       </button>
                     </div>
                     </div>
@@ -700,6 +840,46 @@ export default function ResearchQuestions({
           })}
         </div>
         )
+      )}
+
+      {/* Pagination Controls */}
+      {!methodologyOnly && tabQuestions.length > QUESTIONS_PER_PAGE && (
+        <div className="flex items-center justify-between pt-4 border-t border-border-subtle">
+          <div className="text-sm text-text-tertiary">
+            Showing {startIndex + 1}-{Math.min(endIndex, tabQuestions.length)} of {tabQuestions.length} questions
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-sm bg-surface-hover text-text-secondary rounded hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    currentPage === page
+                      ? 'bg-accent-primary text-white font-semibold'
+                      : 'bg-surface-hover text-text-secondary hover:bg-surface'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-sm bg-surface-hover text-text-secondary rounded hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

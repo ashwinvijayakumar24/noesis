@@ -52,8 +52,11 @@ def get_compass_guidance(
     Returns:
         Dictionary containing:
         - structure_recommendations: List of scored organizational approaches
-        - synthesis_questions: Critical thinking questions
+        - synthesis_questions: Critical thinking questions with rich metadata
+          (difficulty, confidence, sources, actionable flag)
         - positioning_prompts: Prompts for positioning research
+        - structure_guidance: List of guidance items with type, priority, source_data
+          (NEW: uses template variations to avoid repetition)
     """
 
     # 1. Get project with insights and verify ownership

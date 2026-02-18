@@ -10,12 +10,11 @@ specific claims that can be matched against draft claims using semantic similari
 from typing import List
 from app.workflows.document_analysis.state import DocumentAnalysisState, Claim
 from app.core.logging_config import get_logger
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 import json
 
 logger = get_logger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 CLAIM_EXTRACTION_PROMPT = """You are an expert at extracting research claims from academic papers.
@@ -119,7 +118,8 @@ def extract_claims_node(state: DocumentAnalysisState) -> DocumentAnalysisState:
             ],
             response_format={"type": "json_object"},
             temperature=0.4,
-            max_tokens=3000
+            max_tokens=3000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         result = json.loads(response.choices[0].message.content)

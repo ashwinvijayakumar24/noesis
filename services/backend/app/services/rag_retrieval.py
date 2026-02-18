@@ -5,9 +5,9 @@ Handles semantic search and retrieval of relevant document chunks
 using pgvector similarity search.
 """
 
-from openai import OpenAI
 from app.core.supabase_client import supabase
 from app.core.config import settings
+from app.core.openai_client import get_openai_client, get_completion_params
 from typing import List, Dict, Any
 
 
@@ -29,7 +29,7 @@ def embed_query(query: str, model: str = "text-embedding-3-small") -> List[float
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not configured in environment variables")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = get_openai_client()
 
     response = client.embeddings.create(
         model=model,
@@ -234,7 +234,7 @@ def generate_rag_answer(
     context = "\n\n---\n\n".join(context_parts)
 
     # Generate answer using OpenAI
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = get_openai_client()
 
     # Adjust system prompt based on whether drafts are included
     if include_drafts or draft_id:
@@ -268,7 +268,8 @@ def generate_rag_answer(
             }
         ],
         temperature=0.7,
-        max_tokens=1000
+        max_tokens=1000,
+        **get_completion_params()  # Enable zero data retention
     )
 
     return {

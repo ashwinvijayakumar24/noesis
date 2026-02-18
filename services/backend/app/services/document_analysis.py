@@ -6,14 +6,13 @@ Provides AI-powered structured analysis of research papers using GPT-4o.
 import json
 import time
 from typing import Dict, Any, Optional
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client with privacy-first configuration
+client = get_openai_client()
 
 
 # Analysis tiers based on page count
@@ -356,7 +355,8 @@ def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-
             ],
             response_format={"type": "json_object"},  # Force JSON output
             temperature=0.3,  # Lower temperature for more consistent output
-            max_tokens=max_tokens  # Tier-appropriate token limit
+            max_tokens=max_tokens,  # Tier-appropriate token limit
+            **get_completion_params()  # Enable zero data retention
         )
 
         # Extract and parse the JSON response
@@ -443,7 +443,8 @@ Guidelines:
             ],
             response_format={"type": "json_object"},
             temperature=0.1,
-            max_tokens=200
+            max_tokens=200,
+            **get_completion_params()  # Enable zero data retention
         )
 
         citation_json = response.choices[0].message.content

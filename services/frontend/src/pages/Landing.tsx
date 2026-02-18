@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   DocumentTextIcon as _DocumentTextIcon,
   ChatBubbleLeftRightIcon,
@@ -712,9 +712,9 @@ export default function Landing() {
               © 2026 Noesis. All rights reserved.
             </div>
             <div className="flex items-center gap-6 text-text-muted text-sm">
-              <a href="#" className="hover:text-text-secondary transition-colors">Privacy</a>
+              <Link to="/privacy" className="hover:text-text-secondary transition-colors">Privacy</Link>
               <a href="#" className="hover:text-text-secondary transition-colors">Terms</a>
-              <a href="#" className="hover:text-text-secondary transition-colors">Contact</a>
+              <a href="mailto:privacy@noesis.app" className="hover:text-text-secondary transition-colors">Contact</a>
             </div>
           </div>
         </div>

@@ -9,13 +9,12 @@ Aggregates paper recommendations from multiple sources:
 Uses project insights, research questions, and themes to find relevant papers.
 """
 
-import os
 from typing import List, Dict, Any, Optional
-from openai import OpenAI
+from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.external_apis import SemanticScholarAPI, ArXivAPI, PubMedAPI
 from datetime import datetime
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 # Initialize API clients
 semantic_scholar = SemanticScholarAPI()

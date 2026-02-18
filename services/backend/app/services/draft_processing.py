@@ -15,13 +15,13 @@ Requirements: 1.1, 1.2, 1.4
 
 import fitz  # pymupdf for PDF processing (fallback)
 from docx import Document  # python-docx for DOCX processing
-from openai import OpenAI
 import json
 import time
 from typing import Dict, Any, List, Optional
 from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.core.logging_config import get_logger
+from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.grobid_client import get_grobid_client
 from app.services.draft_errors import (
     DraftProcessingError,
@@ -44,7 +44,7 @@ import asyncio
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+client = get_openai_client()
 
 
 # ============================================
@@ -358,7 +358,8 @@ def analyze_document_structure(draft_text: str) -> Dict[str, Any]:
             ],
             response_format={"type": "json_object"},
             temperature=0.1,
-            max_tokens=1000
+            max_tokens=1000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         structure_json = response.choices[0].message.content

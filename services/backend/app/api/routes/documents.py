@@ -330,7 +330,7 @@ def _run_analysis_task(document_id: str, file_url: str):
     from app.workflows.document_analysis.graph import run_document_analysis_workflow
     import asyncio
     from app.services.quota_management import increment_quota_usage, track_openai_usage
-    from openai import OpenAI
+    from app.core.openai_client import get_openai_client, get_completion_params
     import os
 
     try:
@@ -471,7 +471,7 @@ def _run_analysis_task(document_id: str, file_url: str):
         print(f"[ANALYZE-BG-LG] Step 5: Storing structured data in database...")
 
         # Get OpenAI client for generating embeddings
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client = get_openai_client()
 
         # 5.1 Store claims with embeddings
         claims = final_state.get("claims", [])
