@@ -14,12 +14,11 @@ This enables quantitative comparison across papers and evidence strength assessm
 from typing import List
 from app.workflows.document_analysis.state import DocumentAnalysisState, Finding
 from app.core.logging_config import get_logger
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 import json
 
 logger = get_logger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 FINDINGS_EXTRACTION_PROMPT = """You are an expert at extracting research findings and results from academic papers.
@@ -139,7 +138,8 @@ def extract_findings_node(state: DocumentAnalysisState) -> DocumentAnalysisState
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=3000
+            max_tokens=3000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         result = json.loads(response.choices[0].message.content)

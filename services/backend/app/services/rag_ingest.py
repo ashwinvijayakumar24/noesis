@@ -9,11 +9,11 @@ including sections, references, and metadata.
 """
 
 import fitz  # pymupdf (fallback only)
-from openai import OpenAI
 import tiktoken
 from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.core.logging_config import get_logger
+from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.grobid_client import get_grobid_client
 from app.services.rag_chunking import get_chunking_strategy, get_section_aware_chunking_strategy
 import datetime
@@ -153,7 +153,7 @@ def embed_chunks(chunks: List[str], model: str = "text-embedding-3-small") -> Li
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not configured in environment variables")
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = get_openai_client()
 
     embeddings = client.embeddings.create(
         model=model,

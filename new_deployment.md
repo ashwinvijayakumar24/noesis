@@ -201,16 +201,16 @@ Implement the following plan:
   cd ~/noesis/infra                                                                                                                                             
                                                                                                                                                                 
   # Stop all containers                                                                                                                                         
-  docker-compose -f docker-compose.prod.yml down                                                                                                                
+  docker compose -f docker-compose.prod.yml down                                                                                                                
                                                                                                                                                                 
   # Remove old images to force rebuild                                                                                                                          
-  docker-compose -f docker-compose.prod.yml build --no-cache                                                                                                    
+  docker compose -f docker-compose.prod.yml build --no-cache                                                                                                    
                                                                                                                                                                 
   # Start all containers                                                                                                                                        
-  docker-compose -f docker-compose.prod.yml up -d                                                                                                               
+  docker compose -f docker-compose.prod.yml up -d                                                                                                               
                                                                                                                                                                 
   # Verify all containers are running                                                                                                                           
-  docker-compose -f docker-compose.prod.yml ps                                                                                                                  
+  docker compose -f docker-compose.prod.yml ps                                                                                                                  
   ```                                                                                                                                                           
                                                                                                                                                                 
   **Expected output:**                                                                                                                                          

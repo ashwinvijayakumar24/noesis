@@ -10,12 +10,11 @@ Analyzes document text to extract structural information:
 from typing import Dict, Any
 from app.workflows.document_analysis.state import DocumentAnalysisState, DocumentStructure
 from app.core.logging_config import get_logger
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 import json
 
 logger = get_logger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 STRUCTURE_EXTRACTION_PROMPT = """You are an expert at analyzing research paper structure.
@@ -96,7 +95,8 @@ def extract_structure_node(state: DocumentAnalysisState) -> DocumentAnalysisStat
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=2000
+            max_tokens=2000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         result = json.loads(response.choices[0].message.content)

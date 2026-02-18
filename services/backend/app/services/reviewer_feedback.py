@@ -17,16 +17,16 @@ Requirements: 5.1, 5.2, 5.3, 5.4
 import json
 import time
 from typing import Dict, Any, List, Optional
-from openai import OpenAI
 from app.core.config import settings
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
+from app.core.openai_client import get_openai_client, get_completion_params
 import datetime
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+client = get_openai_client()
 
 
 # ============================================
@@ -203,7 +203,8 @@ async def generate_section_feedback(
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=2000
+            max_tokens=2000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         feedback_json = response.choices[0].message.content
@@ -266,7 +267,8 @@ async def analyze_positioning(
             ],
             response_format={"type": "json_object"},
             temperature=0.2,
-            max_tokens=1500
+            max_tokens=1500,
+            **get_completion_params()  # Enable zero data retention
         )
 
         positioning_json = response.choices[0].message.content

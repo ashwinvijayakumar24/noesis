@@ -13,16 +13,16 @@ Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
 import json
 import time
 from typing import Dict, Any, List, Optional
-from openai import OpenAI
 from app.core.config import settings
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
+from app.core.openai_client import get_openai_client, get_completion_params
 import datetime
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+client = get_openai_client()
 
 
 # ============================================
@@ -192,7 +192,8 @@ async def detect_coverage_gaps(draft_text: str) -> Dict[str, Any]:
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=2000
+            max_tokens=2000,
+            **get_completion_params()  # Enable zero data retention
         )
 
         coverage_json = response.choices[0].message.content

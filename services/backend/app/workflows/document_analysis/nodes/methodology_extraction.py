@@ -14,12 +14,11 @@ This enables cross-paper methodological comparison and reproducibility assessmen
 from typing import List
 from app.workflows.document_analysis.state import DocumentAnalysisState, Method
 from app.core.logging_config import get_logger
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 import json
 
 logger = get_logger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 METHODOLOGY_EXTRACTION_PROMPT = """You are an expert at extracting research methodology from academic papers.
@@ -124,7 +123,8 @@ def extract_methodology_node(state: DocumentAnalysisState) -> DocumentAnalysisSt
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            max_tokens=2500
+            max_tokens=2500,
+            **get_completion_params()  # Enable zero data retention
         )
 
         result = json.loads(response.choices[0].message.content)

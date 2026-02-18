@@ -19,6 +19,18 @@ interface CompassGuidance {
   structure_recommendations: StructureRecommendation[]
   synthesis_questions: SynthesisQuestion[]
   positioning_prompts: PositioningPrompt[]
+  structure_guidance?: StructureGuidanceItem[]
+}
+
+interface StructureGuidanceItem {
+  text: string
+  type: 'gap' | 'conflict' | 'pattern' | 'general'
+  priority: number
+  source_data: {
+    conflicts: string[]
+    gaps: string[]
+    patterns: string[]
+  }
 }
 
 interface StructureRecommendation {
@@ -44,6 +56,15 @@ interface SynthesisQuestion {
   category: string
   icon: string
   related_papers: string[]
+  difficulty?: 'low' | 'medium' | 'high'
+  confidence?: number
+  metadata?: {
+    source_conflicts?: string[]
+    source_gaps?: string[]
+    source_patterns?: string[]
+  }
+  requirements?: string[]
+  actionable?: boolean
 }
 
 interface PositioningPrompt {
@@ -319,7 +340,10 @@ export default function CompassPage({ projectId, insights }: CompassPageProps) {
 
           <Tab.Panels>
             <Tab.Panel>
-              <StructureAdvisorTab recommendations={guidance.structure_recommendations} />
+              <StructureAdvisorTab
+                recommendations={guidance.structure_recommendations}
+                structureGuidance={guidance.structure_guidance}
+              />
             </Tab.Panel>
             <Tab.Panel>
               <ThematicClusteringTab themes={insights.common_themes || []} />

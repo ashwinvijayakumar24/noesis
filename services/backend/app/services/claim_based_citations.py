@@ -12,11 +12,10 @@ This dramatically improves citation quality compared to RAG chunk matching:
 from typing import List, Dict, Any, Optional
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
-from openai import OpenAI
-import os
+from app.core.openai_client import get_openai_client, get_completion_params
 
 logger = get_logger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 async def find_supporting_claims(

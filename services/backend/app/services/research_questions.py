@@ -4,14 +4,13 @@ Research Question Generation Service
 Generates research questions from project insights using GPT-4.
 """
 
-import os
 import json
 from typing import List, Dict, Any
-from openai import OpenAI
 from app.core.logging_config import get_logger
+from app.core.openai_client import get_openai_client, get_completion_params
 
 logger = get_logger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = get_openai_client()
 
 
 def generate_research_questions(insights: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -106,7 +105,8 @@ Return a JSON object with a "questions" array in the format:
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.7,  # Slightly creative but focused
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            **get_completion_params()  # Enable zero data retention
         )
 
         result_text = response.choices[0].message.content

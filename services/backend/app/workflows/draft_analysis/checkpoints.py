@@ -44,7 +44,8 @@ class PostgresCheckpointSaver:
         thread_id: str,
         checkpoint_data: Dict[str, Any],
         node_name: str,
-        status: str = "in_progress"
+        status: str = "in_progress",
+        user_id: Optional[str] = None
     ) -> str:
         """
         Save a workflow checkpoint to the database.
@@ -54,11 +55,33 @@ class PostgresCheckpointSaver:
             checkpoint_data: The state to checkpoint
             node_name: Name of the node that created this checkpoint
             status: Workflow status (in_progress, completed, failed)
+            user_id: User ID for RLS isolation (required for security)
 
         Returns:
             Checkpoint ID
+
+        Raises:
+            ValueError: If user_id is not provided or cannot be determined
         """
         try:
+            # Get user_id from draft if not provided (for backward compatibility)
+            if user_id is None:
+                logger.info(f"user_id not provided, looking up from draft {thread_id}")
+                draft_result = supabase.table("drafts")\
+                    .select("user_id")\
+                    .eq("id", thread_id)\
+                    .limit(1)\
+                    .execute()
+
+                if draft_result.data and len(draft_result.data) > 0:
+                    user_id = draft_result.data[0]["user_id"]
+                    logger.info(f"Retrieved user_id {user_id} from draft {thread_id}")
+                else:
+                    raise ValueError(f"Could not determine user_id for thread {thread_id}")
+
+            if user_id is None:
+                raise ValueError("user_id is required for checkpoint security")
+
             checkpoint_id = f"{thread_id}_{node_name}_{int(datetime.datetime.utcnow().timestamp())}"
 
             checkpoint_record = {
@@ -67,13 +90,14 @@ class PostgresCheckpointSaver:
                 "checkpoint_data": json.dumps(checkpoint_data),
                 "node_name": node_name,
                 "status": status,
+                "user_id": user_id,  # Required for RLS isolation
                 "created_at": datetime.datetime.utcnow().isoformat()
             }
 
             result = supabase.table(self.table_name).insert(checkpoint_record).execute()
 
             if result.data:
-                logger.info(f"Saved checkpoint: {checkpoint_id} (node: {node_name})")
+                logger.info(f"Saved checkpoint: {checkpoint_id} (node: {node_name}, user: {user_id})")
                 return checkpoint_id
             else:
                 raise Exception("Failed to save checkpoint: no data returned")

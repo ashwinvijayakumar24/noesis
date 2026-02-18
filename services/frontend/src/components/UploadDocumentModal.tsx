@@ -1,6 +1,6 @@
 import { Fragment, useState, useRef, type FormEvent } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
-import { XMarkIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, DocumentArrowUpIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
 import { trackEvent } from '../lib/analytics'
@@ -28,10 +28,52 @@ export default function UploadDocumentModal({
   const [loading, setLoading] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [uploadedDocTitle, setUploadedDocTitle] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!validateFileType(file, ['pdf'])) {
+        return
+      }
+
+      // Validate file size (50MB limit)
+      if (!validateFileSize(file, 50)) {
+        return
+      }
+
+      setSelectedFile(file)
+      // Auto-fill title with filename (without .pdf extension)
+      if (!title) {
+        setTitle(file.name.replace('.pdf', ''))
+      }
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!loading) {
+      setIsDragging(true)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    if (loading) return
+
+    const file = e.dataTransfer.files?.[0]
     if (file) {
       // Validate file type
       if (!validateFileType(file, ['pdf'])) {
@@ -100,6 +142,7 @@ export default function UploadDocumentModal({
       setSelectedFile(null)
       setTitle('')
       setDescription('')
+      setIsDragging(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -121,6 +164,7 @@ export default function UploadDocumentModal({
       setSelectedFile(null)
       setTitle('')
       setDescription('')
+      setIsDragging(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -174,12 +218,41 @@ export default function UploadDocumentModal({
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                  {/* File Picker */}
+                  {/* Privacy Notice */}
+                  <div className="mb-4 rounded-md bg-slate-800 p-4 border border-slate-600">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <LockClosedIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <h3 className="text-sm font-medium text-slate-200">
+                          Private literature library
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-300">
+                          Your uploaded papers are private to your account and project. They're used only for your research analysis and are never shared with other users or used for training AI models.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* File Picker with Drag & Drop */}
                   <div>
                     <label className="block text-sm font-medium text-text-secondary mb-2">
                       PDF File
                     </label>
-                    <div className="flex items-center gap-3">
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`
+                        relative border-2 border-dashed rounded-lg p-6 transition-all
+                        ${isDragging
+                          ? 'border-accent-primary bg-accent-primary/10'
+                          : 'border-border-base hover:border-border-subtle'
+                        }
+                        ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      `}
+                    >
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -191,22 +264,30 @@ export default function UploadDocumentModal({
                       />
                       <label
                         htmlFor="file-upload"
-                        className="flex items-center gap-2 px-4 py-3 border border-border-base rounded-lg hover:border-border-subtle transition-colors cursor-pointer disabled:opacity-50"
+                        className="flex flex-col items-center gap-2 cursor-pointer"
                       >
-                        <DocumentArrowUpIcon className="h-5 w-5 text-text-tertiary" />
-                        <span className="text-sm text-text-secondary font-medium">
-                          {selectedFile ? 'Change File' : 'Choose File'}
-                        </span>
+                        <DocumentArrowUpIcon className={`h-10 w-10 ${isDragging ? 'text-accent-primary' : 'text-text-tertiary'}`} />
+                        {selectedFile ? (
+                          <div className="text-center">
+                            <p className="text-sm text-text-primary font-medium">
+                              {selectedFile.name}
+                            </p>
+                            <p className="text-xs text-text-muted mt-1">
+                              Click or drag to change file
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <p className="text-sm text-text-secondary font-medium">
+                              {isDragging ? 'Drop file here' : 'Drag & drop or click to browse'}
+                            </p>
+                            <p className="text-xs font-mono text-text-muted mt-1">
+                              PDF files only, max 50MB
+                            </p>
+                          </div>
+                        )}
                       </label>
-                      {selectedFile && (
-                        <span className="text-sm text-text-tertiary truncate flex-1">
-                          {selectedFile.name}
-                        </span>
-                      )}
                     </div>
-                    <p className="mt-2 text-xs font-mono text-text-muted">
-                      PDF files only, max 50MB
-                    </p>
                   </div>
 
                   {/* Title */}

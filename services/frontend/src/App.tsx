@@ -10,6 +10,7 @@ const Login = lazy(() => import('./pages/Login'))
 const SignUp = lazy(() => import('./pages/SignUp'))
 const ConfirmEmail = lazy(() => import('./pages/ConfirmEmail'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const Projects = lazy(() => import('./pages/Projects'))
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
 const DraftAnalysis = lazy(() => import('./pages/DraftAnalysis'))
@@ -65,6 +66,7 @@ function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/auth/confirm" element={<ConfirmEmail />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
         {/* Protected routes */}
         <Route

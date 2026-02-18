@@ -8,7 +8,6 @@ import {
   ArrowTopRightOnSquareIcon,
   PlusCircleIcon,
   XMarkIcon,
-  FunnelIcon,
   TrashIcon
 } from '@heroicons/react/24/outline'
 
@@ -39,12 +38,13 @@ interface PaperRecommendation {
 
 interface PaperRecommendationsProps {
   projectId: string
+  insightsStatus?: string
 }
 
 const SOURCE_COLORS = {
-  semantic_scholar: 'bg-blue-600/20 text-blue-400 border-blue-600/30',
-  arxiv: 'bg-purple-600/20 text-purple-400 border-purple-600/30',
-  pubmed: 'bg-green-600/20 text-green-400 border-green-600/30',
+  semantic_scholar: 'bg-[#1e40af] text-white border-[#1e40af]',
+  arxiv: 'bg-[#6b21a8] text-white border-[#6b21a8]',
+  pubmed: 'bg-[#166534] text-white border-[#166534]',
 }
 
 const SOURCE_NAMES = {
@@ -53,14 +53,17 @@ const SOURCE_NAMES = {
   pubmed: 'PubMed',
 }
 
-export default function PaperRecommendations({ projectId }: PaperRecommendationsProps) {
+export default function PaperRecommendations({ projectId, insightsStatus }: PaperRecommendationsProps) {
   const { session } = useAuthStore()
   const [recommendations, setRecommendations] = useState<PaperRecommendation[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [selectedRecommendations, setSelectedRecommendations] = useState<Set<string>>(new Set())
-  const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'added' | 'dismissed'>('all')
+  const [activeTab, setActiveTab] = useState<'new' | 'accepted' | 'dismissed'>('new')
+  const [selectedDismissed, setSelectedDismissed] = useState<Set<string>>(new Set())
   const [expandedPapers, setExpandedPapers] = useState<Set<string>>(new Set())
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const PAPERS_PER_PAGE = 10
 
   useEffect(() => {
     fetchRecommendations()
@@ -142,18 +145,18 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
     }
   }
 
-  const handleBulkDelete = async () => {
+  const handlePermanentDelete = async () => {
     if (!session?.access_token) return
-    if (selectedRecommendations.size === 0) {
+    if (selectedDismissed.size === 0) {
       toast.error('Please select papers to delete')
       return
     }
 
-    const confirmed = confirm(`Delete ${selectedRecommendations.size} selected paper(s)?`)
+    const confirmed = confirm(`Permanently delete ${selectedDismissed.size} paper(s)? This will free up space in your quota.`)
     if (!confirmed) return
 
     try {
-      const recommendationIds = Array.from(selectedRecommendations)
+      const recommendationIds = Array.from(selectedDismissed)
 
       // Delete each recommendation
       await Promise.all(
@@ -171,12 +174,49 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
       )
 
       // Update local state
-      setRecommendations(prev => prev.filter(r => !selectedRecommendations.has(r.id)))
-      setSelectedRecommendations(new Set())
-      toast.success(`Deleted ${recommendationIds.length} paper(s)`)
+      setRecommendations(prev => prev.filter(r => !selectedDismissed.has(r.id)))
+      setSelectedDismissed(new Set())
+      toast.success(`Permanently deleted ${recommendationIds.length} paper(s)`)
     } catch (error: any) {
       console.error('Failed to delete papers:', error)
       toast.error('Failed to delete papers')
+    }
+  }
+
+  const handleRestore = async () => {
+    if (!session?.access_token) return
+    if (selectedDismissed.size === 0) {
+      toast.error('Please select papers to restore')
+      return
+    }
+
+    try {
+      const recommendationIds = Array.from(selectedDismissed)
+
+      // Restore each recommendation to 'new' status
+      await Promise.all(
+        recommendationIds.map(id =>
+          fetch(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/paper-recommendations/${id}/status?status=new`,
+            {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            }
+          )
+        )
+      )
+
+      // Update local state
+      setRecommendations(prev => prev.map(r =>
+        selectedDismissed.has(r.id) ? { ...r, status: 'new' } : r
+      ))
+      setSelectedDismissed(new Set())
+      toast.success(`Restored ${recommendationIds.length} paper(s) to New`)
+    } catch (error: any) {
+      console.error('Failed to restore papers:', error)
+      toast.error('Failed to restore papers')
     }
   }
 
@@ -206,7 +246,7 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
     }
   }
 
-  const handleAddToProject = async (paper: PaperRecommendation) => {
+  const handleKeepPaper = async (paper: PaperRecommendation) => {
     if (!session?.access_token) return
 
     try {
@@ -227,10 +267,10 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
         r.id === paper.id ? { ...r, status: 'added' } : r
       ))
 
-      toast.success('Paper marked as added! You can now manually upload the PDF.')
+      toast.success('Paper saved to Accepted!')
     } catch (error: any) {
-      console.error('Failed to add paper:', error)
-      toast.error('Failed to add paper to project')
+      console.error('Failed to keep paper:', error)
+      toast.error('Failed to keep paper')
     }
   }
 
@@ -246,84 +286,127 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
     })
   }
 
-  const filteredRecommendations = filterStatus === 'all'
-    ? recommendations
-    : recommendations.filter(r => r.status === filterStatus)
+  const tabRecommendations = activeTab === 'new'
+    ? recommendations.filter(r => r.status === 'new')
+    : activeTab === 'accepted'
+    ? recommendations.filter(r => r.status === 'added')
+    : recommendations.filter(r => r.status === 'dismissed')
 
-  const isAtCapacity = recommendations.length >= MAX_PAPER_RECOMMENDATIONS
-  const isNearCapacity = recommendations.length >= MAX_PAPER_RECOMMENDATIONS - 5
+  // Count total papers (all statuses)
+  const totalPapers = recommendations.length
+  const isAtCapacity = totalPapers >= MAX_PAPER_RECOMMENDATIONS
+  const isNearCapacity = totalPapers >= MAX_PAPER_RECOMMENDATIONS - 5
+
+  // Pagination calculations
+  const totalPages = Math.ceil(tabRecommendations.length / PAPERS_PER_PAGE)
+  const startIndex = (currentPage - 1) * PAPERS_PER_PAGE
+  const endIndex = startIndex + PAPERS_PER_PAGE
+  const paginatedRecommendations = tabRecommendations.slice(startIndex, endIndex)
+
+  // Reset to page 1 when tab changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab])
+
+  // Adjust page if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages)
+    }
+  }, [totalPages, currentPage])
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-cyan-600/20 rounded-lg">
-            <AcademicCapIcon className="h-6 w-6 text-cyan-400" />
+          <div className="p-2 bg-cyan-900/30 rounded-lg">
+            <AcademicCapIcon className="h-6 w-6 text-cyan-300" />
           </div>
           <div>
             <h3 className="text-lg font-serif font-semibold text-text-primary">Discover Relevant Papers</h3>
             <div className="flex items-center gap-2">
               <Badge variant={isAtCapacity ? 'error' : isNearCapacity ? 'warning' : 'neutral'}>
-                {recommendations.length} / {MAX_PAPER_RECOMMENDATIONS}
+                {totalPapers} / {MAX_PAPER_RECOMMENDATIONS}
               </Badge>
               {isAtCapacity && (
                 <p className="text-sm text-text-tertiary">
-                  ⚠️ At capacity - delete some to generate more
+                  ⚠️ At capacity - permanently delete dismissed papers to generate more
                 </p>
               )}
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          {selectedRecommendations.size > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-            >
-              <TrashIcon className="h-5 w-5" />
-              Delete Selected ({selectedRecommendations.size})
-            </button>
+        <button
+          onClick={handleGenerate}
+          disabled={generating || isAtCapacity}
+          className="px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {generating ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
+              Discovering Papers...
+            </>
+          ) : (
+            <>
+              Discover Papers
+            </>
           )}
-          <button
-            onClick={handleGenerate}
-            disabled={generating || isAtCapacity}
-            className="px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generating ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                Discovering Papers...
-              </>
-            ) : (
-              <>
-                Discover Papers
-              </>
-            )}
-          </button>
-        </div>
+        </button>
       </div>
 
-      {/* Filter */}
+      {/* Tab Navigation */}
       {recommendations.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-surface/50 rounded-lg border border-border-base">
-          <FunnelIcon className="h-4 w-4 text-text-tertiary" />
-          <span className="text-sm text-text-tertiary font-mono">Filter:</span>
-          <div className="flex gap-2">
-            {['all', 'new', 'added', 'dismissed'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilterStatus(status as any)}
-                className={`px-3 py-1 text-xs rounded transition-colors ${
-                  filterStatus === status
-                    ? 'bg-cyan-600 text-white font-semibold'
-                    : 'bg-surface-hover text-text-secondary hover:bg-surface'
-                }`}
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('new')}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              activeTab === 'new'
+                ? 'bg-cyan-800 text-cyan-100 border border-cyan-700'
+                : 'bg-surface-hover text-text-secondary hover:bg-surface border border-border-base'
+            }`}
+          >
+            New ({recommendations.filter(r => r.status === 'new').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('accepted')}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              activeTab === 'accepted'
+                ? 'bg-cyan-800 text-cyan-100 border border-cyan-700'
+                : 'bg-surface-hover text-text-secondary hover:bg-surface border border-border-base'
+            }`}
+          >
+            Accepted ({recommendations.filter(r => r.status === 'added').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('dismissed')}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              activeTab === 'dismissed'
+                ? 'bg-cyan-800 text-cyan-100 border border-cyan-700'
+                : 'bg-surface-hover text-text-secondary hover:bg-surface border border-border-base'
+            }`}
+          >
+            Dismissed ({recommendations.filter(r => r.status === 'dismissed').length})
+          </button>
+        </div>
+      )}
+
+      {/* Dismissed Tab Actions */}
+      {activeTab === 'dismissed' && selectedDismissed.size > 0 && (
+        <div className="flex gap-2">
+          <button
+            onClick={handleRestore}
+            className="px-4 py-2 bg-cyan-800 text-cyan-100 font-semibold rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 border border-cyan-700"
+          >
+            Restore ({selectedDismissed.size})
+          </button>
+          <button
+            onClick={handlePermanentDelete}
+            className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+          >
+            <TrashIcon className="h-5 w-5" />
+            Delete Permanently ({selectedDismissed.size})
+          </button>
         </div>
       )}
 
@@ -332,18 +415,23 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent"></div>
         </div>
-      ) : filteredRecommendations.length === 0 ? (
+      ) : tabRecommendations.length === 0 ? (
         <div className="bg-surface/30 rounded-lg border border-border-subtle p-8 text-center">
           <AcademicCapIcon className="h-12 w-12 text-text-muted mx-auto mb-4" />
           <p className="text-text-tertiary">
             {recommendations.length === 0
               ? 'No paper recommendations yet. Click "Discover Papers" to find relevant research.'
-              : 'No papers match the selected filter.'}
+              : activeTab === 'new'
+              ? 'No new papers. Generate more or check other tabs.'
+              : activeTab === 'accepted'
+              ? 'No accepted papers yet. Keep papers from the New tab to see them here.'
+              : 'No dismissed papers.'}
           </p>
         </div>
       ) : (
+        <>
         <div className="space-y-3">
-          {filteredRecommendations.map((paper) => {
+          {paginatedRecommendations.map((paper) => {
             const isExpanded = expandedPapers.has(paper.id)
             const scorePercentage = Math.round(paper.relevance_score * 100)
 
@@ -352,21 +440,23 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
                 {/* Paper Header */}
                 <div className="p-4">
                   <div className="flex items-start gap-3">
-                    {/* Checkbox for bulk selection */}
-                    <input
-                      type="checkbox"
-                      checked={selectedRecommendations.has(paper.id)}
-                      onChange={(e) => {
-                        const newSelected = new Set(selectedRecommendations)
-                        if (e.target.checked) {
-                          newSelected.add(paper.id)
-                        } else {
-                          newSelected.delete(paper.id)
-                        }
-                        setSelectedRecommendations(newSelected)
-                      }}
-                      className="mt-1 h-4 w-4 text-accent-primary border-border-base rounded focus:ring-2 focus:ring-accent-primary shrink-0"
-                    />
+                    {/* Checkbox only for dismissed tab */}
+                    {activeTab === 'dismissed' && (
+                      <input
+                        type="checkbox"
+                        checked={selectedDismissed.has(paper.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedDismissed)
+                          if (e.target.checked) {
+                            newSelected.add(paper.id)
+                          } else {
+                            newSelected.delete(paper.id)
+                          }
+                          setSelectedDismissed(newSelected)
+                        }}
+                        className="mt-1 h-4 w-4 text-accent-primary border-border-base rounded focus:ring-2 focus:ring-accent-primary shrink-0"
+                      />
+                    )}
 
                     <div className="flex items-start justify-between gap-4 flex-1">
                       <div className="flex-1 min-w-0">
@@ -379,21 +469,21 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
                           <span className="text-xs text-text-tertiary font-mono">{paper.year}</span>
                         )}
                         {paper.citation_count && paper.citation_count > 0 && (
-                          <span className="text-xs text-amber-400 font-mono">{paper.citation_count} citations</span>
+                          <span className="text-xs text-amber-600 font-mono">{paper.citation_count} citations</span>
                         )}
                         <div className="flex items-center gap-1">
-                          <div className="h-2 w-24 bg-surface-hover rounded-full overflow-hidden">
+                          <div className="h-2 w-24 bg-slate-800 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-cyan-500"
+                              className="h-full bg-cyan-700"
                               style={{ width: `${scorePercentage}%` }}
                             />
                           </div>
-                          <span className="text-xs text-cyan-400 font-mono">{scorePercentage}% match</span>
+                          <span className="text-xs text-cyan-600 font-mono">{scorePercentage}% match</span>
                         </div>
                       </div>
 
                       <h4
-                        className="text-text-primary font-medium leading-relaxed mb-2 cursor-pointer hover:text-cyan-400 transition-colors"
+                        className="text-text-primary font-medium leading-relaxed mb-2 cursor-pointer hover:text-cyan-200 transition-colors"
                         onClick={() => toggleExpanded(paper.id)}
                       >
                         {paper.title}
@@ -409,44 +499,43 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
 
                       {/* Relevance reason */}
                       <p className="text-xs text-text-muted">{paper.relevance_reason}</p>
-
-                      {/* Matched keywords */}
-                      {paper.matched_keywords && paper.matched_keywords.length > 0 && (
-                        <div className="flex gap-1 mt-2 flex-wrap">
-                          {paper.matched_keywords.map((keyword, i) => (
-                            <span key={i} className="text-xs px-2 py-0.5 bg-cyan-900/30 text-cyan-300 rounded font-mono">
-                              {keyword}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 shrink-0">
-                        {paper.status === 'new' && (
+                        {activeTab === 'new' && (
                           <>
                             <button
-                              onClick={() => handleAddToProject(paper)}
-                              className="px-3 py-1.5 bg-cyan-600 text-white text-sm font-semibold rounded hover:bg-cyan-700 transition-colors flex items-center gap-1"
+                              onClick={() => handleKeepPaper(paper)}
+                              className="px-3 py-1.5 bg-green-800 text-green-100 text-sm font-semibold rounded hover:bg-green-700 transition-colors flex items-center gap-1 border border-green-700"
                             >
                               <PlusCircleIcon className="h-4 w-4" />
-                              Add
+                              Keep Paper
                             </button>
                             <button
                               onClick={() => handleDismiss(paper.id)}
-                              className="px-3 py-1.5 bg-surface-hover text-text-secondary text-sm rounded hover:bg-surface transition-colors"
+                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
+                              title="Dismiss paper"
                             >
-                              <XMarkIcon className="h-4 w-4" />
+                              <XMarkIcon className="h-5 w-5" />
                             </button>
                           </>
                         )}
-                        {paper.status === 'added' && (
-                          <span className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-sm font-semibold rounded border border-emerald-600/30">
-                            Added
-                          </span>
+                        {activeTab === 'accepted' && (
+                          <>
+                            <span className="px-3 py-1.5 bg-green-900/40 text-green-200 text-sm font-semibold rounded border border-green-800">
+                              Kept
+                            </span>
+                            <button
+                              onClick={() => handleDismiss(paper.id)}
+                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
+                              title="Dismiss paper"
+                            >
+                              <XMarkIcon className="h-5 w-5" />
+                            </button>
+                          </>
                         )}
-                        {paper.status === 'dismissed' && (
+                        {activeTab === 'dismissed' && (
                           <span className="px-3 py-1.5 bg-surface-hover text-text-muted text-sm rounded">
                             Dismissed
                           </span>
@@ -514,6 +603,47 @@ export default function PaperRecommendations({ projectId }: PaperRecommendations
             )
           })}
         </div>
+
+        {/* Pagination Controls */}
+        {tabRecommendations.length > PAPERS_PER_PAGE && (
+          <div className="flex items-center justify-between pt-4 border-t border-border-subtle">
+            <div className="text-sm text-text-tertiary">
+              Showing {startIndex + 1}-{Math.min(endIndex, tabRecommendations.length)} of {tabRecommendations.length} papers
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm bg-surface-hover text-text-secondary rounded hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                      currentPage === page
+                        ? 'bg-accent-primary text-white font-semibold'
+                        : 'bg-surface-hover text-text-secondary hover:bg-surface'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm bg-surface-hover text-text-secondary rounded hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )

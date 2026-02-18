@@ -12,17 +12,17 @@ Requirements: 3.2, 3.3, 3.4, 3.5
 
 import json
 from typing import Dict, Any, List, Optional, Tuple
-from openai import OpenAI
 from app.core.config import settings
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
+from app.core.openai_client import get_openai_client, get_completion_params
 from collections import Counter
 import re
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+client = get_openai_client()
 
 
 # ============================================

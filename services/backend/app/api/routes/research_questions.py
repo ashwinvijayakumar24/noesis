@@ -139,7 +139,7 @@ def get_research_questions(
     """
     Get all research questions for a project.
 
-    Optional filter by status: new, exploring, answered
+    Optional filter by status: new, added, dismissed, exploring, answered
     """
     print(f"[RQ-API] Fetching research questions for project_id={project_id}, status={status}")
 
@@ -178,7 +178,7 @@ def update_research_question(
     """
     Update a research question's status or notes.
 
-    Allowed status values: new, exploring, answered
+    Allowed status values: new, added, dismissed, exploring, answered
     """
     print(f"[RQ-API] Updating question_id={question_id}")
 
@@ -195,7 +195,7 @@ def update_research_question(
     update_data = {}
     if request.status is not None:
         # Validate status
-        valid_statuses = ['new', 'exploring', 'answered']
+        valid_statuses = ['new', 'added', 'dismissed', 'exploring', 'answered']
         if request.status not in valid_statuses:
             raise HTTPException(
                 status_code=400,

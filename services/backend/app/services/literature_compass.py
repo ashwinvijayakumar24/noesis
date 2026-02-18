@@ -11,6 +11,384 @@ Philosophy:
 """
 
 from typing import List, Dict, Any, Optional
+import random
+
+
+class TemplateLibrary:
+    """
+    Manages template variations for structure guidance and synthesis questions.
+    Provides context-aware selection to prevent repetitive wording.
+    """
+
+    # Structure Guidance Templates with conditions
+    STRUCTURE_TEMPLATES = [
+        {
+            "id": "gap_focused",
+            "priority": 10,
+            "condition": lambda ctx: ctx.get("gap_count", 0) >= 3,
+            "template": "Your literature reveals {gap_count} significant research gaps, particularly in {primary_gap_category}. Consider organizing your review to systematically expose these gaps, building a case for why {primary_gap_title} deserves attention. Structure sections to progressively narrow from broad landscape to specific gap.",
+        },
+        {
+            "id": "conflict_driven",
+            "priority": 9,
+            "condition": lambda ctx: ctx.get("conflict_count", 0) >= 2 and ctx.get("position_diversity", 0) > 0.6,
+            "template": "Multiple conflicting perspectives exist on {primary_conflict_topic}, with {conflict_count} distinct debates. A dialectical structure could work well: present each position's evidence (side A: {side_a_position}; side B: {side_b_position}), analyze strengths/weaknesses, then synthesize. {resolution_hint}",
+        },
+        {
+            "id": "pattern_based",
+            "priority": 8,
+            "condition": lambda ctx: ctx.get("pattern_strength", 0) > 0.7 and ctx.get("usage_count", 0) >= 4,
+            "template": "Methodological consensus emerged: {primary_methodology} dominates ({usage_count} papers). This pattern suggests organizing by methodological tradition—comparing what each approach reveals and obscures. {pattern_variations_hint}",
+        },
+        {
+            "id": "methodology_focused",
+            "priority": 7,
+            "condition": lambda ctx: ctx.get("method_diversity", 0) >= 3,
+            "template": "Your literature employs {method_diversity} distinct research methods. A methods-based structure would clarify each approach's contributions and limitations. Consider: how do findings from {method_1} compare with those from {method_2}? What becomes visible through methodological pluralism?",
+        },
+        {
+            "id": "default",
+            "priority": 1,
+            "condition": lambda ctx: True,  # Always matches
+            "template": "Your literature collection shows diverse characteristics. Consider how best to organize these {document_count} papers: by theme (highlighting conceptual connections), chronology (showing evolution), or methodology (comparing approaches). Each structure foregrounds different insights.",
+        },
+    ]
+
+    # Synthesis Question Templates with conditions
+    SYNTHESIS_TEMPLATES = [
+        {
+            "id": "conflict_resolution",
+            "priority": 10,
+            "condition": lambda ctx: "conflict" in ctx.get("source_type", "") and ctx.get("has_resolution", False),
+            "template": "Papers diverge on {topic}: {side_a_position} versus {side_b_position}. Given that {side_a_evidence}, but also {side_b_evidence}, {resolution}. How would you defend one position over the other, or propose a synthesis?",
+            "difficulty": "high",
+            "category": "conflict",
+        },
+        {
+            "id": "gap_bridging",
+            "priority": 9,
+            "condition": lambda ctx: "gap" in ctx.get("source_type", ""),
+            "template": "{gap_description}. None of the {document_count} papers address this directly. Why might researchers have avoided this question? What methodological or theoretical barriers exist? {suggested_directions_hint}",
+            "difficulty": "medium",
+            "category": "gap",
+        },
+        {
+            "id": "pattern_extension",
+            "priority": 8,
+            "condition": lambda ctx: "pattern" in ctx.get("source_type", "") and ctx.get("has_variations", False),
+            "template": "{usage_count} papers converge on {methodology}, though {variations_hint}. What assumptions underlie this methodological consensus? What alternative approaches might challenge or complement these findings?",
+            "difficulty": "medium",
+            "category": "pattern",
+        },
+        {
+            "id": "methodological_synthesis",
+            "priority": 7,
+            "condition": lambda ctx: ctx.get("method_diversity", 0) >= 2,
+            "template": "Comparing {method_1} (used by {method_1_count} papers) with {method_2} (used by {method_2_count} papers): What does each methodology reveal that the other obscures? How might combining these approaches generate novel insights?",
+            "difficulty": "high",
+            "category": "methodology",
+        },
+        {
+            "id": "temporal_evolution",
+            "priority": 6,
+            "condition": lambda ctx: ctx.get("year_span", 0) >= 5,
+            "template": "From {earliest_year} to {latest_year}, how has understanding of {theme} evolved? What earlier assumptions have been challenged? What continuities persist despite {year_span} years of research?",
+            "difficulty": "medium",
+            "category": "temporal",
+        },
+        {
+            "id": "cross_domain",
+            "priority": 5,
+            "condition": lambda ctx: len(ctx.get("domains", [])) >= 2,
+            "template": "Your literature spans {domain_count} domains: {domains_list}. How do insights from {domain_1} inform or challenge assumptions in {domain_2}? What interdisciplinary connections remain unexplored?",
+            "difficulty": "high",
+            "category": "cross_domain",
+        },
+        {
+            "id": "evidence_weighting",
+            "priority": 4,
+            "condition": lambda ctx: ctx.get("evidence_variance", 0) > 0.5,
+            "template": "Evidence quality varies significantly across papers. Which studies provide the strongest empirical foundation for {claim}? How do you weigh {strong_evidence_type} against {weak_evidence_type}?",
+            "difficulty": "medium",
+            "category": "evidence",
+        },
+        {
+            "id": "generative",
+            "priority": 3,
+            "condition": lambda ctx: True,  # Always matches as fallback
+            "template": "Reflecting on {insight}: How does this pattern position your research contribution? What aspects of the existing literature does your work extend, challenge, or synthesize?",
+            "difficulty": "low",
+            "category": "positioning",
+        },
+    ]
+
+    @classmethod
+    def select_template(
+        cls,
+        templates: List[Dict[str, Any]],
+        context: Dict[str, Any],
+        used_template_ids: set = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Select the highest-priority template matching the current context.
+        Avoids recently used templates to ensure variation.
+
+        Args:
+            templates: List of template dictionaries
+            context: Current context data for condition evaluation
+            used_template_ids: Set of template IDs already used (to avoid repetition)
+
+        Returns:
+            Selected template dictionary or None
+        """
+        if used_template_ids is None:
+            used_template_ids = set()
+
+        # Filter templates that match conditions and haven't been used
+        matching_templates = [
+            t for t in templates
+            if t["condition"](context) and t["id"] not in used_template_ids
+        ]
+
+        # If all templates used, allow reuse but add randomization
+        if not matching_templates:
+            matching_templates = [t for t in templates if t["condition"](context)]
+            if matching_templates:
+                # Add slight randomization to priority to ensure variation
+                random.shuffle(matching_templates)
+
+        # Sort by priority (highest first)
+        matching_templates.sort(key=lambda t: t["priority"], reverse=True)
+
+        return matching_templates[0] if matching_templates else None
+
+    @classmethod
+    def build_context(
+        cls,
+        insights: Dict[str, Any],
+        documents: List[Dict[str, Any]],
+        conflict: Optional[Dict[str, Any]] = None,
+        gap: Optional[Dict[str, Any]] = None,
+        pattern: Optional[Dict[str, Any]] = None,
+        theme: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Build context dictionary from insights data for template selection.
+
+        Args:
+            insights: Project insights data
+            documents: List of document metadata
+            conflict: Optional conflict data
+            gap: Optional gap data
+            pattern: Optional pattern data
+            theme: Optional theme data
+
+        Returns:
+            Context dictionary with all available variables
+        """
+        context = {
+            "document_count": len(documents),
+            "gap_count": len(insights.get("research_gaps", [])),
+            "conflict_count": len(insights.get("conflicting_findings", [])),
+            "pattern_count": len(insights.get("methodological_patterns", [])),
+            "theme_count": len(insights.get("common_themes", [])),
+        }
+
+        # Add conflict-specific context
+        if conflict:
+            context["source_type"] = "conflict"
+            context["topic"] = conflict.get("topic", "this topic")
+            side_a = conflict.get("side_a", {})
+            side_b = conflict.get("side_b", {})
+            context["side_a_position"] = side_a.get("position", "unknown position")
+            context["side_b_position"] = side_b.get("position", "unknown position")
+            context["side_a_evidence"] = side_a.get("evidence", "")
+            context["side_b_evidence"] = side_b.get("evidence", "")
+            context["has_resolution"] = bool(conflict.get("resolution"))
+            context["resolution"] = conflict.get("resolution", "")
+            context["position_diversity"] = calculate_position_diversity(conflict)
+
+            # Determine primary conflict
+            context["primary_conflict_topic"] = conflict.get("topic", "unknown")
+
+        # Add gap-specific context
+        if gap:
+            context["source_type"] = "gap"
+            context["gap_description"] = gap.get("description", gap.get("title", ""))
+            context["primary_gap_title"] = gap.get("title", "unknown gap")
+            context["primary_gap_category"] = gap.get("category", "this area")
+            context["suggested_directions_hint"] = (
+                f"Suggested directions: {', '.join(gap.get('suggested_directions', [])[:2])}"
+                if gap.get("suggested_directions") else ""
+            )
+
+        # Add pattern-specific context
+        if pattern:
+            context["source_type"] = "pattern"
+            context["methodology"] = pattern.get("methodology", "this methodology")
+            context["primary_methodology"] = pattern.get("methodology", "unknown method")
+            context["usage_count"] = pattern.get("usage_count", 0)
+            context["has_variations"] = bool(pattern.get("variations"))
+            context["variations_hint"] = (
+                f"with variations like {', '.join(pattern.get('variations', [])[:2])}"
+                if pattern.get("variations") else "with subtle variations"
+            )
+            context["pattern_description"] = pattern.get("description", "")
+            context["pattern_strength"] = min(1.0, pattern.get("usage_count", 0) / max(len(documents), 1))
+
+        # Add theme-specific context
+        if theme:
+            context["theme"] = theme.get("theme", "this theme")
+            context["insight"] = theme.get("description", theme.get("theme", ""))
+
+        # Add method diversity
+        methods = insights.get("methodological_patterns", [])
+        context["method_diversity"] = len(methods)
+        if len(methods) >= 2:
+            context["method_1"] = methods[0].get("methodology", "method A")
+            context["method_2"] = methods[1].get("methodology", "method B")
+            context["method_1_count"] = methods[0].get("usage_count", 0)
+            context["method_2_count"] = methods[1].get("usage_count", 0)
+
+        # Add temporal context
+        pub_years = [extract_year(doc) for doc in documents if extract_year(doc)]
+        if pub_years:
+            context["earliest_year"] = min(pub_years)
+            context["latest_year"] = max(pub_years)
+            context["year_span"] = max(pub_years) - min(pub_years)
+
+        # Add domain context (placeholder - would need domain extraction)
+        context["domains"] = []
+        context["domain_count"] = 0
+
+        # Evidence variance (placeholder - would need actual calculation)
+        context["evidence_variance"] = 0.5
+
+        return context
+
+    @classmethod
+    def populate_template(cls, template_str: str, context: Dict[str, Any]) -> str:
+        """
+        Fill template variables with actual data from context.
+
+        Args:
+            template_str: Template string with {variable} placeholders
+            context: Context dictionary with variable values
+
+        Returns:
+            Populated template string
+        """
+        try:
+            return template_str.format(**context)
+        except KeyError as e:
+            # If a variable is missing, use empty string or fallback
+            import re
+            # Replace any unmatched {variable} with empty string
+            result = template_str
+            for match in re.findall(r'\{(\w+)\}', template_str):
+                if match not in context:
+                    result = result.replace(f'{{{match}}}', f'[{match}]')
+            return result
+
+    @classmethod
+    def extract_source_ids(
+        cls,
+        conflict: Optional[Dict[str, Any]] = None,
+        gap: Optional[Dict[str, Any]] = None,
+        pattern: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, List[str]]:
+        """
+        Extract source IDs from conflicts/gaps/patterns for cross-linking.
+
+        Returns:
+            Dictionary with source_conflicts, source_gaps, source_patterns lists
+        """
+        sources = {
+            "source_conflicts": [],
+            "source_gaps": [],
+            "source_patterns": []
+        }
+
+        if conflict:
+            topic = conflict.get("topic", "")
+            if topic:
+                sources["source_conflicts"].append(topic)
+
+        if gap:
+            title = gap.get("title", "")
+            if title:
+                sources["source_gaps"].append(title)
+
+        if pattern:
+            methodology = pattern.get("methodology", "")
+            if methodology:
+                sources["source_patterns"].append(methodology)
+
+        return sources
+
+    @classmethod
+    def calculate_question_confidence(
+        cls,
+        context: Dict[str, Any],
+        template: Dict[str, Any]
+    ) -> float:
+        """
+        Calculate confidence score (0-1) for a question based on data richness.
+
+        Args:
+            context: Context data
+            template: Template used
+
+        Returns:
+            Confidence score between 0 and 1
+        """
+        score = 0.5  # Base score
+
+        # Increase confidence if we have rich data
+        if context.get("has_resolution"):
+            score += 0.15
+        if context.get("gap_description"):
+            score += 0.10
+        if context.get("pattern_description"):
+            score += 0.10
+        if context.get("usage_count", 0) >= 3:
+            score += 0.10
+        if context.get("position_diversity", 0) > 0.6:
+            score += 0.15
+
+        return min(1.0, score)
+
+
+def calculate_position_diversity(conflict: Dict[str, Any]) -> float:
+    """
+    Calculate diversity score for conflict positions (0-1).
+
+    Args:
+        conflict: Conflict data with side_a and side_b
+
+    Returns:
+        Diversity score between 0 and 1
+    """
+    side_a = conflict.get("side_a", {})
+    side_b = conflict.get("side_b", {})
+
+    # Simple heuristic: if both sides have evidence and papers, diversity is high
+    has_a_evidence = bool(side_a.get("evidence"))
+    has_b_evidence = bool(side_b.get("evidence"))
+    has_a_papers = len(side_a.get("papers", [])) > 0
+    has_b_papers = len(side_b.get("papers", [])) > 0
+
+    score = 0.0
+    if has_a_evidence:
+        score += 0.25
+    if has_b_evidence:
+        score += 0.25
+    if has_a_papers:
+        score += 0.25
+    if has_b_papers:
+        score += 0.25
+
+    return score
 
 
 def generate_compass_guidance(
@@ -46,8 +424,9 @@ def generate_compass_guidance(
 
     guidance = {
         "structure_recommendations": recommend_structure(insights, documents),
-        "synthesis_questions": generate_synthesis_questions(insights),
+        "synthesis_questions": generate_synthesis_questions(insights, documents),
         "positioning_prompts": generate_positioning_prompts(insights),
+        "structure_guidance": _generate_structure_guidance(insights, documents),
     }
 
     # Validate output before returning
@@ -242,62 +621,162 @@ def generate_outline_scaffold(
 
 
 def generate_synthesis_questions(
-    insights: Dict[str, Any]
+    insights: Dict[str, Any],
+    documents: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """
-    Generate critical thinking questions from insights.
+    Generate critical thinking questions from insights using template library.
+
+    Now with rich metadata and template variation to prevent repetition!
 
     Categories:
-    - From conflicting_findings: "How do you explain X vs Y?"
-    - From research_gaps: "Why hasn't Z been studied?"
-    - From methodological_patterns: "What are implications?"
-    - Positioning: "How does this position your research?"
+    - From conflicting_findings: Multiple conflict resolution templates
+    - From research_gaps: Gap bridging and importance templates
+    - From methodological_patterns: Pattern analysis templates
+    - Positioning: Research positioning templates
+
+    Returns:
+        List of question dictionaries with metadata (confidence, difficulty, sources)
     """
     questions = []
+    used_template_ids = set()
 
-    # From conflicts
+    # From conflicts - use template library with rich metadata
     for conflict in insights.get('conflicting_findings', []):
-        topic = conflict.get('topic', 'this topic')
-        side_a_papers = conflict.get('side_a', {}).get('papers', [])
-        side_b_papers = conflict.get('side_b', {}).get('papers', [])
-        questions.append({
-            "question": f"Papers disagree on {topic}. How do you explain this divergence?",
-            "category": "conflict",
-            "icon": "🔄",
-            "related_papers": side_a_papers + side_b_papers
-        })
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents,
+            conflict=conflict
+        )
 
-    # From gaps
-    for gap in insights.get('research_gaps', []):
-        title = gap.get('title', 'Unknown gap')
-        questions.append({
-            "question": f"{title}. Why might this gap be important to address?",
-            "category": "gap",
-            "icon": "🕳️",
-            "related_papers": []
-        })
+        template = TemplateLibrary.select_template(
+            TemplateLibrary.SYNTHESIS_TEMPLATES,
+            context,
+            used_template_ids
+        )
 
-    # From patterns
-    for pattern in insights.get('methodological_patterns', []):
-        usage_count = pattern.get('usage_count', 0)
-        methodology = pattern.get('methodology', 'this methodology')
-        if usage_count >= 3:
+        if template:
+            used_template_ids.add(template["id"])
+            question_text = TemplateLibrary.populate_template(template["template"], context)
+            sources = TemplateLibrary.extract_source_ids(conflict=conflict)
+            confidence = TemplateLibrary.calculate_question_confidence(context, template)
+
+            side_a_papers = conflict.get('side_a', {}).get('papers', [])
+            side_b_papers = conflict.get('side_b', {}).get('papers', [])
+
             questions.append({
-                "question": f"Most papers ({usage_count}) use {methodology}. What are the implications of this consensus?",
-                "category": "pattern",
-                "icon": "🔬",
-                "related_papers": []
+                "question": question_text,
+                "category": template.get("category", "conflict"),
+                "icon": "🔄",
+                "related_papers": side_a_papers + side_b_papers,
+                "difficulty": template.get("difficulty", "medium"),
+                "confidence": round(confidence, 2),
+                "metadata": sources,
+                "actionable": True
             })
 
-    # Positioning prompts
+    # From gaps - use template library
+    for gap in insights.get('research_gaps', []):
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents,
+            gap=gap
+        )
+
+        template = TemplateLibrary.select_template(
+            TemplateLibrary.SYNTHESIS_TEMPLATES,
+            context,
+            used_template_ids
+        )
+
+        if template:
+            used_template_ids.add(template["id"])
+            question_text = TemplateLibrary.populate_template(template["template"], context)
+            sources = TemplateLibrary.extract_source_ids(gap=gap)
+            confidence = TemplateLibrary.calculate_question_confidence(context, template)
+
+            questions.append({
+                "question": question_text,
+                "category": template.get("category", "gap"),
+                "icon": "🕳️",
+                "related_papers": [],
+                "difficulty": template.get("difficulty", "medium"),
+                "confidence": round(confidence, 2),
+                "metadata": sources,
+                "actionable": True,
+                "requirements": gap.get("suggested_directions", [])
+            })
+
+    # From patterns - use template library (only if usage >= 3)
+    for pattern in insights.get('methodological_patterns', []):
+        usage_count = pattern.get('usage_count', 0)
+        if usage_count < 3:
+            continue  # Skip patterns with low usage
+
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents,
+            pattern=pattern
+        )
+
+        template = TemplateLibrary.select_template(
+            TemplateLibrary.SYNTHESIS_TEMPLATES,
+            context,
+            used_template_ids
+        )
+
+        if template:
+            used_template_ids.add(template["id"])
+            question_text = TemplateLibrary.populate_template(template["template"], context)
+            sources = TemplateLibrary.extract_source_ids(pattern=pattern)
+            confidence = TemplateLibrary.calculate_question_confidence(context, template)
+
+            questions.append({
+                "question": question_text,
+                "category": template.get("category", "pattern"),
+                "icon": "🔬",
+                "related_papers": [],
+                "difficulty": template.get("difficulty", "medium"),
+                "confidence": round(confidence, 2),
+                "metadata": sources,
+                "actionable": True
+            })
+
+    # Positioning prompts from key insights (limit to top 5)
     key_insights = insights.get('key_insights', [])
-    for insight in key_insights[:3]:  # Top 3
-        questions.append({
-            "question": f"Your literature shows: {insight}. How does this position your research contribution?",
-            "category": "positioning",
-            "icon": "🎯",
-            "related_papers": []
-        })
+    for insight in key_insights[:5]:
+        # Build context with theme
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents,
+            theme={"theme": "key insight", "description": insight}
+        )
+
+        template = TemplateLibrary.select_template(
+            TemplateLibrary.SYNTHESIS_TEMPLATES,
+            context,
+            used_template_ids
+        )
+
+        if template:
+            used_template_ids.add(template["id"])
+            question_text = TemplateLibrary.populate_template(template["template"], context)
+            confidence = TemplateLibrary.calculate_question_confidence(context, template)
+
+            questions.append({
+                "question": question_text,
+                "category": "positioning",
+                "icon": "🎯",
+                "related_papers": [],
+                "difficulty": "low",
+                "confidence": round(confidence, 2),
+                "metadata": {
+                    "source_conflicts": [],
+                    "source_gaps": [],
+                    "source_patterns": []
+                },
+                "actionable": True
+            })
 
     return questions
 
@@ -327,6 +806,147 @@ def generate_positioning_prompts(
         })
 
     return prompts
+
+
+def _generate_structure_guidance(
+    insights: Dict[str, Any],
+    documents: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Generate structure guidance using template library to avoid repetition.
+
+    Returns:
+        List of guidance dictionaries with text, type, priority, source_data
+    """
+    guidance_items = []
+    used_template_ids = set()
+
+    # Collect all potential sources for guidance
+    conflicts = insights.get('conflicting_findings', [])
+    gaps = insights.get('research_gaps', [])
+    patterns = insights.get('methodological_patterns', [])
+
+    # Prioritize by count and strength
+    sources = []
+
+    # Add gap-focused guidance (high priority if 3+ gaps)
+    for gap in gaps[:3]:  # Top 3 gaps
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents,
+            gap=gap
+        )
+        sources.append({
+            "type": "gap",
+            "priority": 3 if len(gaps) >= 3 else 2,
+            "context": context,
+            "data": gap
+        })
+
+    # Add conflict-driven guidance (high priority if strong conflicts)
+    for conflict in conflicts[:3]:  # Top 3 conflicts
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents,
+            conflict=conflict
+        )
+        sources.append({
+            "type": "conflict",
+            "priority": 3 if context.get("position_diversity", 0) > 0.6 else 2,
+            "context": context,
+            "data": conflict
+        })
+
+    # Add pattern-based guidance (high priority if strong patterns)
+    for pattern in patterns[:3]:  # Top 3 patterns
+        if pattern.get('usage_count', 0) < 3:
+            continue
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents,
+            pattern=pattern
+        )
+        sources.append({
+            "type": "pattern",
+            "priority": 3 if pattern.get('usage_count', 0) >= 4 else 2,
+            "context": context,
+            "data": pattern
+        })
+
+    # Sort sources by priority (highest first)
+    sources.sort(key=lambda s: s["priority"], reverse=True)
+
+    # Generate guidance from top sources (max 5 items)
+    for source in sources[:5]:
+        template = TemplateLibrary.select_template(
+            TemplateLibrary.STRUCTURE_TEMPLATES,
+            source["context"],
+            used_template_ids
+        )
+
+        if template:
+            used_template_ids.add(template["id"])
+            guidance_text = TemplateLibrary.populate_template(
+                template["template"],
+                source["context"]
+            )
+
+            # Extract source data for cross-linking
+            source_data = {}
+            if source["type"] == "conflict":
+                source_data = {
+                    "conflicts": [source["data"].get("topic", "")],
+                    "gaps": [],
+                    "patterns": []
+                }
+            elif source["type"] == "gap":
+                source_data = {
+                    "conflicts": [],
+                    "gaps": [source["data"].get("title", "")],
+                    "patterns": []
+                }
+            elif source["type"] == "pattern":
+                source_data = {
+                    "conflicts": [],
+                    "gaps": [],
+                    "patterns": [source["data"].get("methodology", "")]
+                }
+
+            guidance_items.append({
+                "text": guidance_text,
+                "type": source["type"],
+                "priority": source["priority"],
+                "source_data": source_data
+            })
+
+    # If no specific guidance generated, add default
+    if not guidance_items:
+        context = TemplateLibrary.build_context(
+            insights=insights,
+            documents=documents
+        )
+        template = TemplateLibrary.select_template(
+            TemplateLibrary.STRUCTURE_TEMPLATES,
+            context,
+            used_template_ids
+        )
+        if template:
+            guidance_text = TemplateLibrary.populate_template(
+                template["template"],
+                context
+            )
+            guidance_items.append({
+                "text": guidance_text,
+                "type": "general",
+                "priority": 1,
+                "source_data": {
+                    "conflicts": [],
+                    "gaps": [],
+                    "patterns": []
+                }
+            })
+
+    return guidance_items
 
 
 def extract_year(document: Dict[str, Any]) -> Optional[int]:
@@ -425,7 +1045,7 @@ def validate_guidance(guidance: Dict[str, Any]) -> bool:
     Raises:
         ValueError: If guidance structure is invalid
     """
-    required_fields = ['structure_recommendations', 'synthesis_questions', 'positioning_prompts']
+    required_fields = ['structure_recommendations', 'synthesis_questions', 'positioning_prompts', 'structure_guidance']
 
     for field in required_fields:
         if field not in guidance:
@@ -438,10 +1058,20 @@ def validate_guidance(guidance: Dict[str, Any]) -> bool:
         if not isinstance(rec['score'], (int, float)) or rec['score'] < 0 or rec['score'] > 1:
             raise ValueError(f"Invalid recommendation score: {rec['score']} (must be between 0 and 1)")
 
-    # Validate synthesis_questions
+    # Validate synthesis_questions (now with rich metadata)
     for q in guidance['synthesis_questions']:
         if 'question' not in q or 'category' not in q:
             raise ValueError("Invalid question structure - missing required fields")
+        # Validate new metadata fields
+        if 'confidence' in q and not isinstance(q['confidence'], (int, float)):
+            raise ValueError(f"Invalid confidence score: {q['confidence']}")
+        if 'difficulty' in q and q['difficulty'] not in ['low', 'medium', 'high']:
+            raise ValueError(f"Invalid difficulty level: {q['difficulty']}")
+
+    # Validate structure_guidance (new field)
+    for item in guidance['structure_guidance']:
+        if 'text' not in item or 'type' not in item:
+            raise ValueError("Invalid guidance structure - missing required fields")
 
     return True
 
