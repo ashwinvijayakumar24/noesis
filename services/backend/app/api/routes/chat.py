@@ -146,7 +146,7 @@ async def stream_chat_response(
     draft_id: str = None
 ) -> AsyncGenerator[str, None]:
     """
-    Stream chat response from OpenAI with RAG context
+    Stream chat response from OpenAI with RAG context (OPTIMIZED)
 
     Args:
         document_id: Optional UUID to search within a single document only.
@@ -157,49 +157,75 @@ async def stream_chat_response(
     Validates: Requirements 6.2, 6.4 - Draft-aware chat
     """
     try:
-        # Get RAG context from vector search (draft-aware if requested)
-        from app.services.rag_retrieval import retrieve_relevant_chunks, retrieve_relevant_chunks_with_drafts
+        # Get RAG context using optimized retrieval (hybrid search + reranking + structured context)
+        from app.services.rag_integration import retrieve_with_optimizations
 
-        if include_drafts or draft_id:
-            chunks = retrieve_relevant_chunks_with_drafts(
-                project_id=project_id,
-                query=query,
-                limit=max_chunks,
-                include_drafts=include_drafts,
-                include_literature=True,
-                draft_id=draft_id
-            )
-        else:
-            chunks = retrieve_relevant_chunks(project_id, query, limit=max_chunks, document_id=document_id)
+        retrieval_result = await retrieve_with_optimizations(
+            project_id=project_id,
+            query=query,
+            user_id=user_id,
+            limit=max_chunks,
+            include_drafts=include_drafts,
+            draft_id=draft_id
+        )
 
-        # Build context from chunks with numbered citations (draft-aware)
-        context_parts = []
+        chunks = retrieval_result['chunks']
+        optimization_enabled = retrieval_result['optimization_enabled']
+
+        logger.info(
+            f"[Chat] Retrieved {len(chunks)} chunks | "
+            f"Optimization: {optimization_enabled} | "
+            f"Method: {retrieval_result['metadata'].get('retrieval_method', 'unknown')}"
+        )
+
+        # Build sources metadata for frontend
         sources = []
         for idx, chunk in enumerate(chunks, 1):
             source_type = chunk.get("source_type", "literature")
-            source_icon = chunk.get("source_icon", "📚")
             source_title = chunk.get("source_title", chunk.get("document_title", "Unknown"))
 
-            if source_type == "draft":
-                label = f"[{idx}] {source_icon} FROM YOUR DRAFT: {source_title}"
-            else:
-                label = f"[{idx}] {source_icon} FROM LITERATURE: {source_title}"
-
-            context_parts.append(f"{label}\\n{chunk['content']}")
-
-            # Enhanced source metadata
-            sources.append({
+            # Enhanced source metadata with optimization scores
+            source_meta = {
                 "citation_number": idx,
                 "source_type": source_type,
                 "source_title": source_title,
                 "document_id": chunk.get("document_id"),
                 "draft_id": chunk.get("draft_id"),
                 "chunk_id": chunk.get("id"),
-                "similarity": chunk.get("similarity"),
                 "content_preview": chunk['content'][:200] + "..." if len(chunk['content']) > 200 else chunk['content']
-            })
+            }
 
-        context = "\\n\\n---\\n\\n".join(context_parts)
+            # Add relevance scores (if available from optimized retrieval)
+            if chunk.get("rerank_score"):
+                source_meta["rerank_score"] = chunk.get("rerank_score")
+            if chunk.get("rrf_score"):
+                source_meta["rrf_score"] = chunk.get("rrf_score")
+            if chunk.get("combined_score"):
+                source_meta["combined_score"] = chunk.get("combined_score")
+            if chunk.get("similarity") or chunk.get("semantic_similarity"):
+                source_meta["similarity"] = chunk.get("similarity") or chunk.get("semantic_similarity")
+
+            sources.append(source_meta)
+
+        # Use structured context if optimization is enabled
+        if optimization_enabled:
+            context = retrieval_result['context']
+        else:
+            # Fallback to simple context
+            context_parts = []
+            for idx, chunk in enumerate(chunks, 1):
+                source_type = chunk.get("source_type", "literature")
+                source_icon = "📝" if source_type == "draft" else "📚"
+                source_title = chunk.get("source_title", chunk.get("document_title", "Unknown"))
+
+                if source_type == "draft":
+                    label = f"[{idx}] {source_icon} FROM YOUR DRAFT: {source_title}"
+                else:
+                    label = f"[{idx}] {source_icon} FROM LITERATURE: {source_title}"
+
+                context_parts.append(f"{label}\\n{chunk['content']}")
+
+            context = "\\n\\n---\\n\\n".join(context_parts)
 
         # Get recent chat history for context
         history_res = (supabase.table("chat_messages")
@@ -210,9 +236,36 @@ async def stream_chat_response(
             .limit(10)
             .execute())
 
-        # Build messages for OpenAI (draft-aware system prompt if drafts included)
-        if include_drafts or draft_id:
-            system_content = f"""You are a helpful AI research assistant helping users with their research drafts. You have access to both the user's draft content and their literature database.
+        # Build messages for OpenAI
+        # Use structured system prompt if optimization is enabled
+        if optimization_enabled:
+            # Structured context already includes query and section headings
+            system_content = f"""{retrieval_result['system_prompt']}
+
+{context}
+
+DRAFT AWARENESS (if applicable):
+- Sources marked "YOUR DRAFT" are the user's own writing
+- Sources marked "LITERATURE" are published research papers
+- When citing the user's draft, use language like "In your draft..." or "You wrote..."
+- When citing literature, use traditional academic citations with [N]
+
+CITATION REQUIREMENTS:
+- When you reference information from ANY source, add a citation using [N] format
+- Place citations immediately after the relevant statement or claim
+- You can cite the same source multiple times if needed
+- If a statement uses information from multiple sources, cite all of them: [1][2]
+
+FORMATTING REQUIREMENTS:
+- Use proper formatting: **bold** for emphasis, lists where appropriate
+- Keep responses clear and well-structured
+- Always cite your sources when making specific claims
+
+If the context doesn't contain enough information to answer the question, say so clearly."""
+        else:
+            # Fallback to simple system prompt
+            if include_drafts or draft_id:
+                system_content = f"""You are a helpful AI research assistant helping users with their research drafts. You have access to both the user's draft content and their literature database.
 
 Context from sources:
 {context}
@@ -240,8 +293,8 @@ If the context doesn't contain enough information to answer the question, say so
 
 Example response format:
 In your draft, you mention X [1]. This aligns with recent research showing Y [2]. Multiple studies confirm this relationship [2][3]."""
-        else:
-            system_content = f"""You are a helpful AI research assistant. Answer questions based on the provided context from research documents.
+            else:
+                system_content = f"""You are a helpful AI research assistant. Answer questions based on the provided context from research documents.
 
 Context from documents:
 {context}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral'
+export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'pink'
 
 interface BadgeProps {
   variant?: BadgeVariant
@@ -9,14 +9,15 @@ interface BadgeProps {
 }
 
 export function Badge({ variant = 'neutral', children, className = '' }: BadgeProps) {
-  const baseStyles = 'px-2.5 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1'
+  const baseStyles = 'px-2.5 py-1 text-xs font-semibold rounded-md inline-flex items-center gap-1'
 
   const variantStyles = {
-    success: 'bg-green-900 text-green-100 border border-green-700',
-    warning: 'bg-amber-800 text-amber-200 border border-amber-600',
-    error: 'bg-red-800 text-red-200 border border-red-600',
-    info: 'bg-slate-700 text-slate-200 border border-slate-500',
-    neutral: 'bg-surface-hover text-text-tertiary border border-border-base'
+    success: 'bg-success/10 text-success border border-success/30',
+    warning: 'bg-warning/10 text-warning border border-warning/30',
+    error: 'bg-error/10 text-error border border-error/30',
+    info: 'bg-info/10 text-info border border-info/30',
+    neutral: 'bg-bg-elevated text-text-secondary border border-border-base',
+    pink: 'bg-neon-pink/10 text-neon-pink border border-neon-pink/30'
   }
 
   return (

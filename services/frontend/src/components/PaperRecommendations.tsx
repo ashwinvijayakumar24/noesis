@@ -53,7 +53,7 @@ const SOURCE_NAMES = {
   pubmed: 'PubMed',
 }
 
-export default function PaperRecommendations({ projectId, insightsStatus }: PaperRecommendationsProps) {
+export default function PaperRecommendations({ projectId, insightsStatus: _insightsStatus }: PaperRecommendationsProps) {
   const { session } = useAuthStore()
   const [recommendations, setRecommendations] = useState<PaperRecommendation[]>([])
   const [loading, setLoading] = useState(false)

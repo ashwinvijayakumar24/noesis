@@ -8,8 +8,8 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export function Card({ children, className = '', hover = false, clickable = false, ...props }: CardProps) {
-  const baseStyles = 'bg-surface border border-border-base rounded-lg p-6 transition-all'
-  const hoverStyles = hover ? 'hover:border-accent-primary hover:bg-surface-hover' : 'hover:border-border-subtle'
+  const baseStyles = 'bg-bg-surface border border-border-base rounded-2xl p-6 transition-all duration-300'
+  const hoverStyles = hover ? 'hover:border-neon-pink/30 hover:-translate-y-1 hover:shadow-card-lift' : ''
   const clickableStyles = clickable ? 'cursor-pointer' : ''
 
   return (
@@ -26,7 +26,7 @@ interface CardTitleProps {
 
 export function CardTitle({ children, className = '' }: CardTitleProps) {
   return (
-    <h3 className={`text-2xl font-serif font-semibold text-text-primary mb-4 ${className}`}>
+    <h3 className={`text-2xl font-display font-bold text-text-primary mb-4 ${className}`}>
       {children}
     </h3>
   )

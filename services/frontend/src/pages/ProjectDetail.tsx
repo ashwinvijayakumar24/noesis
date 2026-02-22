@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
-import { ArrowLeftIcon, DocumentTextIcon, TrashIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, MagnifyingGlassIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { motion, AnimatePresence } from 'framer-motion'
+import { DocumentTextIcon, TrashIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon } from '@heroicons/react/24/outline'
 import UploadDocumentModal from '../components/UploadDocumentModal'
 import DeleteDocumentModal from '../components/DeleteDocumentModal'
 import ChatMessage from '../components/ChatMessage'
@@ -13,9 +14,22 @@ import UploadDraftModal from '../components/UploadDraftModal'
 import EmptyStateGuide from '../components/EmptyStateGuide'
 import ResearchAssistantPanel from '../components/ResearchAssistantPanel'
 import { Badge, type BadgeVariant } from '../components/ui/Badge'
+import PageContainer from '../components/layout/PageContainer'
+import { TabNavigation } from '../components/navigation/TabNavigation'
+import { MagneticButton } from '../components/ui/MagneticButton'
+import DocumentCard from '../components/literature/DocumentCard'
 
 // Lazy load heavy components for better performance
 const InsightsTab = lazy(() => import('../components/InsightsTab'))
+
+interface TabItem {
+  id: string
+  label: string
+  icon?: ReactNode
+  badgeCount?: number
+  badgeVariant?: 'neutral' | 'pink' | 'warning' | 'success'
+  isProcessing?: boolean
+}
 
 interface Project {
   id: string
@@ -41,53 +55,15 @@ interface ChatMessageType {
   created_at: string
 }
 
-type Tab = 'literature' | 'insights' | 'drafts'
+type ActiveTab = 'literature' | 'insights' | 'drafts'
 
 // Loading component for lazy-loaded sections
 function ComponentLoader() {
   return (
     <div className="flex items-center justify-center py-12">
-      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-accent-primary border-r-transparent"></div>
+      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-neon-pink border-r-transparent"></div>
     </div>
   )
-}
-
-// Helper function to get status badge variant and label
-const getStatusBadge = (status: string): { variant: BadgeVariant; label: string; animate: boolean } => {
-  const statusLower = status.toLowerCase()
-  switch (statusLower) {
-    case 'processing':
-    case 'uploaded':
-      return { variant: 'warning', label: 'Processing', animate: true }
-    case 'analyzing':
-      return { variant: 'warning', label: 'Analyzing', animate: true }
-    case 'failed':
-      return { variant: 'error', label: 'Failed', animate: false }
-    case 'analyzed':
-      return { variant: 'success', label: 'Processed', animate: false }
-    default:
-      // Capitalize first letter for any other status
-      return { variant: 'neutral', label: status.charAt(0).toUpperCase() + status.slice(1).toLowerCase(), animate: false }
-  }
-}
-
-// Helper function to get colored left border based on status
-const getDocumentBorderColor = (status: string): string => {
-  const statusLower = status.toLowerCase()
-  switch (statusLower) {
-    case 'ready':
-      return 'border-l-4 border-l-slate-600'
-    case 'processing':
-    case 'uploaded':
-    case 'analyzing':
-      return 'border-l-4 border-l-amber-700'
-    case 'failed':
-      return 'border-l-4 border-l-red-600'
-    case 'analyzed':
-      return 'border-l-4 border-l-green-700'
-    default:
-      return 'border-l-4 border-l-slate-500'
-  }
 }
 
 export default function ProjectDetail() {
@@ -97,7 +73,7 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<Tab>('literature')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('literature')
 
   // Document modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
@@ -553,397 +529,306 @@ export default function ProjectDetail() {
     return null
   }
 
+  // Prepare tabs for TabNavigation component
+  const tabs: TabItem[] = [
+    {
+      id: 'literature',
+      label: 'Literature',
+      icon: <DocumentTextIcon className="h-6 w-6 text-orange-400" />,
+      badgeCount: documents.length > 0 ? documents.length : undefined,
+      badgeVariant: 'neutral',
+    },
+    {
+      id: 'insights',
+      label: 'Insights',
+      icon: <LightBulbIcon className="h-6 w-6 text-warning" />,
+      isProcessing: insightsStatus === 'analyzing',
+    },
+    {
+      id: 'drafts',
+      label: 'Your Drafts',
+      icon: (
+        <svg className="h-6 w-6 text-accent-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+      badgeCount: draftCount > 0 ? draftCount : undefined,
+      badgeVariant: 'pink',
+    },
+  ]
+
   return (
-    <div className="min-h-screen bg-bg-base">
-      {/* Header */}
-      <header className="bg-surface border-b border-border-base">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img src="/noesis.png" alt="Noesis" className="h-10" />
-              <span className="text-lg font-serif font-semibold text-text-primary">Noesis</span>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary bg-surface-hover hover:bg-surface-active rounded-lg border border-border-subtle transition-colors group"
-              >
-                <MagnifyingGlassIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Search</span>
-              </button>
-              <span className="text-sm text-text-secondary hidden md:inline font-mono">{user?.email}</span>
-              <button
-                onClick={() => signOut()}
-                className="text-sm text-text-secondary hover:text-text-primary font-medium transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
+    <PageContainer
+      breadcrumbs={[
+        { label: 'Projects', href: '/projects' },
+        { label: project.title || 'Loading...' },
+      ]}
+      backLink="/projects"
+      backLabel="Back to Projects"
+      onSearchOpen={() => setIsSearchOpen(true)}
+    >
+
+      {/* Loading State */}
+      {loading && (
+        <div className="text-center py-12">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-neon-pink border-r-transparent"></div>
+          <p className="mt-4 text-text-tertiary">Loading project...</p>
         </div>
-      </header>
+      )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back Button */}
-        <Link
-          to="/projects"
-          className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary mb-6 transition-colors"
-        >
-          <ArrowLeftIcon className="h-5 w-5" />
-          Back to Projects
-        </Link>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent"></div>
-            <p className="mt-4 text-text-tertiary">Loading project...</p>
-          </div>
-        )}
-
-        {/* Project Content */}
-        {!loading && project && (
-          <>
-        {/* Project Header */}
-        <div className="bg-surface rounded-lg border border-border-base p-6 mb-8">
-          {isEditingProject ? (
-            /* Edit Mode */
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">Project Title</label>
-                <input
-                  type="text"
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  className="w-full px-4 py-3 bg-bg-base border border-border-subtle rounded-lg text-text-primary text-2xl font-serif font-bold focus:ring-2 focus:ring-accent-primary focus:border-transparent"
-                  placeholder="Enter project title"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">Description <span className="text-text-muted font-mono text-xs">(optional)</span></label>
-                <textarea
-                  value={editedDescription}
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  className="w-full px-4 py-3 bg-bg-base border border-border-subtle rounded-lg text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-transparent"
-                  placeholder="Enter project description"
-                  rows={3}
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleSaveProject}
-                  className="flex items-center gap-2 px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors"
-                >
-                  <CheckIcon className="h-4 w-4" />
-                  Save Changes
-                </button>
-                <button
-                  onClick={handleCancelEditProject}
-                  className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-text-primary border border-border-subtle rounded-lg hover:bg-surface-hover transition-colors"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* View Mode */
-            <>
-              <div className="flex items-start justify-between mb-2">
-                <h2 className="text-3xl font-serif font-bold text-text-primary">
-                  {project.title}
-                </h2>
-                <button
-                  onClick={handleStartEditProject}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary border border-border-subtle rounded-lg hover:bg-surface-hover transition-colors"
-                  title="Edit project details"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                  Edit
-                </button>
-              </div>
-              <p className="text-text-secondary mb-4">
-                {project.description || 'No description'}
-              </p>
-              <div className="flex items-center gap-4 text-sm font-mono text-text-muted">
-                <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
-                <span>•</span>
-                <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Tabs Navigation */}
-        <div className="mb-6">
-          <div className="flex justify-center gap-4 border-b border-border-base overflow-x-auto scrollbar-hide">
-            {/* Tab 1: Literature */}
-            <button
-              onClick={() => setActiveTab('literature')}
-              className={`px-6 sm:px-8 py-4 text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'literature'
-                  ? 'border-accent-primary text-text-primary'
-                  : 'border-transparent text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <DocumentTextIcon className="h-6 w-6 text-orange-400" />
-                <span>Literature</span>
-                {documents.length > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs bg-surface-hover rounded-full font-mono">
-                    {documents.length}
-                  </span>
-                )}
-              </div>
-            </button>
-
-            {/* Tab 2: Insights */}
-            <button
-              onClick={() => setActiveTab('insights')}
-              className={`px-6 sm:px-8 py-4 text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'insights'
-                  ? 'border-accent-primary text-text-primary'
-                  : 'border-transparent text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                <span>Insights</span>
-                {insightsStatus === 'analyzing' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50">
-                    <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Updating
-                  </span>
-                )}
-              </div>
-            </button>
-
-            {/* Tab 3: Your Drafts (STAR FEATURE) */}
-            <button
-              onClick={() => setActiveTab('drafts')}
-              className={`px-6 sm:px-8 py-4 text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'drafts'
-                  ? 'border-accent-primary text-text-primary'
-                  : 'border-transparent text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <svg className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <span>Your Drafts</span>
-                {draftCount > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs bg-purple-900/50 text-purple-300 rounded-full font-mono border border-purple-700/50">
-                    {draftCount}
-                  </span>
-                )}
-              </div>
-            </button>
-          </div>
-        </div>
-
-        {/* Literature Tab - Documents + Citation Network */}
-        {activeTab === 'literature' && (
-          <div className="mb-8 space-y-8">
-            {/* Documents Section */}
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-serif font-semibold text-text-primary">Research Papers</h3>
-
-                <div className="flex gap-2">
-                  {/* Export BibTeX button */}
-                  {documents.length > 0 && (
-                    <button
-                      onClick={handleExportBibTeX}
-                      className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-200 font-semibold rounded-lg hover:bg-slate-600 hover:border-slate-500 transition-colors flex items-center gap-2"
-                    >
-                      <ArrowDownTrayIcon className="h-4 w-4" />
-                      <span>Export BibTeX</span>
-                    </button>
-                  )}
-
-                  {/* Upload Document button */}
-                  <button
-                    onClick={() => setIsUploadModalOpen(true)}
-                    className="px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2"
+      {/* Project Content */}
+      {!loading && project && (
+        <>
+          {/* Project Header */}
+          <div className="bg-bg-surface rounded-2xl border border-border-base p-6 mb-8">
+            {isEditingProject ? (
+              /* Edit Mode */
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">Project Title</label>
+                  <input
+                    type="text"
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    className="w-full px-4 py-3 bg-bg-void border border-border-subtle rounded-lg text-text-primary text-2xl font-display font-bold focus:ring-2 focus:ring-neon-pink focus:border-transparent transition-all duration-200"
+                    placeholder="Enter project title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">Description <span className="text-text-muted font-mono text-xs">(optional)</span></label>
+                  <textarea
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    className="w-full px-4 py-3 bg-bg-void border border-border-subtle rounded-lg text-text-primary focus:ring-2 focus:ring-neon-pink focus:border-transparent transition-all duration-200"
+                    placeholder="Enter project description"
+                    rows={3}
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <MagneticButton
+                    onClick={handleSaveProject}
+                    variant="primary"
+                    icon={<CheckIcon className="h-4 w-4" />}
                   >
-                    <span>Upload Paper</span>
+                    Save Changes
+                  </MagneticButton>
+                  <button
+                    onClick={handleCancelEditProject}
+                    className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-text-primary border-2 border-border-subtle rounded-lg hover:bg-bg-hover hover:border-neon-pink/30 transition-all duration-200"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                    Cancel
                   </button>
                 </div>
               </div>
+            ) : (
+              /* View Mode */
+              <>
+                <div className="flex items-start justify-between mb-2">
+                  <h2 className="text-3xl font-display font-bold text-text-primary">
+                    {project.title}
+                  </h2>
+                  <button
+                    onClick={handleStartEditProject}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary hover:text-neon-pink border border-border-subtle rounded-lg hover:bg-bg-hover hover:border-neon-pink/30 transition-all duration-200"
+                    title="Edit project details"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                    Edit
+                  </button>
+                </div>
+                <p className="text-text-secondary mb-4 leading-relaxed">
+                  {project.description || 'No description'}
+                </p>
+                <div className="flex items-center gap-4 text-sm font-mono text-text-muted">
+                  <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
+                  <span>•</span>
+                  <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
+                </div>
+              </>
+            )}
+          </div>
 
-              {/* Draft Warning Banner - shown when draft uploaded without documents */}
-              {draftCount > 0 && documents.length === 0 && !isDraftWarningDismissed && (
-                <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-400 dark:border-amber-600 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                      <svg className="h-6 w-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
-                        Upload research papers to get citation suggestions
-                      </h4>
-                      <p className="text-sm text-amber-800 dark:text-amber-300 mb-3">
-                        You have {draftCount} draft{draftCount > 1 ? 's' : ''} uploaded, but no research papers yet. Citation suggestions and coverage gap analysis require papers in your library.
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setIsUploadModalOpen(true)}
-                          className="text-sm font-semibold text-amber-900 dark:text-amber-200 hover:text-amber-700 dark:hover:text-amber-100 underline"
-                        >
-                          Upload Research Papers
-                        </button>
-                        <button
-                          onClick={handleDismissDraftWarning}
-                          className="text-sm text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleDismissDraftWarning}
-                      className="flex-shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200"
-                      aria-label="Dismiss warning"
+          {/* Tabs Navigation */}
+          <TabNavigation
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={(tabId) => setActiveTab(tabId as ActiveTab)}
+            className="mb-8"
+          />
+
+          {/* Tab Content with Animations */}
+          <AnimatePresence mode="wait">
+            {/* Literature Tab - Documents + Citation Network */}
+            {activeTab === 'literature' && (
+              <motion.div
+                key="literature"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-8"
+              >
+              {/* Documents Section */}
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="text-2xl font-display font-bold text-text-primary">Research Papers</h3>
+                    <p className="text-sm text-text-secondary mt-1">
+                      Upload and analyze your literature collection
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {/* Export BibTeX button */}
+                    {documents.length > 0 && (
+                      <button
+                        onClick={handleExportBibTeX}
+                        className="px-4 py-2 bg-bg-surface border-2 border-border-base text-text-primary font-semibold rounded-lg hover:bg-bg-elevated hover:border-accent-teal transition-all duration-200 flex items-center gap-2 group"
+                      >
+                        <ArrowDownTrayIcon className="h-4 w-4 group-hover:text-accent-teal transition-colors" />
+                        <span>Export BibTeX</span>
+                      </button>
+                    )}
+
+                    {/* Upload Document button */}
+                    <MagneticButton
+                      onClick={() => setIsUploadModalOpen(true)}
+                      variant="primary"
+                      icon={<PlusIcon className="h-4 w-4" />}
                     >
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                      Upload Paper
+                    </MagneticButton>
                   </div>
                 </div>
-              )}
+
+                {/* Draft Warning Banner - shown when draft uploaded without documents */}
+                {draftCount > 0 && documents.length === 0 && !isDraftWarningDismissed && (
+                  <div className="mb-6 bg-warning/10 border-2 border-warning/50 rounded-2xl p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <svg className="h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-display font-semibold text-warning mb-1">
+                          Upload research papers to get citation suggestions
+                        </h4>
+                        <p className="text-sm text-text-secondary mb-3 leading-relaxed">
+                          You have {draftCount} draft{draftCount > 1 ? 's' : ''} uploaded, but no research papers yet. Citation suggestions and coverage gap analysis require papers in your library.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setIsUploadModalOpen(true)}
+                            className="text-sm font-semibold text-neon-pink hover:text-neon-pink-bright underline transition-colors"
+                          >
+                            Upload Research Papers
+                          </button>
+                          <button
+                            onClick={handleDismissDraftWarning}
+                            className="text-sm text-text-tertiary hover:text-text-primary transition-colors"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleDismissDraftWarning}
+                        className="flex-shrink-0 text-text-tertiary hover:text-warning transition-colors"
+                        aria-label="Dismiss warning"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
               {/* Empty State */}
               {documents.length === 0 && (
                 <EmptyStateGuide onUploadClick={() => setIsUploadModalOpen(true)} />
               )}
 
-              {/* Documents List */}
-              {documents.length > 0 && (
-                <div className="space-y-3">
-                  {documents.map((doc) => {
-                    const statusBadge = getStatusBadge(doc.status)
-                    const borderColor = getDocumentBorderColor(doc.status)
-                    const isAnalyzed = doc.status.toLowerCase() === 'analyzed'
-                    return (
-                      <div
+                {/* Documents List */}
+                {documents.length > 0 && (
+                  <motion.div
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    variants={{
+                      hidden: { opacity: 0 },
+                      visible: {
+                        opacity: 1,
+                        transition: {
+                          staggerChildren: 0.1
+                        }
+                      }
+                    }}
+                  >
+                    {documents.map((doc, index) => (
+                      <motion.div
                         key={doc.id}
-                        onClick={isAnalyzed ? () => navigate(`/projects/${projectId}/documents/${doc.id}`) : undefined}
-                        className={`bg-surface rounded-lg border border-border-base p-5 transition-all group ${
-                          isAnalyzed
-                            ? 'hover:border-border-subtle hover:shadow-lg hover:shadow-red-600/20 cursor-pointer'
-                            : 'cursor-default'
-                        } ${borderColor}`}
+                        variants={{
+                          hidden: { opacity: 0, y: 20 },
+                          visible: {
+                            opacity: 1,
+                            y: 0,
+                            transition: {
+                              duration: 0.5,
+                              ease: [0.16, 1, 0.3, 1]
+                            }
+                          }
+                        }}
                       >
-                        <div className="flex items-start gap-4">
-                          {/* PDF Icon */}
-                          <div className="shrink-0">
-                            <div className={`h-12 w-12 bg-surface-hover rounded-lg flex items-center justify-center border-2 ${
-                              doc.status.toLowerCase() === 'failed' ? 'border-red-500/60' :
-                              doc.status.toLowerCase() === 'processing' || doc.status.toLowerCase() === 'uploaded' ? 'border-amber-500/60' :
-                              doc.status.toLowerCase() === 'ready' ? 'border-slate-500/60' :
-                              'border-blue-500/60'
-                            }`}>
-                              <DocumentTextIcon className={`h-7 w-7 ${
-                                doc.status.toLowerCase() === 'failed' ? 'text-red-400' :
-                                doc.status.toLowerCase() === 'processing' || doc.status.toLowerCase() === 'uploaded' ? 'text-amber-400' :
-                                doc.status.toLowerCase() === 'ready' ? 'text-slate-400' :
-                                'text-blue-400'
-                              }`} />
-                            </div>
-                          </div>
-
-                          {/* Document Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-serif font-semibold text-text-primary mb-1 truncate">
-                                  {doc.title}
-                                </h4>
-                                <div className="flex items-center gap-3 text-sm font-mono text-text-muted">
-                                  <span className="flex items-center gap-1">
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    {new Date(doc.created_at).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Status Badge & Delete Button */}
-                              <div className="flex items-center gap-2">
-                                {/* Status Badge */}
-                                <Badge variant={statusBadge.variant}>
-                                  {statusBadge.animate && (
-                                    <span className="relative flex h-2 w-2">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-700 opacity-75"></span>
-                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
-                                    </span>
-                                  )}
-                                  {statusBadge.label}
-                                </Badge>
-
-                                {/* Delete Button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setDeleteDocument({ id: doc.id, title: doc.title })
-                                  }}
-                                  className="p-2 text-text-muted hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                  title="Delete document"
-                                >
-                                  <TrashIcon className="h-5 w-5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Drafts Tab */}
-        {activeTab === 'drafts' && session?.access_token && projectId && (
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-serif font-semibold text-text-primary">Research Drafts</h3>
-
-              <div className="flex gap-2">
-                {/* Upload Draft button */}
-                <button
-                  onClick={() => setIsUploadDraftModalOpen(true)}
-                  className="px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2"
-                >
-                  <span>Upload Draft</span>
-                </button>
+                        <DocumentCard
+                          document={doc}
+                          projectId={projectId!}
+                          onDelete={(id, title) => setDeleteDocument({ id, title })}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
               </div>
-            </div>
-            <DraftsPanel
-              token={session.access_token}
-              projectId={projectId}
-              refreshTrigger={draftRefreshTrigger}
-              onDraftsLoaded={handleDraftsLoaded}
-            />
-          </div>
-        )}
+            </motion.div>
+          )}
+
+          {/* Drafts Tab */}
+          {activeTab === 'drafts' && session?.access_token && projectId && (
+            <motion.div
+              key="drafts"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-2xl font-display font-bold text-text-primary">Research Drafts</h3>
+                  <p className="text-sm text-text-secondary mt-1">
+                    Get AI-powered feedback and citation suggestions
+                  </p>
+                </div>
+
+                <MagneticButton
+                  onClick={() => setIsUploadDraftModalOpen(true)}
+                  variant="primary"
+                  icon={<PlusIcon className="h-4 w-4" />}
+                >
+                  Upload Draft
+                </MagneticButton>
+              </div>
+              <DraftsPanel
+                token={session.access_token}
+                projectId={projectId}
+                refreshTrigger={draftRefreshTrigger}
+                onDraftsLoaded={handleDraftsLoaded}
+              />
+            </motion.div>
+          )}
 
         {/* Chat Tab - Disabled (use Research Assistant Panel instead) */}
         {/* {activeTab === 'chat' && !isFullScreen && (*/}
@@ -1073,17 +958,23 @@ export default function ProjectDetail() {
           </div>
         )}
 
-        {/* Insights Tab - Unified view with all insights + compass features */}
-        {activeTab === 'insights' && projectId && (
-          <div className="mb-8">
-            <Suspense fallback={<ComponentLoader />}>
-              <InsightsTab projectId={projectId} />
-            </Suspense>
-          </div>
-        )}
-          </>
-        )}
-      </main>
+          {/* Insights Tab - Unified view with all insights + compass features */}
+          {activeTab === 'insights' && projectId && (
+            <motion.div
+              key="insights"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <Suspense fallback={<ComponentLoader />}>
+                <InsightsTab projectId={projectId} />
+              </Suspense>
+            </motion.div>
+          )}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* Full Screen Chat Mode */}
       {isFullScreen && (
@@ -1278,7 +1169,6 @@ export default function ProjectDetail() {
           clearChat={handleClearChat}
         />
       )}
-
-    </div>
+    </PageContainer>
   )
 }

@@ -1,5 +1,3 @@
-import { type ReactNode } from 'react'
-
 interface ConfidenceBarProps {
   /** Confidence score between 0 and 1 */
   score: number
@@ -21,38 +19,40 @@ export default function ConfidenceBar({
   const clampedScore = Math.max(0, Math.min(1, score))
   const percentage = Math.round(clampedScore * 100)
 
-  // Color coding based on score
-  const getColor = () => {
-    if (percentage >= 70) return 'bg-green-600'
-    if (percentage >= 40) return 'bg-amber-500'
-    return 'bg-red-500'
-  }
-
-  const getBackgroundColor = () => {
-    if (percentage >= 70) return 'bg-green-900/20'
-    if (percentage >= 40) return 'bg-amber-900/20'
-    return 'bg-red-900/20'
+  // Gradient bar with pink to teal transition
+  const getGradientStyle = () => {
+    // Create a gradient that transitions from pink (low) to teal (high)
+    return {
+      background: `linear-gradient(90deg, #FF1F4C 0%, #00d9ff ${percentage}%, #00d9ff 100%)`
+    }
   }
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`}>
       {label && (
-        <span className="text-xs font-medium text-text-muted shrink-0">
+        <span className="text-xs font-semibold text-text-secondary shrink-0 uppercase tracking-wide">
           {label}
         </span>
       )}
 
       <div className="flex-1 min-w-0">
-        <div className={`h-1.5 rounded-full overflow-hidden ${getBackgroundColor()}`}>
+        <div className="h-2 rounded-full overflow-hidden bg-bg-elevated border border-border-base">
           <div
-            className={`h-full ${getColor()} transition-all duration-300 ease-out`}
-            style={{ width: `${percentage}%` }}
+            className="h-full transition-all duration-500 ease-out"
+            style={{
+              width: `${percentage}%`,
+              background: percentage >= 70
+                ? 'linear-gradient(90deg, #00d9ff 0%, #00d9ff 100%)' // Teal for high confidence
+                : percentage >= 40
+                ? 'linear-gradient(90deg, #F59E0B 0%, #00d9ff 100%)' // Orange to teal for medium
+                : 'linear-gradient(90deg, #FF1F4C 0%, #F59E0B 100%)' // Pink to orange for low
+            }}
           />
         </div>
       </div>
 
       {showPercentage && (
-        <span className="text-xs font-mono text-text-tertiary shrink-0 tabular-nums">
+        <span className="text-sm font-mono font-bold text-neon-pink shrink-0 tabular-nums min-w-[3ch]">
           {percentage}%
         </span>
       )}

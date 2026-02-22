@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
-import { EllipsisVerticalIcon, TrashIcon, MagnifyingGlassIcon, TagIcon, XMarkIcon, DocumentTextIcon, ChatBubbleLeftRightIcon as _ChatBubbleLeftRightIcon, ChartBarIcon as _ChartBarIcon, BeakerIcon, LightBulbIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { EllipsisVerticalIcon, TrashIcon, TagIcon, XMarkIcon, DocumentTextIcon, BeakerIcon, LightBulbIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Menu } from '@headlessui/react'
+import { motion } from 'framer-motion'
 import CreateProjectModal from '../components/CreateProjectModal'
 import DeleteProjectModal from '../components/DeleteProjectModal'
 import GlobalSearch from '../components/GlobalSearch'
@@ -12,6 +13,8 @@ import OnboardingTour from '../components/OnboardingTour'
 import { trackEvent } from '../lib/analytics'
 import { handleError } from '../lib/errorHandler'
 import { SkeletonProjectCard, SkeletonGrid } from '../components/ui/Skeleton'
+import PageContainer from '../components/layout/PageContainer'
+import { MagneticButton } from '../components/ui/MagneticButton'
 
 interface Project {
   id: string
@@ -176,202 +179,203 @@ export default function Projects() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-base">
-      {/* Header */}
-      <header className="bg-surface border-b border-border-subtle">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img src="/noesis.png" alt="Noesis" className="h-10" />
-              <span className="text-lg font-serif font-semibold text-text-primary">Noesis</span>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Search Button */}
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-tertiary hover:text-text-primary bg-surface-hover hover:bg-surface-active rounded-lg border border-border-base transition-colors group"
-              >
-                <MagnifyingGlassIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Search</span>
-              </button>
-              <span className="text-sm text-text-tertiary hidden md:inline font-mono">{user?.email}</span>
-              <button
-                onClick={() => signOut()}
-                className="text-sm text-text-tertiary hover:text-text-primary font-medium transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <PageContainer
+      title="Projects"
+      description="Manage your research projects and documents"
+      onSearchOpen={() => setIsSearchOpen(true)}
+      headerActions={
+        <MagneticButton
+          onClick={() => setIsCreateModalOpen(true)}
+          variant="primary"
+          size="lg"
+          icon={<PlusIcon className="h-5 w-5" />}
+        >
+          Create Project
+        </MagneticButton>
+      }
+      spacing="loose"
+    >
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header with Create Button */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-4xl font-serif font-semibold text-text-primary">Projects</h2>
-            <p className="text-text-secondary mt-2">
-              Manage your research projects and documents
-            </p>
-          </div>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="px-6 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors"
-          >
-            Create Project
-          </button>
-        </div>
-
-        {/* Tag Filters */}
-        {uniqueTags.length > 0 && (
-          <div className="mb-8 p-6 bg-surface rounded-lg border border-border-base">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TagIcon className="h-5 w-5 text-text-tertiary" />
-                <h3 className="text-sm font-semibold text-text-secondary">Filter by tags</h3>
-              </div>
-              {selectedTags.length > 0 && (
-                <button
-                  onClick={clearTagFilters}
-                  className="text-xs text-text-tertiary hover:text-text-primary flex items-center gap-1 transition-colors"
-                >
-                  <XMarkIcon className="h-3 w-3" />
-                  Clear filters
-                </button>
-              )}
+      {/* Tag Filters */}
+      {uniqueTags.length > 0 && (
+        <div className="p-6 bg-bg-surface rounded-2xl border border-border-base">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TagIcon className="h-5 w-5 text-neon-pink" />
+              <h3 className="text-sm font-display font-semibold text-text-primary">Filter by tags</h3>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {uniqueTags.map((tag) => {
-                const colors = getColorClasses(tag.color)
-                const isSelected = selectedTags.includes(tag.name)
-                return (
-                  <button
-                    key={tag.name}
-                    onClick={() => toggleTagFilter(tag.name)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                      isSelected
-                        ? `${colors.bg} ${colors.text} ${colors.border} ring-2 ring-${colors.border}`
-                        : 'bg-surface-hover text-text-tertiary border-border-base hover:border-border-subtle hover:text-text-secondary'
-                    }`}
-                  >
-                    <TagIcon className="h-3.5 w-3.5" />
-                    {tag.name}
-                    <span className="text-xs opacity-75 font-mono">({tag.count})</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loading && <SkeletonGrid count={6} CardComponent={SkeletonProjectCard} />}
-
-        {/* Empty State - No Projects */}
-        {!loading && projects.length === 0 && (
-          <div className="text-center py-16 bg-surface rounded-lg border-2 border-dashed border-border-base">
-            <div className="max-w-md mx-auto">
-              <h3 className="text-2xl font-serif font-semibold text-text-primary mb-2">
-                No projects yet
-              </h3>
-              <p className="text-text-secondary mb-6">
-                Get started by creating your first research project
-              </p>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="px-6 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors"
-              >
-                Create Your First Project
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Empty State - No Matching Projects */}
-        {!loading && projects.length > 0 && filteredProjects.length === 0 && (
-          <div className="text-center py-16 bg-surface rounded-lg border-2 border-dashed border-border-base">
-            <div className="max-w-md mx-auto">
-              <h3 className="text-2xl font-serif font-semibold text-text-primary mb-2">
-                No projects match your filters
-              </h3>
-              <p className="text-text-secondary mb-6">
-                Try adjusting your tag filters to see more projects
-              </p>
+            {selectedTags.length > 0 && (
               <button
                 onClick={clearTagFilters}
-                className="px-6 py-3 bg-surface border border-border-base text-text-secondary font-medium rounded-lg hover:bg-surface-hover hover:border-accent-primary transition-colors"
+                className="text-xs text-text-tertiary hover:text-neon-pink flex items-center gap-1 transition-colors duration-200"
               >
-                Clear Filters
+                <XMarkIcon className="h-3 w-3" />
+                Clear filters
               </button>
-            </div>
+            )}
           </div>
-        )}
-
-        {/* Projects Grid */}
-        {!loading && filteredProjects.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project, index) => (
-              <div
-                key={project.id}
-                className={`bg-surface rounded-lg border border-border-base p-6 hover:border-accent-primary hover:bg-surface-hover hover:shadow-lg hover:shadow-red-600/20 transition-all relative group ${getProjectBorderColor(index)}`}
-              >
-                {/* Options Menu */}
-                <Menu as="div" className="absolute top-4 right-4">
-                  <Menu.Button
-                    className="p-2 text-text-tertiary hover:text-text-primary rounded-md hover:bg-surface-hover transition-colors opacity-0 group-hover:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <EllipsisVerticalIcon className="h-5 w-5" />
-                  </Menu.Button>
-                  <Menu.Items className="absolute right-0 mt-2 w-48 bg-surface-hover rounded-lg shadow-lg border border-border-base py-1 z-10">
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteProject({ id: project.id, title: project.title })
-                          }}
-                          className={`${
-                            active ? 'bg-red-500/10' : ''
-                          } flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors`}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                          Delete Project
-                        </button>
-                      )}
-                    </Menu.Item>
-                  </Menu.Items>
-                </Menu>
-
-                {/* Card Content - Clickable */}
-                <div
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                  className="cursor-pointer"
+          <div className="flex flex-wrap gap-2">
+            {uniqueTags.map((tag) => {
+              const colors = getColorClasses(tag.color)
+              const isSelected = selectedTags.includes(tag.name)
+              return (
+                <button
+                  key={tag.name}
+                  onClick={() => toggleTagFilter(tag.name)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                    isSelected
+                      ? `${colors.bg} ${colors.text} ${colors.border} ring-2 ring-offset-2 ring-offset-bg-void`
+                      : 'bg-bg-hover text-text-tertiary border-border-base hover:border-neon-pink/30 hover:text-text-primary hover:bg-bg-elevated'
+                  }`}
                 >
-                  <h3 className="text-2xl font-serif font-semibold text-text-primary mb-4 pr-8">
-                    {project.title}
-                  </h3>
-                  <p className="text-sm text-text-secondary mb-4 line-clamp-2">
-                    {project.description || 'No description'}
-                  </p>
+                  <TagIcon className="h-3.5 w-3.5" />
+                  {tag.name}
+                  <span className="text-xs opacity-75 font-mono">({tag.count})</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
-                  {/* Tags */}
-                  <div className="mb-4">
-                    <TagInput projectId={project.id} />
-                  </div>
+      {/* Loading State */}
+      {loading && <SkeletonGrid count={6} CardComponent={SkeletonProjectCard} />}
 
-                  <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+      {/* Empty State - No Projects */}
+      {!loading && projects.length === 0 && (
+        <div className="text-center py-20 bg-bg-surface rounded-2xl border-2 border-dashed border-border-base">
+          <div className="max-w-md mx-auto">
+            <div className="h-20 w-20 mx-auto mb-6 rounded-2xl bg-neon-pink/10 border-2 border-neon-pink/30 flex items-center justify-center">
+              <DocumentTextIcon className="h-10 w-10 text-neon-pink" />
+            </div>
+            <h3 className="text-2xl font-display font-bold text-text-primary mb-2">
+              No projects yet
+            </h3>
+            <p className="text-text-secondary mb-8 leading-relaxed">
+              Get started by creating your first research project
+            </p>
+            <MagneticButton
+              onClick={() => setIsCreateModalOpen(true)}
+              variant="primary"
+              size="lg"
+            >
+              Create Your First Project
+            </MagneticButton>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State - No Matching Projects */}
+      {!loading && projects.length > 0 && filteredProjects.length === 0 && (
+        <div className="text-center py-20 bg-bg-surface rounded-2xl border-2 border-dashed border-border-base">
+          <div className="max-w-md mx-auto">
+            <div className="h-20 w-20 mx-auto mb-6 rounded-2xl bg-warning/10 border-2 border-warning/30 flex items-center justify-center">
+              <TagIcon className="h-10 w-10 text-warning" />
+            </div>
+            <h3 className="text-2xl font-display font-bold text-text-primary mb-2">
+              No projects match your filters
+            </h3>
+            <p className="text-text-secondary mb-8 leading-relaxed">
+              Try adjusting your tag filters to see more projects
+            </p>
+            <button
+              onClick={clearTagFilters}
+              className="px-6 py-3 bg-bg-surface border-2 border-neon-pink/30 text-neon-pink font-semibold rounded-lg hover:bg-neon-pink/10 transition-all duration-200"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Projects Grid - Animated */}
+      {!loading && filteredProjects.length > 0 && (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
+        >
+          {filteredProjects.map((project, index) => (
+            <motion.div
+              key={project.id}
+              className={`group bg-bg-surface rounded-2xl border border-border-base p-6 hover:border-neon-pink/30 hover:bg-bg-elevated hover:-translate-y-2 hover:shadow-card-lift transition-all duration-300 relative cursor-pointer ${getProjectBorderColor(index)}`}
+              onClick={() => navigate(`/projects/${project.id}`)}
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  transition: {
+                    duration: 0.5,
+                    ease: [0.16, 1, 0.3, 1]
+                  }
+                }
+              }}
+            >
+              {/* Options Menu */}
+              <Menu as="div" className="absolute top-4 right-4 z-10">
+                <Menu.Button
+                  className="p-2 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-bg-hover transition-all duration-200 opacity-0 group-hover:opacity-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <EllipsisVerticalIcon className="h-5 w-5" />
+                </Menu.Button>
+                <Menu.Items className="absolute right-0 mt-2 w-48 bg-bg-elevated rounded-xl shadow-neon-glow border border-border-base py-1 z-10">
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteProject({ id: project.id, title: project.title })
+                        }}
+                        className={`${
+                          active ? 'bg-red-950/30' : ''
+                        } flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-950/30 transition-colors`}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                        Delete Project
+                      </button>
+                    )}
+                  </Menu.Item>
+                </Menu.Items>
+              </Menu>
+
+              {/* Card Content */}
+              <div>
+                <h3 className="text-2xl font-display font-semibold text-text-primary mb-3 pr-8 line-clamp-2 group-hover:text-neon-pink transition-colors duration-300">
+                  {project.title}
+                </h3>
+                <p className="text-sm text-text-secondary mb-4 line-clamp-2 leading-relaxed">
+                  {project.description || 'No description'}
+                </p>
+
+                {/* Tags */}
+                <div className="mb-4" onClick={(e) => e.stopPropagation()}>
+                  <TagInput projectId={project.id} />
+                </div>
+
+                {/* Metadata Footer */}
+                <div className="flex items-center justify-between text-xs font-mono text-text-muted pt-4 border-t border-border-base">
+                  <div className="flex items-center gap-1.5">
+                    <DocumentTextIcon className="h-3.5 w-3.5" />
                     <span>{project.document_count || 0} documents</span>
-                    <span>{new Date(project.created_at).toLocaleDateString()}</span>
                   </div>
+                  <span>{new Date(project.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </main>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
       {/* Create Project Modal */}
       {session?.access_token && (
@@ -410,7 +414,7 @@ export default function Projects() {
               title: 'Welcome to Noesis!',
               description: 'Noesis is your AI-powered research intelligence platform. Follow this recommended workflow to get the most value from your research.',
               action: 'Create your first project to get started',
-              icon: <LightBulbIcon className="h-6 w-6 text-accent-primary" />,
+              icon: <LightBulbIcon className="h-6 w-6 text-neon-pink" />,
             },
             {
               title: 'Step 1: Upload Research Papers',
@@ -421,29 +425,29 @@ export default function Projects() {
             {
               title: 'Step 2: Analyze to Extract Insights',
               description: 'Each paper is automatically analyzed to extract structured data: research claims, methodologies with datasets, and quantitative findings. This happens automatically after upload.',
-              icon: <BeakerIcon className="h-6 w-6 text-green-400" />,
+              icon: <BeakerIcon className="h-6 w-6 text-success" />,
             },
             {
               title: 'Step 3: Upload More Papers for Cross-Paper Analysis',
               description: 'Upload 2-3 more papers for richer insights. The more papers you add, the better the cross-paper analysis, gap detection, and theme identification.',
               action: 'Multiple papers unlock deeper analysis',
-              icon: <DocumentTextIcon className="h-6 w-6 text-purple-400" />,
+              icon: <DocumentTextIcon className="h-6 w-6 text-accent-purple" />,
             },
             {
               title: 'Step 4: Generate Insights to Identify Gaps',
               description: 'Generate cross-paper insights to discover research gaps, common themes, methodological patterns, and conflicting findings across your literature.',
               action: 'Use the Insights tab to generate analysis',
-              icon: <LightBulbIcon className="h-6 w-6 text-yellow-400" />,
+              icon: <LightBulbIcon className="h-6 w-6 text-warning" />,
             },
             {
               title: 'Step 5: Upload Your Draft for Citation Suggestions',
               description: 'Finally, upload your research draft. Noesis will provide AI-powered citation suggestions for your claims, identify coverage gaps, and offer expert reviewer feedback.',
               action: 'Upload draft in the Drafts tab',
-              icon: <PencilIcon className="h-6 w-6 text-cyan-400" />,
+              icon: <PencilIcon className="h-6 w-6 text-accent-teal" />,
             },
           ]}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }

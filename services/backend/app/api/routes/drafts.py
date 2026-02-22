@@ -1032,3 +1032,379 @@ async def export_draft_analysis_pdf(
     except Exception as e:
         logger.error(f"PDF export failed for draft {draft_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to export PDF: {str(e)}")
+
+
+# ============================================
+# Section-Based Feedback Endpoints (Phase 2E)
+# ============================================
+
+@router.get("/{draft_id}/feedback-by-section")
+async def get_feedback_by_section(
+    draft_id: str,
+    section_type: str = Query(..., description="Section type: abstract, introduction, literature_review, methodology, results, discussion, conclusion, references"),
+    status: str = Query('new', description="Feedback status: new, saved, dismissed"),
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Get all feedback items for a specific section.
+
+    Returns combined claims, coverage gaps, and reviewer feedback filtered by
+    section type and status for the redesigned section-based navigation UI.
+
+    Args:
+        draft_id: Draft UUID
+        section_type: One of the 8 standardized section types
+        status: Feedback status (new, saved, dismissed)
+        user_id: Current user ID from auth token
+
+    Returns:
+        {
+            "claims": [...],
+            "gaps": [...],
+            "feedback": [...],
+            "section_type": "methodology",
+            "status": "new",
+            "total_count": 15
+        }
+    """
+    try:
+        # Verify draft ownership
+        draft_response = supabase.table("drafts")\
+            .select("id")\
+            .eq("id", draft_id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not draft_response.data:
+            raise HTTPException(status_code=404, detail="Draft not found")
+
+        # Validate section_type
+        valid_sections = ['abstract', 'introduction', 'literature_review', 'methodology', 'results', 'discussion', 'conclusion', 'references']
+        if section_type not in valid_sections:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid section_type. Must be one of: {', '.join(valid_sections)}"
+            )
+
+        # Validate status
+        valid_statuses = ['new', 'saved', 'dismissed']
+        if status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            )
+
+        # Fetch claims for this section + status
+        claims_response = supabase.table("draft_claims")\
+            .select("*")\
+            .eq("draft_id", draft_id)\
+            .eq("section_type", section_type)\
+            .eq("status", status)\
+            .eq("hidden", False)\
+            .order("importance_score", desc=True)\
+            .execute()
+
+        # Fetch coverage gaps for this section + status
+        gaps_response = supabase.table("coverage_gaps")\
+            .select("*")\
+            .eq("draft_id", draft_id)\
+            .eq("section_type", section_type)\
+            .eq("status", status)\
+            .order("priority", desc=False)\
+            .execute()
+
+        # Fetch reviewer feedback for this section + status
+        feedback_response = supabase.table("reviewer_feedback")\
+            .select("*")\
+            .eq("draft_id", draft_id)\
+            .eq("section_type", section_type)\
+            .eq("status", status)\
+            .order("priority", desc=False)\
+            .execute()
+
+        claims = claims_response.data or []
+        gaps = gaps_response.data or []
+        feedback = feedback_response.data or []
+
+        return {
+            "claims": claims,
+            "gaps": gaps,
+            "feedback": feedback,
+            "section_type": section_type,
+            "status": status,
+            "total_count": len(claims) + len(gaps) + len(feedback)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch section feedback for draft {draft_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch section feedback: {str(e)}")
+
+
+@router.patch("/{draft_id}/feedback/{feedback_id}/status")
+async def update_feedback_status(
+    draft_id: str,
+    feedback_id: str,
+    feedback_type: str = Query(..., description="Feedback type: claim, gap, feedback"),
+    status: str = Query(..., description="New status: new, saved, dismissed"),
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Update status for a feedback item (save/dismiss workflow).
+
+    Allows users to save useful feedback or dismiss irrelevant items, similar to
+    the Paper Recommendations and Research Questions workflow.
+
+    Args:
+        draft_id: Draft UUID
+        feedback_id: UUID of the claim, gap, or feedback item
+        feedback_type: Type of feedback (claim, gap, feedback)
+        status: New status (new, saved, dismissed)
+        user_id: Current user ID from auth token
+
+    Returns:
+        {
+            "message": "Feedback status updated",
+            "feedback_id": "...",
+            "feedback_type": "claim",
+            "status": "saved"
+        }
+    """
+    try:
+        # Verify draft ownership
+        draft_response = supabase.table("drafts")\
+            .select("id")\
+            .eq("id", draft_id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not draft_response.data:
+            raise HTTPException(status_code=404, detail="Draft not found")
+
+        # Validate feedback_type
+        valid_types = ['claim', 'gap', 'feedback']
+        if feedback_type not in valid_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid feedback_type. Must be one of: {', '.join(valid_types)}"
+            )
+
+        # Validate status
+        valid_statuses = ['new', 'saved', 'dismissed']
+        if status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            )
+
+        # Map feedback_type to table name
+        table_mapping = {
+            'claim': 'draft_claims',
+            'gap': 'coverage_gaps',
+            'feedback': 'reviewer_feedback'
+        }
+        table_name = table_mapping[feedback_type]
+
+        # Update status
+        update_response = supabase.table(table_name)\
+            .update({"status": status, "updated_at": datetime.datetime.utcnow().isoformat()})\
+            .eq("id", feedback_id)\
+            .eq("draft_id", draft_id)\
+            .execute()
+
+        if not update_response.data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Feedback item not found in {table_name}"
+            )
+
+        logger.info(f"Updated {feedback_type} {feedback_id} status to {status}")
+
+        return {
+            "message": "Feedback status updated",
+            "feedback_id": feedback_id,
+            "feedback_type": feedback_type,
+            "status": status
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update feedback status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update feedback status: {str(e)}")
+
+
+@router.get("/{draft_id}/section-summary")
+async def get_section_summary(
+    draft_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Get feedback counts per section for navigation badges.
+
+    Uses the PostgreSQL function get_feedback_counts_by_section() to efficiently
+    compute counts grouped by section_type, status, and feedback_source.
+
+    Args:
+        draft_id: Draft UUID
+        user_id: Current user ID from auth token
+
+    Returns:
+        {
+            "sections": [
+                {
+                    "section_type": "introduction",
+                    "new_count": 5,
+                    "saved_count": 2,
+                    "dismissed_count": 1,
+                    "total_count": 8
+                },
+                ...
+            ],
+            "total_new": 25,
+            "total_saved": 10,
+            "total_dismissed": 5
+        }
+    """
+    try:
+        # Verify draft ownership
+        draft_response = supabase.table("drafts")\
+            .select("id")\
+            .eq("id", draft_id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not draft_response.data:
+            raise HTTPException(status_code=404, detail="Draft not found")
+
+        # Call PostgreSQL function to get counts
+        # Note: Supabase Python client doesn't directly support RPC for custom functions,
+        # so we'll use raw SQL via the REST API or compute manually
+
+        # Manual computation (fallback approach)
+        sections = ['abstract', 'introduction', 'literature_review', 'methodology', 'results', 'discussion', 'conclusion', 'references']
+        section_summaries = []
+        total_new = 0
+        total_saved = 0
+        total_dismissed = 0
+
+        for section in sections:
+            # Count claims
+            claims_new = supabase.table("draft_claims").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "new").eq("hidden", False).execute()
+            claims_saved = supabase.table("draft_claims").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "saved").eq("hidden", False).execute()
+            claims_dismissed = supabase.table("draft_claims").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "dismissed").eq("hidden", False).execute()
+
+            # Count gaps
+            gaps_new = supabase.table("coverage_gaps").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "new").execute()
+            gaps_saved = supabase.table("coverage_gaps").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "saved").execute()
+            gaps_dismissed = supabase.table("coverage_gaps").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "dismissed").execute()
+
+            # Count feedback
+            feedback_new = supabase.table("reviewer_feedback").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "new").execute()
+            feedback_saved = supabase.table("reviewer_feedback").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "saved").execute()
+            feedback_dismissed = supabase.table("reviewer_feedback").select("id", count='exact')\
+                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "dismissed").execute()
+
+            new_count = (claims_new.count or 0) + (gaps_new.count or 0) + (feedback_new.count or 0)
+            saved_count = (claims_saved.count or 0) + (gaps_saved.count or 0) + (feedback_saved.count or 0)
+            dismissed_count = (claims_dismissed.count or 0) + (gaps_dismissed.count or 0) + (feedback_dismissed.count or 0)
+            total_count = new_count + saved_count + dismissed_count
+
+            if total_count > 0:  # Only include sections with feedback
+                section_summaries.append({
+                    "section_type": section,
+                    "new_count": new_count,
+                    "saved_count": saved_count,
+                    "dismissed_count": dismissed_count,
+                    "total_count": total_count
+                })
+
+                total_new += new_count
+                total_saved += saved_count
+                total_dismissed += dismissed_count
+
+        return {
+            "sections": section_summaries,
+            "total_new": total_new,
+            "total_saved": total_saved,
+            "total_dismissed": total_dismissed
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get section summary for draft {draft_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get section summary: {str(e)}")
+
+
+@router.post("/{draft_id}/assign-sections")
+async def assign_sections(
+    draft_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Trigger section type assignment for draft feedback.
+
+    This endpoint is called:
+    1. Automatically when user opens an old draft (auto-migration)
+    2. Manually if section assignments need to be regenerated
+
+    Uses the section_mapping service to detect section types from GROBID/GPT-4
+    structure and assign them to all feedback items.
+
+    Args:
+        draft_id: Draft UUID
+        user_id: Current user ID from auth token
+
+    Returns:
+        {
+            "message": "Section types assigned",
+            "claims_updated": 10,
+            "gaps_updated": 5,
+            "feedback_updated": 8,
+            "sections_identified": 7
+        }
+    """
+    try:
+        # Verify draft ownership
+        draft_response = supabase.table("drafts")\
+            .select("id")\
+            .eq("id", draft_id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not draft_response.data:
+            raise HTTPException(status_code=404, detail="Draft not found")
+
+        # Import section mapping service
+        from app.services.section_mapping import assign_section_types_to_feedback
+
+        # Assign section types
+        result = await assign_section_types_to_feedback(draft_id)
+
+        logger.info(
+            f"Section assignment complete for draft {draft_id}: "
+            f"{result.get('claims_updated')} claims, "
+            f"{result.get('gaps_updated')} gaps, "
+            f"{result.get('feedback_updated')} feedback"
+        )
+
+        return {
+            "message": "Section types assigned",
+            **result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to assign sections for draft {draft_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to assign sections: {str(e)}")

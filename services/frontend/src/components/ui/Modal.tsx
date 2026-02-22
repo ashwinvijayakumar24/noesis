@@ -23,11 +23,11 @@ export function Modal({ isOpen, onClose, children, size = 'xl', className = '' }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in"
       onClick={onClose}
     >
       <div
-        className={`w-full ${sizeStyles[size]} h-[90vh] bg-surface border border-border-base rounded-xl shadow-2xl flex flex-col ${className}`}
+        className={`w-full ${sizeStyles[size]} h-[90vh] bg-bg-surface border-2 border-neon-pink/20 rounded-3xl shadow-neon-glow-lg flex flex-col animate-scale-in ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -45,15 +45,15 @@ interface ModalHeaderProps {
 
 export function ModalHeader({ children, onClose, className = '' }: ModalHeaderProps) {
   return (
-    <div className={`px-6 py-5 border-b border-border-subtle flex items-center justify-between shrink-0 ${className}`}>
+    <div className={`px-8 py-6 border-b border-border-base flex items-center justify-between shrink-0 bg-bg-elevated/50 ${className}`}>
       <div className="flex-1">{children}</div>
       {onClose && (
         <button
           onClick={onClose}
-          className="p-2 text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded-md transition-colors"
+          className="p-2 text-text-secondary hover:text-neon-pink hover:bg-neon-pink/10 rounded-lg transition-all duration-200 hover:rotate-90"
           aria-label="Close modal"
         >
-          <XMarkIcon className="h-5 w-5" />
+          <XMarkIcon className="h-6 w-6" />
         </button>
       )}
     </div>
@@ -68,7 +68,7 @@ interface ModalTitleProps {
 
 export function ModalTitle({ children, className = '' }: ModalTitleProps) {
   return (
-    <h2 className={`text-2xl font-serif font-semibold text-text-primary ${className}`}>
+    <h2 className={`text-3xl font-display font-bold bg-gradient-to-r from-neon-pink to-accent-teal bg-clip-text text-transparent ${className}`}>
       {children}
     </h2>
   )

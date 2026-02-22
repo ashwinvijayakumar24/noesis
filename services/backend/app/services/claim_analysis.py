@@ -47,12 +47,20 @@ Return this exact structure:
       "claim_type": "empirical|theoretical|methodological",
       "section_location": "section name where claim appears",
       "importance_score": 0.0-1.0,
+      "confidence_score": 0.0-1.0,
       "requires_citation": true|false,
       "existing_citations": ["Author (Year)", "Author et al. (Year)"],
       "reasoning": "Brief explanation of claim type and importance"
     }
   ]
 }
+
+Confidence Score (0.0 to 1.0):
+- 1.0: Very confident this is a substantive claim
+- 0.7-0.9: Confident this is a claim
+- 0.4-0.6: Somewhat confident (borderline case)
+- 0.0-0.3: Low confidence (may not be a claim)
+- Claims with confidence < 0.6 will be hidden by default to reduce hallucinations
 
 Claim Types:
 - **empirical**: Data-based claims about observations, measurements, or experimental results
@@ -510,12 +518,18 @@ async def analyze_draft_claims(draft_id: str) -> Dict[str, Any]:
         claim_records = []
 
         for claim in claims:
+            # Get confidence score and determine if should be hidden
+            confidence_score = claim.get("confidence_score", 0.8)  # Default to 0.8 if not provided
+            hidden = confidence_score < 0.6  # Hide low-confidence claims to reduce hallucinations
+
             claim_record = {
                 "draft_id": draft_id,
                 "claim_text": claim.get("claim_text", ""),
                 "claim_type": claim.get("claim_type", "empirical"),
                 "section_location": claim.get("section_location"),
                 "importance_score": claim.get("importance_score", 0.5),
+                "confidence_score": confidence_score,  # NEW: AI extraction confidence
+                "hidden": hidden,  # NEW: Hide low-confidence claims by default
                 "requires_citation": claim.get("requires_citation", True),
                 "existing_citations": claim.get("existing_citations", []),
                 "reasoning": claim.get("reasoning", ""),  # NEW: AI reasoning for transparency
@@ -531,6 +545,11 @@ async def analyze_draft_claims(draft_id: str) -> Dict[str, Any]:
                 "match_confidence": claim.get("match_confidence")
             }
             claim_records.append(claim_record)
+
+        # Log hidden claims count
+        hidden_count = sum(1 for record in claim_records if record.get("hidden"))
+        if hidden_count > 0:
+            logger.info(f"Hiding {hidden_count} low-confidence claims (confidence < 0.6)")
 
         # Batch insert claims
         if claim_records:

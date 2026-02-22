@@ -1,75 +1,108 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400..800&display=swap');
 
-/* Tailwind v4 Theme Configuration */
+/* Tailwind v4 Theme Configuration - Neon Brutalism */
 @theme {
-  /* Background Hierarchy - Slate/Charcoal theme inspired by VS Code */
-  --color-bg-base: #1a1d23;
-  --color-surface: #242832;
-  --color-surface-hover: #2d3340;
-  --color-surface-active: #363d4e;
+  /* Deep Space Backgrounds */
+  --color-bg-void: #0a0a0f;
+  --color-bg-surface: #12121a;
+  --color-bg-elevated: #1a1a24;
+  --color-bg-hover: #22222e;
 
-  /* Border Colors - Complementary slate tones */
-  --color-border-base: #363d4e;
-  --color-border-subtle: #2d3340;
+  /* Legacy support */
+  --color-bg-base: #0a0a0f;
+  --color-surface: #12121a;
+  --color-surface-hover: #1a1a24;
+  --color-surface-active: #22222e;
 
-  /* Text Hierarchy - Slate-complementary text colors */
-  --color-text-primary: #e6e8eb;
-  --color-text-secondary: #b4b8c0;
-  --color-text-tertiary: #7d8290;
-  --color-text-muted: #6b7280;
+  /* Neon Pink System */
+  --color-neon-pink: #FF1F4C;
+  --color-neon-pink-bright: #FF2D5A;
+  --color-neon-pink-glow: rgba(255, 31, 76, 0.4);
+  --color-neon-pink-subtle: rgba(255, 31, 76, 0.08);
+
+  /* Border Colors */
+  --color-border-base: rgba(255, 255, 255, 0.08);
+  --color-border-focus: rgba(255, 31, 76, 0.3);
+  --color-border-active: #FF1F4C;
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+
+  /* Text Hierarchy - High Contrast */
+  --color-text-primary: #f8f8ff;
+  --color-text-secondary: #c0c0d0;
+  --color-text-tertiary: #8080a0;
+  --color-text-muted: #505070;
 
   /* Accent Colors */
-  --color-accent-primary: #DC2626;
-  --color-accent-hover: #B91C1C;
-  --color-accent-light: #FEE2E2;
+  --color-accent-primary: #FF1F4C;
+  --color-accent-hover: #FF2D5A;
+  --color-accent-light: rgba(255, 31, 76, 0.2);
+  --color-accent-teal: #00d9ff;
+  --color-accent-purple: #a855f7;
 
   /* Semantic Colors */
   --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-error: #EF4444;
-  --color-info: #3B82F6;
+  --color-info: #00d9ff;
 
   /* Font Families */
-  --font-family-serif: 'Lora', 'Georgia', serif;
+  --font-family-display: 'Syne', 'Inter', system-ui, sans-serif;
   --font-family-sans: 'Inter', system-ui, sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Smooth Scrolling - Global */
+* {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
 /* Base Styles */
 body {
   font-family: var(--font-family-sans);
-  background-color: var(--color-bg-base);
+  background-color: var(--color-bg-void);
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-family-serif);
+  font-family: var(--font-family-display);
   color: var(--color-text-primary);
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
 }
 
-/* Enhanced Focus States for Better Accessibility */
+/* Enhanced Focus States with Neon Pink */
 *:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-neon-pink);
   outline-offset: 2px;
 }
 
-/* Input-specific focus states with glow */
+/* Input-specific focus states with pink glow */
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--color-accent-primary) !important;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  border-color: var(--color-neon-pink) !important;
+  box-shadow: 0 0 0 4px rgba(255, 31, 76, 0.1);
 }
 
 /* Button focus states */
 button:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-neon-pink);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
+  box-shadow: 0 0 0 4px rgba(255, 31, 76, 0.15);
 }
 
 /* Enhanced Button Hover States */
@@ -88,21 +121,175 @@ button:hover svg {
   transition: all 0.2s ease;
 }
 
-/* Colored Loading Indicators */
+/* Utility Classes */
+.gradient-text {
+  background: linear-gradient(90deg, #f8f8ff 0%, #FF1F4C 50%, #f8f8ff 100%);
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shimmer 4s ease infinite;
+}
+
+.neon-glow {
+  box-shadow: 0 0 30px rgba(255, 31, 76, 0.3);
+}
+
+.neon-glow-hover {
+  transition: box-shadow 0.3s ease;
+}
+
+.neon-glow-hover:hover {
+  box-shadow: 0 0 40px rgba(255, 31, 76, 0.5);
+}
+
+/* Link Micro-interactions - Slide-in Underline */
+a.underline-slide {
+  position: relative;
+  text-decoration: none;
+}
+
+a.underline-slide::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-neon-pink), var(--color-accent-teal));
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+a.underline-slide:hover::after {
+  width: 100%;
+}
+
+/* Badge Pulse Animation */
+@keyframes badge-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.badge-pulse {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+/* Icon Rotation on Hover */
+.icon-rotate-hover {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.icon-rotate-hover:hover {
+  transform: rotate(15deg);
+}
+
+/* Scrollable Container Optimization */
+.overflow-y-auto,
+.overflow-auto,
+[class*="overflow-y-scroll"] {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+  will-change: scroll-position;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-base) transparent;
+}
+
+/* Webkit Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-base);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-focus);
+}
+
+/* Smooth Scroll Padding (prevents content from hiding under fixed headers) */
+html {
+  scroll-padding-top: 80px;
+}
+
+/* Performance Optimization for Animated Elements */
+.animate-fade-up,
+.animate-fade-in,
+.animate-scale-in,
+[class*="motion-"] {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* CSS Containment for Better Scroll Performance */
+.grid > *,
+[class*="grid-cols"] > * {
+  contain: layout style paint;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: smooth !important; /* Keep smooth scrolling even in reduced motion */
+  }
+
+  .gradient-text {
+    animation: none;
+    background: var(--color-text-primary);
+    -webkit-text-fill-color: var(--color-text-primary);
+  }
+
+  a.underline-slide::after {
+    transition: none;
+    width: 100%;
+  }
+
+  .badge-pulse {
+    animation: none;
+  }
+
+  .icon-rotate-hover:hover {
+    transform: none;
+  }
+
+  /* Keep performance optimizations */
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-scale-in {
+    will-change: auto;
+  }
+}
+
+/* Loading Indicators with Pink Accent */
 .animate-spin {
   animation: spin 1s linear infinite;
 }
 
-/* Primary accent colored spinners */
 .animate-spin.border-accent-primary,
-.animate-spin.border-b-2.border-accent-primary {
-  border-color: var(--color-accent-primary);
-}
-
-/* Add color to generic gray spinners */
-.animate-spin.border-text-tertiary,
-.animate-spin.border-b-2.border-text-tertiary {
-  border-color: var(--color-accent-primary) !important;
+.animate-spin.border-b-2.border-accent-primary,
+.animate-spin.border-neon-pink {
+  border-color: var(--color-neon-pink);
 }
 
 @keyframes spin {
@@ -112,4 +299,95 @@ button:hover svg {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Gradient Shimmer Animation */
+@keyframes gradient-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Modal Scale-in Animation */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Fade-in Animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Fade-up Animation */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Pulse Glow Animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 31, 76, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 31, 76, 0.4);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Gradient Shimmer for Borders */
+@keyframes gradient-shimmer-border {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-shimmer {
+  background-size: 200% auto;
+  animation: gradient-shimmer-border 3s linear infinite;
 }
