@@ -137,6 +137,35 @@ Guidelines:
 
 
 # ============================================
+# Helper Functions
+# ============================================
+
+def map_severity_to_priority(severity: str) -> str:
+    """
+    Map severity level to priority level for UI display.
+
+    Severity (from AI reviewer feedback):
+    - critical, major -> high priority (must address)
+    - minor -> medium priority (should address)
+    - suggestion -> low priority (consider addressing)
+
+    Args:
+        severity: Severity level (critical, major, minor, suggestion)
+
+    Returns:
+        Priority level (high, medium, low)
+    """
+    severity_lower = severity.lower()
+
+    if severity_lower in ['critical', 'major']:
+        return 'high'
+    elif severity_lower == 'minor':
+        return 'medium'
+    else:  # suggestion or other
+        return 'low'
+
+
+# ============================================
 # Feedback Generation Functions
 # ============================================
 
@@ -672,7 +701,24 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
 
             all_feedback.extend(section_feedback)
 
-        # 10. Add high-level feedback based on positioning and argument analysis
+        # 10. Add methodology comparison feedback (uses document_methods table)
+        project_id = draft.get("project_id")
+        if project_id:
+            from app.services.section_analysis import compare_methodology_to_literature, analyze_results_section
+
+            # Compare methodology against literature
+            methodology_feedback = await compare_methodology_to_literature(draft_id, project_id)
+            if methodology_feedback:
+                logger.info(f"Added {len(methodology_feedback)} methodology comparison feedback items")
+                all_feedback.extend(methodology_feedback)
+
+            # Analyze results section against literature findings
+            results_feedback = await analyze_results_section(draft_id, project_id)
+            if results_feedback:
+                logger.info(f"Added {len(results_feedback)} results section feedback items")
+                all_feedback.extend(results_feedback)
+
+        # 11. Add high-level feedback based on positioning and argument analysis
         if positioning:
             # Add positioning feedback
             positioning_assessment = positioning.get("positioning_assessment", {})
@@ -700,7 +746,7 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
                     "reasoning": "Logical flow is critical for persuasive research"
                 })
 
-        # 11. Store feedback in database with line positioning
+        # 12. Store feedback in database with line positioning
         feedback_records = []
         for feedback in all_feedback:
             # Extract section reference text for line positioning
@@ -759,11 +805,15 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
                         # No GROBID sections - use line-based fallback
                         match_confidence = 0.6
 
+            severity = feedback.get("severity", "minor")
+            priority = map_severity_to_priority(severity)
+
             record = {
                 "draft_id": draft_id,
                 "feedback_type": feedback.get("feedback_type", "argumentation"),
                 "feedback_text": feedback.get("feedback_text", ""),
-                "severity": feedback.get("severity", "minor"),
+                "severity": severity,
+                "priority": priority,  # NEW: Priority mapping (high/medium/low)
                 "section_reference": section_ref,
                 "suggestions": feedback.get("suggested_improvements", []),
                 # EXISTING: Line positioning fields

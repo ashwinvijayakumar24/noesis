@@ -21,7 +21,7 @@ export default function PrivacyPolicy() {
   const fadeIn = {
     initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.5, ease: 'easeOut' }
+    transition: { duration: 0.5 }
   }
 
   const sections = [

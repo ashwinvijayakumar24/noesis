@@ -13,10 +13,10 @@ export function Button({ variant = 'primary', size = 'md', children, className =
   const baseStyles = 'font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center'
 
   const variantStyles = {
-    primary: 'bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover',
-    secondary: 'bg-surface border border-border-base text-text-secondary rounded-lg hover:bg-surface-hover hover:border-accent-primary',
-    ghost: 'text-text-tertiary rounded-md hover:text-text-primary hover:bg-surface-hover',
-    icon: 'text-text-tertiary rounded-md hover:text-text-primary hover:bg-surface-hover'
+    primary: 'bg-neon-pink text-white font-semibold rounded-xl hover:bg-neon-pink-bright hover:shadow-neon-glow transition-all duration-200',
+    secondary: 'bg-bg-surface border-2 border-neon-pink text-neon-pink rounded-xl hover:bg-neon-pink/10 hover:border-neon-pink-bright transition-all duration-200',
+    ghost: 'text-text-secondary rounded-lg hover:text-neon-pink hover:bg-neon-pink/10 transition-all duration-200',
+    icon: 'text-text-secondary rounded-lg hover:text-neon-pink hover:bg-neon-pink/10 transition-all duration-200'
   }
 
   const sizeStyles = {

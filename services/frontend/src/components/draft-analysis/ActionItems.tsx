@@ -161,25 +161,25 @@ export default function ActionItems({
     switch (severity) {
       case 'critical':
         return {
-          bgColor: 'bg-red-900/20',
+          bgColor: 'bg-red-950',
           borderColor: 'border-red-700/50',
-          textColor: 'text-red-400',
+          textColor: 'text-red-300',
           icon: <ExclamationCircleIcon className="h-5 w-5" />,
           label: 'Critical'
         }
       case 'major':
         return {
-          bgColor: 'bg-amber-900/20',
+          bgColor: 'bg-amber-950',
           borderColor: 'border-amber-700/50',
-          textColor: 'text-amber-400',
+          textColor: 'text-amber-300',
           icon: <ExclamationTriangleIcon className="h-5 w-5" />,
           label: 'Major'
         }
       default:
         return {
-          bgColor: 'bg-blue-900/20',
+          bgColor: 'bg-blue-950',
           borderColor: 'border-blue-700/50',
-          textColor: 'text-blue-400',
+          textColor: 'text-blue-300',
           icon: <InformationCircleIcon className="h-5 w-5" />,
           label: 'Minor'
         }
@@ -189,18 +189,18 @@ export default function ActionItems({
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'claim':
-        return <SparklesIcon className="h-4 w-4 text-purple-400" />
+        return <SparklesIcon className="h-4 w-4 text-purple-300" />
       case 'gap':
-        return <ExclamationTriangleIcon className="h-4 w-4 text-orange-400" />
+        return <ExclamationTriangleIcon className="h-4 w-4 text-orange-300" />
       default:
-        return <InformationCircleIcon className="h-4 w-4 text-blue-400" />
+        return <InformationCircleIcon className="h-4 w-4 text-blue-300" />
     }
   }
 
   return (
     <div className="bg-surface rounded-lg border border-border-base overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-base bg-surface-hover/50">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border-base bg-surface-hover">
         <div className="flex items-center gap-2">
           <h3 className="font-medium text-text-primary">Priority Actions</h3>
           <span className="px-2 py-0.5 text-xs font-mono bg-surface rounded-full text-text-secondary">
@@ -248,7 +248,7 @@ export default function ActionItems({
                   {items.map(item => (
                     <div
                       key={item.id}
-                      className="px-4 py-3 hover:bg-surface-hover/50 transition-colors"
+                      className="px-4 py-3 hover:bg-surface-hover transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         {/* Checkbox */}
@@ -301,7 +301,7 @@ export default function ActionItems({
                             {item.type === 'claim' && onViewSuggestions && (
                               <button
                                 onClick={() => onViewSuggestions(item.originalData as Claim)}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-purple-400 hover:text-purple-300 bg-purple-900/20 hover:bg-purple-900/30 rounded transition-colors"
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-purple-300 hover:text-purple-300 bg-purple-950 hover:bg-purple-900 rounded transition-colors"
                               >
                                 <SparklesIcon className="h-3 w-3" />
                                 Find Citations
@@ -310,7 +310,7 @@ export default function ActionItems({
 
                             <button
                               onClick={() => onToggleAddressed(item.id)}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-emerald-400 bg-surface hover:bg-emerald-900/20 rounded transition-colors"
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-emerald-300 bg-surface hover:bg-emerald-950 rounded transition-colors"
                             >
                               <CheckIcon className="h-3 w-3" />
                               Mark Addressed
@@ -329,8 +329,8 @@ export default function ActionItems({
         {/* Addressed Items */}
         {showAddressed && addressedItemsList.length > 0 && (
           <div>
-            <div className="px-4 py-2 bg-emerald-900/10">
-              <span className="text-sm font-medium text-emerald-400">
+            <div className="px-4 py-2 bg-emerald-950">
+              <span className="text-sm font-medium text-emerald-300">
                 Addressed ({addressedItemsList.length})
               </span>
             </div>
@@ -365,7 +365,7 @@ export default function ActionItems({
         {/* Empty State */}
         {pendingItems.length === 0 && (
           <div className="px-4 py-8 text-center">
-            <CheckCircleIcon className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+            <CheckCircleIcon className="h-12 w-12 text-emerald-300 mx-auto mb-3" />
             <h4 className="text-lg font-medium text-text-primary mb-1">All caught up!</h4>
             <p className="text-sm text-text-secondary">
               You've addressed all the priority action items.

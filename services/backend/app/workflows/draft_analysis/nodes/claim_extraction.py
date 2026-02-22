@@ -18,9 +18,21 @@ logger = get_logger(__name__)
 client = get_openai_client()
 
 
-CLAIM_EXTRACTION_PROMPT = """You are an expert academic reviewer. Analyze this research draft and extract all significant claims made by the authors.
+CLAIM_EXTRACTION_PROMPT = """You are an expert academic reviewer. Analyze this research draft and ONLY extract claims that appear WEAK, UNSUPPORTED, or PROBLEMATIC in the context of the paper.
 
-For each claim, determine:
+DO NOT extract all claims - only those that need improvement or additional support.
+
+Identify claims that are weak because they:
+- Lack sufficient evidence or supporting data
+- Are overly broad or sweeping without qualification
+- Contradict or are inconsistent with other parts of the paper
+- Make causal claims without proper justification
+- Lack citations when prior work is clearly relevant
+- Are stated too confidently given the evidence presented
+- Make novelty claims without proper comparison to existing work
+- Have methodological issues that undermine the claim
+
+For each WEAK claim, determine:
 1. The exact claim text
 2. Claim type:
    - "empirical": Claims about observed data or experimental results
@@ -28,7 +40,8 @@ For each claim, determine:
    - "methodological": Claims about methods, approaches, or techniques
 3. Section location (e.g., "Introduction", "Methods", "Results")
 4. Importance score (0.0-1.0): How central is this claim to the paper's contribution?
-5. Confidence (0.0-1.0): How confidently stated is this claim?
+5. Confidence (0.0-1.0): How confidently stated is this claim (paradoxically, overconfident claims are often weak)
+6. Why it's weak (brief explanation)
 
 Return ONLY a valid JSON object with this structure:
 {
@@ -38,24 +51,17 @@ Return ONLY a valid JSON object with this structure:
       "claim_type": "empirical" | "theoretical" | "methodological",
       "section_location": "Section name",
       "importance_score": 0.0 to 1.0,
-      "confidence": 0.0 to 1.0
+      "confidence": 0.0 to 1.0,
+      "weakness_reason": "Brief explanation of why this claim is weak"
     }
   ],
   "total_claims": number,
-  "extraction_notes": "Any notes about the extraction process"
+  "extraction_notes": "Summary of weak claims found"
 }
 
-Focus on:
-- Main hypotheses and research questions
-- Key findings and results
-- Methodological innovations
-- Theoretical contributions
-- Causal claims and relationships
+Focus ONLY on problematic claims that need attention.
 
-Ignore:
-- Background information from citations
-- Routine methodological descriptions
-- Trivial observations
+Ignore well-supported, properly cited, and appropriately qualified claims.
 """
 
 

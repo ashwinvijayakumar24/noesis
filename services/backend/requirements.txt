@@ -23,6 +23,7 @@ weasyprint
 markdown
 slowapi==0.1.9
 sentry-sdk[fastapi]==1.40.0
+cohere  # For reranking in hybrid search (RAG optimization)
 
 # LangGraph and LangChain for adaptive workflows (Phase 2)
 langgraph>=0.2.0

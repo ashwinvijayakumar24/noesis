@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DocumentTextIcon, TrashIcon, ArrowDownTrayIcon, ExclamationTriangleIcon, CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, TrashIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { handleError } from '../lib/errorHandler'
@@ -18,18 +18,6 @@ interface Draft {
   updated_at: string
 }
 
-interface DraftMetrics {
-  claims_count: number
-  claims_needing_citation: number
-  gaps_count: number
-  critical_gaps: number
-  feedback_count: number
-  critical_feedback: number
-  major_feedback: number
-  health_score: number // 0-100
-  health_status: 'good' | 'needs_work' | 'critical'
-}
-
 interface DraftsPanelProps {
   token: string
   projectId: string
@@ -41,58 +29,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   const navigate = useNavigate()
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [loading, setLoading] = useState(true)
-  const [draftMetrics, setDraftMetrics] = useState<Record<string, DraftMetrics>>({})
-
-  // Fetch metrics for analyzed drafts
-  const loadDraftMetrics = async (draftId: string) => {
-    try {
-      const [claimsData, gapsData, feedbackData] = await Promise.all([
-        api.drafts.getClaims(token, draftId).catch(() => ({ claims: [] })),
-        api.drafts.getGaps(token, draftId).catch(() => ({ gaps: [] })),
-        api.drafts.getFeedback(token, draftId).catch(() => ({ feedback: [] })),
-      ])
-
-      const claims = claimsData.claims || []
-      const gaps = gapsData.gaps || []
-      const feedback = feedbackData.feedback || []
-
-      const claimsNeedingCitation = claims.filter((c: any) =>
-        c.requires_citation && (!c.existing_citations || c.existing_citations.length === 0)
-      ).length
-
-      const criticalGaps = gaps.filter((g: any) => g.priority === 'critical' || g.priority === 'high').length
-      const criticalFeedback = feedback.filter((f: any) => f.severity === 'critical').length
-      const majorFeedback = feedback.filter((f: any) => f.severity === 'major').length
-
-      // Calculate health score (0-100)
-      let healthScore = 100
-      healthScore -= claimsNeedingCitation * 5 // -5 per missing citation
-      healthScore -= criticalGaps * 15 // -15 per critical gap
-      healthScore -= criticalFeedback * 10 // -10 per critical feedback
-      healthScore -= majorFeedback * 5 // -5 per major feedback
-      healthScore = Math.max(0, Math.min(100, healthScore))
-
-      const healthStatus: 'good' | 'needs_work' | 'critical' =
-        healthScore >= 70 ? 'good' :
-        healthScore >= 40 ? 'needs_work' : 'critical'
-
-      const metrics: DraftMetrics = {
-        claims_count: claims.length,
-        claims_needing_citation: claimsNeedingCitation,
-        gaps_count: gaps.length,
-        critical_gaps: criticalGaps,
-        feedback_count: feedback.length,
-        critical_feedback: criticalFeedback,
-        major_feedback: majorFeedback,
-        health_score: healthScore,
-        health_status: healthStatus
-      }
-
-      setDraftMetrics(prev => ({ ...prev, [draftId]: metrics }))
-    } catch (error) {
-      console.error('[DRAFTS-PANEL] Error loading metrics for draft:', draftId, error)
-    }
-  }
 
   const loadDrafts = async () => {
     try {
@@ -108,10 +44,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
       if (onDraftsLoaded) {
         onDraftsLoaded(draftsList.length)
       }
-
-      // Load metrics for analyzed drafts
-      const analyzedDrafts = draftsList.filter((d: Draft) => d.status === 'analyzed')
-      analyzedDrafts.forEach((d: Draft) => loadDraftMetrics(d.id))
     } catch (error: any) {
       console.error('[DRAFTS-PANEL] Error loading drafts:', error)
       handleError(error, 'loading drafts')
@@ -179,64 +111,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     }
   }
 
-  const handleExport = async (draftId: string, title: string, format: string) => {
-    try {
-      toast.loading(`Exporting as ${format.toUpperCase()}...`)
-
-      // Handle PDF export differently (binary format)
-      if (format === 'pdf') {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/drafts/${draftId}/export-pdf`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        )
-
-        toast.dismiss()
-
-        if (!response.ok) {
-          throw new Error('Failed to generate PDF')
-        }
-
-        // Get the blob and download
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${title.replace(/ /g, '_')}_analysis.pdf`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-
-        toast.success('PDF report downloaded successfully')
-        return
-      }
-
-      // Handle text-based exports (JSON, Markdown, Text)
-      const data = await api.drafts.export(token, draftId, format)
-      toast.dismiss()
-
-      // Create blob and download
-      const blob = new Blob([data.content], { type: 'text/plain' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = data.filename || `${title}_analysis.${format}`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-
-      toast.success('Analysis exported successfully')
-    } catch (error: any) {
-      toast.dismiss()
-      handleError(error, 'exporting analysis')
-    }
-  }
-
   const getStatusBadge = (status: string): BadgeVariant => {
     switch (status) {
       case 'analyzed':
@@ -248,29 +122,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
         return 'error'
       default:
         return 'neutral'
-    }
-  }
-
-  const getFileTypeIcon = (status: string) => {
-    const colorClass = status.toLowerCase() === 'analyzed' ? 'text-slate-300' :
-                       status.toLowerCase() === 'processing' || status.toLowerCase() === 'uploaded' ? 'text-amber-700' :
-                       status.toLowerCase() === 'failed' ? 'text-red-500' :
-                       'text-slate-400'
-    return <DocumentTextIcon className={`h-5 w-5 ${colorClass}`} />
-  }
-
-  // Helper function to get colored left border based on status
-  const getDraftBorderColor = (status: string): string => {
-    switch (status.toLowerCase()) {
-      case 'analyzed':
-        return 'border-l-4 border-l-slate-500'
-      case 'processing':
-      case 'uploaded':
-        return 'border-l-4 border-l-amber-700'
-      case 'failed':
-        return 'border-l-4 border-l-red-600'
-      default:
-        return 'border-l-4 border-l-slate-600'
     }
   }
 
@@ -290,153 +141,51 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     )
   }
 
-  // Helper to get health badge color and icon
-  const getHealthBadge = (status: 'good' | 'needs_work' | 'critical') => {
-    switch (status) {
-      case 'good':
-        return {
-          bgColor: 'bg-emerald-800',
-          textColor: 'text-emerald-200',
-          borderColor: 'border-emerald-600',
-          icon: <CheckCircleIcon className="h-4 w-4" />,
-          label: 'Good'
-        }
-      case 'needs_work':
-        return {
-          bgColor: 'bg-amber-800',
-          textColor: 'text-amber-200',
-          borderColor: 'border-amber-600',
-          icon: <ExclamationTriangleIcon className="h-4 w-4" />,
-          label: 'Needs Work'
-        }
-      case 'critical':
-        return {
-          bgColor: 'bg-red-800',
-          textColor: 'text-red-200',
-          borderColor: 'border-red-600',
-          icon: <ExclamationCircleIcon className="h-4 w-4" />,
-          label: 'Critical'
-        }
-    }
-  }
-
   return (
     <>
       <div className="space-y-3">
         {drafts.map((draft) => {
-          const metrics = draftMetrics[draft.id]
-          const healthBadge = metrics ? getHealthBadge(metrics.health_status) : null
-
           return (
             <div
               key={draft.id}
               onClick={() => draft.status === 'analyzed' ? handleViewAnalysis(draft.id) : undefined}
-              className={`bg-surface border border-border-base rounded-lg p-4 transition-all ${getDraftBorderColor(draft.status)} ${
+              className={`bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/50 rounded-lg p-4 transition-all ${
                 draft.status === 'analyzed'
-                  ? 'cursor-pointer hover:border-border-subtle hover:bg-surface-hover hover:shadow-lg hover:shadow-red-600/20'
+                  ? 'cursor-pointer hover:border-slate-600'
                   : ''
               }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3 flex-1">
-                  {getFileTypeIcon(draft.status)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="text-sm font-medium text-text-primary truncate">
-                        {draft.title}
-                      </h3>
-                      {draft.version > 1 && (
-                        <span className="text-xs text-text-muted font-mono">
-                          v{draft.version}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Basic info */}
-                    <p className="text-xs text-text-muted font-mono mb-2">
-                      {draft.file_type.toUpperCase()} • {new Date(draft.created_at).toLocaleDateString()}
-                    </p>
-
-                    {/* Metrics row for analyzed drafts */}
-                    {draft.status === 'analyzed' && metrics && (
-                      <div className="flex items-center gap-4 text-xs">
-                        <span className="flex items-center gap-1 text-text-secondary">
-                          <span className="font-mono">{metrics.claims_count}</span> claims
-                          {metrics.claims_needing_citation > 0 && (
-                            <span className="text-amber-500">({metrics.claims_needing_citation} need cite)</span>
-                          )}
-                        </span>
-                        <span className="flex items-center gap-1 text-text-secondary">
-                          <span className="font-mono">{metrics.gaps_count}</span> gaps
-                          {metrics.critical_gaps > 0 && (
-                            <span className="text-red-400">({metrics.critical_gaps} critical)</span>
-                          )}
-                        </span>
-                        <span className="flex items-center gap-1 text-text-secondary">
-                          <span className="font-mono">{metrics.feedback_count}</span> feedback
-                          {metrics.critical_feedback > 0 && (
-                            <span className="text-red-400">({metrics.critical_feedback} critical)</span>
-                          )}
-                        </span>
-                      </div>
-                    )}
+              <div className="flex items-center gap-4">
+                {/* Icon Box (larger, styled like document card) */}
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 rounded-lg border-2 border-purple-600 bg-purple-950/50 flex items-center justify-center">
+                    <DocumentTextIcon className="h-6 w-6 text-purple-300" />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-medium text-slate-200 truncate mb-1">
+                    {draft.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>{new Date(draft.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                </div>
+
+                {/* Right Side Actions */}
+                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                   {/* Status Badge */}
                   <Badge variant={getStatusBadge(draft.status)}>
                     {draft.status === 'analyzed' ? 'Processed' : draft.status.charAt(0).toUpperCase() + draft.status.slice(1).toLowerCase()}
                   </Badge>
 
-                  {/* Health Badge for analyzed drafts */}
-                  {draft.status === 'analyzed' && healthBadge && (
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${healthBadge.bgColor} ${healthBadge.textColor} border ${healthBadge.borderColor}`}>
-                      {healthBadge.icon}
-                      {healthBadge.label}
-                    </span>
-                  )}
-
-                  {draft.status === 'analyzed' && (
-                    <div className="relative group">
-                      <button
-                        className="p-2 text-text-tertiary hover:bg-surface rounded-md transition-colors"
-                        title="Export Analysis"
-                      >
-                        <ArrowDownTrayIcon className="h-4 w-4" />
-                      </button>
-                      <div className="absolute right-0 mt-2 w-48 bg-bg-base border border-border-base rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                        <button
-                          onClick={() => handleExport(draft.id, draft.title, 'pdf')}
-                          className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface font-mono font-semibold"
-                        >
-                          Export as PDF
-                        </button>
-                        <button
-                          onClick={() => handleExport(draft.id, draft.title, 'markdown')}
-                          className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface font-mono"
-                        >
-                          Export as Markdown
-                        </button>
-                        <button
-                          onClick={() => handleExport(draft.id, draft.title, 'json')}
-                          className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface font-mono"
-                        >
-                          Export as JSON
-                        </button>
-                        <button
-                          onClick={() => handleExport(draft.id, draft.title, 'text')}
-                          className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface font-mono"
-                        >
-                          Export as Text
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Action Buttons */}
                   {draft.status === 'uploaded' && (
                     <button
                       onClick={() => handleAnalyze(draft.id)}
-                      className="px-3 py-1 text-xs font-medium text-text-primary bg-surface hover:bg-surface-hover rounded border border-border-subtle transition-colors"
+                      className="px-3 py-1 text-xs font-medium text-slate-200 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors"
                     >
                       Analyze
                     </button>
@@ -444,17 +193,19 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                   {draft.status === 'failed' && (
                     <button
                       onClick={() => handleAnalyze(draft.id)}
-                      className="px-3 py-1 text-xs font-medium text-text-primary bg-surface hover:bg-surface-hover rounded border border-border-subtle transition-colors"
+                      className="px-3 py-1 text-xs font-medium text-slate-200 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors"
                     >
                       Retry
                     </button>
                   )}
+
+                  {/* Delete Button */}
                   <button
                     onClick={() => handleDelete(draft.id, draft.title)}
-                    className="p-2 text-text-tertiary hover:text-text-primary hover:bg-surface rounded-md transition-colors"
+                    className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-md transition-colors"
                     title="Delete Draft"
                   >
-                    <TrashIcon className="h-4 w-4" />
+                    <TrashIcon className="h-5 w-5" />
                   </button>
                 </div>
               </div>

@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     OPENAI_ZERO_DATA_RETENTION: bool = True  # Privacy-first default
     OPENAI_ORGANIZATION_ID: Optional[str] = None
 
+    # Cohere Configuration (for reranking in RAG optimization)
+    COHERE_API_KEY: Optional[str] = None
+
     # Sentry Configuration (Error Tracking)
     SENTRY_DSN: Optional[str] = None
 

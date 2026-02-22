@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import { analytics, trackEvent } from '../lib/analytics'
 import { handleError } from '../lib/errorHandler'
+import { motion } from 'framer-motion'
+import { EnvelopeIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -85,36 +87,58 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-base flex items-center justify-center p-6">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-bg-void flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Decorative Background Glow */}
+      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-neon-pink/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent-teal/10 rounded-full blur-[120px] pointer-events-none" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-md w-full relative z-10"
+      >
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-3 mb-4">
-            <img src="/noesis.png" alt="Noesis" className="h-12" />
-            <span className="text-2xl font-serif font-semibold text-text-primary">Noesis</span>
+          <Link to="/" className="inline-flex items-center gap-3 mb-4 group">
+            <img
+              src="/noesis.png"
+              alt="Noesis"
+              className="h-12 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
+            />
+            <span className="text-2xl font-display font-semibold text-text-primary">Noesis</span>
           </Link>
           <p className="text-text-muted text-sm font-mono">AI-powered research workspace</p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-surface rounded-lg border border-border-base p-8">
-          <h2 className="text-2xl font-serif font-semibold text-text-primary mb-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="bg-bg-surface rounded-2xl border border-border-base p-8 backdrop-blur-sm"
+        >
+          <h2 className="text-3xl font-display font-bold text-text-primary mb-6">
             Sign in to your account
           </h2>
 
           {/* Unverified Email Message */}
           {unverifiedEmail && (
-            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800 mb-2">
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-lg"
+            >
+              <p className="text-sm text-warning mb-2">
                 Please verify your email before logging in. Check your inbox for the confirmation link.
               </p>
               <button
                 onClick={handleResendConfirmation}
-                className="text-sm text-accent-primary hover:text-accent-hover font-medium underline"
+                className="text-sm text-neon-pink hover:text-neon-pink-bright font-medium underline"
               >
                 Resend confirmation email
               </button>
-            </div>
+            </motion.div>
           )}
 
           {/* Google OAuth */}
@@ -123,7 +147,7 @@ export default function Login() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-border-base rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-border-base rounded-lg hover:bg-gray-50 hover:border-neon-pink/30 focus:outline-none focus:ring-2 focus:ring-neon-pink focus:border-neon-pink disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -153,66 +177,89 @@ export default function Login() {
                 <div className="w-full border-t border-border-base" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-surface text-text-muted">Or continue with email</span>
+                <span className="px-3 bg-bg-surface text-text-muted font-mono">Or continue with email</span>
               </div>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email Input with Icon */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-2">
                 Email address
               </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors"
-                placeholder="you@example.com"
-                autoComplete="off"
-                disabled={loading}
-              />
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
+                  <EnvelopeIcon className="h-5 w-5" />
+                </div>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-base rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-pink focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-300 disabled:opacity-50"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
+            {/* Password Input with Icon */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors"
-                placeholder="••••••••"
-                autoComplete="off"
-                disabled={loading}
-              />
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
+                  <LockClosedIcon className="h-5 w-5" />
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-base rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-pink focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-300 disabled:opacity-50"
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-accent-primary text-white font-semibold py-3 rounded-lg hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface focus:ring-accent-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-neon-pink text-white font-semibold py-3 rounded-lg hover:shadow-neon-glow hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-neon-pink focus:ring-offset-2 focus:ring-offset-bg-surface disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Signing in...
+                </span>
+              ) : (
+                'Sign in'
+              )}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm text-text-tertiary">
             Don't have an account?{' '}
-            <Link to="/signup" className="text-accent-primary hover:text-accent-hover font-medium transition-colors">
+            <Link to="/signup" className="text-neon-pink hover:text-neon-pink-bright font-semibold transition-colors">
               Sign up
             </Link>
           </div>
-        </div>
+        </motion.div>
 
         {/* Footer */}
         <p className="text-center text-sm font-mono text-text-muted mt-8">
           © 2026 Noesis
         </p>
-      </div>
+      </motion.div>
     </div>
   )
 }

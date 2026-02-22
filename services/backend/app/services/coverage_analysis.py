@@ -220,6 +220,12 @@ async def compare_with_literature_database(
     """
     Compare identified gaps against project's literature database.
 
+    Enhanced to use:
+    - Project insights (known research gaps, methodological patterns, conflicting findings)
+    - Document methods table (methodology comparison)
+    - Document findings table (baseline comparisons)
+    - Document claims table (claim-level coverage)
+
     Args:
         coverage_analysis: Initial coverage analysis from AI
         project_id: Project to search within
@@ -230,7 +236,64 @@ async def compare_with_literature_database(
     Validates: Requirement 4.2 - Identify missing seminal papers
     """
     try:
-        # Fetch all documents in project with analysis
+        # 1. Fetch project insights (research gaps, methodological patterns, conflicting findings)
+        project_response = supabase.table("projects")\
+            .select("insights, insights_status")\
+            .eq("id", project_id)\
+            .single()\
+            .execute()
+
+        project_insights = {}
+        if project_response.data and project_response.data.get("insights"):
+            project_insights = project_response.data["insights"]
+            logger.info(
+                f"Loaded project insights: "
+                f"{len(project_insights.get('research_gaps', []))} known gaps, "
+                f"{len(project_insights.get('methodological_patterns', []))} methodological patterns"
+            )
+
+        # 2. Fetch document methods (methodology comparison)
+        methods_response = supabase.table("document_methods")\
+            .select("method_name, method_type, description, datasets_used, evaluation_metrics")\
+            .eq("project_id", project_id)\
+            .execute()
+
+        covered_methods = methods_response.data or []
+        covered_method_names = {m["method_name"].lower() for m in covered_methods}
+        covered_datasets = set()
+        covered_metrics = set()
+
+        for method in covered_methods:
+            if method.get("datasets_used"):
+                covered_datasets.update(method["datasets_used"])
+            if method.get("evaluation_metrics"):
+                covered_metrics.update(method["evaluation_metrics"])
+
+        logger.info(
+            f"Found {len(covered_methods)} methods, "
+            f"{len(covered_datasets)} datasets, "
+            f"{len(covered_metrics)} metrics in project"
+        )
+
+        # 3. Fetch document findings (baseline comparisons)
+        findings_response = supabase.table("document_findings")\
+            .select("finding_text, metrics, comparison_baseline, improvement_over_baseline")\
+            .eq("project_id", project_id)\
+            .execute()
+
+        covered_findings = findings_response.data or []
+        baseline_comparisons = {
+            f.get("comparison_baseline", "").lower()
+            for f in covered_findings
+            if f.get("comparison_baseline")
+        }
+
+        logger.info(
+            f"Found {len(covered_findings)} findings, "
+            f"{len(baseline_comparisons)} baseline comparisons"
+        )
+
+        # 4. Fetch all documents for topic coverage
         docs_response = supabase.table("documents")\
             .select("id, title, analysis")\
             .eq("project_id", project_id)\
@@ -249,7 +312,6 @@ async def compare_with_literature_database(
             # Extract topics from key findings
             findings = analysis.get("key_findings", [])
             for finding in findings:
-                # Simple topic extraction (in production, use more sophisticated NLP)
                 covered_topics.add(finding[:50])  # First 50 chars as topic proxy
 
             # Extract methodologies
@@ -257,26 +319,71 @@ async def compare_with_literature_database(
             techniques = methodology.get("techniques", [])
             covered_methodologies.update(techniques)
 
-        # Compare against identified gaps
-        research_areas = coverage_analysis.get("research_areas", [])
+        # 5. Enhance gaps with literature availability and cross-references
         identified_gaps = coverage_analysis.get("identified_gaps", [])
 
-        # Enhance gaps with literature availability
         for gap in identified_gaps:
             gap["has_relevant_literature"] = False
+            gap["relevant_methods"] = []
+            gap["related_insights"] = []
+            gap["missing_baselines"] = []
 
-            # Check if we have literature covering this gap
             gap_desc = gap.get("description", "").lower()
+            gap_type = gap.get("gap_type", "")
 
+            # Check topic coverage
             for topic in covered_topics:
                 if any(word in gap_desc for word in topic.lower().split()[:3]):
                     gap["has_relevant_literature"] = True
                     gap["note"] = "Relevant literature available in project database"
                     break
 
+            # Check methodology gaps against document_methods
+            if gap_type == "methodology_gap":
+                # Extract mentioned methods from gap description
+                for method in covered_method_names:
+                    if method in gap_desc:
+                        gap["relevant_methods"].append({
+                            "method_name": method,
+                            "note": "Method discussed in literature but not cited in draft"
+                        })
+                        gap["has_relevant_literature"] = True
+
+            # Cross-reference with project insights research gaps
+            if project_insights.get("research_gaps"):
+                for insight_gap in project_insights["research_gaps"]:
+                    insight_title = insight_gap.get("title", "").lower()
+                    insight_desc = insight_gap.get("description", "").lower()
+
+                    # Check for overlap
+                    if any(word in gap_desc for word in insight_title.split()[:3]):
+                        gap["related_insights"].append({
+                            "source": "project_insights",
+                            "title": insight_gap.get("title"),
+                            "description": insight_gap.get("description"),
+                            "supporting_evidence": insight_gap.get("supporting_evidence", [])
+                        })
+
+            # Check for missing baseline comparisons
+            if gap_type == "methodology_gap":
+                # Identify baselines mentioned in gap but not in literature
+                common_baselines = ["lstm", "bert", "transformer", "svm", "random forest", "baseline"]
+                for baseline in common_baselines:
+                    if baseline in gap_desc and baseline not in baseline_comparisons:
+                        gap["missing_baselines"].append({
+                            "baseline": baseline,
+                            "note": "Baseline comparison expected but not found in literature"
+                        })
+
         return {
             "literature_database_size": len(documents),
             "covered_methodologies": list(covered_methodologies),
+            "covered_methods": list(covered_method_names),
+            "covered_datasets": list(covered_datasets),
+            "covered_metrics": list(covered_metrics),
+            "baseline_comparisons": list(baseline_comparisons),
+            "project_insights_available": bool(project_insights),
+            "known_research_gaps": len(project_insights.get("research_gaps", [])),
             "gap_analysis_enhanced": True
         }
 

@@ -1,0 +1,95 @@
+import { ReactNode } from 'react'
+
+export interface Tab {
+  id: string
+  label: string
+  icon?: ReactNode
+  badgeCount?: number
+  badgeVariant?: 'neutral' | 'pink' | 'warning' | 'success'
+  isProcessing?: boolean
+}
+
+export interface TabNavigationProps {
+  tabs: Tab[]
+  activeTab: string
+  onTabChange: (tabId: string) => void
+  className?: string
+}
+
+export function TabNavigation({ tabs, activeTab, onTabChange, className = '' }: TabNavigationProps) {
+  const getBadgeStyles = (variant: Tab['badgeVariant'] = 'neutral') => {
+    const styles = {
+      neutral: 'bg-bg-hover text-text-tertiary border-border-base',
+      pink: 'bg-neon-pink/10 text-neon-pink border-neon-pink/30',
+      warning: 'bg-warning/10 text-warning border-warning/30',
+      success: 'bg-success/10 text-success border-success/30',
+    }
+    return styles[variant]
+  }
+
+  return (
+    <div className={`border-b border-border-base ${className}`}>
+      <div className="flex justify-start gap-2 overflow-x-auto scrollbar-hide">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
+              className={`
+                relative flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 min-h-[48px] text-sm sm:text-base font-display font-semibold
+                border-b-2 transition-all duration-300 whitespace-nowrap
+                ${
+                  isActive
+                    ? 'border-neon-pink text-neon-pink bg-neon-pink/5'
+                    : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-surface/50'
+                }
+              `}
+            >
+              {/* Icon */}
+              {tab.icon && (
+                <span className={`transition-transform duration-300 ${isActive ? 'scale-110' : ''}`}>
+                  {tab.icon}
+                </span>
+              )}
+
+              {/* Label */}
+              <span>{tab.label}</span>
+
+              {/* Badge Count */}
+              {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
+                <span
+                  className={`
+                    inline-flex items-center justify-center min-w-[20px] h-5 px-1.5
+                    rounded-full text-xs font-mono font-semibold border
+                    ${getBadgeStyles(tab.badgeVariant)}
+                    ${isActive ? 'animate-pulse-glow' : ''}
+                  `}
+                >
+                  {tab.badgeCount}
+                </span>
+              )}
+
+              {/* Processing Indicator */}
+              {tab.isProcessing && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/30">
+                  <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="hidden sm:inline">Updating</span>
+                </span>
+              )}
+
+              {/* Active Indicator Line (animated) */}
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-neon-pink to-transparent animate-gradient-shimmer" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
