@@ -73,8 +73,8 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
 
   return (
     <div className="space-y-4">
-      <div className="bg-surface/50 rounded-lg border border-border-base p-6">
-        <h3 className="text-lg font-serif font-semibold text-text-primary mb-2">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-6">
+        <h3 className="text-lg font-sans font-semibold text-text-primary mb-2">
           Coverage Analysis
         </h3>
         <p className="text-sm text-text-tertiary">
@@ -85,7 +85,7 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
 
       {/* Coverage Summary */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-surface rounded-lg border border-border-base p-4">
+        <div className="bg-surface rounded-lg border border-border-default p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-2xl">✓</span>
             <h4 className="text-sm font-semibold text-text-secondary">Well-Covered Areas</h4>
@@ -106,7 +106,7 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
           </div>
         </div>
 
-        <div className="bg-surface rounded-lg border border-border-base p-4">
+        <div className="bg-surface rounded-lg border border-border-default p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-2xl">⚠️</span>
             <h4 className="text-sm font-semibold text-text-secondary">Under-Explored Areas</h4>
@@ -130,8 +130,8 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
 
       {/* Positioning Prompts */}
       {positioningPrompts && positioningPrompts.length > 0 && (
-        <div className="bg-surface rounded-lg border border-border-base">
-          <div className="p-4 border-b border-border-subtle">
+        <div className="bg-surface rounded-lg border border-border-default">
+          <div className="p-4 border-b border-border-default">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl">🎯</span>
               <h4 className="text-lg font-semibold text-text-primary">
@@ -164,7 +164,7 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
             ))}
           </div>
 
-          <div className="p-4 bg-surface/50 border-t border-border-subtle">
+          <div className="p-4 bg-surface/50 border-t border-border-default">
             <p className="text-xs text-text-muted">
               <strong>How to use:</strong> Answer these questions in your Introduction or Discussion
               to clearly position your research contribution.
@@ -184,7 +184,7 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
               return (
                 <div
                   key={index}
-                  className="bg-surface rounded-lg border border-border-base p-4 hover:border-border-subtle transition-colors"
+                  className="bg-surface rounded-lg border border-border-default p-4 hover:border-border-default transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-start gap-2 flex-1">
@@ -244,7 +244,7 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
           </div>
         </div>
       ) : (
-        <div className="bg-surface/50 rounded-lg border border-border-base p-6 text-center">
+        <div className="bg-surface/50 rounded-lg border border-border-default p-6 text-center">
           <span className="text-4xl mb-2 block">🔍</span>
           <p className="text-sm text-text-tertiary">
             No specific research gaps identified yet. As you add more papers,
@@ -254,7 +254,7 @@ ${gap.suggested_directions.map(d => `• ${d}`).join('\n')}
       )}
 
       {/* Note */}
-      <div className="bg-surface/50 rounded-lg border border-border-base p-4">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-4">
         <p className="text-xs text-text-muted">
           <strong>Positioning Tip:</strong> Research gaps aren't just limitations — they're opportunities.
           When writing your literature review, explicitly connect gaps to how your research addresses them.

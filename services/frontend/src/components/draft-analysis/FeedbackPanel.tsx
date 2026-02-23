@@ -67,8 +67,8 @@ export default function FeedbackPanel({ feedback, onFeedbackClick }: FeedbackPan
           <div
             key={item.id}
             onClick={() => onFeedbackClick?.(item)}
-            className={`border border-border-base rounded-lg p-4 bg-surface-hover transition-all ${
-              onFeedbackClick ? 'cursor-pointer hover:border-border-subtle hover:shadow-lg hover:shadow-red-600/20' : ''
+            className={`border border-border-default rounded-lg p-4 bg-surface-hover transition-all ${
+              onFeedbackClick ? 'cursor-pointer hover:border-border-default hover:shadow-lg hover:shadow-red-600/20' : ''
             }`}
           >
             <div className="flex items-start gap-3">
@@ -84,7 +84,7 @@ export default function FeedbackPanel({ feedback, onFeedbackClick }: FeedbackPan
                 </div>
                 <p className="text-sm text-text-secondary mb-3">{item.feedback_text}</p>
                 {item.suggestions && item.suggestions.length > 0 && (
-                  <div className="mt-3 border-t border-border-subtle pt-3">
+                  <div className="mt-3 border-t border-border-default pt-3">
                     <p className="text-xs font-medium text-text-tertiary mb-2 font-mono">
                       Suggested improvements:
                     </p>

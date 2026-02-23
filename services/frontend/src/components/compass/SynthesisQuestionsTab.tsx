@@ -93,7 +93,7 @@ export default function SynthesisQuestionsTab({ questions }: SynthesisQuestionsT
 
   if (questions.length === 0) {
     return (
-      <div className="bg-surface/50 rounded-lg border border-border-base p-8 text-center">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-8 text-center">
         <p className="text-text-tertiary">
           No synthesis questions generated. Analyze more documents to detect patterns and conflicts.
         </p>
@@ -111,10 +111,10 @@ export default function SynthesisQuestionsTab({ questions }: SynthesisQuestionsT
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="bg-surface/50 rounded-lg border border-border-base p-4">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-serif font-semibold text-text-primary mb-1">
+            <h3 className="text-lg font-sans font-semibold text-text-primary mb-1">
               Synthesis Questions
             </h3>
             <p className="text-sm text-text-tertiary">
@@ -123,7 +123,7 @@ export default function SynthesisQuestionsTab({ questions }: SynthesisQuestionsT
           </div>
           <button
             onClick={copyAll}
-            className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary bg-surface-hover hover:bg-surface border border-border-subtle hover:border-border-base rounded transition-colors flex items-center gap-2 shrink-0"
+            className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary bg-surface-hover hover:bg-surface border border-border-default hover:border-border-default rounded transition-colors flex items-center gap-2 shrink-0"
           >
             <ClipboardDocumentIcon className="h-4 w-4" />
             Copy All
@@ -137,8 +137,8 @@ export default function SynthesisQuestionsTab({ questions }: SynthesisQuestionsT
         const info = categoryInfo[category] || { title: category, description: '', order: 999 }
 
         return (
-          <div key={category} className="bg-surface rounded-lg border border-border-base">
-            <div className="p-4 border-b border-border-subtle">
+          <div key={category} className="bg-surface rounded-lg border border-border-default">
+            <div className="p-4 border-b border-border-default">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-base font-semibold text-text-primary mb-1">

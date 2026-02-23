@@ -62,11 +62,11 @@ const getBorderColor = (status: string): string => {
     case 'analyzing':
       return 'border-warning/60 group-hover:border-warning'
     case 'ready':
-      return 'border-border-base'
+      return 'border-border-default'
     case 'analyzed':
       return 'border-success/60 group-hover:border-success'
     default:
-      return 'border-border-base'
+      return 'border-border-default'
   }
 }
 
@@ -91,17 +91,17 @@ export default function DocumentCard({ document, projectId, onDelete }: Document
   return (
     <div
       onClick={handleClick}
-      className={`group bg-bg-surface rounded-2xl border-2 border-border-base p-6 transition-all duration-300 ${
+      className={`group bg-bg-surface rounded-lg border-2 border-border-default p-6 transition-all duration-150 ${
         isAnalyzed
-          ? 'hover:border-neon-pink/30 hover:-translate-y-1 hover:shadow-card-lift cursor-pointer'
+          ? 'hover:border-accent-primary/30 hover:-translate-y-1 hover:shadow-card-lift cursor-pointer'
           : 'cursor-default'
       }`}
     >
       <div className="flex items-start gap-4">
         {/* Document Icon */}
         <div className="shrink-0">
-          <div className={`h-16 w-16 bg-bg-hover rounded-xl flex items-center justify-center border-2 transition-all duration-300 ${borderColor}`}>
-            <DocumentTextIcon className={`h-9 w-9 transition-all duration-300 ${iconColor} ${isAnalyzed ? 'group-hover:scale-110' : ''}`} />
+          <div className={`h-16 w-16 bg-bg-hover rounded-xl flex items-center justify-center border-2 transition-all duration-150 ${borderColor}`}>
+            <DocumentTextIcon className={`h-9 w-9 transition-all duration-150 ${iconColor} ${isAnalyzed ? 'group-hover:scale-110' : ''}`} />
           </div>
         </div>
 
@@ -109,7 +109,7 @@ export default function DocumentCard({ document, projectId, onDelete }: Document
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="flex-1 min-w-0">
-              <h4 className="font-display font-semibold text-lg text-text-primary mb-2 line-clamp-2 group-hover:text-neon-pink transition-colors duration-300">
+              <h4 className="font-sans font-semibold text-lg text-text-primary mb-2 line-clamp-2 group-hover:text-accent-primary transition-colors duration-150">
                 {document.title}
               </h4>
               <div className="flex items-center gap-3 text-sm font-mono text-text-muted">
@@ -152,7 +152,7 @@ export default function DocumentCard({ document, projectId, onDelete }: Document
 
           {/* Processing message for non-analyzed documents */}
           {!isAnalyzed && document.status.toLowerCase() !== 'failed' && (
-            <div className="mt-3 pt-3 border-t border-border-base">
+            <div className="mt-3 pt-3 border-t border-border-default">
               <p className="text-sm text-text-secondary">
                 {document.status.toLowerCase() === 'processing' || document.status.toLowerCase() === 'uploaded'
                   ? 'Document is being processed...'
@@ -172,8 +172,8 @@ export default function DocumentCard({ document, projectId, onDelete }: Document
 
           {/* Click hint for analyzed documents */}
           {isAnalyzed && (
-            <div className="mt-3 pt-3 border-t border-border-base opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <p className="text-sm text-neon-pink font-medium">
+            <div className="mt-3 pt-3 border-t border-border-default opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              <p className="text-sm text-accent-primary font-medium">
                 Click to view analysis →
               </p>
             </div>

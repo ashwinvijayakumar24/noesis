@@ -41,25 +41,25 @@ export default function DocumentDetailModal({ isOpen, onClose, document }: Docum
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-2xl transition-all max-h-[90vh] flex flex-col">
+              <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle shrink-0">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border-default shrink-0">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-accent-primary/10 rounded-lg">
+                    <div className="p-2 bg-accent-light rounded-md border border-accent-primary/30">
                       <DocumentTextIcon className="h-6 w-6 text-accent-primary" />
                     </div>
                     <div>
-                      <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
+                      <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
                         {document.title}
                       </Dialog.Title>
-                      <p className="text-sm font-mono text-text-muted mt-1 capitalize">
+                      <p className="text-sm font-mono text-text-muted mt-1 capitalize tracking-normal">
                         Status: {document.status}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="text-text-tertiary hover:text-text-primary transition-colors"
+                    className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
@@ -71,10 +71,10 @@ export default function DocumentDetailModal({ isOpen, onClose, document }: Docum
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-surface/50 border-t border-border-subtle flex justify-end shrink-0">
+                <div className="px-6 py-4 bg-bg-hover border-t border-border-default flex justify-end shrink-0">
                   <button
                     onClick={onClose}
-                    className="px-4 py-2 text-sm text-text-tertiary hover:text-text-primary transition-colors"
+                    className="px-4 py-2 text-sm text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md transition-all duration-150"
                   >
                     Close
                   </button>

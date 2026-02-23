@@ -1,55 +1,96 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Tailwind v4 Theme Configuration - Neon Brutalism */
+/* Tailwind v4 Theme Configuration - Professional Dark Academic Theme (2026) */
 @theme {
-  /* Deep Space Backgrounds */
-  --color-bg-void: #0a0a0f;
-  --color-bg-surface: #12121a;
-  --color-bg-elevated: #1a1a24;
-  --color-bg-hover: #22222e;
+  /* DARK THEME: Professional Charcoal Foundation (NOT pure black) */
+  /* Primary Canvas - Charcoal */
+  --color-bg-void: #0F0F14;           /* Deep charcoal - Page background */
+  --color-bg-page: #0F0F14;           /* Alias */
+  --color-bg-canvas: #0F0F14;         /* Legacy alias */
+
+  /* Surface Layers - Subtle Elevation via Blue-Tinted Grays */
+  --color-bg-surface: #18181F;        /* Slate-900 tone - Content cards */
+  --color-bg-elevated: #1E1E27;       /* Modals, dropdowns, overlays */
+  --color-bg-hover: #252530;          /* Interactive hover states */
+  --color-bg-subtle: #2A2A35;         /* Subtle backgrounds, disabled states */
+
+  /* Accent Backgrounds - Desaturated, Professional */
+  --color-bg-success: #0D1F17;        /* Dark green tint - Success states */
+  --color-bg-success-dark: #0D1F17;   /* Alias */
+  --color-bg-info: #0F1419;           /* Dark blue tint - Info panels */
+  --color-bg-info-dark: #0F1419;      /* Alias */
+  --color-bg-warning: #1F1A0D;        /* Dark amber tint - Warning states */
+  --color-bg-warning-dark: #1F1A0D;   /* Alias */
+  --color-bg-accent: #0D1F1D;         /* Dark teal tint - Feature highlights */
+  --color-bg-accent-dark: #0D1F1D;    /* Alias */
 
   /* Legacy support */
-  --color-bg-base: #0a0a0f;
-  --color-surface: #12121a;
-  --color-surface-hover: #1a1a24;
-  --color-surface-active: #22222e;
+  --color-bg-base: #0F0F14;
+  --color-surface: #18181F;
+  --color-surface-hover: #1E1E27;
+  --color-surface-active: #252530;
 
-  /* Neon Pink System */
-  --color-neon-pink: #FF1F4C;
-  --color-neon-pink-bright: #FF2D5A;
-  --color-neon-pink-glow: rgba(255, 31, 76, 0.4);
-  --color-neon-pink-subtle: rgba(255, 31, 76, 0.08);
+  /* Text Hierarchy - High Contrast for Dark (WCAG AAA) */
+  --color-text-primary: #EDEDEF;      /* Radix Slate 12 - Headlines (19:1 contrast) */
+  --color-text-secondary: #B4B4B8;    /* Radix Slate 11 - Body text (12:1 contrast) */
+  --color-text-tertiary: #6E6E77;     /* Radix Slate 10 - Supporting text (6:1) */
+  --color-text-muted: #43434A;        /* Radix Slate 9 - Metadata (4.5:1) */
 
-  /* Border Colors */
+  /* Primary Accent: Rose-Crimson (Professional, NOT Neon) */
+  --color-accent-primary: #E5484D;    /* Radix Red 9 - Primary actions */
+  --color-accent-hover: #F2555A;      /* Radix Red 10 - Hover states */
+  --color-accent-light: #4C1D1D;      /* Radix Red 3 Dark - Light backgrounds */
+  --color-accent-subtle: #3B1419;     /* Radix Red 2 Dark - Subtle accents */
+
+  /* Focus Glow - Subtle, Only for Accessibility */
+  --color-rose-glow: rgba(229, 72, 77, 0.15);  /* Subtle glow for focus rings */
+
+  /* Secondary Accents - Feature Differentiation (Dark Optimized) */
+  --color-teal-primary: #0D9488;      /* Teal-600 - Analysis & Insights */
+  --color-teal-light: #134E4A;        /* Teal-900 - Dark backgrounds */
+  --color-indigo-primary: #6366F1;    /* Indigo-500 - Draft Analysis */
+  --color-indigo-light: #312E81;      /* Indigo-900 - Dark backgrounds */
+  --color-amber-primary: #F59E0B;     /* Amber-500 - Warnings */
+  --color-amber-light: #78350F;       /* Amber-900 - Dark backgrounds */
+  --color-rose-primary: #E5484D;      /* Alias for accent-primary */
+  --color-rose-light: #4C1D1D;        /* Alias for accent-light */
+  --color-ruby-primary: #E54D2E;      /* Warm red - Error states */
+  --color-ruby-light: #3E1C17;        /* Ruby-950 - Dark backgrounds */
+
+  /* Border System - Subtle White Alpha (Linear-inspired) */
+  --color-border-default: rgba(255, 255, 255, 0.08);  /* Standard dividers */
+  --color-border-subtle: rgba(255, 255, 255, 0.04);   /* Very subtle separation */
+  --color-border-strong: rgba(255, 255, 255, 0.12);   /* Emphasized borders */
+  --color-border-focus: #E5484D;                      /* Rose focus states */
+
+  /* Legacy border support */
   --color-border-base: rgba(255, 255, 255, 0.08);
-  --color-border-focus: rgba(255, 31, 76, 0.3);
-  --color-border-active: #FF1F4C;
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-active: #E5484D;
 
-  /* Text Hierarchy - High Contrast */
-  --color-text-primary: #f8f8ff;
-  --color-text-secondary: #c0c0d0;
-  --color-text-tertiary: #8080a0;
-  --color-text-muted: #505070;
+  /* Supporting Accents */
+  --color-accent-teal: #0D9488;
+  --color-accent-purple: #9333EA;
 
-  /* Accent Colors */
-  --color-accent-primary: #FF1F4C;
-  --color-accent-hover: #FF2D5A;
-  --color-accent-light: rgba(255, 31, 76, 0.2);
-  --color-accent-teal: #00d9ff;
-  --color-accent-purple: #a855f7;
+  /* Semantic Colors (Dark Optimized) */
+  --color-success: #0D9488;           /* Teal-600 */
+  --color-success-light: #134E4A;     /* Teal-900 */
+  --color-warning: #F59E0B;           /* Amber-500 */
+  --color-warning-light: #78350F;     /* Amber-900 */
+  --color-error: #E54D2E;             /* Ruby (warm red) */
+  --color-error-light: #3E1C17;       /* Ruby-950 */
+  --color-info: #6366F1;              /* Indigo-500 */
+  --color-info-light: #312E81;        /* Indigo-900 */
 
-  /* Semantic Colors */
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-  --color-info: #00d9ff;
-
-  /* Font Families */
-  --font-family-display: 'Syne', 'Inter', system-ui, sans-serif;
-  --font-family-sans: 'Inter', system-ui, sans-serif;
+  /* Font Families - Inter for everything */
+  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* Transition Tokens - Fast, Responsive (Linear-inspired) */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: 400ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Smooth Scrolling - Global */
@@ -68,125 +109,117 @@ html {
 /* Base Styles */
 body {
   font-family: var(--font-family-sans);
-  background-color: var(--color-bg-void);
+  background-color: var(--color-bg-page);
   color: var(--color-text-secondary);
-  line-height: 1.6;
-  letter-spacing: -0.01em;
+  line-height: 1.6;           /* Spacious line-height for readability */
+  letter-spacing: 0;          /* Normal spacing for Inter */
   overflow-x: hidden;
 }
 
+/* Typography Hierarchy - All Inter */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-sans);
   color: var(--color-text-primary);
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.015em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
-/* Enhanced Focus States with Neon Pink */
+h1 {
+  font-size: 2.5rem;          /* 40px - Display-2 */
+  font-weight: 600;           /* Semibold (NOT 700 bold - bleeds on dark) */
+  line-height: 1.15;
+  letter-spacing: -0.015em;   /* Tight tracking for headlines */
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: 2rem;            /* 32px - Heading-1 */
+  font-weight: 600;           /* Semibold */
+  line-height: 1.2;
+  letter-spacing: -0.01em;    /* Tight tracking */
+  margin-bottom: 1rem;
+}
+
+h3 {
+  font-size: 1.5rem;          /* 24px - Heading-2 */
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  margin-bottom: 0.75rem;
+}
+
+h4 {
+  font-size: 1.125rem;        /* 18px - Heading-3 */
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  margin-bottom: 0.5rem;
+}
+
+h5, h6 {
+  font-size: 1rem;            /* 16px */
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  line-height: 1.6;           /* Spacious body text */
+  margin-bottom: 1rem;
+}
+
+/* Enhanced Focus States - WCAG 2.1 Compliant (Rose Accent) */
 *:focus-visible {
-  outline: 2px solid var(--color-neon-pink);
+  outline: 2px solid var(--color-accent-primary);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* Input-specific focus states with pink glow */
+/* Input-specific focus states with rose glow */
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--color-neon-pink) !important;
-  box-shadow: 0 0 0 4px rgba(255, 31, 76, 0.1);
+  border-color: var(--color-accent-primary) !important;
+  box-shadow: 0 0 0 3px var(--color-rose-glow);  /* Subtle rose glow */
+  transition: var(--transition-base);
 }
 
-/* Button focus states */
+/* Button focus states with rose glow */
 button:focus-visible {
-  outline: 2px solid var(--color-neon-pink);
+  outline: 2px solid var(--color-accent-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(255, 31, 76, 0.15);
+  box-shadow: 0 0 0 3px var(--color-rose-glow);  /* Subtle rose glow */
 }
 
-/* Enhanced Button Hover States */
+/* Enhanced Button Hover States - Subtle Lift */
 button:not(:disabled):hover {
   transform: translateY(-1px);
-  transition: all 0.2s ease;
+  transition: var(--transition-base);
 }
 
 button:not(:disabled):active {
   transform: translateY(0);
-  transition: all 0.1s ease;
+  transition: var(--transition-fast);
 }
 
 /* Icon button hover states */
 button:hover svg {
-  transition: all 0.2s ease;
+  transition: var(--transition-base);
 }
 
 /* Utility Classes */
-.gradient-text {
-  background: linear-gradient(90deg, #f8f8ff 0%, #FF1F4C 50%, #f8f8ff 100%);
-  background-size: 200% auto;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient-shimmer 4s ease infinite;
-}
-
-.neon-glow {
-  box-shadow: 0 0 30px rgba(255, 31, 76, 0.3);
-}
-
-.neon-glow-hover {
-  transition: box-shadow 0.3s ease;
-}
-
-.neon-glow-hover:hover {
-  box-shadow: 0 0 40px rgba(255, 31, 76, 0.5);
-}
-
-/* Link Micro-interactions - Slide-in Underline */
+/* Link Micro-interactions - Simple Underline */
 a.underline-slide {
   position: relative;
   text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 150ms ease;
 }
 
-a.underline-slide::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--color-neon-pink), var(--color-accent-teal));
-  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-a.underline-slide:hover::after {
-  width: 100%;
-}
-
-/* Badge Pulse Animation */
-@keyframes badge-pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
-}
-
-.badge-pulse {
-  animation: badge-pulse 2s ease-in-out infinite;
-}
-
-/* Icon Rotation on Hover */
-.icon-rotate-hover {
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.icon-rotate-hover:hover {
-  transform: rotate(15deg);
+a.underline-slide:hover {
+  border-bottom-color: var(--color-accent-primary);
 }
 
 /* Scrollable Container Optimization */
@@ -197,27 +230,27 @@ a.underline-slide:hover::after {
   -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
   will-change: scroll-position;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border-base) transparent;
+  scrollbar-color: var(--color-border-default) transparent;
 }
 
-/* Webkit Scrollbar Styling */
+/* Webkit Scrollbar Styling - Dark Mode */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--color-bg-void);  /* Dark background */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border-base);
+  background: var(--color-bg-hover);  /* Slightly lighter */
   border-radius: 4px;
   transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-focus);
+  background: var(--color-bg-subtle);  /* Even lighter on hover */
 }
 
 /* Smooth Scroll Padding (prevents content from hiding under fixed headers) */
@@ -254,23 +287,9 @@ html {
     scroll-behavior: smooth !important; /* Keep smooth scrolling even in reduced motion */
   }
 
-  .gradient-text {
-    animation: none;
-    background: var(--color-text-primary);
-    -webkit-text-fill-color: var(--color-text-primary);
-  }
-
-  a.underline-slide::after {
+  a.underline-slide {
     transition: none;
-    width: 100%;
-  }
-
-  .badge-pulse {
-    animation: none;
-  }
-
-  .icon-rotate-hover:hover {
-    transform: none;
+    border-bottom-color: var(--color-accent-primary);
   }
 
   /* Keep performance optimizations */
@@ -281,15 +300,26 @@ html {
   }
 }
 
-/* Loading Indicators with Pink Accent */
+/* Loading Indicators with Rose Accent */
 .animate-spin {
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
-.animate-spin.border-accent-primary,
-.animate-spin.border-b-2.border-accent-primary,
-.animate-spin.border-neon-pink {
-  border-color: var(--color-neon-pink);
+.spinner {
+  border: 2px solid var(--color-bg-hover);  /* Dark theme border */
+  border-top-color: var(--color-accent-primary);  /* Rose accent */
+}
+
+/* Progress Shimmer (Loading States) */
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-surface) 0%,
+    var(--color-bg-elevated) 50%,
+    var(--color-bg-surface) 100%
+  );
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 @keyframes spin {
@@ -301,24 +331,27 @@ html {
   }
 }
 
-/* Gradient Shimmer Animation */
-@keyframes gradient-shimmer {
-  0% {
-    background-position: 0% 50%;
+/* Slide-in Animation (Modals) */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
   }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* Modal Scale-in Animation */
+.animate-slide-in {
+  animation: slide-in 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Scale-in Animation (Cards) */
 @keyframes scale-in {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
@@ -327,10 +360,10 @@ html {
 }
 
 .animate-scale-in {
-  animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Fade-in Animation */
+/* Fade-in Animation (Page Load) */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -341,53 +374,28 @@ html {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+  animation: fade-in 300ms ease-out;
 }
 
-/* Fade-up Animation */
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Transition Utilities */
+.transition-fast {
+  transition: all 100ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.animate-fade-up {
-  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+.transition-base {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Pulse Glow Animation */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(255, 31, 76, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(255, 31, 76, 0.4);
-  }
+.transition-slow {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+.transition-bounce {
+  transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Gradient Shimmer for Borders */
-@keyframes gradient-shimmer-border {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.animate-gradient-shimmer {
-  background-size: 200% auto;
-  animation: gradient-shimmer-border 3s linear infinite;
+.transition-colors {
+  transition: color 200ms ease,
+              background-color 200ms ease,
+              border-color 200ms ease;
 }

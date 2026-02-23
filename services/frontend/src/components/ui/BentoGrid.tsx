@@ -92,10 +92,10 @@ export function BentoCard({
       className={`
         group relative
         bg-bg-surface
-        border border-border-base
-        rounded-2xl p-8
-        transition-all duration-300
-        hover:border-neon-pink/30
+        border border-border-default
+        rounded-lg p-8
+        transition-all duration-150
+        hover:border-accent-primary/30
         hover:-translate-y-2
         ${sizeClasses[size]}
         ${hasInteraction ? 'cursor-pointer' : ''}
@@ -107,13 +107,13 @@ export function BentoCard({
       }}
     >
       {/* Gradient Overlay on Hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-neon-pink/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-accent-primary/5 to-transparent rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
       <div className="relative z-10 space-y-6">
         {/* Icon Badge */}
         {icon && (
-          <div className="w-14 h-14 rounded-xl bg-bg-void/50 border border-border-base flex items-center justify-center group-hover:border-neon-pink/50 transition-all duration-300">
-            <div className="text-text-tertiary group-hover:text-neon-pink transition-colors">
+          <div className="w-14 h-14 rounded-xl bg-bg-void/50 border border-border-default flex items-center justify-center group-hover:border-accent-primary/50 transition-all duration-150">
+            <div className="text-text-tertiary group-hover:text-accent-primary transition-colors">
               {icon}
             </div>
           </div>
@@ -123,7 +123,7 @@ export function BentoCard({
         {(title || description) && (
           <div className="space-y-3">
             {title && (
-              <h3 className="text-2xl sm:text-3xl font-display font-semibold text-text-primary leading-tight">
+              <h3 className="text-2xl sm:text-3xl font-sans font-semibold text-text-primary leading-tight">
                 {title}
               </h3>
             )}
@@ -141,7 +141,7 @@ export function BentoCard({
 
       {/* Subtle Border Glow Effect */}
       <div
-        className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none"
         style={{
           boxShadow: '0 0 0 1px rgba(255, 31, 76, 0.1), 0 8px 32px rgba(255, 31, 76, 0.1)'
         }}
@@ -174,10 +174,10 @@ export function BentoCardCompact({
       transition={{ delay, duration: 0.4 }}
       className={`
         bg-bg-surface
-        border border-border-base
+        border border-border-default
         rounded-xl p-6
-        hover:border-neon-pink/30
-        transition-all duration-300
+        hover:border-accent-primary/30
+        transition-all duration-150
         ${className}
       `}
     >
@@ -186,12 +186,12 @@ export function BentoCardCompact({
           <p className="text-xs font-mono text-text-muted uppercase tracking-wider">
             {title}
           </p>
-          <p className="text-2xl sm:text-3xl font-display font-bold text-text-primary">
+          <p className="text-2xl sm:text-3xl font-sans font-bold text-text-primary">
             {value}
           </p>
         </div>
         {icon && (
-          <div className="text-neon-pink opacity-20">
+          <div className="text-accent-primary opacity-20">
             {icon}
           </div>
         )}

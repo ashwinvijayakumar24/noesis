@@ -30,7 +30,7 @@ export const EnhancedInput = forwardRef<HTMLInputElement, EnhancedInputProps>(
             className="block text-sm font-medium text-text-secondary mb-2"
           >
             {label}
-            {props.required && <span className="text-neon-pink ml-1">*</span>}
+            {props.required && <span className="text-accent-primary ml-1">*</span>}
           </label>
         )}
 
@@ -50,14 +50,14 @@ export const EnhancedInput = forwardRef<HTMLInputElement, EnhancedInputProps>(
               w-full px-4 py-3
               ${icon ? 'pl-12' : ''}
               bg-bg-surface
-              border border-border-base
+              border border-border-default
               rounded-lg
               text-text-primary placeholder:text-text-muted
               transition-all duration-300
 
               /* Focus State - Pink Glow */
               focus:outline-none
-              focus:border-neon-pink
+              focus:border-accent-primary
               focus:shadow-focus-pink
               focus:bg-bg-elevated
 
@@ -83,7 +83,7 @@ export const EnhancedInput = forwardRef<HTMLInputElement, EnhancedInputProps>(
 
           {/* Bottom Indicator Line (Animates on Focus) */}
           <motion.div
-            className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-neon-pink to-accent-teal"
+            className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-accent-primary to-accent-teal"
             initial={{ scaleX: 0 }}
             whileFocus={{ scaleX: 1 }}
             transition={{ duration: 0.3 }}
@@ -148,7 +148,7 @@ export const EnhancedTextarea = forwardRef<HTMLTextAreaElement, EnhancedTextarea
             className="block text-sm font-medium text-text-secondary mb-2"
           >
             {label}
-            {props.required && <span className="text-neon-pink ml-1">*</span>}
+            {props.required && <span className="text-accent-primary ml-1">*</span>}
           </label>
         )}
 
@@ -159,14 +159,14 @@ export const EnhancedTextarea = forwardRef<HTMLTextAreaElement, EnhancedTextarea
             className={`
               w-full px-4 py-3
               bg-bg-surface
-              border border-border-base
+              border border-border-default
               rounded-lg
               text-text-primary placeholder:text-text-muted
               transition-all duration-300
               resize-y
 
               focus:outline-none
-              focus:border-neon-pink
+              focus:border-accent-primary
               focus:shadow-focus-pink
               focus:bg-bg-elevated
 

@@ -70,7 +70,7 @@ export default function CreateProjectModal({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -84,17 +84,17 @@ export default function CreateProjectModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-border-subtle">
+                <div className="px-6 py-5 border-b border-border-default">
                   <div className="flex items-center justify-between">
-                    <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
+                    <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
                       Create New Project
                     </Dialog.Title>
                     <button
                       onClick={handleClose}
                       disabled={loading}
-                      className="text-text-tertiary hover:text-text-primary transition-colors"
+                      className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
                     >
                       <XMarkIcon className="h-6 w-6" />
                     </button>
@@ -106,7 +106,7 @@ export default function CreateProjectModal({
                   <div>
                     <label
                       htmlFor="title"
-                      className="block text-sm font-medium text-text-secondary mb-2"
+                      className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
                     >
                       Project Title
                     </label>
@@ -115,7 +115,7 @@ export default function CreateProjectModal({
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors"
+                      className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
                       placeholder="e.g., Machine Learning Research"
                       disabled={loading}
                       autoFocus
@@ -125,7 +125,7 @@ export default function CreateProjectModal({
                   <div>
                     <label
                       htmlFor="description"
-                      className="block text-sm font-medium text-text-secondary mb-2"
+                      className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
                     >
                       Description <span className="text-text-muted font-mono text-xs">(optional)</span>
                     </label>
@@ -134,7 +134,7 @@ export default function CreateProjectModal({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       rows={3}
-                      className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors resize-none"
+                      className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors resize-none tracking-normal"
                       placeholder="Describe your research project..."
                       disabled={loading}
                     />
@@ -146,14 +146,14 @@ export default function CreateProjectModal({
                       type="button"
                       onClick={handleClose}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 border border-border-base text-text-secondary font-medium rounded-lg hover:border-border-subtle hover:text-text-primary transition-colors disabled:opacity-50"
+                      className="flex-1 px-4 py-3 border border-border-default text-text-secondary font-medium rounded-md hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-hover transition-all duration-150 disabled:opacity-50 tracking-normal"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading || !title.trim()}
-                      className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed tracking-normal"
                     >
                       {loading ? 'Creating...' : 'Create Project'}
                     </button>

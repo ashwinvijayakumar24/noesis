@@ -207,7 +207,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-white rounded-lg border border-border-base">
+      <div className="flex items-center justify-center h-full bg-white rounded-lg border border-border-default">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary"></div>
           <p className="mt-2 text-sm text-text-tertiary">Loading document...</p>
@@ -218,9 +218,9 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
 
   if (fileType === 'text/plain' || fileType === 'txt') {
     return (
-      <div className="h-full flex flex-col bg-white rounded-lg border border-border-base">
+      <div className="h-full flex flex-col bg-white rounded-lg border border-border-default">
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border-subtle bg-surface">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border-default bg-surface">
           <span className="text-xs text-text-tertiary font-mono">TXT Document ({lines.length} lines)</span>
           <div className="flex items-center gap-2">
             <button
@@ -263,7 +263,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
                 key={lineNumber}
                 ref={el => { lineRefs.current[index] = el }}
                 onClick={() => onLineClick?.(lineNumber)}
-                className={`flex border-b border-border-base ${
+                className={`flex border-b border-border-default ${
                   isHighlightLine ? 'bg-yellow-50' : 'hover:bg-surface-hover'
                 } ${onLineClick ? 'cursor-pointer' : ''} transition-colors`}
               >
@@ -300,9 +300,9 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     const goToNextPage = () => setCurrentPage(prev => Math.min(numPages, prev + 1))
 
     return (
-      <div className="h-full flex flex-col bg-surface rounded-lg border border-border-base">
+      <div className="h-full flex flex-col bg-surface rounded-lg border border-border-default">
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border-subtle bg-surface">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border-default bg-surface">
           <span className="text-xs text-text-tertiary font-mono">
             {numPages > 0 ? `Page ${currentPage} of ${numPages}` : 'Loading...'}
           </span>
@@ -406,7 +406,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
   }
 
   return (
-    <div className="flex items-center justify-center h-full bg-white rounded-lg border border-border-base">
+    <div className="flex items-center justify-center h-full bg-white rounded-lg border border-border-default">
       <p className="text-text-tertiary">Unsupported file type: {fileType}</p>
     </div>
   )

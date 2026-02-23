@@ -52,8 +52,8 @@ export default function GapsPanel({ gaps, onGapClick }: GapsPanelProps) {
           <div
             key={gap.id}
             onClick={() => onGapClick?.(gap)}
-            className={`border border-border-base rounded-lg p-4 bg-surface-hover transition-all ${
-              onGapClick ? 'cursor-pointer hover:border-border-subtle hover:shadow-lg hover:shadow-red-600/20' : ''
+            className={`border border-border-default rounded-lg p-4 bg-surface-hover transition-all ${
+              onGapClick ? 'cursor-pointer hover:border-border-default hover:shadow-lg hover:shadow-red-600/20' : ''
             }`}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -66,7 +66,7 @@ export default function GapsPanel({ gaps, onGapClick }: GapsPanelProps) {
             </div>
             <p className="text-sm text-text-secondary mb-3">{gap.description}</p>
             {gap.suggested_papers && gap.suggested_papers.length > 0 && (
-              <div className="mt-3 border-t border-border-subtle pt-3">
+              <div className="mt-3 border-t border-border-default pt-3">
                 <p className="text-xs font-medium text-text-tertiary mb-2 font-mono">
                   Suggested papers from your literature:
                 </p>

@@ -25,8 +25,8 @@ interface UnifiedFeedbackCardProps {
 // Priority configuration (neon-brutalist)
 const PRIORITY_CONFIG = {
   high: {
-    accentBorder: 'border-l-4 border-l-neon-pink',
-    badge: 'bg-neon-pink/10 text-neon-pink border-neon-pink/30',
+    accentBorder: 'border-l-4 border-l-accent-primary',
+    badge: 'bg-accent-primary/10 text-accent-primary border-accent-primary/30',
     label: 'HIGH PRIORITY'
   },
   medium: {
@@ -134,7 +134,7 @@ export default function UnifiedFeedbackCard({
   }
 
   return (
-    <div className={`group bg-bg-surface rounded-lg border border-border-base ${priorityConfig.accentBorder} p-5 transition-all duration-300 hover:border-neon-pink/30 hover:-translate-y-1 hover:shadow-card-lift`}>
+    <div className={`group bg-bg-surface rounded-lg border border-border-default ${priorityConfig.accentBorder} p-5 transition-all duration-150 hover:border-accent-primary/30 hover:-translate-y-1 hover:shadow-card-lift`}>
       {/* Header: Type Badge + Priority Badge */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export default function UnifiedFeedbackCard({
         {item.content.line_number && (
           <button
             onClick={handleViewInDocument}
-            className="text-xs text-neon-pink hover:text-neon-pink-bright flex items-center gap-1 font-medium transition-colors duration-200"
+            className="text-xs text-accent-primary hover:text-accent-primary-bright flex items-center gap-1 font-medium transition-colors duration-200"
           >
             <span>Line {item.content.line_number}</span>
             <ArrowTopRightOnSquareIcon className="w-4 h-4" />
@@ -173,10 +173,10 @@ export default function UnifiedFeedbackCard({
       <div className="flex flex-wrap gap-2 mb-4">
         {item.type === 'claim' && (
           <>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-base">
+            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
               Type: {metadata.type}
             </span>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-base">
+            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
               Importance: {(metadata.importance * 100).toFixed(0)}%
             </span>
             {metadata.requiresCitation && (
@@ -189,7 +189,7 @@ export default function UnifiedFeedbackCard({
 
         {item.type === 'gap' && (
           <>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-base">
+            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
               Type: {metadata.gapType}
             </span>
             {metadata.hasLiterature && (
@@ -202,10 +202,10 @@ export default function UnifiedFeedbackCard({
 
         {item.type === 'feedback' && (
           <>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-base">
+            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
               Type: {metadata.feedbackType}
             </span>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-base">
+            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
               Severity: {metadata.severity}
             </span>
           </>
@@ -219,12 +219,12 @@ export default function UnifiedFeedbackCard({
             className="flex items-center justify-between cursor-pointer group/header"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            <h4 className="text-sm font-display font-semibold text-text-primary">
+            <h4 className="text-sm font-sans font-semibold text-text-primary">
               {item.type === 'claim' ? 'Existing Citations' : 'Suggestions'}
               <span className="ml-2 text-text-muted font-mono text-xs">({suggestions.length})</span>
             </h4>
             {hasLongContent && (
-              <button className="text-text-secondary group-hover/header:text-neon-pink transition-colors duration-200">
+              <button className="text-text-secondary group-hover/header:text-accent-primary transition-colors duration-200">
                 {isExpanded ? (
                   <ChevronUpIcon className="w-5 h-5" />
                 ) : (
@@ -237,7 +237,7 @@ export default function UnifiedFeedbackCard({
           {(isExpanded || !hasLongContent) && (
             <ul className="mt-3 space-y-2">
               {suggestions.slice(0, isExpanded ? undefined : 3).map((suggestion: any, idx: number) => (
-                <li key={idx} className="text-sm text-text-secondary pl-4 border-l-2 border-neon-pink/30 hover:border-neon-pink transition-colors duration-200">
+                <li key={idx} className="text-sm text-text-secondary pl-4 border-l-2 border-accent-primary/30 hover:border-accent-primary transition-colors duration-200">
                   {typeof suggestion === 'string' ? suggestion : suggestion.title || suggestion.citation_string || JSON.stringify(suggestion)}
                 </li>
               ))}
@@ -255,7 +255,7 @@ export default function UnifiedFeedbackCard({
       {hasLongContent && !suggestions.length && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sm text-neon-pink hover:text-neon-pink-bright mb-4 flex items-center gap-1.5 font-medium transition-colors duration-200"
+          className="text-sm text-accent-primary hover:text-accent-primary-bright mb-4 flex items-center gap-1.5 font-medium transition-colors duration-200"
         >
           <span>{isExpanded ? 'Show less' : 'Show more'}</span>
           {isExpanded ? (
@@ -268,7 +268,7 @@ export default function UnifiedFeedbackCard({
 
       {/* Action Buttons (only show for 'new' status) */}
       {currentStatus === 'new' && (
-        <div className="flex items-center gap-3 pt-4 border-t border-border-base opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="flex items-center gap-3 pt-4 border-t border-border-default opacity-0 group-hover:opacity-100 transition-opacity duration-150">
           <button
             onClick={handleSave}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-success/10 text-success border border-success/30 hover:bg-success/20 hover:border-success/50 transition-all duration-200"
@@ -279,7 +279,7 @@ export default function UnifiedFeedbackCard({
 
           <button
             onClick={handleDismiss}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-bg-elevated text-text-secondary border border-border-base hover:bg-bg-hover hover:text-text-primary transition-all duration-200"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-bg-elevated text-text-secondary border border-border-default hover:bg-bg-hover hover:text-text-primary transition-all duration-200"
           >
             <XMarkIcon className="w-5 h-5" />
             <span>Dismiss</span>
@@ -289,7 +289,7 @@ export default function UnifiedFeedbackCard({
 
       {/* Status indicator for saved/dismissed */}
       {currentStatus !== 'new' && (
-        <div className="pt-4 border-t border-border-base">
+        <div className="pt-4 border-t border-border-default">
           <span className={`text-sm font-semibold ${currentStatus === 'saved' ? 'text-success' : 'text-text-muted'}`}>
             {currentStatus === 'saved' ? '✓ Addressed' : '✕ Dismissed'}
           </span>

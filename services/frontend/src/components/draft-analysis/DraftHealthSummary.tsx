@@ -50,8 +50,8 @@ export default function DraftHealthSummary({
   gaps,
   feedback,
   addressedItems,
-  onReanalyze,
-  isReanalyzing = false
+  onReanalyze: _onReanalyze,
+  isReanalyzing: _isReanalyzing = false
 }: DraftHealthSummaryProps) {
   // Calculate metrics
   const metrics = useMemo(() => {
@@ -153,26 +153,26 @@ export default function DraftHealthSummary({
   }, [draft.updated_at])
 
   return (
-    <div className={`bg-gradient-to-br ${config.gradientFrom} ${config.gradientTo} rounded-2xl border-2 ${config.borderColor} p-8 mb-6 transition-all duration-300`}>
+    <div className={`bg-gradient-to-br ${config.gradientFrom} ${config.gradientTo} rounded-lg border-2 ${config.borderColor} p-8 mb-6 transition-all duration-150`}>
       {/* Header Row - Health Icon + Score */}
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-center gap-6">
           {/* Large animated icon */}
-          <div className={`${config.accentColor} transition-transform duration-300 hover:scale-110`}>
+          <div className={`${config.accentColor} transition-transform duration-150 hover:scale-110`}>
             {config.icon}
           </div>
 
           {/* Health Score Display */}
           <div>
             <div className="flex items-baseline gap-3 mb-2">
-              <h2 className={`font-display font-extrabold text-7xl ${config.accentColor} tracking-tighter`}>
+              <h2 className={`font-sans font-extrabold text-7xl ${config.accentColor} tracking-tighter`}>
                 {metrics.health_score}%
               </h2>
-              <span className="text-2xl font-display font-semibold text-text-secondary">
+              <span className="text-2xl font-sans font-semibold text-text-secondary">
                 {config.label}
               </span>
             </div>
-            <h3 className="text-xl font-display font-semibold text-text-primary">
+            <h3 className="text-xl font-sans font-semibold text-text-primary">
               {draft.title}
               {draft.version > 1 && (
                 <span className="ml-3 text-sm text-text-muted font-mono">v{draft.version}</span>
@@ -185,81 +185,81 @@ export default function DraftHealthSummary({
       {/* Metrics Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 mb-6">
         {/* Total Claims */}
-        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-base">
+        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-default">
           <div className="flex items-center gap-2 mb-2">
             <DocumentTextIcon className="h-5 w-5 text-accent-teal" />
             <span className="text-xs text-text-muted font-mono uppercase tracking-wide">Claims</span>
           </div>
-          <p className="text-3xl font-display font-bold text-text-primary mb-1">{metrics.claims_count}</p>
+          <p className="text-3xl font-sans font-bold text-text-primary mb-1">{metrics.claims_count}</p>
           {metrics.claims_needing_citation > 0 && (
             <p className="text-xs text-warning font-medium">{metrics.claims_needing_citation} need citation</p>
           )}
         </div>
 
         {/* Coverage Gaps */}
-        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-base">
+        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-default">
           <div className="flex items-center gap-2 mb-2">
             <BeakerIcon className="h-5 w-5 text-accent-purple" />
             <span className="text-xs text-text-muted font-mono uppercase tracking-wide">Gaps</span>
           </div>
-          <p className="text-3xl font-display font-bold text-text-primary mb-1">{metrics.gaps_count}</p>
+          <p className="text-3xl font-sans font-bold text-text-primary mb-1">{metrics.gaps_count}</p>
           {metrics.critical_gaps > 0 && (
             <p className="text-xs text-error font-medium">{metrics.critical_gaps} critical</p>
           )}
         </div>
 
         {/* Feedback */}
-        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-base">
+        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-default">
           <div className="flex items-center gap-2 mb-2">
-            <ChatBubbleLeftRightIcon className="h-5 w-5 text-neon-pink" />
+            <ChatBubbleLeftRightIcon className="h-5 w-5 text-accent-primary" />
             <span className="text-xs text-text-muted font-mono uppercase tracking-wide">Feedback</span>
           </div>
-          <p className="text-3xl font-display font-bold text-text-primary mb-1">{metrics.feedback_count}</p>
+          <p className="text-3xl font-sans font-bold text-text-primary mb-1">{metrics.feedback_count}</p>
           {metrics.critical_feedback > 0 && (
             <p className="text-xs text-error font-medium">{metrics.critical_feedback} critical</p>
           )}
         </div>
 
         {/* Progress */}
-        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-base">
+        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-default">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircleIcon className="h-5 w-5 text-success" />
             <span className="text-xs text-text-muted font-mono uppercase tracking-wide">Progress</span>
           </div>
-          <p className="text-3xl font-display font-bold text-text-primary mb-1">{metrics.progress_percent}%</p>
+          <p className="text-3xl font-sans font-bold text-text-primary mb-1">{metrics.progress_percent}%</p>
           <p className="text-xs text-text-secondary font-medium">{metrics.addressed_count}/{metrics.total_action_items} done</p>
         </div>
 
         {/* Total Action Items */}
-        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-base">
+        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-default">
           <div className="flex items-center gap-2 mb-2">
             <ExclamationTriangleIcon className="h-5 w-5 text-warning" />
             <span className="text-xs text-text-muted font-mono uppercase tracking-wide">Actions</span>
           </div>
-          <p className="text-3xl font-display font-bold text-text-primary mb-1">{metrics.total_action_items}</p>
+          <p className="text-3xl font-sans font-bold text-text-primary mb-1">{metrics.total_action_items}</p>
           <p className="text-xs text-text-secondary font-medium">Total items</p>
         </div>
 
         {/* Last Analyzed */}
-        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-base">
+        <div className="bg-bg-elevated/50 rounded-xl p-4 border border-border-default">
           <div className="flex items-center gap-2 mb-2">
             <ClockIcon className="h-5 w-5 text-text-muted" />
             <span className="text-xs text-text-muted font-mono uppercase tracking-wide">Analyzed</span>
           </div>
-          <p className="text-xl font-display font-bold text-text-primary mb-1">{timeSinceAnalysis}</p>
+          <p className="text-xl font-sans font-bold text-text-primary mb-1">{timeSinceAnalysis}</p>
           <p className="text-xs text-text-secondary font-medium">Last update</p>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="bg-bg-elevated/30 rounded-xl p-4 border border-border-base">
+      <div className="bg-bg-elevated/30 rounded-xl p-4 border border-border-default">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-display font-semibold text-text-primary">Action Items Progress</span>
-          <span className="text-sm font-mono font-bold text-neon-pink">
+          <span className="text-sm font-sans font-semibold text-text-primary">Action Items Progress</span>
+          <span className="text-sm font-mono font-bold text-accent-primary">
             {metrics.addressed_count} of {metrics.total_action_items} addressed
           </span>
         </div>
-        <div className="h-3 bg-bg-void rounded-full overflow-hidden border border-border-base">
+        <div className="h-3 bg-bg-void rounded-full overflow-hidden border border-border-default">
           <div
             className="h-full transition-all duration-500 ease-out"
             style={{

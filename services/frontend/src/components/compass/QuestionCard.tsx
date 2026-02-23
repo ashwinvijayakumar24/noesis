@@ -59,7 +59,7 @@ export default function QuestionCard({
   const categoryInfo = getCategoryInfo()
 
   return (
-    <div className={`rounded-lg border border-border-subtle bg-surface/50 hover:border-border-base transition-all ${className}`}>
+    <div className={`rounded-lg border border-border-default bg-surface/50 hover:border-border-default transition-all ${className}`}>
       <div className="p-4 space-y-3">
         {/* Category badge */}
         <div className={`inline-flex px-2 py-1 rounded text-xs font-mono border ${categoryInfo.className}`}>
@@ -73,7 +73,7 @@ export default function QuestionCard({
 
         {/* Suggested directions */}
         {requirements && requirements.length > 0 && (
-          <div className="pt-2 border-t border-border-subtle">
+          <div className="pt-2 border-t border-border-default">
             <div className="text-xs font-semibold text-text-muted mb-2">Suggested Directions:</div>
             <ul className="space-y-1.5">
               {requirements.map((req, i) => (

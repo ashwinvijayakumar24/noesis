@@ -103,7 +103,7 @@ export default function DraftAnalysis() {
 
   // Progress tracking for initial analysis
   const checkAnalysisStatusRef = useRef<(() => Promise<void>) | null>(null)
-  const { progress: estimatedProgress, start: startProgressEstimation, stop: stopProgressEstimation } = useEstimatedProgress()
+  const { progress: estimatedProgress } = useEstimatedProgress(180) // Estimated 3 minutes for analysis
 
   // Fetch draft details (metadata only, signed URL loaded separately)
   const fetchDraft = useCallback(async () => {
@@ -237,20 +237,18 @@ export default function DraftAnalysis() {
       const response = await api.drafts.getAnalysis(token, draftId)
 
       if (response.status === 'analyzed') {
-        stopProgressEstimation()
         await fetchDraft()
         await assignSections()
         await fetchSectionSummary()
         setLoading(false)
       } else if (response.status === 'failed') {
-        stopProgressEstimation()
         setLoading(false)
         toast.error('Draft analysis failed')
       }
     } catch (error) {
       // Analysis not ready yet, keep polling
     }
-  }, [draftId, token, stopProgressEstimation, fetchDraft, assignSections, fetchSectionSummary])
+  }, [draftId, token, fetchDraft, assignSections, fetchSectionSummary])
 
   // Initial load - OPTIMIZED: Parallel requests
   useEffect(() => {
@@ -309,13 +307,12 @@ export default function DraftAnalysis() {
   // Poll for analysis completion
   useEffect(() => {
     if (draft?.status === 'processing' || draft?.status === 'uploaded') {
-      startProgressEstimation({ estimatedDuration: 30000 })
       checkAnalysisStatusRef.current = checkAnalysisStatus
 
       const interval = setInterval(checkAnalysisStatus, 3000)
       return () => clearInterval(interval)
     }
-  }, [draft?.status, startProgressEstimation, checkAnalysisStatus])
+  }, [draft?.status, checkAnalysisStatus])
 
   // Loading state
   if (loading) {
@@ -353,10 +350,11 @@ export default function DraftAnalysis() {
         <div className="max-w-2xl w-full">
           <ProgressIndicator
             progress={estimatedProgress}
-            status="processing"
-            label="Analyzing Draft"
-            description="Extracting claims, identifying coverage gaps, and generating reviewer feedback..."
+            status="Analyzing Draft"
           />
+          <p className="mt-4 text-center text-sm text-text-secondary">
+            Extracting claims, identifying coverage gaps, and generating reviewer feedback...
+          </p>
         </div>
       </div>
     )

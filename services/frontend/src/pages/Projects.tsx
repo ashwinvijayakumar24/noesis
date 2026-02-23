@@ -14,7 +14,7 @@ import { trackEvent } from '../lib/analytics'
 import { handleError } from '../lib/errorHandler'
 import { SkeletonProjectCard, SkeletonGrid } from '../components/ui/Skeleton'
 import PageContainer from '../components/layout/PageContainer'
-import { MagneticButton } from '../components/ui/MagneticButton'
+import { Button } from '../components/ui/Button'
 
 interface Project {
   id: string
@@ -33,7 +33,7 @@ interface ProjectTag {
 
 export default function Projects() {
   const navigate = useNavigate()
-  const { user, session, signOut } = useAuthStore()
+  const { session } = useAuthStore()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -184,30 +184,30 @@ export default function Projects() {
       description="Manage your research projects and documents"
       onSearchOpen={() => setIsSearchOpen(true)}
       headerActions={
-        <MagneticButton
+        <Button
           onClick={() => setIsCreateModalOpen(true)}
           variant="primary"
           size="lg"
           icon={<PlusIcon className="h-5 w-5" />}
         >
           Create Project
-        </MagneticButton>
+        </Button>
       }
       spacing="loose"
     >
 
       {/* Tag Filters */}
       {uniqueTags.length > 0 && (
-        <div className="p-6 bg-bg-surface rounded-2xl border border-border-base">
+        <div className="p-6 bg-bg-surface rounded-lg border border-border-default">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <TagIcon className="h-5 w-5 text-neon-pink" />
-              <h3 className="text-sm font-display font-semibold text-text-primary">Filter by tags</h3>
+              <TagIcon className="h-5 w-5 text-accent-primary" />
+              <h3 className="text-sm font-sans font-semibold text-text-primary tracking-normal">Filter by tags</h3>
             </div>
             {selectedTags.length > 0 && (
               <button
                 onClick={clearTagFilters}
-                className="text-xs text-text-tertiary hover:text-neon-pink flex items-center gap-1 transition-colors duration-200"
+                className="text-xs text-text-tertiary hover:text-accent-primary flex items-center gap-1 transition-colors duration-150"
               >
                 <XMarkIcon className="h-3 w-3" />
                 Clear filters
@@ -222,10 +222,10 @@ export default function Projects() {
                 <button
                   key={tag.name}
                   onClick={() => toggleTagFilter(tag.name)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border transition-all duration-150 tracking-normal ${
                     isSelected
                       ? `${colors.bg} ${colors.text} ${colors.border} ring-2 ring-offset-2 ring-offset-bg-void`
-                      : 'bg-bg-hover text-text-tertiary border-border-base hover:border-neon-pink/30 hover:text-text-primary hover:bg-bg-elevated'
+                      : 'bg-bg-hover text-text-tertiary border-border-default hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-elevated'
                   }`}
                 >
                   <TagIcon className="h-3.5 w-3.5" />
@@ -243,44 +243,44 @@ export default function Projects() {
 
       {/* Empty State - No Projects */}
       {!loading && projects.length === 0 && (
-        <div className="text-center py-20 bg-bg-surface rounded-2xl border-2 border-dashed border-border-base">
+        <div className="text-center py-20 bg-bg-surface rounded-lg border border-dashed border-border-default">
           <div className="max-w-md mx-auto">
-            <div className="h-20 w-20 mx-auto mb-6 rounded-2xl bg-neon-pink/10 border-2 border-neon-pink/30 flex items-center justify-center">
-              <DocumentTextIcon className="h-10 w-10 text-neon-pink" />
+            <div className="h-20 w-20 mx-auto mb-6 rounded-xl bg-accent-light border border-accent-primary/30 flex items-center justify-center">
+              <DocumentTextIcon className="h-10 w-10 text-accent-primary" />
             </div>
-            <h3 className="text-2xl font-display font-bold text-text-primary mb-2">
+            <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
               No projects yet
             </h3>
-            <p className="text-text-secondary mb-8 leading-relaxed">
+            <p className="text-text-secondary mb-8 leading-relaxed tracking-normal">
               Get started by creating your first research project
             </p>
-            <MagneticButton
+            <Button
               onClick={() => setIsCreateModalOpen(true)}
               variant="primary"
               size="lg"
             >
               Create Your First Project
-            </MagneticButton>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Empty State - No Matching Projects */}
       {!loading && projects.length > 0 && filteredProjects.length === 0 && (
-        <div className="text-center py-20 bg-bg-surface rounded-2xl border-2 border-dashed border-border-base">
+        <div className="text-center py-20 bg-bg-surface rounded-lg border border-dashed border-border-default">
           <div className="max-w-md mx-auto">
-            <div className="h-20 w-20 mx-auto mb-6 rounded-2xl bg-warning/10 border-2 border-warning/30 flex items-center justify-center">
-              <TagIcon className="h-10 w-10 text-warning" />
+            <div className="h-20 w-20 mx-auto mb-6 rounded-xl bg-amber-light border border-amber-primary/30 flex items-center justify-center">
+              <TagIcon className="h-10 w-10 text-amber-primary" />
             </div>
-            <h3 className="text-2xl font-display font-bold text-text-primary mb-2">
+            <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
               No projects match your filters
             </h3>
-            <p className="text-text-secondary mb-8 leading-relaxed">
+            <p className="text-text-secondary mb-8 leading-relaxed tracking-normal">
               Try adjusting your tag filters to see more projects
             </p>
             <button
               onClick={clearTagFilters}
-              className="px-6 py-3 bg-bg-surface border-2 border-neon-pink/30 text-neon-pink font-semibold rounded-lg hover:bg-neon-pink/10 transition-all duration-200"
+              className="px-6 py-3 bg-bg-surface border border-accent-primary/30 text-accent-primary font-semibold rounded-md hover:bg-accent-light transition-all duration-150"
             >
               Clear Filters
             </button>
@@ -307,7 +307,7 @@ export default function Projects() {
           {filteredProjects.map((project, index) => (
             <motion.div
               key={project.id}
-              className={`group bg-bg-surface rounded-2xl border border-border-base p-6 hover:border-neon-pink/30 hover:bg-bg-elevated hover:-translate-y-2 hover:shadow-card-lift transition-all duration-300 relative cursor-pointer ${getProjectBorderColor(index)}`}
+              className={`group bg-bg-surface rounded-lg border border-border-default p-6 hover:border-accent-primary/30 hover:bg-bg-elevated hover:-translate-y-0.5 hover:shadow-md transition-all duration-150 relative cursor-pointer ${getProjectBorderColor(index)}`}
               onClick={() => navigate(`/projects/${project.id}`)}
               variants={{
                 hidden: { opacity: 0, y: 20 },
@@ -315,7 +315,7 @@ export default function Projects() {
                   opacity: 1,
                   y: 0,
                   transition: {
-                    duration: 0.5,
+                    duration: 0.3,
                     ease: [0.16, 1, 0.3, 1]
                   }
                 }
@@ -324,12 +324,12 @@ export default function Projects() {
               {/* Options Menu */}
               <Menu as="div" className="absolute top-4 right-4 z-10">
                 <Menu.Button
-                  className="p-2 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-bg-hover transition-all duration-200 opacity-0 group-hover:opacity-100"
+                  className="p-2 text-text-tertiary hover:text-text-primary rounded-md hover:bg-bg-hover transition-all duration-150 opacity-0 group-hover:opacity-100"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <EllipsisVerticalIcon className="h-5 w-5" />
                 </Menu.Button>
-                <Menu.Items className="absolute right-0 mt-2 w-48 bg-bg-elevated rounded-xl shadow-neon-glow border border-border-base py-1 z-10">
+                <Menu.Items className="absolute right-0 mt-2 w-48 bg-bg-elevated rounded-lg shadow-lg border border-border-default py-1 z-10">
                   <Menu.Item>
                     {({ active }) => (
                       <button
@@ -351,10 +351,10 @@ export default function Projects() {
 
               {/* Card Content */}
               <div>
-                <h3 className="text-2xl font-display font-semibold text-text-primary mb-3 pr-8 line-clamp-2 group-hover:text-neon-pink transition-colors duration-300">
+                <h3 className="text-2xl font-sans font-semibold text-text-primary mb-3 pr-8 line-clamp-2 group-hover:text-accent-primary transition-colors duration-150 tracking-normal">
                   {project.title}
                 </h3>
-                <p className="text-sm text-text-secondary mb-4 line-clamp-2 leading-relaxed">
+                <p className="text-sm text-text-secondary mb-4 line-clamp-2 leading-relaxed tracking-normal">
                   {project.description || 'No description'}
                 </p>
 
@@ -364,7 +364,7 @@ export default function Projects() {
                 </div>
 
                 {/* Metadata Footer */}
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted pt-4 border-t border-border-base">
+                <div className="flex items-center justify-between text-xs font-mono text-text-muted pt-4 border-t border-border-default">
                   <div className="flex items-center gap-1.5">
                     <DocumentTextIcon className="h-3.5 w-3.5" />
                     <span>{project.document_count || 0} documents</span>
@@ -414,7 +414,7 @@ export default function Projects() {
               title: 'Welcome to Noesis!',
               description: 'Noesis is your AI-powered research intelligence platform. Follow this recommended workflow to get the most value from your research.',
               action: 'Create your first project to get started',
-              icon: <LightBulbIcon className="h-6 w-6 text-neon-pink" />,
+              icon: <LightBulbIcon className="h-6 w-6 text-accent-primary" />,
             },
             {
               title: 'Step 1: Upload Research Papers',

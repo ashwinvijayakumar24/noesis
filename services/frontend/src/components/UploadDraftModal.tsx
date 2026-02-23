@@ -135,17 +135,17 @@ export default function UploadDraftModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-border-subtle">
+                <div className="px-6 py-5 border-b border-border-default">
                   <div className="flex items-center justify-between">
-                    <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
+                    <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
                       Upload Draft
                     </Dialog.Title>
                     <button
                       onClick={handleClose}
                       disabled={loading}
-                      className="text-text-tertiary hover:text-text-primary transition-colors"
+                      className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
                     >
                       <XMarkIcon className="h-6 w-6" />
                     </button>
@@ -155,16 +155,16 @@ export default function UploadDraftModal({
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                   {/* Privacy Notice */}
-                  <div className="mb-4 rounded-md bg-blue-50 p-4 border border-blue-200">
+                  <div className="mb-4 rounded-md bg-bg-elevated p-4 border border-border-default">
                     <div className="flex">
                       <div className="flex-shrink-0">
-                        <ShieldCheckIcon className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                        <ShieldCheckIcon className="h-5 w-5 text-teal-primary" aria-hidden="true" />
                       </div>
                       <div className="ml-3 flex-1">
-                        <h3 className="text-sm font-medium text-blue-800">
+                        <h3 className="text-sm font-medium text-text-primary tracking-normal">
                           Your research is private and secure
                         </h3>
-                        <div className="mt-2 text-sm text-blue-700">
+                        <div className="mt-2 text-sm text-text-secondary tracking-normal">
                           <ul className="list-disc space-y-1 pl-5">
                             <li>Your drafts are never shared with other users</li>
                             <li>AI analysis uses zero data retention (OpenAI does not store your content)</li>
@@ -174,12 +174,12 @@ export default function UploadDraftModal({
                           <button
                             type="button"
                             onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-                            className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-500"
+                            className="mt-2 text-sm font-medium text-accent-primary hover:text-accent-hover transition-colors duration-150"
                           >
                             {showPrivacyInfo ? 'Hide details' : 'Learn more about our privacy practices'}
                           </button>
                           {showPrivacyInfo && (
-                            <div className="mt-3 text-xs text-blue-600 space-y-2 border-t border-blue-200 pt-2">
+                            <div className="mt-3 text-xs text-text-tertiary tracking-normal space-y-2 border-t border-border-default pt-2">
                               <p><strong>Database Security:</strong> Row-Level Security ensures your data is isolated by user ID.</p>
                               <p><strong>AI Processing:</strong> We use OpenAI's API with zero data retention enabled. Your content is processed but never stored by OpenAI.</p>
                               <p><strong>Storage:</strong> Files are stored in private buckets with user-specific access controls.</p>
@@ -193,7 +193,7 @@ export default function UploadDraftModal({
 
                   {/* File Picker */}
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
                       Draft File
                     </label>
                     <div className="flex items-center gap-3">
@@ -208,15 +208,15 @@ export default function UploadDraftModal({
                       />
                       <label
                         htmlFor="draft-file-upload"
-                        className="flex items-center gap-2 px-4 py-3 border border-border-base rounded-lg hover:border-border-subtle transition-colors cursor-pointer disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-3 border border-border-default rounded-md hover:border-accent-primary/30 hover:bg-bg-hover transition-all duration-150 cursor-pointer disabled:opacity-50"
                       >
                         <DocumentArrowUpIcon className="h-5 w-5 text-text-tertiary" />
-                        <span className="text-sm text-text-secondary font-medium">
+                        <span className="text-sm text-text-secondary font-medium tracking-normal">
                           {selectedFile ? 'Change File' : 'Choose File'}
                         </span>
                       </label>
                       {selectedFile && (
-                        <span className="text-sm text-text-tertiary truncate flex-1">
+                        <span className="text-sm text-text-tertiary truncate flex-1 tracking-normal">
                           {selectedFile.name}
                         </span>
                       )}
@@ -230,7 +230,7 @@ export default function UploadDraftModal({
                   <div>
                     <label
                       htmlFor="draft-title"
-                      className="block text-sm font-medium text-text-secondary mb-2"
+                      className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
                     >
                       Title
                     </label>
@@ -239,7 +239,7 @@ export default function UploadDraftModal({
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors"
+                      className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
                       placeholder="My Research Draft v1"
                       disabled={loading}
                       required
@@ -252,14 +252,14 @@ export default function UploadDraftModal({
                       type="button"
                       onClick={handleClose}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 border border-border-base text-text-secondary font-medium rounded-lg hover:border-border-subtle hover:text-text-primary transition-colors disabled:opacity-50"
+                      className="flex-1 px-4 py-3 border border-border-default text-text-secondary font-medium rounded-md hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-hover transition-all duration-150 disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading || !selectedFile || !title.trim()}
-                      className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {loading ? (
                         <>

@@ -7,13 +7,13 @@ interface TextInputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export function TextInput({ label, error, className = '', ...props }: TextInputProps) {
-  const baseStyles = 'w-full px-4 py-3 bg-bg-base border border-border-base rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors'
+  const baseStyles = 'w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal'
   const errorStyles = error ? 'border-error focus:ring-error focus:border-error' : ''
 
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-text-secondary mb-2">
+        <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
           {label}
         </label>
       )}
@@ -35,13 +35,13 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 export function Textarea({ label, error, className = '', ...props }: TextareaProps) {
-  const baseStyles = 'w-full px-4 py-3 bg-bg-base border border-border-base rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors resize-none'
+  const baseStyles = 'w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors resize-none tracking-normal'
   const errorStyles = error ? 'border-error focus:ring-error focus:border-error' : ''
 
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-text-secondary mb-2">
+        <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
           {label}
         </label>
       )}
@@ -64,13 +64,13 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export function Select({ label, error, children, className = '', ...props }: SelectProps) {
-  const baseStyles = 'w-full px-4 py-3 bg-bg-base border border-border-base rounded-md text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors'
+  const baseStyles = 'w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal'
   const errorStyles = error ? 'border-error focus:ring-error focus:border-error' : ''
 
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-text-secondary mb-2">
+        <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
           {label}
         </label>
       )}

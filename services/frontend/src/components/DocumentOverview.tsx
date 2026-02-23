@@ -211,12 +211,12 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
 
   if (status === 'not_analyzed') {
     return (
-      <div className="bg-surface rounded-lg border border-border-base p-8 text-center">
+      <div className="bg-surface rounded-lg border border-border-default p-8 text-center">
         <div className="max-w-md mx-auto">
           <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-accent-primary/10 flex items-center justify-center">
             <DocumentTextIcon className="h-8 w-8 text-accent-primary" />
           </div>
-          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
+          <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
             AI-Powered Paper Analysis
           </h3>
           <p className="text-text-tertiary mb-6">
@@ -277,7 +277,7 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       <div className="bg-surface rounded-lg border border-red-900/50 p-8 text-center">
         <div className="max-w-md mx-auto">
           <XCircleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
+          <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
             Analysis Failed
           </h3>
           <p className="text-text-tertiary mb-4">
@@ -312,23 +312,23 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       </div>
 
       {/* Executive Summary */}
-      <div className="bg-surface rounded-lg border border-border-base p-6">
+      <div className="bg-surface rounded-lg border border-border-default p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-accent-primary/10 rounded-lg">
             <DocumentTextIcon className="h-5 w-5 text-accent-primary" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-text-primary">Executive Summary</h3>
+          <h3 className="text-lg font-sans font-semibold text-text-primary">Executive Summary</h3>
         </div>
         <p className="text-text-secondary leading-relaxed">{analysis.executive_summary}</p>
       </div>
 
       {/* Research Problem */}
-      <div className="bg-surface rounded-lg border border-border-base p-6">
+      <div className="bg-surface rounded-lg border border-border-default p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-blue-600/20 rounded-lg">
             <ExclamationTriangleIcon className="h-5 w-5 text-blue-400" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-text-primary">Research Problem</h3>
+          <h3 className="text-lg font-sans font-semibold text-text-primary">Research Problem</h3>
         </div>
         <p className="text-text-secondary leading-relaxed">{analysis.research_problem}</p>
 
@@ -345,12 +345,12 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       </div>
 
       {/* Methodology */}
-      <div className="bg-surface rounded-lg border border-border-base p-6">
+      <div className="bg-surface rounded-lg border border-border-default p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-purple-600/20 rounded-lg">
             <BeakerIcon className="h-5 w-5 text-purple-400" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-text-primary">Methodology</h3>
+          <h3 className="text-lg font-sans font-semibold text-text-primary">Methodology</h3>
         </div>
         <p className="text-text-secondary leading-relaxed mb-4">{analysis.methodology.approach}</p>
 
@@ -377,12 +377,12 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
 
       {/* Key Findings */}
       {analysis.key_findings && analysis.key_findings.length > 0 && (
-        <div className="bg-surface rounded-lg border border-border-base p-6">
+        <div className="bg-surface rounded-lg border border-border-default p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-emerald-600/20 rounded-lg">
               <LightBulbIcon className="h-5 w-5 text-emerald-400" />
             </div>
-            <h3 className="text-lg font-serif font-semibold text-text-primary">Key Findings</h3>
+            <h3 className="text-lg font-sans font-semibold text-text-primary">Key Findings</h3>
           </div>
           <ul className="list-disc list-outside ml-5 space-y-2">
             {analysis.key_findings.map((finding, i) => (
@@ -393,12 +393,12 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       )}
 
       {/* Results */}
-      <div className="bg-surface rounded-lg border border-border-base p-6">
+      <div className="bg-surface rounded-lg border border-border-default p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-amber-600/20 rounded-lg">
             <CheckCircleIcon className="h-5 w-5 text-amber-400" />
           </div>
-          <h3 className="text-lg font-serif font-semibold text-text-primary">Results</h3>
+          <h3 className="text-lg font-sans font-semibold text-text-primary">Results</h3>
         </div>
         <p className="text-text-secondary leading-relaxed mb-4">{analysis.results.summary}</p>
 
@@ -417,8 +417,8 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
       {/* Limitations & Future Work */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {analysis.limitations && analysis.limitations.length > 0 && analysis.limitations[0] !== 'Not mentioned in the paper' && (
-          <div className="bg-surface rounded-lg border border-border-base p-6">
-            <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Limitations</h3>
+          <div className="bg-surface rounded-lg border border-border-default p-6">
+            <h3 className="text-lg font-sans font-semibold text-text-primary mb-4">Limitations</h3>
             <ul className="list-disc list-outside ml-5 space-y-1">
               {analysis.limitations.map((lim, i) => (
                 <li key={i} className="text-text-secondary">{lim}</li>
@@ -428,8 +428,8 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
         )}
 
         {analysis.future_work && analysis.future_work.length > 0 && analysis.future_work[0] !== 'Not mentioned in the paper' && (
-          <div className="bg-surface rounded-lg border border-border-base p-6">
-            <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Future Work</h3>
+          <div className="bg-surface rounded-lg border border-border-default p-6">
+            <h3 className="text-lg font-sans font-semibold text-text-primary mb-4">Future Work</h3>
             <ul className="list-disc list-outside ml-5 space-y-1">
               {analysis.future_work.map((work, i) => (
                 <li key={i} className="text-text-secondary">{work}</li>
@@ -441,8 +441,8 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
 
       {/* Key Citations */}
       {analysis.key_citations && analysis.key_citations.length > 0 && (
-        <div className="bg-surface rounded-lg border border-border-base p-6">
-          <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Key Citations</h3>
+        <div className="bg-surface rounded-lg border border-border-default p-6">
+          <h3 className="text-lg font-sans font-semibold text-text-primary mb-4">Key Citations</h3>
           <div className="space-y-4">
             {analysis.key_citations.map((citation, i) => (
               <div key={i} className="border-l-4 border-accent-primary pl-4">

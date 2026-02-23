@@ -43,7 +43,7 @@ export default function ClaimsPanel({
   return (
     <div className="space-y-4">
       {/* Header with Regenerate All button */}
-      <div className="flex items-center justify-between pb-3 border-b border-border-base">
+      <div className="flex items-center justify-between pb-3 border-b border-border-default">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-text-secondary">
             {claims.length} claims extracted
@@ -78,8 +78,8 @@ export default function ClaimsPanel({
               <div
                 key={claim.id}
                 onClick={() => onClaimClick?.(claim)}
-                className={`border border-border-base rounded-lg p-3 bg-surface-hover transition-all ${
-                  onClaimClick ? 'cursor-pointer hover:border-border-subtle hover:shadow-lg hover:shadow-red-600/20' : ''
+                className={`border border-border-default rounded-lg p-3 bg-surface-hover transition-all ${
+                  onClaimClick ? 'cursor-pointer hover:border-border-default hover:shadow-lg hover:shadow-red-600/20' : ''
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2">

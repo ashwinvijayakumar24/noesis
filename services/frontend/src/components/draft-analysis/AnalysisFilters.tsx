@@ -64,7 +64,7 @@ export default function AnalysisFilters({
   const activeCount = getActiveFilterCount()
 
   return (
-    <div className="border-b border-border-base bg-surface p-4 space-y-3">
+    <div className="border-b border-border-default bg-surface p-4 space-y-3">
       {/* Search Bar */}
       <div className="relative">
         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
@@ -73,7 +73,7 @@ export default function AnalysisFilters({
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search feedback, claims, gaps..."
-          className="w-full pl-10 pr-4 py-2 bg-bg-base border border-border-base rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+          className="w-full pl-10 pr-4 py-2 bg-bg-base border border-border-default rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
         />
         {searchInput && (
           <button
@@ -97,7 +97,7 @@ export default function AnalysisFilters({
           <select
             value={filters.severityFilter}
             onChange={(e) => handleFilterChange('severityFilter', e.target.value)}
-            className="px-3 py-1.5 text-xs bg-bg-base border border-border-base rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
+            className="px-3 py-1.5 text-xs bg-bg-base border border-border-default rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
           >
             <option value="all">All Severities</option>
             <option value="critical">Critical</option>
@@ -112,7 +112,7 @@ export default function AnalysisFilters({
           <select
             value={filters.priorityFilter}
             onChange={(e) => handleFilterChange('priorityFilter', e.target.value)}
-            className="px-3 py-1.5 text-xs bg-bg-base border border-border-base rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
+            className="px-3 py-1.5 text-xs bg-bg-base border border-border-default rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
           >
             <option value="all">All Priorities</option>
             <option value="high">High Priority</option>
@@ -126,7 +126,7 @@ export default function AnalysisFilters({
           <select
             value={filters.claimTypeFilter}
             onChange={(e) => handleFilterChange('claimTypeFilter', e.target.value)}
-            className="px-3 py-1.5 text-xs bg-bg-base border border-border-base rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
+            className="px-3 py-1.5 text-xs bg-bg-base border border-border-default rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
           >
             <option value="all">All Claim Types</option>
             {claimTypes.map(type => (
@@ -140,7 +140,7 @@ export default function AnalysisFilters({
           <select
             value={filters.citationStatusFilter}
             onChange={(e) => handleFilterChange('citationStatusFilter', e.target.value)}
-            className="px-3 py-1.5 text-xs bg-bg-base border border-border-base rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
+            className="px-3 py-1.5 text-xs bg-bg-base border border-border-default rounded-md text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary font-mono"
           >
             <option value="all">All Citation Status</option>
             <option value="missing">Missing Citations</option>
