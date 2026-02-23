@@ -66,16 +66,16 @@ export default function DeleteProjectModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-border-subtle">
+                <div className="px-6 py-5 border-b border-border-default">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <div className="shrink-0">
                         <ExclamationTriangleIcon className="h-6 w-6 text-red-500" />
                       </div>
                       <div>
-                        <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
+                        <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
                           Delete Project
                         </Dialog.Title>
                       </div>
@@ -83,7 +83,7 @@ export default function DeleteProjectModal({
                     <button
                       onClick={onClose}
                       disabled={loading}
-                      className="text-text-tertiary hover:text-text-primary transition-colors"
+                      className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
                     >
                       <XMarkIcon className="h-6 w-6" />
                     </button>
@@ -93,10 +93,10 @@ export default function DeleteProjectModal({
                 {/* Content */}
                 <div className="p-6">
                   <div className="ml-9 mb-6">
-                    <p className="text-text-secondary mb-2">
+                    <p className="text-text-secondary mb-2 tracking-normal">
                       Are you sure you want to delete <span className="font-semibold text-text-primary">{projectTitle}</span>?
                     </p>
-                    <p className="text-sm text-text-tertiary">
+                    <p className="text-sm text-text-tertiary tracking-normal">
                       This will permanently delete the project and all its documents. This action cannot be undone.
                     </p>
                   </div>
@@ -107,7 +107,7 @@ export default function DeleteProjectModal({
                       type="button"
                       onClick={onClose}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 border border-border-base text-text-secondary font-medium rounded-lg hover:border-border-subtle hover:text-text-primary transition-colors disabled:opacity-50"
+                      className="flex-1 px-4 py-3 border border-border-default text-text-secondary font-medium rounded-md hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-hover transition-all duration-150 disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -115,7 +115,7 @@ export default function DeleteProjectModal({
                       type="button"
                       onClick={handleDelete}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? 'Deleting...' : 'Delete Project'}
                     </button>

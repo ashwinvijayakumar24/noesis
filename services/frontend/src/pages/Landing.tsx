@@ -14,7 +14,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { useEffect } from 'react'
-import { MagneticButton } from '../components/ui/MagneticButton'
+import { Button } from '../components/ui/Button'
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -72,241 +72,185 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-bg-void text-text-primary">
-      {/* Navigation */}
+      {/* Navigation - Compact Dark Header */}
       <motion.nav
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="fixed top-0 left-0 right-0 z-50 bg-bg-void/80 backdrop-blur-xl border-b border-border-base"
+        className="fixed top-0 left-0 right-0 z-50 bg-bg-surface/95 backdrop-blur-md border-b border-border-default"
       >
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3 group cursor-pointer">
+          <div className="flex justify-between items-center h-14">
+            <div className="flex items-center gap-3">
               <img
                 src="/noesis.png"
                 alt="Noesis"
-                className="h-8 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
+                className="h-6"
               />
-              <span className="text-lg font-display font-semibold text-text-primary">
+              <span className="text-sm font-sans font-semibold text-text-primary">
                 Noesis
               </span>
             </div>
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate('/login')}
-                className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+                className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors duration-150"
               >
                 Sign In
               </button>
-              <MagneticButton
+              <Button
                 onClick={() => navigate('/signup')}
                 variant="primary"
                 size="sm"
               >
                 Get Started
-              </MagneticButton>
+              </Button>
             </div>
           </div>
         </div>
       </motion.nav>
 
-      {/* Hero Section - Asymmetric Layout */}
-      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-32 px-6 sm:px-8 overflow-hidden">
-        {/* Pink Glow Background Blob */}
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-neon-pink/20 rounded-full blur-[120px] opacity-30 pointer-events-none" />
-
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-5 gap-12 lg:gap-16 items-center">
-            {/* Left Column (60%) - Content */}
-            <motion.div
-              className="lg:col-span-3 space-y-8 relative z-10"
-              initial="initial"
-              animate="animate"
-              variants={{
-                animate: { transition: { staggerChildren: 0.15 } }
-              }}
+      {/* Hero Section - Professional Dark Gradient */}
+      <section className="relative pt-32 pb-24 sm:pt-40 sm:pb-32 px-6 sm:px-8 overflow-hidden bg-gradient-to-br from-bg-void via-bg-surface to-bg-void">
+        <div className="max-w-5xl mx-auto">
+          {/* Centered Content */}
+          <motion.div
+            className="text-center space-y-8 relative z-10"
+            initial="initial"
+            animate="animate"
+            variants={{
+              animate: { transition: { staggerChildren: 0.15 } }
+            }}
+          >
+            {/* Main Headline - Centered */}
+            <motion.h1
+              variants={fadeIn}
+              className="text-5xl sm:text-6xl lg:text-7xl font-sans font-semibold leading-display tracking-tightest mx-auto"
             >
-              {/* Main Headline */}
-              <motion.h1
-                variants={fadeIn}
-                className="text-5xl sm:text-6xl lg:text-7xl font-display font-extrabold leading-[1.1] tracking-tighter"
-              >
-                Strengthen Your Research{' '}
-                <span className="gradient-text">Before Peer Review</span>
-              </motion.h1>
+              Strengthen Your Research{' '}
+              <span className="text-accent-primary">Before Peer Review</span>
+            </motion.h1>
 
-              {/* Subheadline */}
-              <motion.p
-                variants={fadeIn}
-                className="text-xl sm:text-2xl text-text-secondary leading-relaxed max-w-2xl"
-              >
-                AI research assistant that critiques your drafts, surfaces citation gaps, and identifies weak claims—like a reviewer, before submission.
-              </motion.p>
+            {/* Subheadline - Centered */}
+            <motion.p
+              variants={fadeIn}
+              className="text-xl sm:text-2xl text-text-secondary leading-body-large tracking-normal max-w-3xl mx-auto"
+            >
+              AI research assistant that critiques your drafts, surfaces citation gaps, and identifies weak claims—like a reviewer, before submission.
+            </motion.p>
 
-              {/* CTA Buttons */}
-              <motion.div
-                variants={fadeIn}
-                className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-4"
+            {/* CTA Buttons - Centered */}
+            <motion.div
+              variants={fadeIn}
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
+            >
+              <Button
+                onClick={() => navigate('/signup')}
+                variant="primary"
+                size="lg"
+                className="flex items-center gap-2 group"
               >
-                <MagneticButton
-                  onClick={() => navigate('/signup')}
-                  variant="primary"
-                  size="lg"
-                  className="flex items-center gap-2 group"
-                >
-                  Get Started Free
-                  <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </MagneticButton>
-                <button
-                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="px-8 py-4 text-text-secondary font-semibold hover:text-text-primary transition-colors text-lg"
-                >
-                  Watch Demo
-                </button>
-              </motion.div>
-
-              {/* Trust Badges */}
-              <motion.div
-                variants={fadeIn}
-                className="flex flex-wrap items-center gap-6 pt-4 text-sm text-text-muted font-mono"
+                Get Started Free
+                <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+              <button
+                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                className="px-8 py-4 text-text-secondary font-semibold hover:text-text-primary transition-colors text-lg"
               >
-                <div className="flex items-center gap-2">
-                  <CheckBadgeIcon className="h-5 w-5 text-neon-pink" />
-                  <span>No credit card</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckBadgeIcon className="h-5 w-5 text-neon-pink" />
-                  <span>Free tier</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckBadgeIcon className="h-5 w-5 text-neon-pink" />
-                  <span>Privacy-first</span>
-                </div>
-              </motion.div>
+                Watch Demo
+              </button>
             </motion.div>
 
-            {/* Right Column (40%) - Animated Demo Mockup */}
+            {/* Trust Badges - Centered */}
             <motion.div
-              className="lg:col-span-2 relative"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
+              variants={fadeIn}
+              className="flex flex-wrap items-center justify-center gap-6 pt-4 text-sm text-text-muted font-mono"
             >
-              {/* Floating Demo Card */}
-              <motion.div
-                className="relative bg-gradient-to-br from-bg-surface to-bg-elevated border border-border-base rounded-2xl p-8 shadow-2xl"
-                animate={{
-                  y: [0, -20, 0],
-                  rotate: [-2, 2, -2]
-                }}
-                transition={{
-                  duration: 6,
-                  ease: "easeInOut",
-                  repeat: Infinity
-                }}
-              >
-                {/* Accent Glow */}
-                <div className="absolute inset-0 bg-gradient-to-br from-neon-pink/10 to-transparent rounded-2xl pointer-events-none" />
-
-                {/* Mock Analysis Content */}
-                <div className="space-y-6 relative z-10">
-                  <div className="flex items-center gap-3">
-                    <SparklesIcon className="h-6 w-6 text-neon-pink" />
-                    <span className="text-lg font-display font-semibold text-text-primary">
-                      Draft Analysis
-                    </span>
-                  </div>
-
-                  {/* Stat Cards */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <motion.div
-                      className="bg-bg-void/50 border border-border-base rounded-lg p-4"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <div className="text-2xl font-display font-bold text-neon-pink mb-1">12</div>
-                      <div className="text-xs font-mono text-text-muted">Claims Analyzed</div>
-                    </motion.div>
-                    <motion.div
-                      className="bg-bg-void/50 border border-border-base rounded-lg p-4"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, delay: 0.3, repeat: Infinity }}
-                    >
-                      <div className="text-2xl font-display font-bold text-accent-teal mb-1">5</div>
-                      <div className="text-xs font-mono text-text-muted">Citations Found</div>
-                    </motion.div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                      <span>Coverage Score</span>
-                      <span>87%</span>
-                    </div>
-                    <div className="h-2 bg-bg-void rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-neon-pink to-accent-teal"
-                        initial={{ width: 0 }}
-                        animate={{ width: '87%' }}
-                        transition={{ duration: 1.5, delay: 0.5 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Floating Accent Badge */}
-                <motion.div
-                  className="absolute -top-4 -right-4 bg-neon-pink text-white px-4 py-2 rounded-full text-xs font-semibold shadow-neon-glow"
-                  animate={{ y: [-5, 5, -5] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                >
-                  ✓ Ready to Review
-                </motion.div>
-              </motion.div>
-
-              {/* Floating Accent Card (Bottom Left) */}
-              <motion.div
-                className="absolute -bottom-8 -left-8 bg-bg-elevated border border-border-base rounded-xl p-4 shadow-xl hidden lg:block"
-                animate={{
-                  y: [0, -10, 0],
-                  x: [-5, 5, -5]
-                }}
-                transition={{
-                  duration: 5,
-                  ease: "easeInOut",
-                  repeat: Infinity,
-                  delay: 1
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-sm font-mono text-text-secondary">Live Analysis</span>
-                </div>
-              </motion.div>
+              <div className="flex items-center gap-2">
+                <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
+                <span>No credit card</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
+                <span>Free tier</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
+                <span>Privacy-first</span>
+              </div>
             </motion.div>
-          </div>
+          </motion.div>
+
+          {/* Demo Card - Below Content, Centered */}
+          <motion.div
+            className="mt-16 max-w-2xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
+            {/* Demo Card - Professional, Static */}
+            <div className="bg-bg-surface border border-border-default rounded-lg p-8 shadow-lg">
+              {/* Mock Analysis Content */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <SparklesIcon className="h-6 w-6 text-accent-primary" />
+                  <span className="text-lg font-sans font-semibold text-text-primary">
+                    Draft Analysis
+                  </span>
+                </div>
+
+                {/* Stat Cards - Dark Theme */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-accent-light border border-accent-primary/30 rounded-md p-5">
+                    <div className="text-3xl font-sans font-bold text-accent-primary mb-1">12</div>
+                    <div className="text-xs font-mono text-text-muted">Claims Analyzed</div>
+                  </div>
+                  <div className="bg-indigo-light border border-indigo-primary/30 rounded-md p-5">
+                    <div className="text-3xl font-sans font-bold text-indigo-primary mb-1">5</div>
+                    <div className="text-xs font-mono text-text-muted">Citations Found</div>
+                  </div>
+                </div>
+
+                {/* Progress Bar - Rose Gradient */}
+                <div className="space-y-2 mt-6">
+                  <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+                    <span>Coverage Score</span>
+                    <span>87%</span>
+                  </div>
+                  <div className="h-2.5 bg-bg-hover rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-accent-primary to-rose-primary"
+                      initial={{ width: 0 }}
+                      animate={{ width: '87%' }}
+                      transition={{ duration: 1.5, delay: 0.6 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Features Section - Bento Grid */}
-      <section id="features" className="py-32 px-6 sm:px-8 bg-bg-surface/30">
+      {/* Features Section - Professional Dark Cards */}
+      <section id="features" className="py-16 px-6 sm:px-8 bg-bg-void">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.3 }}
             className="mb-16 text-center"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold leading-[1.2] tracking-tight text-text-primary mb-6">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-heading-1 tracking-tighter text-text-primary mb-6">
               Research Intelligence, <br className="hidden sm:block" />
-              <span className="gradient-text">Not Auto-Writing</span>
+              <span className="text-accent-primary">Not Auto-Writing</span>
             </h2>
-            <p className="text-xl sm:text-2xl text-text-secondary max-w-3xl mx-auto">
+            <p className="text-xl sm:text-2xl text-text-secondary max-w-3xl mx-auto leading-body-large tracking-normal">
               Powered by advanced AI, semantic search, and intelligent analytics
             </p>
           </motion.div>
 
-          {/* Bento Grid - Asymmetric Cards */}
+          {/* Feature Cards - Rose Accent Hover */}
           <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
             {features.map((feature, index) => (
               <motion.div
@@ -314,112 +258,94 @@ export default function Landing() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="group relative bg-bg-surface border border-border-base rounded-2xl p-8 hover:border-neon-pink/30 hover:-translate-y-2 transition-all duration-300"
-                style={{
-                  boxShadow: '0 4px 24px rgba(0, 0, 0, 0.1)'
-                }}
+                transition={{ delay: index * 0.1, duration: 0.3 }}
+                className="group bg-bg-surface border border-border-default rounded-lg p-8 hover:border-accent-primary/30 hover:-translate-y-0.5 transition-all duration-150 shadow-xs hover:shadow-sm"
               >
-                {/* Gradient Overlay on Hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-neon-pink/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-
-                <div className="relative z-10 space-y-6">
-                  {/* Icon with Pink Glow on Hover */}
-                  <div className="w-14 h-14 rounded-xl bg-bg-void/50 border border-border-base flex items-center justify-center group-hover:border-neon-pink/50 transition-all duration-300">
+                <div className="space-y-6">
+                  {/* Icon with Rose Accent on Hover */}
+                  <div className="w-14 h-14 rounded-lg bg-bg-subtle border border-border-default flex items-center justify-center group-hover:border-accent-primary/50 group-hover:bg-accent-light transition-all duration-150">
                     <feature.icon
-                      className="w-7 h-7 text-text-tertiary group-hover:text-neon-pink transition-colors"
+                      className="w-7 h-7 text-text-tertiary group-hover:text-accent-primary transition-colors duration-150"
                       strokeWidth={1.5}
                     />
                   </div>
 
                   {/* Content */}
                   <div className="space-y-3">
-                    <h3 className="text-2xl sm:text-3xl font-display font-semibold text-text-primary leading-tight">
+                    <h3 className="text-2xl sm:text-3xl font-sans font-semibold text-text-primary leading-heading-3 tracking-normal">
                       {feature.title}
                     </h3>
-                    <p className="text-text-secondary leading-relaxed">
+                    <p className="text-text-secondary leading-body tracking-normal">
                       {feature.description}
                     </p>
                   </div>
                 </div>
-
-                {/* Subtle Border Glow Effect */}
-                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                  style={{
-                    boxShadow: '0 0 0 1px rgba(255, 31, 76, 0.1), 0 8px 32px rgba(255, 31, 76, 0.1)'
-                  }}
-                />
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Trust & Academic Integrity Section */}
-      <section className="relative py-32 overflow-hidden">
+      {/* Trust & Academic Integrity Section - Dark Theme with Rose Accent */}
+      <section className="relative py-16 overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 sm:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.3 }}
             viewport={{ once: true }}
-            className="bg-bg-surface border-2 border-neon-pink/20 rounded-3xl p-8 sm:p-12 relative overflow-hidden"
+            className="bg-bg-surface border border-accent-primary/20 rounded-lg p-8 sm:p-12"
           >
-            {/* Background Accent */}
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-neon-pink/5 to-transparent pointer-events-none" />
+            <h3 className="text-3xl sm:text-4xl font-sans font-semibold text-text-primary mb-8 text-center tracking-tight">
+              Built on <span className="text-accent-primary">Trust & Academic Integrity</span>
+            </h3>
 
-            <div className="relative z-10">
-              <h3 className="text-3xl sm:text-4xl font-display font-bold text-text-primary mb-8 text-center">
-                Built on <span className="gradient-text">Trust & Academic Integrity</span>
-              </h3>
-
-              <div className="grid sm:grid-cols-2 gap-8">
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 mt-1 w-12 h-12 rounded-xl bg-neon-pink/10 flex items-center justify-center border border-neon-pink/30">
-                    <ShieldCheckIcon className="h-6 w-6 text-neon-pink" />
-                  </div>
-                  <div>
-                    <h4 className="font-display font-semibold text-text-primary mb-2 text-lg">Your Data, Your Research</h4>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                      Your drafts and documents are never used to train AI models. Your research remains private and secure.
-                    </p>
-                  </div>
+            <div className="grid sm:grid-cols-2 gap-8">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 mt-1 w-12 h-12 rounded-lg bg-accent-light flex items-center justify-center border border-accent-primary/30">
+                  <ShieldCheckIcon className="h-6 w-6 text-accent-primary" />
                 </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 mt-1 w-12 h-12 rounded-xl bg-neon-pink/10 flex items-center justify-center border border-neon-pink/30">
-                    <UserIcon className="h-6 w-6 text-neon-pink" />
-                  </div>
-                  <div>
-                    <h4 className="font-display font-semibold text-text-primary mb-2 text-lg">You Own Your Work</h4>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                      Noesis critiques and suggests—you decide. Your thinking, your arguments, your paper.
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="font-sans font-semibold text-text-primary mb-2 text-lg tracking-normal">Your Data, Your Research</h4>
+                  <p className="text-sm text-text-secondary leading-body-small tracking-normal">
+                    Your drafts and documents are never used to train AI models. Your research remains private and secure.
+                  </p>
                 </div>
+              </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 mt-1 w-12 h-12 rounded-xl bg-neon-pink/10 flex items-center justify-center border border-neon-pink/30">
-                    <AcademicCapIcon className="h-6 w-6 text-neon-pink" />
-                  </div>
-                  <div>
-                    <h4 className="font-display font-semibold text-text-primary mb-2 text-lg">Research Integrity</h4>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                      We don't auto-write. We help you identify weaknesses, gaps, and missing citations before peer review.
-                    </p>
-                  </div>
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 mt-1 w-12 h-12 rounded-lg bg-accent-light flex items-center justify-center border border-accent-primary/30">
+                  <UserIcon className="h-6 w-6 text-accent-primary" />
                 </div>
+                <div>
+                  <h4 className="font-sans font-semibold text-text-primary mb-2 text-lg tracking-normal">You Own Your Work</h4>
+                  <p className="text-sm text-text-secondary leading-body-small tracking-normal">
+                    Noesis critiques and suggests—you decide. Your thinking, your arguments, your paper.
+                  </p>
+                </div>
+              </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 mt-1 w-12 h-12 rounded-xl bg-neon-pink/10 flex items-center justify-center border border-neon-pink/30">
-                    <CheckBadgeIcon className="h-6 w-6 text-neon-pink" />
-                  </div>
-                  <div>
-                    <h4 className="font-display font-semibold text-text-primary mb-2 text-lg">Real Citations Only</h4>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                      Citation suggestions come from your uploaded literature—no hallucinated references.
-                    </p>
-                  </div>
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 mt-1 w-12 h-12 rounded-lg bg-accent-light flex items-center justify-center border border-accent-primary/30">
+                  <AcademicCapIcon className="h-6 w-6 text-accent-primary" />
+                </div>
+                <div>
+                  <h4 className="font-sans font-semibold text-text-primary mb-2 text-lg tracking-normal">Research Integrity</h4>
+                  <p className="text-sm text-text-secondary leading-body-small tracking-normal">
+                    We don't auto-write. We help you identify weaknesses, gaps, and missing citations before peer review.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 mt-1 w-12 h-12 rounded-lg bg-accent-light flex items-center justify-center border border-accent-primary/30">
+                  <CheckBadgeIcon className="h-6 w-6 text-accent-primary" />
+                </div>
+                <div>
+                  <h4 className="font-sans font-semibold text-text-primary mb-2 text-lg tracking-normal">Real Citations Only</h4>
+                  <p className="text-sm text-text-secondary leading-body-small tracking-normal">
+                    Citation suggestions come from your uploaded literature—no hallucinated references.
+                  </p>
                 </div>
               </div>
             </div>
@@ -437,10 +363,10 @@ export default function Landing() {
             transition={{ duration: 0.5 }}
             className="mb-16 text-center"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold leading-[1.2] tracking-tight text-text-primary mb-6">
-              Built for <span className="gradient-text">Serious Researchers</span>
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
+              Built for <span className="text-accent-primary">Serious Researchers</span>
             </h2>
-            <p className="text-xl sm:text-2xl text-text-secondary">
+            <p className="text-xl sm:text-2xl text-text-secondary tracking-normal">
               Trusted by undergrads, PhDs, postdocs, and faculty
             </p>
           </motion.div>
@@ -453,21 +379,21 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="group bg-bg-surface border border-border-base rounded-2xl p-8 hover:border-neon-pink/30 hover:-translate-y-1 transition-all duration-300"
+                className="group bg-bg-surface border border-border-default rounded-lg p-8 hover:border-accent-primary/30 hover:-translate-y-0.5 transition-all duration-150"
               >
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                   <div className="flex-1 space-y-3">
-                    <h3 className="text-2xl sm:text-3xl font-display font-semibold text-text-primary">
+                    <h3 className="text-2xl sm:text-3xl font-sans font-semibold text-text-primary tracking-normal">
                       {useCase.role}
                     </h3>
-                    <p className="text-lg text-text-secondary leading-relaxed">
+                    <p className="text-lg text-text-secondary leading-relaxed tracking-normal">
                       {useCase.description}
                     </p>
                   </div>
                   <div className="md:text-right shrink-0">
-                    <div className="px-4 py-2 bg-neon-pink/10 border border-neon-pink/30 rounded-lg">
+                    <div className="px-4 py-2 bg-accent-light border border-accent-primary/30 rounded-md">
                       <div className="text-xs font-mono text-text-muted mb-1">Impact</div>
-                      <div className="text-base font-display font-semibold text-neon-pink">
+                      <div className="text-base font-sans font-semibold text-accent-primary">
                         {useCase.impact}
                       </div>
                     </div>
@@ -479,8 +405,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How It Works - Diagonal Flow */}
-      <section className="py-32 px-6 sm:px-8 bg-bg-surface/30">
+      {/* How It Works - Clean, Professional */}
+      <section className="py-32 px-6 sm:px-8 bg-bg-surface">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -488,10 +414,10 @@ export default function Landing() {
             viewport={{ once: true }}
             className="mb-20 text-center"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold leading-[1.2] tracking-tight text-text-primary mb-6">
-              Simple. Powerful. <span className="gradient-text">Fast.</span>
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
+              Simple. Powerful. <span className="text-accent-primary">Fast.</span>
             </h2>
-            <p className="text-xl sm:text-2xl text-text-secondary">
+            <p className="text-xl sm:text-2xl text-text-secondary tracking-normal">
               Get started in three steps
             </p>
           </motion.div>
@@ -502,94 +428,69 @@ export default function Landing() {
                 number: '01',
                 title: 'Upload Your Papers',
                 description: 'Add PDF research papers to your project. Noesis automatically extracts text, metadata, and citations from each document.',
-                color: 'neon-pink'
+                color: 'rose'
               },
               {
                 number: '02',
                 title: 'AI Analyzes Everything',
                 description: 'Advanced AI extracts methodology, findings, claims, and citations from each paper. No hallucinated references, only real analysis.',
-                color: 'accent-teal'
+                color: 'teal'
               },
               {
                 number: '03',
                 title: 'Get Critique & Guidance',
                 description: 'Upload your draft to get reviewer-style feedback, citation suggestions, and structural guidance—before peer review.',
-                color: 'accent-purple'
+                color: 'indigo'
               }
             ].map((step, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, x: index % 2 === 0 ? -40 : 40 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ delay: index * 0.2, duration: 0.6 }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.2, duration: 0.3 }}
                 className={`flex flex-col md:flex-row gap-12 items-center ${
                   index % 2 === 1 ? 'md:flex-row-reverse' : ''
                 }`}
               >
-                {/* Number Badge */}
+                {/* Number Badge - NO Spring Animation */}
                 <div className="shrink-0">
-                  <motion.div
-                    className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${
-                      step.color === 'neon-pink' ? 'from-neon-pink/20 to-neon-pink/5' :
-                      step.color === 'accent-teal' ? 'from-accent-teal/20 to-accent-teal/5' :
-                      'from-accent-purple/20 to-accent-purple/5'
-                    } border ${
-                      step.color === 'neon-pink' ? 'border-neon-pink/30' :
-                      step.color === 'accent-teal' ? 'border-accent-teal/30' :
-                      'border-accent-purple/30'
-                    } flex items-center justify-center`}
-                    whileHover={{ scale: 1.05, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 300 }}
+                  <div
+                    className={`w-32 h-32 rounded-xl ${
+                      step.color === 'rose' ? 'bg-accent-light border-accent-primary/30' :
+                      step.color === 'teal' ? 'bg-teal-light border-teal-primary/30' :
+                      'bg-indigo-light border-indigo-primary/30'
+                    } border flex items-center justify-center`}
                   >
-                    <span className={`text-5xl font-display font-bold ${
-                      step.color === 'neon-pink' ? 'text-neon-pink' :
-                      step.color === 'accent-teal' ? 'text-accent-teal' :
-                      'text-accent-purple'
+                    <span className={`text-5xl font-sans font-bold ${
+                      step.color === 'rose' ? 'text-accent-primary' :
+                      step.color === 'teal' ? 'text-teal-primary' :
+                      'text-indigo-primary'
                     }`}>
                       {step.number}
                     </span>
-                  </motion.div>
+                  </div>
                 </div>
 
                 {/* Content Card */}
                 <div className="flex-1">
-                  <div className="bg-bg-surface border border-border-base rounded-2xl p-8 space-y-4">
-                    <h3 className="text-3xl sm:text-4xl font-display font-semibold text-text-primary">
+                  <div className="bg-bg-void border border-border-default rounded-lg p-8 space-y-4">
+                    <h3 className="text-3xl sm:text-4xl font-sans font-semibold text-text-primary tracking-normal">
                       {step.title}
                     </h3>
-                    <p className="text-lg text-text-secondary leading-relaxed">
+                    <p className="text-lg text-text-secondary leading-relaxed tracking-normal">
                       {step.description}
                     </p>
                   </div>
                 </div>
-
-                {/* Connecting Arrow (Desktop Only) */}
-                {index < 2 && (
-                  <div className="hidden lg:block absolute left-1/2 transform -translate-x-1/2"
-                    style={{ top: `${(index + 1) * 24}rem` }}
-                  >
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: (index + 1) * 0.2 + 0.3 }}
-                      className="text-neon-pink/30"
-                    >
-                      <svg width="24" height="48" viewBox="0 0 24 48" fill="none">
-                        <path d="M12 0L12 44M12 44L6 38M12 44L18 38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    </motion.div>
-                  </div>
-                )}
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="relative py-32 overflow-hidden bg-bg-surface/30">
+      {/* Pricing Section - Professional Dark */}
+      <section className="relative py-32 overflow-hidden bg-bg-void">
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -598,11 +499,11 @@ export default function Landing() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold leading-[1.2] tracking-tight text-text-primary mb-6">
-              <span className="gradient-text">Transparent</span>, Research-Friendly Pricing
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
+              <span className="text-accent-primary">Transparent</span>, Research-Friendly Pricing
             </h2>
-            <p className="text-lg sm:text-xl text-text-secondary max-w-3xl mx-auto">
-              All users are currently on the <span className="font-semibold text-neon-pink">Free Beta Plan</span>.
+            <p className="text-lg sm:text-xl text-text-secondary max-w-3xl mx-auto tracking-normal">
+              All users are currently on the <span className="font-semibold text-accent-primary">Free Beta Plan</span>.
               Usage limits ensure fair access during beta testing. Future paid plans will support heavier usage.
             </p>
           </motion.div>
@@ -614,17 +515,17 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.5 }}
               viewport={{ once: true }}
-              className="bg-bg-surface border-2 border-neon-pink rounded-2xl p-8 relative shadow-neon-glow"
+              className="bg-bg-surface border-2 border-accent-primary rounded-lg p-8 relative shadow-md"
             >
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="px-4 py-1 bg-green-600 text-white text-sm font-semibold rounded-full">
+                <span className="px-4 py-1 bg-teal-primary text-white text-sm font-semibold rounded-full">
                   Current Plan
                 </span>
               </div>
 
               <div className="space-y-6 mt-4">
                 <div>
-                  <h3 className="text-2xl font-display font-semibold text-text-primary mb-2">
+                  <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
                     Free (Beta)
                   </h3>
                   <div className="flex items-baseline gap-2">
@@ -686,17 +587,17 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
               viewport={{ once: true }}
-              className="bg-surface border border-border-base rounded-lg p-8 relative"
+              className="bg-bg-surface border border-border-default rounded-lg p-8 relative"
             >
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="px-4 py-1 bg-amber-600 text-white text-sm font-semibold rounded-full">
+                <span className="px-4 py-1 bg-amber-primary text-white text-sm font-semibold rounded-full">
                   Coming Soon
                 </span>
               </div>
 
               <div className="space-y-6 mt-4">
                 <div>
-                  <h3 className="text-2xl font-serif font-semibold text-text-primary mb-2">
+                  <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
                     Student / Researcher
                   </h3>
                   <div className="flex items-baseline gap-2">
@@ -758,17 +659,17 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
               viewport={{ once: true }}
-              className="bg-surface border border-border-base rounded-lg p-8 relative"
+              className="bg-bg-surface border border-border-default rounded-lg p-8 relative"
             >
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="px-4 py-1 bg-slate-600 text-white text-sm font-semibold rounded-full">
+                <span className="px-4 py-1 bg-bg-hover text-text-primary text-sm font-semibold rounded-full border border-border-default">
                   Future
                 </span>
               </div>
 
               <div className="space-y-6 mt-4">
                 <div>
-                  <h3 className="text-2xl font-serif font-semibold text-text-primary mb-2">
+                  <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
                     Lab / Team
                   </h3>
                   <div className="flex items-baseline gap-2">
@@ -826,12 +727,12 @@ export default function Landing() {
             whileInView={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
             viewport={{ once: true }}
-            className="mt-12 max-w-3xl mx-auto bg-surface border border-border-base rounded-lg p-6 text-center"
+            className="mt-12 max-w-3xl mx-auto bg-bg-surface border border-border-default rounded-lg p-6 text-center"
           >
-            <p className="text-sm text-text-tertiary">
+            <p className="text-sm text-text-tertiary tracking-normal">
               <span className="font-semibold text-text-secondary">Beta Period:</span> All features are free while we collect feedback and refine the platform.
               Limits exist to prevent abuse and ensure quality service for all researchers.
-              <a href="mailto:support@noesis.ai" className="text-accent-primary hover:text-accent-hover transition-colors ml-1">
+              <a href="mailto:support@noesis.ai" className="text-accent-primary hover:text-accent-hover transition-colors duration-150 ml-1">
                 Contact us
               </a> if you need higher limits for a research project.
             </p>
@@ -839,53 +740,50 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-32 px-6 sm:px-8 relative overflow-hidden">
-        {/* Pink Glow Background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-neon-pink/5 to-transparent pointer-events-none" />
-
+      {/* CTA Section - Professional Dark */}
+      <section className="py-32 px-6 sm:px-8 relative overflow-hidden bg-bg-void">
         <div className="max-w-4xl mx-auto relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center space-y-8 bg-gradient-to-br from-bg-surface/50 to-bg-elevated/50 border border-neon-pink/20 rounded-3xl p-12 sm:p-16 backdrop-blur-sm"
+            className="text-center space-y-8 bg-bg-surface border border-accent-primary/20 rounded-xl p-12 sm:p-16"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold leading-[1.1] tracking-tight text-text-primary">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.1] tracking-tight text-text-primary">
               Ready to strengthen <br className="hidden sm:block" />
-              <span className="gradient-text">your research?</span>
+              <span className="text-accent-primary">your research?</span>
             </h2>
-            <p className="text-xl sm:text-2xl text-text-secondary max-w-2xl mx-auto">
+            <p className="text-xl sm:text-2xl text-text-secondary max-w-2xl mx-auto tracking-normal">
               Join researchers who are submitting stronger papers with confidence
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <MagneticButton
+              <Button
                 onClick={() => navigate('/signup')}
                 variant="primary"
                 size="lg"
               >
                 Get Started Free
-              </MagneticButton>
+              </Button>
               <button
                 onClick={() => navigate('/login')}
-                className="px-8 py-4 border-2 border-border-base text-text-secondary font-semibold rounded-lg hover:border-neon-pink/30 hover:text-text-primary transition-all duration-300 text-lg"
+                className="px-8 py-4 border border-border-default text-text-secondary font-semibold rounded-md hover:border-accent-primary/30 hover:text-text-primary transition-all duration-150 text-lg"
               >
                 Sign In
               </button>
             </div>
 
-            {/* Trust Indicators */}
+            {/* Trust Indicators - Rose Accent */}
             <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 pt-8 text-sm text-text-muted font-mono">
               <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="h-4 w-4 text-neon-pink" />
+                <CheckBadgeIcon className="h-4 w-4 text-accent-primary" />
                 <span>No credit card required</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="h-4 w-4 text-neon-pink" />
+                <CheckBadgeIcon className="h-4 w-4 text-accent-primary" />
                 <span>Free tier available</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="h-4 w-4 text-neon-pink" />
+                <CheckBadgeIcon className="h-4 w-4 text-accent-primary" />
                 <span>Privacy-first</span>
               </div>
             </div>
@@ -893,17 +791,17 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 px-6 sm:px-8 border-t border-border-base bg-bg-void">
+      {/* Footer - Professional Dark */}
+      <footer className="py-12 px-6 sm:px-8 border-t border-border-default bg-bg-void">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-3 group">
+            <div className="flex items-center gap-3">
               <img
                 src="/noesis.png"
                 alt="Noesis"
-                className="h-8 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
+                className="h-8"
               />
-              <span className="text-lg font-display font-semibold text-text-primary">
+              <span className="text-lg font-sans font-semibold text-text-primary">
                 Noesis
               </span>
             </div>
@@ -911,9 +809,9 @@ export default function Landing() {
               © 2026 Noesis. All rights reserved.
             </div>
             <div className="flex items-center gap-6 text-text-muted text-sm">
-              <Link to="/privacy" className="hover:text-neon-pink transition-colors">Privacy</Link>
-              <a href="#" className="hover:text-neon-pink transition-colors">Terms</a>
-              <a href="mailto:privacy@noesis.app" className="hover:text-neon-pink transition-colors">Contact</a>
+              <Link to="/privacy" className="hover:text-accent-primary transition-colors duration-150">Privacy</Link>
+              <a href="#" className="hover:text-accent-primary transition-colors duration-150">Terms</a>
+              <a href="mailto:privacy@noesis.app" className="hover:text-accent-primary transition-colors duration-150">Contact</a>
             </div>
           </div>
         </div>

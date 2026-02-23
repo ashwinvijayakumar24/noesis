@@ -331,7 +331,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
 
   if (!data || data.nodes.length === 0) {
     return (
-      <div className="bg-surface/30 rounded-lg border border-border-base/50 p-8 text-center">
+      <div className="bg-surface/30 rounded-lg border border-border-default/50 p-8 text-center">
         <svg className="h-16 w-16 text-text-muted mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
         </svg>
@@ -349,26 +349,26 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
     <div ref={containerRef} className="space-y-4">
       {/* Metrics Overview */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-default">
           <div className="text-sm text-text-tertiary font-mono mb-1">Total Papers</div>
           <div className="text-2xl font-bold text-text-primary">{data.metrics.total_papers}</div>
         </div>
-        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-default">
           <div className="text-sm text-text-tertiary font-mono mb-1">Total Citations</div>
           <div className="text-2xl font-bold text-text-primary">{data.metrics.total_citations}</div>
         </div>
-        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-default">
           <div className="text-sm text-text-tertiary font-mono mb-1">Avg Citations</div>
           <div className="text-2xl font-bold text-text-primary">{data.metrics.avg_citations_per_paper}</div>
         </div>
-        <div className="bg-surface/50 rounded-lg p-4 border border-border-base">
+        <div className="bg-surface/50 rounded-lg p-4 border border-border-default">
           <div className="text-sm text-text-tertiary font-mono mb-1">Internal Links</div>
           <div className="text-2xl font-bold text-text-primary">{data.metrics.total_internal_citations}</div>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="bg-surface/50 rounded-lg p-4 border border-border-base space-y-4">
+      <div className="bg-surface/50 rounded-lg p-4 border border-border-default space-y-4">
         {/* Search */}
         <div className="relative">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-tertiary" />
@@ -377,7 +377,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by title or author..."
-            className="w-full pl-10 pr-10 py-2 bg-bg-base border border-border-subtle rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition-colors"
+            className="w-full pl-10 pr-10 py-2 bg-bg-base border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition-colors"
           />
           {searchTerm && (
             <button
@@ -459,15 +459,15 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
       </div>
 
       {/* Graph Visualization */}
-      <div className="bg-bg-base rounded-lg border border-border-base overflow-hidden" style={{ height: isFullscreen ? '90vh' : '600px' }}>
+      <div className="bg-bg-base rounded-lg border border-border-default overflow-hidden" style={{ height: isFullscreen ? '90vh' : '600px' }}>
         <svg ref={svgRef} className="w-full h-full"></svg>
       </div>
 
       {/* Selected Node Details */}
       {selectedNode && (
-        <div className="bg-surface/50 rounded-lg p-6 border border-border-base">
+        <div className="bg-surface/50 rounded-lg p-6 border border-border-default">
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-lg font-serif font-semibold text-text-primary">{selectedNode.title}</h3>
+            <h3 className="text-lg font-sans font-semibold text-text-primary">{selectedNode.title}</h3>
             <button onClick={() => setSelectedNode(null)} className="text-text-tertiary hover:text-text-primary transition-colors">
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -509,8 +509,8 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
 
       {/* Most Influential Papers */}
       {data.metrics.most_influential_papers.length > 0 && (
-        <div className="bg-surface/50 rounded-lg p-6 border border-border-base">
-          <h3 className="text-lg font-serif font-semibold text-text-primary mb-4">Most Influential Papers in Project</h3>
+        <div className="bg-surface/50 rounded-lg p-6 border border-border-default">
+          <h3 className="text-lg font-sans font-semibold text-text-primary mb-4">Most Influential Papers in Project</h3>
           <div className="space-y-2">
             {data.metrics.most_influential_papers.map((paper, idx) => (
               <div key={paper.id} className="flex items-start gap-3 text-sm">
@@ -535,7 +535,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
                 <div className="h-10 w-10 bg-cyan-600/20 rounded-lg flex items-center justify-center">
                   <QuestionMarkCircleIcon className="h-6 w-6 text-cyan-400" />
                 </div>
-                <h3 className="text-xl font-serif font-semibold text-text-primary">How to Use the Citation Network</h3>
+                <h3 className="text-xl font-sans font-semibold text-text-primary">How to Use the Citation Network</h3>
               </div>
               <button onClick={() => setShowHelpModal(false)} className="text-text-tertiary hover:text-text-primary transition-colors">
                 <XMarkIcon className="h-6 w-6" />
@@ -663,7 +663,7 @@ export default function CitationNetwork({ projectId }: CitationNetworkProps) {
             </div>
 
             {/* Footer */}
-            <div className="bg-surface/50 px-6 py-4 border-t border-border-base flex justify-end sticky bottom-0">
+            <div className="bg-surface/50 px-6 py-4 border-t border-border-default flex justify-end sticky bottom-0">
               <button
                 onClick={() => setShowHelpModal(false)}
                 className="px-6 py-2 bg-cyan-600 text-white font-semibold rounded-lg hover:bg-cyan-700 transition-colors"

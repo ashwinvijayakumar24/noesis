@@ -126,12 +126,12 @@ export default function CompassPage({ projectId, insights }: CompassPageProps) {
 
   if (!insights) {
     return (
-      <div className="bg-surface/50 rounded-lg border border-border-base p-12 text-center">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-12 text-center">
         <div className="max-w-md mx-auto">
           <div className="p-3 bg-accent-primary/10 rounded-lg inline-block mb-4">
             <MapIcon className="h-12 w-12 text-accent-primary" />
           </div>
-          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
+          <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
             Insights Analysis Required
           </h3>
           <p className="text-text-tertiary mb-4">
@@ -154,7 +154,7 @@ export default function CompassPage({ projectId, insights }: CompassPageProps) {
             <MapIcon className="h-6 w-6 text-accent-primary" />
           </div>
           <div>
-            <h3 className="text-2xl font-serif font-semibold text-text-primary">
+            <h3 className="text-2xl font-sans font-semibold text-text-primary">
               Literature Review Compass
             </h3>
             <p className="text-sm text-text-tertiary">
@@ -165,8 +165,8 @@ export default function CompassPage({ projectId, insights }: CompassPageProps) {
       </div>
 
       {/* Description */}
-      <div className="bg-surface/50 rounded-lg border border-border-base p-6 mb-6">
-        <h4 className="text-lg font-serif font-semibold text-text-primary mb-2">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-6 mb-6">
+        <h4 className="text-lg font-sans font-semibold text-text-primary mb-2">
           How the Compass Works
         </h4>
         <p className="text-sm text-text-tertiary mb-3">
@@ -234,7 +234,7 @@ export default function CompassPage({ projectId, insights }: CompassPageProps) {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-surface rounded-lg border border-border-base p-12 text-center">
+        <div className="bg-surface rounded-lg border border-border-default p-12 text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-solid border-accent-primary border-r-transparent mb-4"></div>
           <p className="text-text-secondary">
             {guidance ? 'Refreshing guidance...' : 'Analyzing your literature...'}
@@ -245,7 +245,7 @@ export default function CompassPage({ projectId, insights }: CompassPageProps) {
       {/* Tabs */}
       {!loading && guidance && (
         <Tab.Group>
-          <Tab.List className="flex gap-2 border-b border-border-base mb-6 overflow-x-auto scrollbar-hide">
+          <Tab.List className="flex gap-2 border-b border-border-default mb-6 overflow-x-auto scrollbar-hide">
             <Tab
               className={({ selected }) =>
                 `px-4 py-3 text-sm font-semibold transition-colors border-b-2 whitespace-nowrap ${

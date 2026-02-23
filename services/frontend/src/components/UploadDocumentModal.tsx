@@ -199,17 +199,17 @@ export default function UploadDocumentModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-border-subtle">
+                <div className="px-6 py-5 border-b border-border-default">
                   <div className="flex items-center justify-between">
-                    <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
+                    <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
                       Upload Document
                     </Dialog.Title>
                     <button
                       onClick={handleClose}
                       disabled={loading}
-                      className="text-text-tertiary hover:text-text-primary transition-colors"
+                      className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
                     >
                       <XMarkIcon className="h-6 w-6" />
                     </button>
@@ -219,16 +219,16 @@ export default function UploadDocumentModal({
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                   {/* Privacy Notice */}
-                  <div className="mb-4 rounded-md bg-slate-800 p-4 border border-slate-600">
+                  <div className="mb-4 rounded-md bg-bg-elevated p-4 border border-border-default">
                     <div className="flex">
                       <div className="flex-shrink-0">
-                        <LockClosedIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                        <LockClosedIcon className="h-5 w-5 text-teal-primary" aria-hidden="true" />
                       </div>
                       <div className="ml-3 flex-1">
-                        <h3 className="text-sm font-medium text-slate-200">
+                        <h3 className="text-sm font-medium text-text-primary tracking-normal">
                           Private literature library
                         </h3>
-                        <p className="mt-1 text-sm text-slate-300">
+                        <p className="mt-1 text-sm text-text-secondary tracking-normal leading-relaxed">
                           Your uploaded papers are private to your account and project. They're used only for your research analysis and are never shared with other users or used for training AI models.
                         </p>
                       </div>
@@ -237,7 +237,7 @@ export default function UploadDocumentModal({
 
                   {/* File Picker with Drag & Drop */}
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                    <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
                       PDF File
                     </label>
                     <div
@@ -245,10 +245,10 @@ export default function UploadDocumentModal({
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                       className={`
-                        relative border-2 border-dashed rounded-lg p-6 transition-all
+                        relative border-2 border-dashed rounded-md p-6 transition-all duration-150
                         ${isDragging
-                          ? 'border-accent-primary bg-accent-primary/10'
-                          : 'border-border-base hover:border-border-subtle'
+                          ? 'border-accent-primary bg-accent-light/30'
+                          : 'border-border-default hover:border-accent-primary/30'
                         }
                         ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                       `}
@@ -269,16 +269,16 @@ export default function UploadDocumentModal({
                         <DocumentArrowUpIcon className={`h-10 w-10 ${isDragging ? 'text-accent-primary' : 'text-text-tertiary'}`} />
                         {selectedFile ? (
                           <div className="text-center">
-                            <p className="text-sm text-text-primary font-medium">
+                            <p className="text-sm text-text-primary font-medium tracking-normal">
                               {selectedFile.name}
                             </p>
-                            <p className="text-xs text-text-muted mt-1">
+                            <p className="text-xs text-text-muted mt-1 tracking-normal">
                               Click or drag to change file
                             </p>
                           </div>
                         ) : (
                           <div className="text-center">
-                            <p className="text-sm text-text-secondary font-medium">
+                            <p className="text-sm text-text-secondary font-medium tracking-normal">
                               {isDragging ? 'Drop file here' : 'Drag & drop or click to browse'}
                             </p>
                             <p className="text-xs font-mono text-text-muted mt-1">
@@ -294,7 +294,7 @@ export default function UploadDocumentModal({
                   <div>
                     <label
                       htmlFor="title"
-                      className="block text-sm font-medium text-text-secondary mb-2"
+                      className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
                     >
                       Title <span className="text-text-muted font-mono text-xs">(optional)</span>
                     </label>
@@ -303,7 +303,7 @@ export default function UploadDocumentModal({
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors"
+                      className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
                       placeholder="Defaults to filename"
                       disabled={loading}
                     />
@@ -313,7 +313,7 @@ export default function UploadDocumentModal({
                   <div>
                     <label
                       htmlFor="description"
-                      className="block text-sm font-medium text-text-secondary mb-2"
+                      className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
                     >
                       Description <span className="text-text-muted font-mono text-xs">(optional)</span>
                     </label>
@@ -322,7 +322,7 @@ export default function UploadDocumentModal({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       rows={3}
-                      className="w-full px-4 py-3 bg-bg-base border border-border-base rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors resize-none"
+                      className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors resize-none tracking-normal"
                       placeholder="Add notes about this document..."
                       disabled={loading}
                     />
@@ -334,14 +334,14 @@ export default function UploadDocumentModal({
                       type="button"
                       onClick={handleClose}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 border border-border-base text-text-secondary font-medium rounded-lg hover:border-border-subtle hover:text-text-primary transition-colors disabled:opacity-50"
+                      className="flex-1 px-4 py-3 border border-border-default text-text-secondary font-medium rounded-md hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-hover transition-all duration-150 disabled:opacity-50 tracking-normal"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading || !selectedFile}
-                      className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-normal"
                     >
                       {loading ? (
                         <>

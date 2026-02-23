@@ -131,7 +131,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
 
   if (drafts.length === 0) {
     return (
-      <div className="text-center py-12 bg-bg-base rounded-lg border-2 border-dashed border-border-base">
+      <div className="text-center py-12 bg-bg-base rounded-lg border-2 border-dashed border-border-default">
         <DocumentTextIcon className="mx-auto h-12 w-12 text-text-tertiary" />
         <h3 className="mt-2 text-sm font-medium text-text-primary">No drafts yet</h3>
         <p className="mt-1 text-sm text-text-tertiary">

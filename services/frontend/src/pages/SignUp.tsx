@@ -87,9 +87,9 @@ export default function SignUp() {
               <img
                 src="/noesis.png"
                 alt="Noesis"
-                className="h-12 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
+                className="h-12 transition-all duration-150 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
               />
-              <span className="text-2xl font-display font-semibold text-text-primary">Noesis</span>
+              <span className="text-2xl font-sans font-semibold text-text-primary">Noesis</span>
             </Link>
             <p className="text-text-muted text-sm font-mono">AI-powered research workspace</p>
           </div>
@@ -99,7 +99,7 @@ export default function SignUp() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-bg-surface rounded-2xl border border-success/30 p-8 text-center backdrop-blur-sm"
+            className="bg-bg-surface rounded-lg border border-success/30 p-8 text-center backdrop-blur-sm"
           >
             <motion.div
               className="space-y-6"
@@ -126,7 +126,7 @@ export default function SignUp() {
                   hidden: { opacity: 0, y: 10 },
                   visible: { opacity: 1, y: 0 }
                 }}
-                className="text-3xl font-display font-bold text-text-primary"
+                className="text-3xl font-sans font-semibold text-text-primary"
               >
                 Check Your Email
               </motion.h2>
@@ -139,7 +139,7 @@ export default function SignUp() {
                 className="text-text-secondary text-lg"
               >
                 We sent a confirmation link to <br />
-                <strong className="text-neon-pink">{email}</strong>
+                <strong className="text-accent-primary">{email}</strong>
               </motion.p>
 
               <motion.p
@@ -159,7 +159,7 @@ export default function SignUp() {
                   visible: { opacity: 1, y: 0 }
                 }}
                 onClick={() => navigate('/login')}
-                className="text-neon-pink hover:text-neon-pink-bright font-semibold transition-colors"
+                className="text-accent-primary hover:text-accent-primary-bright font-semibold transition-colors"
               >
                 Return to login →
               </motion.button>
@@ -179,7 +179,7 @@ export default function SignUp() {
     <div className="min-h-screen bg-bg-void flex items-center justify-center p-6 relative overflow-hidden">
       {/* Decorative Background Glow */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-purple/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-pink/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-primary/10 rounded-full blur-[120px] pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -193,9 +193,9 @@ export default function SignUp() {
             <img
               src="/noesis.png"
               alt="Noesis"
-              className="h-12 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
+              className="h-12 transition-all duration-150 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
             />
-            <span className="text-2xl font-display font-semibold text-text-primary">Noesis</span>
+            <span className="text-2xl font-sans font-semibold text-text-primary">Noesis</span>
           </Link>
           <p className="text-text-muted text-sm font-mono">AI-powered research workspace</p>
         </div>
@@ -205,9 +205,9 @@ export default function SignUp() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="bg-bg-surface rounded-2xl border border-border-base p-8 backdrop-blur-sm"
+          className="bg-bg-surface rounded-lg border border-border-default p-8 backdrop-blur-sm"
         >
-          <h2 className="text-3xl font-display font-bold text-text-primary mb-6">
+          <h2 className="text-3xl font-sans font-semibold text-text-primary mb-6">
             Create your account
           </h2>
 
@@ -217,7 +217,7 @@ export default function SignUp() {
               type="button"
               onClick={handleGoogleSignup}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-border-base rounded-lg hover:bg-gray-50 hover:border-neon-pink/30 focus:outline-none focus:ring-2 focus:ring-neon-pink focus:border-neon-pink disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-border-default rounded-lg hover:bg-gray-50 hover:border-accent-primary/30 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -244,7 +244,7 @@ export default function SignUp() {
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border-base" />
+                <div className="w-full border-t border-border-default" />
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-3 bg-bg-surface text-text-muted font-mono">Or sign up with email</span>
@@ -267,7 +267,7 @@ export default function SignUp() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-base rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-pink focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-300 disabled:opacity-50"
+                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-default rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-primary focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-150 disabled:opacity-50"
                   placeholder="you@example.com"
                   autoComplete="email"
                   disabled={loading}
@@ -289,7 +289,7 @@ export default function SignUp() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-base rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-pink focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-300 disabled:opacity-50"
+                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-default rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-primary focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-150 disabled:opacity-50"
                   placeholder="••••••••"
                   autoComplete="new-password"
                   disabled={loading}
@@ -312,7 +312,7 @@ export default function SignUp() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-base rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-pink focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-300 disabled:opacity-50"
+                  className="w-full pl-12 pr-4 py-3 bg-bg-void border border-border-default rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-primary focus:shadow-focus-pink focus:bg-bg-elevated hover:border-border-focus transition-all duration-150 disabled:opacity-50"
                   placeholder="••••••••"
                   autoComplete="new-password"
                   disabled={loading}
@@ -324,7 +324,7 @@ export default function SignUp() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-neon-pink text-white font-semibold py-3 rounded-lg hover:shadow-neon-glow hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-neon-pink focus:ring-offset-2 focus:ring-offset-bg-surface disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-300"
+              className="w-full bg-accent-primary text-white font-semibold py-3 rounded-lg hover:shadow-sm hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-bg-surface disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-150"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -342,7 +342,7 @@ export default function SignUp() {
 
           <div className="mt-6 text-center text-sm text-text-tertiary">
             Already have an account?{' '}
-            <Link to="/login" className="text-neon-pink hover:text-neon-pink-bright font-semibold transition-colors">
+            <Link to="/login" className="text-accent-primary hover:text-accent-primary-bright font-semibold transition-colors">
               Sign in
             </Link>
           </div>

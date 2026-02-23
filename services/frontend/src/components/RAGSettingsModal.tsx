@@ -139,34 +139,34 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-xl bg-surface border border-border-base shadow-2xl transition-all">
+              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border-default">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-accent-primary/10 rounded-lg">
+                    <div className="p-2 bg-accent-light rounded-md border border-accent-primary/30">
                       <Cog6ToothIcon className="h-6 w-6 text-accent-primary" />
                     </div>
                     <div>
-                      <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary">
+                      <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
                         RAG Configuration
                       </Dialog.Title>
-                      <p className="text-sm text-text-muted mt-1">
+                      <p className="text-sm text-text-muted mt-1 tracking-normal">
                         Customize how documents are processed and searched
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="text-text-tertiary hover:text-text-primary transition-colors"
+                    className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
                 </div>
 
                 {/* Warning Banner */}
-                <div className="mx-6 mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg flex gap-3">
-                  <InformationCircleIcon className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-                  <div className="text-sm text-warning">
+                <div className="mx-6 mt-4 p-3 bg-amber-light border border-amber-primary/30 rounded-md flex gap-3">
+                  <InformationCircleIcon className="h-5 w-5 text-amber-primary shrink-0 mt-0.5" />
+                  <div className="text-sm text-text-secondary tracking-normal">
                     <strong>Note:</strong> Changing these settings only affects newly uploaded documents.
                     To apply changes to existing documents, you'll need to re-process them manually.
                   </div>
@@ -183,7 +183,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                     <>
                       {/* Chunk Size */}
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
+                        <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
                           Chunk Size: <span className="text-accent-primary">{settings.chunk_size}</span> tokens (~{Math.round(settings.chunk_size * 0.75)} words)
                         </label>
                         <input
@@ -193,7 +193,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="50"
                           value={settings.chunk_size}
                           onChange={(e) => setSettings({ ...settings, chunk_size: parseInt(e.target.value) })}
-                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-bg-hover rounded-md appearance-none cursor-pointer accent-accent-primary"
                         />
                         <div className="mt-2 space-y-1">
                           <p className="text-xs text-text-tertiary">
@@ -223,7 +223,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="10"
                           value={settings.chunk_overlap}
                           onChange={(e) => setSettings({ ...settings, chunk_overlap: parseInt(e.target.value) })}
-                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-bg-hover rounded-md appearance-none cursor-pointer accent-accent-primary"
                         />
                         <p className="text-xs font-mono text-text-muted mt-2">
                           Overlap between chunks to preserve context across boundaries. Recommended: 10-15% of chunk size (e.g., 150 tokens for 1000-token chunks).
@@ -232,19 +232,19 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
 
                       {/* Embedding Model */}
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
+                        <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
                           Embedding Model
                           {settings.embedding_model !== originalEmbeddingModel && (
-                            <span className="ml-2 text-xs text-yellow-400">⚠️ Changed</span>
+                            <span className="ml-2 text-xs text-amber-primary">⚠️ Changed</span>
                           )}
                         </label>
                         <select
                           value={settings.embedding_model}
                           onChange={(e) => setSettings({ ...settings, embedding_model: e.target.value })}
-                          className={`w-full px-4 py-3 bg-bg-base border rounded-lg text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors ${
+                          className={`w-full px-4 py-3 bg-bg-surface border rounded-md text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal ${
                             settings.embedding_model !== originalEmbeddingModel
-                              ? 'border-yellow-500/50'
-                              : 'border-border-subtle'
+                              ? 'border-amber-primary/50'
+                              : 'border-border-default'
                           }`}
                         >
                           <option value="text-embedding-3-small">text-embedding-3-small (Faster, cheaper) ⭐ Recommended</option>
@@ -286,7 +286,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="1"
                           value={settings.max_chunks}
                           onChange={(e) => setSettings({ ...settings, max_chunks: parseInt(e.target.value) })}
-                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-bg-hover rounded-md appearance-none cursor-pointer accent-accent-primary"
                         />
                         <p className="text-xs font-mono text-text-muted mt-2">
                           Number of chunks to retrieve per query. With 1000-token chunks, 5 chunks = ~5000 tokens of context. More chunks = more context but higher LLM costs.
@@ -305,7 +305,7 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                           step="0.05"
                           value={settings.similarity_threshold}
                           onChange={(e) => setSettings({ ...settings, similarity_threshold: parseFloat(e.target.value) })}
-                          className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-accent-primary"
+                          className="w-full h-2 bg-bg-hover rounded-md appearance-none cursor-pointer accent-accent-primary"
                         />
                         <p className="text-xs font-mono text-text-muted mt-2">
                           Minimum similarity score (0-1). Higher = only very relevant results, lower = more results.
@@ -316,11 +316,11 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-surface/50 border-t border-border-subtle flex items-center justify-between">
+                <div className="px-6 py-4 bg-bg-hover border-t border-border-default flex items-center justify-between">
                   <button
                     onClick={handleReset}
                     disabled={loading || saving}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-text-tertiary hover:text-text-primary border border-border-subtle rounded-lg hover:bg-surface-hover transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-text-tertiary hover:text-text-primary border border-border-default rounded-md hover:bg-bg-hover hover:border-accent-primary/30 transition-all duration-150 disabled:opacity-50"
                   >
                     <ArrowPathIcon className="h-4 w-4" />
                     Reset to Defaults
@@ -329,14 +329,14 @@ export default function RAGSettingsModal({ isOpen, onClose, projectId }: RAGSett
                     <button
                       onClick={onClose}
                       disabled={saving}
-                      className="px-4 py-2 text-sm text-text-tertiary hover:text-text-primary transition-colors disabled:opacity-50"
+                      className="px-4 py-2 text-sm text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md transition-all duration-150 disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSave}
                       disabled={loading || saving}
-                      className="px-6 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center gap-2"
+                      className="px-6 py-2 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 flex items-center gap-2"
                     >
                       {saving && (
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>

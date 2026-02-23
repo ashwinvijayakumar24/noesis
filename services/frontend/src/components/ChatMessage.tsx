@@ -30,12 +30,12 @@ function Citation({ number, source }: { number: number; source?: Source }) {
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      <sup className="inline-block px-1.5 py-0.5 text-xs font-mono font-bold text-neon-pink hover:text-neon-pink-bright cursor-pointer transition-colors duration-200">
+      <sup className="inline-block px-1.5 py-0.5 text-xs font-mono font-bold text-accent-primary hover:text-accent-primary-bright cursor-pointer transition-colors duration-200">
         [{number}]
       </sup>
       {showTooltip && source && (
-        <div className="absolute z-50 bottom-full left-0 mb-2 w-80 p-4 bg-bg-surface border-2 border-neon-pink/30 rounded-xl shadow-neon-glow text-xs animate-fade-in-up">
-          <div className="font-display font-semibold text-neon-pink mb-2 flex items-center gap-2">
+        <div className="absolute z-50 bottom-full left-0 mb-2 w-80 p-4 bg-bg-surface border-2 border-accent-primary/30 rounded-xl shadow-lg text-xs animate-fade-in-up">
+          <div className="font-sans font-semibold text-accent-primary mb-2 flex items-center gap-2">
             {source.source_icon && <span className="text-base">{source.source_icon}</span>}
             <span className="line-clamp-1">{source.document_title}</span>
           </div>
@@ -46,14 +46,14 @@ function Citation({ number, source }: { number: number; source?: Source }) {
           )}
           <div className="text-text-secondary leading-relaxed line-clamp-3">{source.content_preview}</div>
           {source.similarity && (
-            <div className="mt-3 pt-2 border-t border-border-base">
+            <div className="mt-3 pt-2 border-t border-border-default">
               <div className="flex items-center justify-between">
                 <span className="text-text-muted font-mono text-[10px] uppercase">Relevance</span>
-                <span className="text-neon-pink font-mono font-bold">{Math.round(source.similarity * 100)}%</span>
+                <span className="text-accent-primary font-mono font-bold">{Math.round(source.similarity * 100)}%</span>
               </div>
               <div className="h-1.5 bg-bg-void rounded-full overflow-hidden mt-1">
                 <div
-                  className="h-full bg-gradient-to-r from-neon-pink to-accent-teal transition-all duration-300"
+                  className="h-full bg-gradient-to-r from-accent-primary to-accent-teal transition-all duration-150"
                   style={{ width: `${Math.round(source.similarity * 100)}%` }}
                 />
               </div>
@@ -106,7 +106,7 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
     <div className="w-full">
       {/* Role Label */}
       <div className="mb-3">
-        <span className={`text-lg font-display font-bold ${isUser ? 'text-text-secondary' : 'text-neon-pink'}`}>
+        <span className={`text-lg font-sans font-bold ${isUser ? 'text-text-secondary' : 'text-accent-primary'}`}>
           {isUser ? 'You' : 'Noesis'}
         </span>
       </div>
@@ -118,7 +118,7 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
           className={`${
             isUser
               ? 'text-text-primary text-base'
-              : 'bg-bg-elevated border border-border-base rounded-2xl px-6 py-4 text-text-primary'
+              : 'bg-bg-elevated border border-border-default rounded-lg px-6 py-4 text-text-primary'
           }`}
         >
           <div className="text-base prose prose-invert prose-base max-w-none leading-relaxed">
@@ -181,26 +181,26 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                   )
                 },
                 // Code
-                code: ({ children }) => <code className="bg-bg-void px-2 py-1 rounded-md text-neon-pink font-mono text-sm border border-neon-pink/30">{children}</code>,
+                code: ({ children }) => <code className="bg-bg-void px-2 py-1 rounded-md text-accent-primary font-mono text-sm border border-accent-primary/30">{children}</code>,
                 // Links
                 a: ({ href, children }) => (
-                  <a href={href} className="text-neon-pink hover:text-neon-pink-bright underline decoration-neon-pink/30 hover:decoration-neon-pink transition-all duration-200" target="_blank" rel="noopener noreferrer">
+                  <a href={href} className="text-accent-primary hover:text-accent-primary-bright underline decoration-accent-primary/30 hover:decoration-accent-primary transition-all duration-200" target="_blank" rel="noopener noreferrer">
                     {children}
                   </a>
                 ),
                 // Headings - gradient text and better spacing
-                h1: ({ children }) => <h1 className="text-2xl font-display font-bold mb-3 mt-4 first:mt-0 bg-gradient-to-r from-neon-pink to-accent-teal bg-clip-text text-transparent">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-xl font-display font-bold mb-2 mt-3 first:mt-0 bg-gradient-to-r from-neon-pink to-accent-purple bg-clip-text text-transparent">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-lg font-display font-semibold mb-2 mt-2 first:mt-0 text-neon-pink">{children}</h3>,
-                h4: ({ children }) => <h4 className="text-base font-display font-semibold mb-1 mt-2 first:mt-0 text-text-primary">{children}</h4>,
+                h1: ({ children }) => <h1 className="text-2xl font-sans font-bold mb-3 mt-4 first:mt-0 bg-gradient-to-r from-accent-primary to-accent-teal bg-clip-text text-transparent">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-xl font-sans font-bold mb-2 mt-3 first:mt-0 bg-gradient-to-r from-accent-primary to-accent-purple bg-clip-text text-transparent">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-lg font-sans font-semibold mb-2 mt-2 first:mt-0 text-accent-primary">{children}</h3>,
+                h4: ({ children }) => <h4 className="text-base font-sans font-semibold mb-1 mt-2 first:mt-0 text-text-primary">{children}</h4>,
                 // Blockquotes
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-neon-pink pl-4 my-3 italic text-text-secondary bg-neon-pink/5 py-2 rounded-r-lg">
+                  <blockquote className="border-l-4 border-accent-primary pl-4 my-3 italic text-text-secondary bg-accent-primary/5 py-2 rounded-r-lg">
                     {children}
                   </blockquote>
                 ),
                 // Horizontal rule
-                hr: () => <hr className="my-4 border-border-subtle" />,
+                hr: () => <hr className="my-4 border-border-default" />,
               }}
             >
               {content}
@@ -209,15 +209,15 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
 
             {/* References Section */}
             {!isStreaming && citedSources.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-border-base">
-                <div className="text-sm font-display font-semibold text-neon-pink mb-3">References:</div>
+              <div className="mt-4 pt-4 border-t border-border-default">
+                <div className="text-sm font-sans font-semibold text-accent-primary mb-3">References:</div>
                 <div className="space-y-2">
                   {citedSources.map((source) => (
                     <div
                       key={source.citation_number}
-                      className="text-xs flex items-start gap-3 p-3 rounded-lg bg-bg-surface border border-border-base hover:border-neon-pink/30 transition-all duration-200"
+                      className="text-xs flex items-start gap-3 p-3 rounded-lg bg-bg-surface border border-border-default hover:border-accent-primary/30 transition-all duration-200"
                     >
-                      <span className="font-mono font-bold text-neon-pink shrink-0">[{source.citation_number}]</span>
+                      <span className="font-mono font-bold text-accent-primary shrink-0">[{source.citation_number}]</span>
                       <div className="flex-1">
                         <div className="text-text-primary font-medium flex items-center gap-2 mb-1">
                           {source.source_icon && <span className="text-base">{source.source_icon}</span>}
@@ -232,11 +232,11 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                           <div className="flex items-center gap-2 mt-1">
                             <div className="flex-1 h-1 bg-bg-void rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-gradient-to-r from-neon-pink to-accent-teal"
+                                className="h-full bg-gradient-to-r from-accent-primary to-accent-teal"
                                 style={{ width: `${Math.round(source.similarity * 100)}%` }}
                               />
                             </div>
-                            <span className="text-neon-pink font-mono font-bold text-[10px]">
+                            <span className="text-accent-primary font-mono font-bold text-[10px]">
                               {Math.round(source.similarity * 100)}%
                             </span>
                           </div>
@@ -255,7 +255,7 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
           <div className="mt-4">
             <button
               onClick={() => setShowSources(!showSources)}
-              className="flex items-center gap-2 text-sm text-text-secondary hover:text-neon-pink transition-colors duration-200 font-medium"
+              className="flex items-center gap-2 text-sm text-text-secondary hover:text-accent-primary transition-colors duration-200 font-medium"
             >
               {showSources ? (
                 <ChevronUpIcon className="h-5 w-5" />
@@ -273,12 +273,12 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                 {uniqueDocuments.map((doc) => (
                   <div
                     key={doc.document_id}
-                    className="text-xs bg-bg-surface border border-border-base rounded-xl overflow-hidden"
+                    className="text-xs bg-bg-surface border border-border-default rounded-xl overflow-hidden"
                   >
                     {/* Document Header */}
-                    <div className="px-4 py-3 bg-bg-elevated border-b border-border-base flex items-center gap-3">
-                      <DocumentTextIcon className="h-5 w-5 text-neon-pink" />
-                      <span className="text-text-primary font-display font-semibold flex-1">{doc.document_title || 'Unknown Document'}</span>
+                    <div className="px-4 py-3 bg-bg-elevated border-b border-border-default flex items-center gap-3">
+                      <DocumentTextIcon className="h-5 w-5 text-accent-primary" />
+                      <span className="text-text-primary font-sans font-semibold flex-1">{doc.document_title || 'Unknown Document'}</span>
                       <span className="text-text-muted font-mono text-xs">
                         {doc.chunks.length} chunk{doc.chunks.length !== 1 ? 's' : ''}
                       </span>
@@ -288,10 +288,10 @@ export default function ChatMessage({ role, content, sources, isStreaming }: Cha
                     <div className="px-4 py-3 space-y-2">
                       {doc.chunks.map((chunk, idx) => (
                         <div key={chunk.chunk_id || idx} className="text-text-secondary flex items-center gap-3 pl-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-neon-pink"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-primary"></span>
                           <span className="flex-1">Chunk {idx + 1}</span>
                           {chunk.similarity && (
-                            <span className="font-mono font-bold text-neon-pink text-xs">
+                            <span className="font-mono font-bold text-accent-primary text-xs">
                               {Math.round(chunk.similarity * 100)}%
                             </span>
                           )}

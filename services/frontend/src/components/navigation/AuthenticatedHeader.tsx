@@ -1,4 +1,4 @@
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { MagnifyingGlassIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { Menu } from '@headlessui/react'
@@ -16,7 +16,6 @@ interface AuthenticatedHeaderProps {
 export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: AuthenticatedHeaderProps) {
   const { user, signOut } = useAuthStore()
   const navigate = useNavigate()
-  const location = useLocation()
 
   const handleSignOut = async () => {
     await signOut()
@@ -24,22 +23,22 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
   }
 
   return (
-    <header className="sticky top-0 z-50 h-16 bg-bg-void/95 backdrop-blur-xl border-b border-border-base">
+    <header className="sticky top-0 z-50 h-14 bg-bg-surface/95 backdrop-blur-md border-b border-border-default">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
         <div className="flex items-center justify-between h-full">
           {/* Left: Logo + Breadcrumbs */}
           <div className="flex items-center gap-4">
-            {/* Logo */}
+            {/* Logo - Compact */}
             <Link
               to="/projects"
-              className="flex items-center gap-2 sm:gap-3 group transition-all duration-300"
+              className="flex items-center gap-2 group transition-all duration-150"
             >
               <img
                 src="/noesis.png"
                 alt="Noesis"
-                className="h-8 sm:h-10 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,31,76,0.6)]"
+                className="h-6 transition-all duration-150"
               />
-              <span className="hidden sm:inline text-lg font-display font-semibold text-text-primary transition-colors duration-300 group-hover:text-neon-pink">
+              <span className="hidden sm:inline text-sm font-sans font-semibold text-text-primary transition-colors duration-150 group-hover:text-accent-primary">
                 Noesis
               </span>
             </Link>
@@ -47,7 +46,7 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
             {/* Breadcrumbs - Hidden on mobile */}
             {breadcrumbs.length > 0 && (
               <>
-                <div className="hidden md:block h-6 w-px bg-border-base" />
+                <div className="hidden md:block h-6 w-px bg-border-default" />
                 <nav className="hidden md:flex items-center gap-2 text-sm">
                   {breadcrumbs.map((crumb, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -57,12 +56,12 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
                       {crumb.href ? (
                         <Link
                           to={crumb.href}
-                          className="text-text-secondary hover:text-neon-pink transition-colors duration-200 font-medium max-w-[200px] truncate"
+                          className="text-text-secondary hover:text-accent-primary transition-colors duration-150 font-medium max-w-[200px] truncate"
                         >
                           {crumb.label}
                         </Link>
                       ) : (
-                        <span className="text-neon-pink font-semibold max-w-[200px] truncate">
+                        <span className="text-accent-primary font-semibold max-w-[200px] truncate">
                           {crumb.label}
                         </span>
                       )}
@@ -79,11 +78,11 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
             {onSearchOpen && (
               <button
                 onClick={onSearchOpen}
-                className="group flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 min-h-[48px] text-sm text-text-tertiary hover:text-neon-pink bg-bg-surface hover:bg-bg-elevated rounded-lg border border-border-base hover:border-neon-pink/30 transition-all duration-300 hover:shadow-focus-pink"
+                className="group flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 min-h-[48px] text-sm text-text-tertiary hover:text-accent-primary bg-bg-surface hover:bg-bg-elevated rounded-md border border-border-default hover:border-accent-primary/30 transition-all duration-150"
               >
-                <MagnifyingGlassIcon className="h-5 w-5 sm:h-4 sm:w-4 transition-transform duration-300 group-hover:scale-110" />
+                <MagnifyingGlassIcon className="h-5 w-5 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline font-medium">Search</span>
-                <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-text-muted bg-bg-void rounded border border-border-base">
+                <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-text-muted bg-bg-elevated rounded border border-border-default">
                   ⌘K
                 </kbd>
               </button>
@@ -91,10 +90,10 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
 
             {/* User Menu Dropdown - Touch-friendly */}
             <Menu as="div" className="relative">
-              <Menu.Button className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 min-h-[48px] text-sm font-medium text-text-secondary hover:text-text-primary bg-bg-surface hover:bg-bg-elevated rounded-lg border border-border-base hover:border-border-subtle transition-all duration-200">
+              <Menu.Button className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 min-h-[48px] text-sm font-medium text-text-secondary hover:text-text-primary bg-bg-surface hover:bg-bg-elevated rounded-md border border-border-default hover:border-accent-primary/30 transition-all duration-150">
                 <div className="hidden md:flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-full bg-neon-pink/10 border border-neon-pink/30 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-neon-pink">
+                  <div className="h-6 w-6 rounded-full bg-accent-light border border-accent-primary/30 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-accent-primary">
                       {user?.email?.charAt(0).toUpperCase() || 'U'}
                     </span>
                   </div>
@@ -105,8 +104,8 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
                 </svg>
               </Menu.Button>
 
-              <Menu.Items className="absolute right-0 mt-2 w-56 bg-bg-surface rounded-xl shadow-neon-glow border border-border-base overflow-hidden">
-                <div className="px-4 py-3 border-b border-border-base">
+              <Menu.Items className="absolute right-0 mt-2 w-56 bg-bg-surface rounded-lg shadow-lg border border-border-default overflow-hidden">
+                <div className="px-4 py-3 border-b border-border-default">
                   <p className="text-xs text-text-muted font-mono mb-1">Signed in as</p>
                   <p className="text-sm text-text-primary font-medium truncate">{user?.email}</p>
                 </div>
@@ -129,7 +128,7 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
                   </Menu.Item>
                 </div>
 
-                <div className="border-t border-border-base py-1">
+                <div className="border-t border-border-default py-1">
                   <Menu.Item>
                     {({ active }) => (
                       <button

@@ -4,50 +4,47 @@ import { motion } from 'framer-motion'
 interface HeadingProps {
   children: ReactNode
   className?: string
-  gradient?: boolean
 }
 
 /**
- * H1 Display - 72px, Syne 800, for landing page hero
+ * H1 Display - 56px (Display-1), Inter 600 Semibold, for landing page hero
  */
-export function H1({ children, className = '', gradient = false }: HeadingProps) {
-  const baseClasses = 'text-6xl sm:text-7xl font-display font-extrabold leading-[1.1] tracking-tighter'
-  const textClasses = gradient ? 'gradient-text' : 'text-text-primary'
+export function H1({ children, className = '' }: HeadingProps) {
   return (
-    <h1 className={`${baseClasses} ${textClasses} ${className}`}>
+    <h1 className={`text-5xl sm:text-6xl font-sans font-semibold leading-tight tracking-tighter text-text-primary ${className}`}>
       {children}
     </h1>
   )
 }
 
 /**
- * H2 Section - 48px, Syne 700, for section headings
+ * H2 Section - 40px (Display-2), Inter 600 Semibold, for page titles
  */
 export function H2({ children, className = '' }: HeadingProps) {
   return (
-    <h2 className={`text-4xl sm:text-5xl font-display font-bold leading-[1.2] tracking-tight text-text-primary ${className}`}>
+    <h2 className={`text-4xl sm:text-5xl font-sans font-semibold leading-heading-1 tracking-tighter text-text-primary ${className}`}>
       {children}
     </h2>
   )
 }
 
 /**
- * H3 Subsection - 32px, Syne 600, for subsections
+ * H3 Subsection - 32px (Heading-1), Inter 600 Semibold, for section headings
  */
 export function H3({ children, className = '' }: HeadingProps) {
   return (
-    <h3 className={`text-2xl sm:text-3xl font-display font-semibold leading-[1.3] tracking-tight text-text-primary ${className}`}>
+    <h3 className={`text-2xl sm:text-3xl font-sans font-semibold leading-heading-2 tracking-tight text-text-primary ${className}`}>
       {children}
     </h3>
   )
 }
 
 /**
- * H4 Card - 24px, Syne 600, for card titles
+ * H4 Card - 24px (Heading-2), Inter 600 Semibold, for subsection headings
  */
 export function H4({ children, className = '' }: HeadingProps) {
   return (
-    <h4 className={`text-xl sm:text-2xl font-display font-semibold leading-[1.4] text-text-primary ${className}`}>
+    <h4 className={`text-xl sm:text-2xl font-sans font-semibold leading-heading-3 tracking-snug text-text-primary ${className}`}>
       {children}
     </h4>
   )
@@ -59,11 +56,11 @@ interface TextProps {
 }
 
 /**
- * Body text - standard paragraph
+ * Body text - standard paragraph, Inter 400, line-height 1.6 (spacious!)
  */
 export function Text({ children, className = '' }: TextProps) {
   return (
-    <p className={`text-base text-text-secondary leading-relaxed ${className}`}>
+    <p className={`text-base text-text-secondary leading-body tracking-normal ${className}`}>
       {children}
     </p>
   )
@@ -74,18 +71,18 @@ export function Text({ children, className = '' }: TextProps) {
  */
 export function TextSecondary({ children, className = '' }: TextProps) {
   return (
-    <p className={`text-base text-text-tertiary leading-relaxed ${className}`}>
+    <p className={`text-base text-text-tertiary leading-body tracking-normal ${className}`}>
       {children}
     </p>
   )
 }
 
 /**
- * Muted text - very subtle text
+ * Muted text - very subtle text, line-height 1.5
  */
 export function TextMuted({ children, className = '' }: TextProps) {
   return (
-    <p className={`text-sm text-text-muted ${className}`}>
+    <p className={`text-sm text-text-muted leading-body-small tracking-normal ${className}`}>
       {children}
     </p>
   )
@@ -103,29 +100,26 @@ export function TextMono({ children, className = '' }: TextProps) {
 }
 
 /**
- * Large body text - emphasized paragraphs
+ * Large body text - emphasized paragraphs, line-height 1.6
  */
 export function TextLarge({ children, className = '' }: TextProps) {
   return (
-    <p className={`text-lg sm:text-xl text-text-secondary leading-relaxed ${className}`}>
+    <p className={`text-lg sm:text-xl text-text-secondary leading-body-large tracking-normal ${className}`}>
       {children}
     </p>
   )
 }
 
 /**
- * Animated heading with fade-in effect
+ * Animated heading with fade-in effect - Inter 600 Semibold
  */
-export function AnimatedH1({ children, className = '', gradient = false, delay = 0 }: HeadingProps & { delay?: number }) {
-  const baseClasses = 'text-6xl sm:text-7xl font-display font-extrabold leading-[1.1] tracking-tighter'
-  const textClasses = gradient ? 'gradient-text' : 'text-text-primary'
-
+export function AnimatedH1({ children, className = '', delay = 0 }: HeadingProps & { delay?: number }) {
   return (
     <motion.h1
-      className={`${baseClasses} ${textClasses} ${className}`}
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      className={`text-5xl sm:text-6xl font-sans font-semibold leading-tight tracking-tighter text-text-primary ${className}`}
+      initial={{ opacity: 0, y: 20, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
     </motion.h1>
@@ -133,16 +127,16 @@ export function AnimatedH1({ children, className = '', gradient = false, delay =
 }
 
 /**
- * Animated H2 with scroll reveal
+ * Animated H2 with scroll reveal - Inter 600 Semibold
  */
 export function AnimatedH2({ children, className = '', delay = 0 }: HeadingProps & { delay?: number }) {
   return (
     <motion.h2
-      className={`text-4xl sm:text-5xl font-display font-bold leading-[1.2] tracking-tight text-text-primary ${className}`}
+      className={`text-4xl sm:text-5xl font-sans font-semibold leading-heading-1 tracking-tighter text-text-primary ${className}`}
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5, delay }}
+      transition={{ duration: 0.3, delay }}
     >
       {children}
     </motion.h2>

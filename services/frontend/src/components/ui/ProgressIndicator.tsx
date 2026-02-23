@@ -85,17 +85,17 @@ export function ProgressBar({
     <div className={`space-y-3 ${className}`}>
       {/* Progress bar */}
       <div className="relative">
-        <div className="overflow-hidden h-3 flex rounded-full bg-bg-void border border-border-base">
+        <div className="overflow-hidden h-3 flex rounded-full bg-bg-void border border-border-default">
           <div
             style={{ width: `${Math.min(progress, 100)}%` }}
-            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-neon-pink to-accent-teal transition-all duration-500 ease-out"
+            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-accent-primary to-accent-teal transition-all duration-500 ease-out"
           />
         </div>
       </div>
 
       {/* Stats row */}
       <div className="flex items-center justify-between text-sm">
-        <span className="font-mono font-bold text-neon-pink">{Math.round(progress)}%</span>
+        <span className="font-mono font-bold text-accent-primary">{Math.round(progress)}%</span>
         <div className="flex items-center gap-4 text-text-secondary">
           {showElapsedTime && (
             <span className="flex items-center gap-1.5 font-medium">
@@ -134,11 +134,11 @@ export function StepProgress({
             {step.completed ? (
               <CheckCircleIcon className="h-6 w-6 text-success" />
             ) : step.active ? (
-              <div className="h-6 w-6 rounded-full border-2 border-neon-pink flex items-center justify-center">
-                <div className="h-2.5 w-2.5 rounded-full bg-neon-pink animate-pulse" />
+              <div className="h-6 w-6 rounded-full border-2 border-accent-primary flex items-center justify-center">
+                <div className="h-2.5 w-2.5 rounded-full bg-accent-primary animate-pulse" />
               </div>
             ) : (
-              <div className="h-6 w-6 rounded-full border-2 border-border-base" />
+              <div className="h-6 w-6 rounded-full border-2 border-border-default" />
             )}
           </div>
 
@@ -173,11 +173,11 @@ export function ProgressIndicator({
   className = ''
 }: ProgressIndicatorProps) {
   return (
-    <div className={`bg-bg-surface rounded-2xl border border-border-base p-8 ${className}`}>
+    <div className={`bg-bg-surface rounded-lg border border-border-default p-8 ${className}`}>
       {/* Status message */}
       {status && (
         <div className="mb-6">
-          <h3 className="text-xl font-display font-bold text-text-primary mb-1">
+          <h3 className="text-xl font-sans font-bold text-text-primary mb-1">
             {status}
           </h3>
         </div>
@@ -240,12 +240,12 @@ export function CircularProgress({
           fill="none"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className="text-neon-pink transition-all duration-500 ease-out"
+          className="text-accent-primary transition-all duration-500 ease-out"
           strokeLinecap="round"
         />
       </svg>
       {/* Percentage text */}
-      <span className="absolute text-lg font-display font-bold text-neon-pink">
+      <span className="absolute text-lg font-sans font-bold text-accent-primary">
         {Math.round(progress)}%
       </span>
     </div>
@@ -266,7 +266,7 @@ export function IndeterminateProgress({
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <div className="relative w-16 h-16">
         <div className="absolute top-0 left-0 w-full h-full">
-          <div className="h-16 w-16 rounded-full border-4 border-border-base border-t-neon-pink animate-spin" />
+          <div className="h-16 w-16 rounded-full border-4 border-border-default border-t-accent-primary animate-spin" />
         </div>
       </div>
       {message && (

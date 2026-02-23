@@ -17,7 +17,7 @@ export default function ThematicClusteringTab({ themes }: ThematicClusteringTabP
 
   if (!themes || themes.length === 0) {
     return (
-      <div className="bg-surface/50 rounded-lg border border-border-base p-8 text-center">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-8 text-center">
         <p className="text-text-tertiary">
           No themes identified yet. Analyze more documents to detect thematic patterns.
         </p>
@@ -27,8 +27,8 @@ export default function ThematicClusteringTab({ themes }: ThematicClusteringTabP
 
   return (
     <div className="space-y-4">
-      <div className="bg-surface/50 rounded-lg border border-border-base p-6">
-        <h3 className="text-lg font-serif font-semibold text-text-primary mb-2">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-6">
+        <h3 className="text-lg font-sans font-semibold text-text-primary mb-2">
           Thematic Clusters
         </h3>
         <p className="text-sm text-text-tertiary">
@@ -43,7 +43,7 @@ export default function ThematicClusteringTab({ themes }: ThematicClusteringTabP
           return (
             <div
               key={index}
-              className="bg-surface rounded-lg border border-border-base hover:border-border-subtle transition-colors"
+              className="bg-surface rounded-lg border border-border-default hover:border-border-default transition-colors"
             >
               {/* Header */}
               <div
@@ -77,7 +77,7 @@ export default function ThematicClusteringTab({ themes }: ThematicClusteringTabP
 
               {/* Expanded Content */}
               {isExpanded && (
-                <div className="px-4 pb-4 border-t border-border-subtle pt-4 space-y-4">
+                <div className="px-4 pb-4 border-t border-border-default pt-4 space-y-4">
                   {/* Papers */}
                   <div>
                     <h5 className="text-sm font-semibold text-text-secondary mb-2">Papers in this theme:</h5>

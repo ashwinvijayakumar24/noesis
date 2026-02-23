@@ -249,7 +249,7 @@ export default function DraftAnalysisModal({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -263,15 +263,15 @@ export default function DraftAnalysisModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-7xl h-[90vh] transform overflow-hidden rounded-xl bg-surface border border-border-base text-left align-middle shadow-xl transition-all flex flex-col">
+              <Dialog.Panel className="w-full max-w-7xl h-[90vh] transform overflow-hidden rounded-lg bg-bg-surface border border-border-default text-left align-middle shadow-xl transition-all flex flex-col">
                 {/* Header */}
-                <div className="border-b border-border-subtle px-6 py-5 flex items-center justify-between">
-                  <Dialog.Title as="h3" className="text-2xl font-serif font-semibold text-text-primary">
+                <div className="border-b border-border-default px-6 py-5 flex items-center justify-between">
+                  <Dialog.Title as="h3" className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
                     Draft Analysis Results
                   </Dialog.Title>
                   <button
                     onClick={onClose}
-                    className="text-text-tertiary hover:text-text-secondary transition-colors"
+                    className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
                   >
                     <XMarkIcon className="h-5 w-5" />
                   </button>
@@ -280,7 +280,7 @@ export default function DraftAnalysisModal({
                 {/* Content - Split Screen */}
                 <div className="flex-1 flex overflow-hidden">
                   {/* Left: Document Viewer */}
-                  <div className="w-1/2 border-r border-border-base p-4 overflow-hidden">
+                  <div className="w-1/2 border-r border-border-default p-4 overflow-hidden">
                     <DocumentViewer fileUrl={draftFileUrl} fileType={draftFileType} />
                   </div>
 
@@ -295,11 +295,11 @@ export default function DraftAnalysisModal({
                       </div>
                     ) : (
                       <Tab.Group as="div" className="flex flex-col h-full">
-                      <Tab.List className="flex space-x-2 border-b border-border-subtle px-6 pt-4 shrink-0">
+                      <Tab.List className="flex space-x-2 border-b border-border-default px-6 pt-4 shrink-0">
                         <Tab className={({ selected }) =>
-                          `px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                          `px-4 py-2 text-sm font-medium transition-all duration-150 border-b-2 tracking-normal ${
                             selected
-                              ? 'border-accent-primary text-text-primary'
+                              ? 'border-accent-primary text-accent-primary'
                               : 'border-transparent text-text-secondary hover:text-text-primary'
                           }`
                         }>
@@ -351,7 +351,7 @@ export default function DraftAnalysisModal({
                                 .map((item) => (
                                   <div
                                     key={item.id}
-                                    className={`border border-border-base rounded-lg p-4 bg-surface-hover transition-colors ${
+                                    className={`border border-border-default rounded-lg p-4 bg-bg-hover transition-colors ${
                                       item.section_id ? 'cursor-pointer hover:bg-surface-active hover:border-accent-primary/50' : ''
                                     } ${activeAnnotationId === item.id ? 'ring-2 ring-accent-primary' : ''}`}
                                     onClick={() => {
@@ -373,7 +373,7 @@ export default function DraftAnalysisModal({
                                         </div>
                                         <p className="text-sm text-text-secondary mb-3">{item.feedback_text}</p>
                                         {item.suggestions && item.suggestions.length > 0 && (
-                                          <div className="mt-3 border-t border-border-subtle pt-3">
+                                          <div className="mt-3 border-t border-border-default pt-3">
                                             <p className="text-xs font-medium text-text-tertiary mb-2 font-mono">Suggested improvements:</p>
                                             <ul className="space-y-1 text-sm text-text-tertiary">
                                               {item.suggestions.map((improvement, idx) => (
@@ -388,7 +388,7 @@ export default function DraftAnalysisModal({
 
                                         {/* Location indicator */}
                                         {item.section_id && (
-                                          <div className="mt-3 pt-3 border-t border-border-subtle flex items-center gap-2 text-xs text-text-muted">
+                                          <div className="mt-3 pt-3 border-t border-border-default flex items-center gap-2 text-xs text-text-muted">
                                             <MapPinIcon className="h-3 w-3" />
                                             <span>Click to jump to location</span>
                                             {item.match_confidence && (
@@ -419,7 +419,7 @@ export default function DraftAnalysisModal({
                                          priorityOrder[b.priority as keyof typeof priorityOrder]
                                 })
                                 .map((gap) => (
-                                  <div key={gap.id} className="border border-border-base rounded-lg p-4 bg-surface-hover">
+                                  <div key={gap.id} className="border border-border-default rounded-lg p-4 bg-bg-hover">
                                     <div className="flex items-center gap-2 mb-2">
                                       <span className="text-xs font-medium text-text-tertiary font-mono uppercase">
                                         {gap.gap_type.replace('_', ' ')}
@@ -430,7 +430,7 @@ export default function DraftAnalysisModal({
                                     </div>
                                     <p className="text-sm text-text-secondary mb-3">{gap.description}</p>
                                     {gap.suggested_papers && gap.suggested_papers.length > 0 && (
-                                      <div className="mt-3 border-t border-border-subtle pt-3">
+                                      <div className="mt-3 border-t border-border-default pt-3">
                                         <p className="text-xs font-medium text-text-tertiary mb-2 font-mono">
                                           Suggested papers from your literature:
                                         </p>
@@ -460,8 +460,8 @@ export default function DraftAnalysisModal({
                           ) : (
                             <>
                               {/* Color Coding Legend */}
-                              <div className="mb-4 p-3 bg-surface-hover rounded-lg border border-border-base">
-                                <p className="text-xs font-medium text-text-tertiary mb-2 font-mono">CLAIM COLOR CODING:</p>
+                              <div className="mb-4 p-3 bg-bg-hover rounded-md border border-border-default">
+                                <p className="text-xs font-medium text-text-tertiary mb-2 font-mono tracking-normal">CLAIM COLOR CODING:</p>
                                 <div className="flex flex-wrap gap-3 text-xs">
                                   <div className="flex items-center gap-1">
                                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -487,7 +487,7 @@ export default function DraftAnalysisModal({
                                   const requiresCitation = claim.requires_citation === true
 
                                   // Determine color based on status
-                                  let borderColor = 'border-border-base'
+                                  let borderColor = 'border-border-default'
                                   let indicatorColor = 'bg-gray-500'
                                   if (!requiresCitation) {
                                     // Original contribution (doesn't need citation)
@@ -506,7 +506,7 @@ export default function DraftAnalysisModal({
                                   return (
                                   <div
                                     key={claim.id}
-                                    className={`border ${borderColor} rounded-lg p-3 bg-surface-hover transition-colors relative ${
+                                    className={`border ${borderColor} rounded-lg p-3 bg-bg-hover transition-colors relative ${
                                       claim.section_id ? 'cursor-pointer hover:bg-surface-active hover:border-accent-primary/50' : ''
                                     } ${activeAnnotationId === claim.id ? 'ring-2 ring-accent-primary' : ''}`}
                                     onClick={(e) => {
@@ -540,7 +540,7 @@ export default function DraftAnalysisModal({
                                         <summary className="cursor-pointer text-text-muted hover:text-text-secondary font-mono select-none">
                                           Show AI reasoning
                                         </summary>
-                                        <p className="mt-2 p-2 bg-surface rounded border border-border-subtle text-text-tertiary">
+                                        <p className="mt-2 p-2 bg-surface rounded border border-border-default text-text-tertiary">
                                           {claim.reasoning}
                                         </p>
                                       </details>
@@ -629,7 +629,7 @@ export default function DraftAnalysisModal({
                 </div>
 
                 {/* Footer */}
-                <div className="border-t border-border-subtle px-6 py-5 flex justify-end">
+                <div className="border-t border-border-default bg-bg-hover px-6 py-5 flex justify-end">
                   <Button variant="secondary" onClick={onClose}>
                     Close
                   </Button>

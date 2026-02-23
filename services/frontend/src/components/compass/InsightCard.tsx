@@ -84,7 +84,7 @@ export default function InsightCard({
       default:
         return {
           accentBorder: 'border-l-4 border-l-border-base',
-          badge: 'bg-bg-elevated text-text-secondary border-border-base',
+          badge: 'bg-bg-elevated text-text-secondary border-border-default',
           badgeLabel: 'INSIGHT',
           icon: (
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -104,8 +104,8 @@ export default function InsightCard({
       dots.push(
         <div
           key={i}
-          className={`h-2 w-2 rounded-full transition-all duration-300 ${
-            i <= priority ? 'bg-neon-pink scale-110' : 'bg-border-base'
+          className={`h-2 w-2 rounded-full transition-all duration-150 ${
+            i <= priority ? 'bg-accent-primary scale-110' : 'bg-border-base'
           }`}
         />
       )
@@ -116,7 +116,7 @@ export default function InsightCard({
   return (
     <div
       onClick={onClick}
-      className={`group bg-bg-surface rounded-2xl border border-border-base ${styles.accentBorder} p-6 transition-all duration-300 hover:border-neon-pink/30 hover:-translate-y-1 hover:shadow-card-lift ${
+      className={`group bg-bg-surface rounded-lg border border-border-default ${styles.accentBorder} p-6 transition-all duration-150 hover:border-accent-primary/30 hover:-translate-y-1 hover:shadow-card-lift ${
         onClick ? 'cursor-pointer' : ''
       } ${className}`}
     >
@@ -133,7 +133,7 @@ export default function InsightCard({
             <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase border mb-2 ${styles.badge}`}>
               {styles.badgeLabel}
             </div>
-            <h4 className="text-lg font-display font-semibold text-text-primary group-hover:text-neon-pink transition-colors duration-300">
+            <h4 className="text-lg font-sans font-semibold text-text-primary group-hover:text-accent-primary transition-colors duration-150">
               {title}
             </h4>
           </div>
@@ -154,7 +154,7 @@ export default function InsightCard({
 
       {/* Metadata footer */}
       {metadata && (
-        <div className="flex items-center gap-4 pt-4 border-t border-border-base">
+        <div className="flex items-center gap-4 pt-4 border-t border-border-default">
           {metadata.sourceCount !== undefined && (
             <div className="flex items-center gap-2 text-sm">
               <svg className="h-4 w-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">

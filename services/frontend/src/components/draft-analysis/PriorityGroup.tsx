@@ -96,7 +96,7 @@ export default function PriorityGroup({
             )}
 
             {/* Priority Label */}
-            <span className={`text-sm font-serif font-semibold ${config.text}`}>
+            <span className={`text-sm font-sans font-semibold ${config.text}`}>
               {config.label}
             </span>
 

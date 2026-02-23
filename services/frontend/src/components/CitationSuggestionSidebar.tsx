@@ -199,7 +199,7 @@ export default function CitationSuggestionSidebar({
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-bg-base border-l border-border-base">
+      <div className="h-full flex items-center justify-center bg-bg-base border-l border-border-default">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary mb-4"></div>
           <p className="text-text-tertiary text-sm">Loading suggestions...</p>
@@ -209,9 +209,9 @@ export default function CitationSuggestionSidebar({
   }
 
   return (
-    <div className="h-full flex flex-col bg-bg-base border-l border-border-base">
+    <div className="h-full flex flex-col bg-bg-base border-l border-border-default">
       {/* Header */}
-      <div className="p-4 border-b border-border-subtle">
+      <div className="p-4 border-b border-border-default">
         <div className="flex items-center gap-2 mb-3">
           <SparklesIcon className="h-5 w-5 text-accent-primary" />
           <h3 className="text-lg font-semibold text-text-primary">Citation Suggestions</h3>
@@ -250,7 +250,7 @@ export default function CitationSuggestionSidebar({
               }
             </p>
             {filterStatus === 'pending' && (
-              <div className="bg-surface-hover border border-border-base rounded-lg p-4 max-w-md text-left">
+              <div className="bg-surface-hover border border-border-default rounded-lg p-4 max-w-md text-left">
                 <p className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
                   <svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -286,7 +286,7 @@ export default function CitationSuggestionSidebar({
             return (
               <div
                 key={suggestionId}
-                className="bg-surface border border-border-base rounded-lg overflow-hidden hover:border-border-subtle transition-colors"
+                className="bg-surface border border-border-default rounded-lg overflow-hidden hover:border-border-default transition-colors"
               >
                 {/* Suggestion Header */}
                 <div className="p-3">
@@ -352,12 +352,12 @@ export default function CitationSuggestionSidebar({
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="border-t border-border-subtle p-3 bg-surface-hover space-y-3">
+                  <div className="border-t border-border-default p-3 bg-surface-hover space-y-3">
                     {/* Claim Context */}
                     {suggestion.claim_text && (
                       <div>
                         <p className="text-xs font-medium text-text-tertiary mb-1">For Claim:</p>
-                        <p className="text-xs text-text-secondary bg-bg-base p-2 rounded border border-border-subtle">
+                        <p className="text-xs text-text-secondary bg-bg-base p-2 rounded border border-border-default">
                           {suggestion.claim_text}
                         </p>
                       </div>
@@ -397,7 +397,7 @@ export default function CitationSuggestionSidebar({
 
                 {/* Action Buttons */}
                 {suggestion.status === 'pending' && (
-                  <div className="border-t border-border-subtle p-3 bg-surface-hover flex gap-2">
+                  <div className="border-t border-border-default p-3 bg-surface-hover flex gap-2">
                     <Button
                       variant="primary"
                       size="sm"
@@ -432,7 +432,7 @@ export default function CitationSuggestionSidebar({
 
                 {/* Status Badge for Non-Pending */}
                 {suggestion.status !== 'pending' && (
-                  <div className="border-t border-border-subtle px-3 py-2 bg-surface-hover">
+                  <div className="border-t border-border-default px-3 py-2 bg-surface-hover">
                     <Badge variant={
                       suggestion.status === 'accepted' ? 'success' :
                       suggestion.status === 'rejected' ? 'error' :

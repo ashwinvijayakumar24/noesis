@@ -26,13 +26,13 @@ export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps)
   return (
     <div className="max-w-4xl mx-auto py-12">
       {/* Main Card */}
-      <div className="bg-surface rounded-xl border-2 border-dashed border-border-base p-8">
+      <div className="bg-surface rounded-xl border-2 border-dashed border-border-default p-8">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-accent-primary/10 rounded-full mb-4">
             <DocumentArrowUpIcon className="h-8 w-8 text-accent-primary" />
           </div>
-          <h2 className="text-3xl font-serif font-bold text-text-primary mb-3">
+          <h2 className="text-3xl font-sans font-bold text-text-primary mb-3">
             Get Started
           </h2>
           <p className="text-lg text-text-secondary max-w-2xl mx-auto">
@@ -55,7 +55,7 @@ export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps)
           {benefits.map((benefit, index) => (
             <div
               key={index}
-              className="bg-bg-base border border-border-base rounded-lg p-6 hover:border-accent-primary/30 transition-colors"
+              className="bg-bg-base border border-border-default rounded-lg p-6 hover:border-accent-primary/30 transition-colors"
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
@@ -75,7 +75,7 @@ export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps)
         </div>
 
         {/* Why Start with Papers */}
-        <div className="bg-surface-hover border border-border-subtle rounded-lg p-6 mb-8">
+        <div className="bg-surface-hover border border-border-default rounded-lg p-6 mb-8">
           <h4 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
             <svg className="h-5 w-5 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -119,7 +119,7 @@ export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps)
         </div>
 
         {/* Recommended Flow */}
-        <div className="mt-8 pt-8 border-t border-border-subtle">
+        <div className="mt-8 pt-8 border-t border-border-default">
           <p className="text-xs text-text-muted text-center mb-4">
             Recommended workflow
           </p>

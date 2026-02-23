@@ -19,14 +19,6 @@ export default function ConfidenceBar({
   const clampedScore = Math.max(0, Math.min(1, score))
   const percentage = Math.round(clampedScore * 100)
 
-  // Gradient bar with pink to teal transition
-  const getGradientStyle = () => {
-    // Create a gradient that transitions from pink (low) to teal (high)
-    return {
-      background: `linear-gradient(90deg, #FF1F4C 0%, #00d9ff ${percentage}%, #00d9ff 100%)`
-    }
-  }
-
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {label && (
@@ -36,7 +28,7 @@ export default function ConfidenceBar({
       )}
 
       <div className="flex-1 min-w-0">
-        <div className="h-2 rounded-full overflow-hidden bg-bg-elevated border border-border-base">
+        <div className="h-2 rounded-full overflow-hidden bg-bg-elevated border border-border-default">
           <div
             className="h-full transition-all duration-500 ease-out"
             style={{
@@ -52,7 +44,7 @@ export default function ConfidenceBar({
       </div>
 
       {showPercentage && (
-        <span className="text-sm font-mono font-bold text-neon-pink shrink-0 tabular-nums min-w-[3ch]">
+        <span className="text-sm font-mono font-bold text-accent-primary shrink-0 tabular-nums min-w-[3ch]">
           {percentage}%
         </span>
       )}

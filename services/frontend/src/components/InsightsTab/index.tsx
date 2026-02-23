@@ -234,12 +234,12 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
 
   if (status === 'not_analyzed') {
     return (
-      <div className="bg-surface rounded-lg border border-border-base p-8 text-center">
+      <div className="bg-surface rounded-lg border border-border-default p-8 text-center">
         <div className="max-w-md mx-auto">
           <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-accent-primary/10 flex items-center justify-center">
             <LightBulbIcon className="h-8 w-8 text-accent-primary" />
           </div>
-          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
+          <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
             Analyze Your Literature
           </h3>
           <p className="text-text-tertiary mb-6">
@@ -258,10 +258,10 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
 
   if (status === 'analyzing') {
     return (
-      <div className="bg-surface rounded-lg border border-border-base p-8 text-center">
+      <div className="bg-surface rounded-lg border border-border-default p-8 text-center">
         <div className="max-w-md mx-auto">
           <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent mb-4"></div>
-          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
+          <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
             Analyzing Project...
           </h3>
           <p className="text-text-tertiary">
@@ -277,7 +277,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
       <div className="bg-surface rounded-lg border border-red-900/50 p-8 text-center">
         <div className="max-w-md mx-auto">
           <XCircleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-xl font-serif font-semibold text-text-primary mb-2">
+          <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
             Analysis Failed
           </h3>
           <p className="text-text-tertiary mb-4">
@@ -300,7 +300,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
   return (
     <div className="space-y-4">
       {/* Success Banner */}
-      <div className="bg-surface border border-border-base rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-success">
+      <div className="bg-surface border border-border-default rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-success">
         <CheckCircleIcon className="h-6 w-6 text-success shrink-0 mt-0.5" />
         <div className="flex-1">
           <h4 className="text-text-primary font-medium">Insights Analysis Complete</h4>
@@ -323,7 +323,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
         <div className="space-y-4">
           {/* Summary */}
           {insights.summary && (
-            <div className="bg-surface/50 rounded-lg p-4 border border-border-subtle">
+            <div className="bg-surface/50 rounded-lg p-4 border border-border-default">
               <p className="text-text-secondary leading-relaxed">{insights.summary}</p>
             </div>
           )}
@@ -349,7 +349,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
               <h4 className="text-sm font-semibold text-text-primary mb-3">Common Themes</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {insights.common_themes.slice(0, 4).map((theme, i) => (
-                  <div key={i} className="bg-surface/50 rounded-lg p-3 border border-border-subtle">
+                  <div key={i} className="bg-surface/50 rounded-lg p-3 border border-border-default">
                     <div className="flex items-start justify-between mb-1">
                       <h5 className="font-medium text-text-primary text-sm">{theme.theme}</h5>
                       <span className="text-xs text-text-muted font-mono">
@@ -386,7 +386,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
               </h4>
               <div className="space-y-3">
                 {insights.conflicting_findings.slice(0, 2).map((conflict, i) => (
-                  <div key={i} className="bg-surface/50 border border-border-subtle rounded-lg p-3">
+                  <div key={i} className="bg-surface/50 border border-border-default rounded-lg p-3">
                     <h5 className="font-medium text-text-primary text-sm mb-2">{conflict.topic}</h5>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="border-l-2 border-slate-500 pl-2">
@@ -428,7 +428,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
               const colorClass = categoryColors[gap.category] || 'bg-[#334155] text-white border-[#334155]'
 
               return (
-                <div key={i} className="bg-surface/50 border border-border-subtle rounded-lg p-4">
+                <div key={i} className="bg-surface/50 border border-border-default rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-medium text-text-primary">{gap.title}</h4>
                     <span className={`text-xs px-2 py-1 rounded border font-mono ${colorClass}`}>

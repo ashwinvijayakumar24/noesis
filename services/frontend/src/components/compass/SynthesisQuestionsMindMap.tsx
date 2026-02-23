@@ -251,7 +251,7 @@ export default function SynthesisQuestionsMindMap({ questions }: MindMapProps) {
 
   if (questions.length === 0) {
     return (
-      <div className="bg-surface/50 rounded-lg border border-border-base p-8 text-center">
+      <div className="bg-surface/50 rounded-lg border border-border-default p-8 text-center">
         <p className="text-text-tertiary">
           No synthesis questions available. Generate insights first to see the mind map.
         </p>
@@ -260,7 +260,7 @@ export default function SynthesisQuestionsMindMap({ questions }: MindMapProps) {
   }
 
   return (
-    <div className="bg-surface/50 rounded-lg border border-border-base p-4 overflow-hidden">
+    <div className="bg-surface/50 rounded-lg border border-border-default p-4 overflow-hidden">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-semibold text-text-secondary">Question Relationships Mind Map</h4>
         <p className="text-xs text-text-muted">

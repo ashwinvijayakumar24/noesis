@@ -125,7 +125,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-serif text-text-primary flex items-center gap-2">
+          <h2 className="text-2xl font-sans text-text-primary flex items-center gap-2">
             <BookOpenIcon className="h-7 w-7 text-accent-primary" />
             Citation Library
           </h2>
@@ -144,7 +144,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
       </div>
 
       {/* Controls */}
-      <div className="bg-surface border border-border-base rounded-lg p-4">
+      <div className="bg-surface border border-border-default rounded-lg p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search */}
           <div className="relative">
@@ -154,7 +154,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search citations..."
-              className="w-full pl-10 pr-4 py-2 bg-bg-base border border-border-subtle rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 bg-bg-base border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
             />
           </div>
 
@@ -166,7 +166,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
             <select
               value={selectedStyle}
               onChange={(e) => setSelectedStyle(e.target.value)}
-              className="w-full px-3 py-2 bg-bg-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+              className="w-full px-3 py-2 bg-bg-base border border-border-default rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
             >
               {CITATION_STYLES.map((style) => (
                 <option key={style} value={style}>
@@ -184,7 +184,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
             <select
               value={filterSource}
               onChange={(e) => setFilterSource(e.target.value as 'all' | 'project' | 'external')}
-              className="w-full px-3 py-2 bg-bg-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+              className="w-full px-3 py-2 bg-bg-base border border-border-default rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
             >
               <option value="all">All Sources</option>
               <option value="project">Project Documents</option>
@@ -200,7 +200,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as 'recent' | 'title' | 'year' | 'usage')}
-              className="w-full px-3 py-2 bg-bg-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+              className="w-full px-3 py-2 bg-bg-base border border-border-default rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
             >
               <option value="recent">Recently Added</option>
               <option value="title">Title (A-Z)</option>
@@ -214,7 +214,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
       {/* Citations List */}
       <div className="space-y-3">
         {filteredAndSortedCitations.length === 0 ? (
-          <div className="bg-surface border border-border-base rounded-lg p-12 text-center">
+          <div className="bg-surface border border-border-default rounded-lg p-12 text-center">
             <BookOpenIcon className="h-16 w-16 text-text-muted mx-auto mb-4" />
             <p className="text-text-tertiary text-lg mb-2">
               {searchQuery || filterSource !== 'all'
@@ -233,7 +233,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
           filteredAndSortedCitations.map((citation) => (
             <div
               key={citation.id}
-              className="bg-surface-hover border border-border-base rounded-lg p-6 hover:border-border-subtle transition-colors"
+              className="bg-surface-hover border border-border-default rounded-lg p-6 hover:border-border-default transition-colors"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -269,7 +269,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
                   )}
 
                   {/* Formatted Citation */}
-                  <div className="bg-bg-base border border-border-subtle rounded-lg p-3 mb-3">
+                  <div className="bg-bg-base border border-border-default rounded-lg p-3 mb-3">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm text-text-secondary flex-1">
                         {citation.formatted_citations[selectedStyle as keyof typeof citation.formatted_citations] ||
@@ -327,7 +327,7 @@ export default function CitationManagementDashboard({ token, projectId }: Citati
 
       {/* Summary Stats */}
       {citations.length > 0 && (
-        <div className="bg-surface border border-border-base rounded-lg p-4">
+        <div className="bg-surface border border-border-default rounded-lg p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold text-accent-primary">{citations.length}</p>

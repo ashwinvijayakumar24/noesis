@@ -198,9 +198,9 @@ export default function ActionItems({
   }
 
   return (
-    <div className="bg-surface rounded-lg border border-border-base overflow-hidden">
+    <div className="bg-surface rounded-lg border border-border-default overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-base bg-surface-hover">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border-default bg-surface-hover">
         <div className="flex items-center gap-2">
           <h3 className="font-medium text-text-primary">Priority Actions</h3>
           <span className="px-2 py-0.5 text-xs font-mono bg-surface rounded-full text-text-secondary">
@@ -257,7 +257,7 @@ export default function ActionItems({
                           className={`mt-0.5 flex-shrink-0 h-5 w-5 rounded border-2 transition-colors ${
                             addressedItems.includes(item.id)
                               ? 'bg-emerald-600 border-emerald-600'
-                              : 'border-border-subtle hover:border-text-muted'
+                              : 'border-border-default hover:border-text-muted'
                           }`}
                         >
                           {addressedItems.includes(item.id) && (

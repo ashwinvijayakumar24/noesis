@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
+import type { ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DocumentTextIcon, TrashIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon } from '@heroicons/react/24/outline'
 import UploadDocumentModal from '../components/UploadDocumentModal'
 import DeleteDocumentModal from '../components/DeleteDocumentModal'
 import ChatMessage from '../components/ChatMessage'
@@ -13,10 +14,9 @@ import DraftsPanel from '../components/DraftsPanel'
 import UploadDraftModal from '../components/UploadDraftModal'
 import EmptyStateGuide from '../components/EmptyStateGuide'
 import ResearchAssistantPanel from '../components/ResearchAssistantPanel'
-import { Badge, type BadgeVariant } from '../components/ui/Badge'
 import PageContainer from '../components/layout/PageContainer'
 import { TabNavigation } from '../components/navigation/TabNavigation'
-import { MagneticButton } from '../components/ui/MagneticButton'
+import { Button } from '../components/ui/Button'
 import DocumentCard from '../components/literature/DocumentCard'
 
 // Lazy load heavy components for better performance
@@ -61,7 +61,7 @@ type ActiveTab = 'literature' | 'insights' | 'drafts'
 function ComponentLoader() {
   return (
     <div className="flex items-center justify-center py-12">
-      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-neon-pink border-r-transparent"></div>
+      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-accent-primary border-r-transparent"></div>
     </div>
   )
 }
@@ -69,7 +69,7 @@ function ComponentLoader() {
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { user, session, signOut } = useAuthStore()
+  const { session } = useAuthStore()
   const [project, setProject] = useState<Project | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
@@ -516,7 +516,7 @@ export default function ProjectDetail() {
 
   if (loading && !project) {
     return (
-      <div className="min-h-screen bg-bg-base flex items-center justify-center">
+      <div className="min-h-screen bg-bg-surface flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent"></div>
           <p className="mt-4 text-text-tertiary">Loading project...</p>
@@ -571,7 +571,7 @@ export default function ProjectDetail() {
       {/* Loading State */}
       {loading && (
         <div className="text-center py-12">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-neon-pink border-r-transparent"></div>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent"></div>
           <p className="mt-4 text-text-tertiary">Loading project...</p>
         </div>
       )}
@@ -580,7 +580,7 @@ export default function ProjectDetail() {
       {!loading && project && (
         <>
           {/* Project Header */}
-          <div className="bg-bg-surface rounded-2xl border border-border-base p-6 mb-8">
+          <div className="bg-bg-bg-surfacerounded-lg border border-border-default p-6 mb-8">
             {isEditingProject ? (
               /* Edit Mode */
               <div className="space-y-4">
@@ -590,7 +590,7 @@ export default function ProjectDetail() {
                     type="text"
                     value={editedTitle}
                     onChange={(e) => setEditedTitle(e.target.value)}
-                    className="w-full px-4 py-3 bg-bg-void border border-border-subtle rounded-lg text-text-primary text-2xl font-display font-bold focus:ring-2 focus:ring-neon-pink focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 bg-bg-void border border-border-default rounded-lg text-text-primary text-2xl font-sans font-semibold focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-all duration-150 tracking-normal"
                     placeholder="Enter project title"
                   />
                 </div>
@@ -599,22 +599,22 @@ export default function ProjectDetail() {
                   <textarea
                     value={editedDescription}
                     onChange={(e) => setEditedDescription(e.target.value)}
-                    className="w-full px-4 py-3 bg-bg-void border border-border-subtle rounded-lg text-text-primary focus:ring-2 focus:ring-neon-pink focus:border-transparent transition-all duration-200"
+                    className="w-full px-4 py-3 bg-bg-void border border-border-default rounded-lg text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-all duration-150 tracking-normal"
                     placeholder="Enter project description"
                     rows={3}
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <MagneticButton
+                  <Button
                     onClick={handleSaveProject}
                     variant="primary"
                     icon={<CheckIcon className="h-4 w-4" />}
                   >
                     Save Changes
-                  </MagneticButton>
+                  </Button>
                   <button
                     onClick={handleCancelEditProject}
-                    className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-text-primary border-2 border-border-subtle rounded-lg hover:bg-bg-hover hover:border-neon-pink/30 transition-all duration-200"
+                    className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-text-primary border-2 border-border-default rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 transition-all duration-150"
                   >
                     <XMarkIcon className="h-4 w-4" />
                     Cancel
@@ -625,12 +625,12 @@ export default function ProjectDetail() {
               /* View Mode */
               <>
                 <div className="flex items-start justify-between mb-2">
-                  <h2 className="text-3xl font-display font-bold text-text-primary">
+                  <h2 className="text-3xl font-sans font-semibold text-text-primary tracking-normal">
                     {project.title}
                   </h2>
                   <button
                     onClick={handleStartEditProject}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary hover:text-neon-pink border border-border-subtle rounded-lg hover:bg-bg-hover hover:border-neon-pink/30 transition-all duration-200"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary hover:text-accent-primary border border-border-default rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 transition-all duration-150"
                     title="Edit project details"
                   >
                     <PencilIcon className="h-4 w-4" />
@@ -673,7 +673,7 @@ export default function ProjectDetail() {
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <div>
-                    <h3 className="text-2xl font-display font-bold text-text-primary">Research Papers</h3>
+                    <h3 className="text-2xl font-sans font-semibold text-text-primary tracking-normal">Research Papers</h3>
                     <p className="text-sm text-text-secondary mt-1">
                       Upload and analyze your literature collection
                     </p>
@@ -684,7 +684,7 @@ export default function ProjectDetail() {
                     {documents.length > 0 && (
                       <button
                         onClick={handleExportBibTeX}
-                        className="px-4 py-2 bg-bg-surface border-2 border-border-base text-text-primary font-semibold rounded-lg hover:bg-bg-elevated hover:border-accent-teal transition-all duration-200 flex items-center gap-2 group"
+                        className="px-4 py-2 bg-bg-bg-surfaceborder-2 border-border-default text-text-primary font-semibold rounded-lg hover:bg-bg-elevated hover:border-accent-teal transition-all duration-150 flex items-center gap-2 group"
                       >
                         <ArrowDownTrayIcon className="h-4 w-4 group-hover:text-accent-teal transition-colors" />
                         <span>Export BibTeX</span>
@@ -692,19 +692,19 @@ export default function ProjectDetail() {
                     )}
 
                     {/* Upload Document button */}
-                    <MagneticButton
+                    <Button
                       onClick={() => setIsUploadModalOpen(true)}
                       variant="primary"
                       icon={<PlusIcon className="h-4 w-4" />}
                     >
                       Upload Paper
-                    </MagneticButton>
+                    </Button>
                   </div>
                 </div>
 
                 {/* Draft Warning Banner - shown when draft uploaded without documents */}
                 {draftCount > 0 && documents.length === 0 && !isDraftWarningDismissed && (
-                  <div className="mb-6 bg-warning/10 border-2 border-warning/50 rounded-2xl p-5">
+                  <div className="mb-6 bg-warning/10 border-2 border-warning/50 rounded-lg p-5">
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 mt-0.5">
                         <svg className="h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -712,7 +712,7 @@ export default function ProjectDetail() {
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <h4 className="text-sm font-display font-semibold text-warning mb-1">
+                        <h4 className="text-sm font-sans font-semibold text-warning mb-1">
                           Upload research papers to get citation suggestions
                         </h4>
                         <p className="text-sm text-text-secondary mb-3 leading-relaxed">
@@ -721,7 +721,7 @@ export default function ProjectDetail() {
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => setIsUploadModalOpen(true)}
-                            className="text-sm font-semibold text-neon-pink hover:text-neon-pink-bright underline transition-colors"
+                            className="text-sm font-semibold text-accent-primary hover:text-accent-primary-bright underline transition-colors"
                           >
                             Upload Research Papers
                           </button>
@@ -768,7 +768,7 @@ export default function ProjectDetail() {
                       }
                     }}
                   >
-                    {documents.map((doc, index) => (
+                    {documents.map((doc) => (
                       <motion.div
                         key={doc.id}
                         variants={{
@@ -807,19 +807,19 @@ export default function ProjectDetail() {
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <div>
-                  <h3 className="text-2xl font-display font-bold text-text-primary">Research Drafts</h3>
+                  <h3 className="text-2xl font-sans font-semibold text-text-primary tracking-normal">Research Drafts</h3>
                   <p className="text-sm text-text-secondary mt-1">
                     Get AI-powered feedback and citation suggestions
                   </p>
                 </div>
 
-                <MagneticButton
+                <Button
                   onClick={() => setIsUploadDraftModalOpen(true)}
                   variant="primary"
                   icon={<PlusIcon className="h-4 w-4" />}
                 >
                   Upload Draft
-                </MagneticButton>
+                </Button>
               </div>
               <DraftsPanel
                 token={session.access_token}
@@ -835,7 +835,7 @@ export default function ProjectDetail() {
         {false && (
           <div className="flex flex-col h-[calc(100vh-280px)] min-h-125">
           {/* Chat Header */}
-          <div className="bg-surface border border-border-base rounded-t-lg px-4 py-3 flex justify-between items-center">
+          <div className="bg-bg-surfaceborder border-border-default rounded-t-lg px-4 py-3 flex justify-between items-center">
             <div className="flex items-center gap-4 text-sm font-mono text-text-secondary">
               <div className="flex items-center gap-2">
                 <DocumentTextIcon className="h-4 w-4" />
@@ -847,7 +847,7 @@ export default function ProjectDetail() {
                   type="checkbox"
                   checked={includeDrafts}
                   onChange={(e) => setIncludeDrafts(e.target.checked)}
-                  className="w-4 h-4 rounded border-border-subtle bg-bg-base text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
+                  className="w-4 h-4 rounded border-border-default bg-bg-surface text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
                 />
                 <span className="text-xs">Include drafts 📄</span>
               </label>
@@ -876,7 +876,7 @@ export default function ProjectDetail() {
           {/* Messages Container */}
           <div
             ref={chatContainerRef}
-            className="flex-1 overflow-y-auto bg-bg-base border-x border-border-base"
+            className="flex-1 overflow-y-auto bg-bg-surface border-x border-border-default"
           >
             <div className="max-w-3xl mx-auto px-4 py-8">
               {messages.length === 0 && !isStreaming && (
@@ -887,7 +887,7 @@ export default function ProjectDetail() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                       </svg>
                     </div>
-                    <h4 className="text-xl font-serif font-semibold text-text-primary mb-2">
+                    <h4 className="text-xl font-sans font-semibold text-text-primary mb-2">
                       How can I help you today?
                     </h4>
                     <p className="text-text-secondary text-sm">
@@ -922,7 +922,7 @@ export default function ProjectDetail() {
           </div>
 
           {/* Input Container */}
-          <div className="bg-surface border border-border-base rounded-b-lg">
+          <div className="bg-bg-surfaceborder border-border-default rounded-b-lg">
             <div className="max-w-3xl mx-auto px-4 py-4">
               <form
                 onSubmit={(e) => {
@@ -937,7 +937,7 @@ export default function ProjectDetail() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask anything about your documents..."
                   disabled={isStreaming}
-                  className="w-full px-4 py-4 pr-24 bg-bg-base border border-border-subtle rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors disabled:opacity-50"
+                  className="w-full px-4 py-4 pr-24 bg-bg-surface border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors disabled:opacity-50"
                 />
                 <button
                   type="submit"
@@ -978,9 +978,9 @@ export default function ProjectDetail() {
 
       {/* Full Screen Chat Mode */}
       {isFullScreen && (
-        <div className="fixed inset-0 z-50 bg-bg-base flex flex-col">
+        <div className="fixed inset-0 z-50 bg-bg-surface flex flex-col">
           {/* Full Screen Header */}
-          <div className="bg-surface border-b border-border-base">
+          <div className="bg-bg-surfaceborder-b border-border-default">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-16">
                 <div className="flex items-center gap-3">
@@ -997,7 +997,7 @@ export default function ProjectDetail() {
                         type="checkbox"
                         checked={includeDrafts}
                         onChange={(e) => setIncludeDrafts(e.target.checked)}
-                        className="w-4 h-4 rounded border-border-subtle bg-bg-base text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
+                        className="w-4 h-4 rounded border-border-default bg-bg-surface text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
                       />
                       <span className="text-xs">Include drafts 📄</span>
                     </label>
@@ -1015,7 +1015,7 @@ export default function ProjectDetail() {
                   )}
                   <button
                     onClick={() => setIsFullScreen(false)}
-                    className="text-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-2 px-3 py-1.5 border border-border-subtle rounded-lg hover:bg-surface-hover"
+                    className="text-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-2 px-3 py-1.5 border border-border-default rounded-lg hover:bg-bg-hover"
                     title="Exit full screen"
                   >
                     <ArrowsPointingInIcon className="h-4 w-4" />
@@ -1029,7 +1029,7 @@ export default function ProjectDetail() {
           {/* Messages Container */}
           <div
             ref={chatContainerRef}
-            className="flex-1 overflow-y-auto bg-bg-base"
+            className="flex-1 overflow-y-auto bg-bg-surface"
           >
             <div className="max-w-4xl mx-auto px-4 py-8">
               {messages.length === 0 && !isStreaming && (
@@ -1040,7 +1040,7 @@ export default function ProjectDetail() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                       </svg>
                     </div>
-                    <h4 className="text-2xl font-serif font-semibold text-text-primary mb-3">
+                    <h4 className="text-2xl font-sans font-semibold text-text-primary mb-3">
                       How can I help you today?
                     </h4>
                     <p className="text-text-secondary">
@@ -1075,7 +1075,7 @@ export default function ProjectDetail() {
           </div>
 
           {/* Input Container */}
-          <div className="bg-surface border-t border-border-base">
+          <div className="bg-bg-surfaceborder-t border-border-default">
             <div className="max-w-4xl mx-auto px-4 py-6">
               <form
                 onSubmit={(e) => {
@@ -1090,7 +1090,7 @@ export default function ProjectDetail() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask anything about your documents..."
                   disabled={isStreaming}
-                  className="w-full px-5 py-4 pr-28 bg-bg-base border border-border-subtle rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors disabled:opacity-50 text-base"
+                  className="w-full px-5 py-4 pr-28 bg-bg-surface border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors disabled:opacity-50 text-base"
                   autoFocus
                 />
                 <button

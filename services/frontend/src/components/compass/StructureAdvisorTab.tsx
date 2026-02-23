@@ -105,7 +105,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
   return (
     <div className="space-y-4">
       {/* Introduction */}
-      <div className="bg-surface/50 rounded-lg p-4 border border-border-subtle">
+      <div className="bg-surface/50 rounded-lg p-4 border border-border-default">
         <p className="text-sm text-text-secondary">
           Based on your literature's characteristics, here are recommended organizational approaches.
           Select a structure to preview its outline.
@@ -140,7 +140,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
 
                   {/* Source data breakdown */}
                   {sourceCount > 0 && (
-                    <div className="mt-3 pt-3 border-t border-border-subtle/50">
+                    <div className="mt-3 pt-3 border-t border-border-default/50">
                       <div className="text-xs text-text-muted space-y-1">
                         {guidance.source_data.conflicts.length > 0 && (
                           <div>
@@ -185,7 +185,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
               className={`border rounded-lg p-4 cursor-pointer transition-all ${
                 isSelected
                   ? 'border-accent-primary bg-surface'
-                  : 'border-border-subtle bg-surface/50 hover:border-border-base'
+                  : 'border-border-default bg-surface/50 hover:border-border-default'
               }`}
             >
               <div className="flex items-start justify-between mb-2">
@@ -211,7 +211,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
             <div className="flex gap-2">
               <button
                 onClick={copyOutline}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface border border-border-subtle hover:border-border-base rounded transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface border border-border-default hover:border-border-default rounded transition-colors"
               >
                 {copied ? (
                   <>
@@ -227,7 +227,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
               </button>
               <button
                 onClick={downloadOutline}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface border border-border-subtle hover:border-border-base rounded transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface border border-border-default hover:border-border-default rounded transition-colors"
               >
                 <ArrowDownTrayIcon className="h-3.5 w-3.5" />
                 Export
@@ -235,7 +235,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
             </div>
           </div>
 
-          <div className="bg-surface/50 rounded-lg border border-border-subtle p-4">
+          <div className="bg-surface/50 rounded-lg border border-border-default p-4">
             <div className="space-y-4">
               {selectedRec.outline.sections.map((section, index) => (
                 <div key={index} className="space-y-2">
@@ -251,7 +251,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
 
                   {/* Papers */}
                   {section.papers.length > 0 && (
-                    <div className="ml-5 bg-bg-base/50 rounded p-2.5 border border-border-subtle">
+                    <div className="ml-5 bg-bg-base/50 rounded p-2.5 border border-border-default">
                       <div className="flex items-start gap-2">
                         <DocumentTextIcon className="h-3.5 w-3.5 text-text-muted shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
@@ -272,7 +272,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
                         {section.focus_themes.map((theme, i) => (
                           <span
                             key={i}
-                            className="text-xs px-2 py-0.5 rounded bg-surface border border-border-subtle text-text-secondary"
+                            className="text-xs px-2 py-0.5 rounded bg-surface border border-border-default text-text-secondary"
                           >
                             {theme}
                           </span>
@@ -282,7 +282,7 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
                   )}
 
                   {/* Synthesis Prompt */}
-                  <div className="ml-5 p-2.5 bg-surface/50 border border-border-subtle rounded">
+                  <div className="ml-5 p-2.5 bg-surface/50 border border-border-default rounded">
                     <p className="text-xs font-semibold text-text-muted mb-1">
                       Writing Guidance:
                     </p>
@@ -293,14 +293,14 @@ export default function StructureAdvisorTab({ recommendations, structureGuidance
 
                   {/* Divider between sections */}
                   {index < selectedRec.outline.sections.length - 1 && (
-                    <div className="border-t border-border-subtle mt-4" />
+                    <div className="border-t border-border-default mt-4" />
                   )}
                 </div>
               ))}
             </div>
 
             {/* Note at bottom */}
-            <div className="mt-4 pt-4 border-t border-border-subtle">
+            <div className="mt-4 pt-4 border-t border-border-default">
               <p className="text-xs text-text-muted">
                 <strong>Note:</strong> This outline provides section structure and writing guidance.
                 You write the actual content based on your understanding of the papers.

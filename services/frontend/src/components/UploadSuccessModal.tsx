@@ -35,20 +35,20 @@ export default function UploadSuccessModal({ isOpen, onClose, documentTitle }: U
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-surface border border-border-base shadow-2xl transition-all">
+              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
                 {/* Success Header */}
-                <div className="bg-gradient-to-br from-green-900/30 to-emerald-900/20 border-b border-green-700/30 px-8 py-6">
+                <div className="bg-bg-elevated border-b border-border-default px-8 py-6">
                   <div className="flex items-center gap-4">
                     <div className="flex-shrink-0">
-                      <div className="h-16 w-16 bg-green-600/20 rounded-full flex items-center justify-center border-2 border-green-500/30">
-                        <CheckCircleIcon className="h-9 w-9 text-green-400" />
+                      <div className="h-16 w-16 bg-accent-light rounded-full flex items-center justify-center border-2 border-accent-primary/30">
+                        <CheckCircleIcon className="h-9 w-9 text-accent-primary" />
                       </div>
                     </div>
                     <div className="flex-1">
-                      <Dialog.Title className="text-2xl font-serif font-semibold text-text-primary mb-1">
+                      <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary mb-1 tracking-normal">
                         Upload Successful!
                       </Dialog.Title>
-                      <p className="text-sm text-green-300/80 font-medium">
+                      <p className="text-sm text-text-secondary font-medium tracking-normal">
                         {documentTitle}
                       </p>
                     </div>
@@ -59,7 +59,7 @@ export default function UploadSuccessModal({ isOpen, onClose, documentTitle }: U
                 <div className="px-8 py-6 space-y-6">
                   {/* Main message */}
                   <div className="text-center">
-                    <p className="text-lg text-text-secondary leading-relaxed">
+                    <p className="text-lg text-text-secondary leading-relaxed tracking-normal">
                       Your document is being processed automatically. This typically takes{' '}
                       <span className="font-semibold text-text-primary">1-2 minutes</span>.
                     </p>
@@ -67,49 +67,49 @@ export default function UploadSuccessModal({ isOpen, onClose, documentTitle }: U
 
                   {/* Processing Steps */}
                   <div className="space-y-4">
-                    <div className="flex items-start gap-4 p-4 bg-surface-hover rounded-lg border border-border-subtle">
+                    <div className="flex items-start gap-4 p-4 bg-bg-hover rounded-md border border-border-default">
                       <div className="flex-shrink-0 mt-0.5">
-                        <div className="h-10 w-10 bg-purple-600/20 rounded-lg flex items-center justify-center">
-                          <MagnifyingGlassIcon className="h-6 w-6 text-purple-400" />
+                        <div className="h-10 w-10 bg-indigo-light rounded-md flex items-center justify-center border border-indigo-primary/30">
+                          <MagnifyingGlassIcon className="h-6 w-6 text-indigo-primary" />
                         </div>
                       </div>
                       <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-text-primary mb-1">
+                        <h4 className="text-sm font-semibold text-text-primary mb-1 tracking-normal">
                           RAG Ingestion
                         </h4>
-                        <p className="text-sm text-text-tertiary">
+                        <p className="text-sm text-text-tertiary tracking-normal">
                           Indexing document for semantic search and chat functionality
                         </p>
                       </div>
                       <div className="flex-shrink-0">
                         <div className="flex items-center gap-1.5">
                           <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-primary"></span>
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-4 p-4 bg-surface-hover rounded-lg border border-border-subtle">
+                    <div className="flex items-start gap-4 p-4 bg-bg-hover rounded-md border border-border-default">
                       <div className="flex-shrink-0 mt-0.5">
-                        <div className="h-10 w-10 bg-blue-600/20 rounded-lg flex items-center justify-center">
-                          <SparklesIcon className="h-6 w-6 text-blue-400" />
+                        <div className="h-10 w-10 bg-teal-light rounded-md flex items-center justify-center border border-teal-primary/30">
+                          <SparklesIcon className="h-6 w-6 text-teal-primary" />
                         </div>
                       </div>
                       <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-text-primary mb-1">
+                        <h4 className="text-sm font-semibold text-text-primary mb-1 tracking-normal">
                           AI Analysis
                         </h4>
-                        <p className="text-sm text-text-tertiary">
+                        <p className="text-sm text-text-tertiary tracking-normal">
                           Extracting methodology, findings, claims, and key citations
                         </p>
                       </div>
                       <div className="flex-shrink-0">
                         <div className="flex items-center gap-1.5">
                           <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-teal-primary"></span>
                           </span>
                         </div>
                       </div>
@@ -117,8 +117,8 @@ export default function UploadSuccessModal({ isOpen, onClose, documentTitle }: U
                   </div>
 
                   {/* Info Note */}
-                  <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
-                    <p className="text-sm text-amber-200/90">
+                  <div className="bg-amber-light border border-amber-primary/30 rounded-md p-4">
+                    <p className="text-sm text-text-secondary tracking-normal">
                       <span className="font-semibold">Note:</span> You can close this window and continue working.
                       The document card will update automatically when processing is complete.
                     </p>
@@ -126,10 +126,10 @@ export default function UploadSuccessModal({ isOpen, onClose, documentTitle }: U
                 </div>
 
                 {/* Footer */}
-                <div className="bg-surface-hover border-t border-border-base px-8 py-4">
+                <div className="bg-bg-hover border-t border-border-default px-8 py-4">
                   <button
                     onClick={onClose}
-                    className="w-full px-6 py-3 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors"
+                    className="w-full px-6 py-3 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150"
                   >
                     Got it, thanks!
                   </button>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'pink'
+export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'primary' | 'teal' | 'indigo' | 'amber' | 'rose'
 
 interface BadgeProps {
   variant?: BadgeVariant
@@ -9,15 +9,19 @@ interface BadgeProps {
 }
 
 export function Badge({ variant = 'neutral', children, className = '' }: BadgeProps) {
-  const baseStyles = 'px-2.5 py-1 text-xs font-semibold rounded-md inline-flex items-center gap-1'
+  const baseStyles = 'px-2.5 py-1 text-xs font-medium rounded-sm inline-flex items-center gap-1'
 
   const variantStyles = {
-    success: 'bg-success/10 text-success border border-success/30',
-    warning: 'bg-warning/10 text-warning border border-warning/30',
-    error: 'bg-error/10 text-error border border-error/30',
-    info: 'bg-info/10 text-info border border-info/30',
-    neutral: 'bg-bg-elevated text-text-secondary border border-border-base',
-    pink: 'bg-neon-pink/10 text-neon-pink border border-neon-pink/30'
+    success: 'bg-success-light text-success border border-success/30',
+    warning: 'bg-amber-light text-amber-primary border border-amber-primary/30',
+    error: 'bg-ruby-light text-ruby-primary border border-ruby-primary/30',
+    info: 'bg-indigo-light text-indigo-primary border border-indigo-primary/30',
+    neutral: 'bg-bg-elevated text-text-secondary border border-border-default',
+    primary: 'bg-accent-light text-accent-primary border border-accent-primary/30',
+    teal: 'bg-teal-light text-teal-primary border border-teal-primary/30',
+    indigo: 'bg-indigo-light text-indigo-primary border border-indigo-primary/30',
+    amber: 'bg-amber-light text-amber-primary border border-amber-primary/30',
+    rose: 'bg-accent-light text-accent-primary border border-accent-primary/30'
   }
 
   return (
@@ -36,12 +40,12 @@ interface TagProps {
 
 export function Tag({ children, className = '', onRemove }: TagProps) {
   return (
-    <span className={`px-2.5 py-1 text-xs font-medium bg-surface-hover text-text-tertiary border border-border-base rounded-md inline-flex items-center gap-1 ${className}`}>
+    <span className={`px-2.5 py-1 text-xs font-medium bg-bg-elevated text-text-tertiary border border-border-default rounded-md inline-flex items-center gap-1 ${className}`}>
       {children}
       {onRemove && (
         <button
           onClick={onRemove}
-          className="ml-1 text-text-muted hover:text-text-primary transition-colors"
+          className="ml-1 text-text-muted hover:text-accent-primary transition-colors"
           aria-label="Remove tag"
         >
           ×

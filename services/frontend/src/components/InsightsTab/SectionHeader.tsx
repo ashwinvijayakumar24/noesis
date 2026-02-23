@@ -25,7 +25,7 @@ export default function SectionHeader({
   children
 }: SectionHeaderProps) {
   return (
-    <div className="bg-surface rounded-lg border border-border-base overflow-hidden">
+    <div className="bg-surface rounded-lg border border-border-default overflow-hidden">
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-4 hover:bg-surface-hover transition-colors text-left"
@@ -34,7 +34,7 @@ export default function SectionHeader({
           <div className={`p-2 ${iconBg} rounded-lg border-2 ${iconBorderColor}`}>
             <span className={iconColor}>{icon}</span>
           </div>
-          <h3 className="font-serif font-semibold text-text-primary">{title}</h3>
+          <h3 className="font-sans font-semibold text-text-primary">{title}</h3>
           {badge !== undefined && badge > 0 && (
             <span className="px-2 py-0.5 text-xs font-mono bg-surface-hover rounded-full text-text-secondary">
               {badge}
@@ -48,7 +48,7 @@ export default function SectionHeader({
         />
       </button>
       {expanded && (
-        <div className="px-4 pb-4 border-t border-border-base pt-4">
+        <div className="px-4 pb-4 border-t border-border-default pt-4">
           {children}
         </div>
       )}

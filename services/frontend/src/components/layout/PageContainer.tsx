@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import AuthenticatedHeader from '../navigation/AuthenticatedHeader'
@@ -14,7 +14,7 @@ interface TabItem {
   label: string
   icon?: ReactNode
   badgeCount?: number
-  badgeVariant?: 'neutral' | 'pink' | 'warning' | 'success'
+  badgeVariant?: 'neutral' | 'primary' | 'warning' | 'success'
   isProcessing?: boolean
 }
 
@@ -75,10 +75,10 @@ export default function PageContainer({
         {backLink && (
           <Link
             to={backLink}
-            className="inline-flex items-center gap-2 text-text-secondary hover:text-neon-pink mb-6 transition-all duration-200 group"
+            className="inline-flex items-center gap-2 text-text-secondary hover:text-accent-primary mb-6 transition-colors duration-150 group"
           >
-            <ArrowLeftIcon className="h-5 w-5 transition-transform duration-200 group-hover:-translate-x-1" />
-            <span className="font-medium">{backLabel}</span>
+            <ArrowLeftIcon className="h-5 w-5 transition-transform duration-150 group-hover:-translate-x-1" />
+            <span className="font-medium tracking-normal">{backLabel}</span>
           </Link>
         )}
 
@@ -87,11 +87,11 @@ export default function PageContainer({
           <div className="mb-6 sm:mb-8">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
               <div className="flex-1">
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-text-primary mb-2 bg-gradient-to-r from-text-primary via-neon-pink to-text-primary bg-clip-text">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-sans font-semibold text-text-primary mb-2 leading-heading-1 tracking-tight">
                   {title}
                 </h1>
                 {description && (
-                  <p className="text-text-secondary text-base sm:text-lg leading-relaxed max-w-3xl">
+                  <p className="text-text-secondary text-base sm:text-lg leading-body-large tracking-normal max-w-3xl">
                     {description}
                   </p>
                 )}

@@ -27,7 +27,7 @@ interface SectionHeaderProps {
 export function SectionHeader({ title, subtitle, className = '' }: SectionHeaderProps) {
   return (
     <div className={`mb-16 ${className}`}>
-      <h2 className="text-4xl sm:text-5xl font-serif font-semibold text-neutral-50 mb-4">
+      <h2 className="text-4xl sm:text-5xl font-sans font-semibold text-neutral-50 mb-4">
         {title}
       </h2>
       {subtitle && (
