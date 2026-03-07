@@ -125,10 +125,11 @@ def extract_findings_node(state: DocumentAnalysisState) -> DocumentAnalysisState
             analysis_text = document_text[:15000]
             logger.info(f"[DOC-FINDINGS] No explicit results section, analyzing {len(analysis_text)} chars")
 
-        # Call GPT-4o to extract findings
-        logger.info(f"[DOC-FINDINGS] Calling GPT-4o for findings extraction...")
+        # Call GPT-5.2 to extract findings - relies on explicit JSON instructions in prompt
+        # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
+        logger.info(f"[DOC-FINDINGS] Calling GPT-5.2-chat-latest for findings extraction...")
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": FINDINGS_EXTRACTION_PROMPT},
                 {
@@ -136,9 +137,7 @@ def extract_findings_node(state: DocumentAnalysisState) -> DocumentAnalysisState
                     "content": f"Extract findings from this document:\n\nTitle: {structure.get('title', 'Unknown')}\n\n{analysis_text}"
                 }
             ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=3000,
+            max_completion_tokens=3000,
             **get_completion_params()  # Enable zero data retention
         )
 

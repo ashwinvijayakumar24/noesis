@@ -22,34 +22,55 @@ export default function UploadDocumentModal({
   token,
   projectId,
 }: UploadDocumentModalProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [title, setTitle] = useState('')
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [uploadedDocTitle, setUploadedDocTitle] = useState('')
+  const [uploadedCount, setUploadedCount] = useState(0)
+  const [uploadedTitles, setUploadedTitles] = useState<string[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const MAX_FILES = 10
+  const MAX_SIZE_MB = 50
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
+    if (!e.target.files) return
+
+    const filesArray = Array.from(e.target.files)
+
+    // Validate file count
+    if (filesArray.length > MAX_FILES) {
+      toast.error(`Maximum ${MAX_FILES} files allowed per upload`)
+      return
+    }
+
+    // Validate each file
+    const validFiles: File[] = []
+    for (const file of filesArray) {
       // Validate file type
       if (!validateFileType(file, ['pdf'])) {
-        return
+        continue
       }
 
-      // Validate file size (50MB limit)
-      if (!validateFileSize(file, 50)) {
-        return
+      // Validate file size
+      if (!validateFileSize(file, MAX_SIZE_MB)) {
+        continue
       }
 
-      setSelectedFile(file)
-      // Auto-fill title with filename (without .pdf extension)
-      if (!title) {
-        setTitle(file.name.replace('.pdf', ''))
-      }
+      validFiles.push(file)
     }
+
+    if (validFiles.length === 0) {
+      toast.error('No valid PDF files selected')
+      return
+    }
+
+    setSelectedFiles(validFiles)
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -73,74 +94,84 @@ export default function UploadDocumentModal({
 
     if (loading) return
 
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      // Validate file type
-      if (!validateFileType(file, ['pdf'])) {
-        return
-      }
+    const filesArray = Array.from(e.dataTransfer.files)
 
-      // Validate file size (50MB limit)
-      if (!validateFileSize(file, 50)) {
-        return
-      }
-
-      setSelectedFile(file)
-      // Auto-fill title with filename (without .pdf extension)
-      if (!title) {
-        setTitle(file.name.replace('.pdf', ''))
-      }
+    // Validate file count
+    if (filesArray.length > MAX_FILES) {
+      toast.error(`Maximum ${MAX_FILES} files allowed per upload`)
+      return
     }
+
+    // Filter and validate files
+    const validFiles = filesArray.filter(file => {
+      // Check file type
+      if (file.type !== 'application/pdf') {
+        return false
+      }
+
+      // Check file size (in bytes: 50MB = 50 * 1024 * 1024)
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        toast.error(`${file.name} exceeds ${MAX_SIZE_MB}MB limit`)
+        return false
+      }
+
+      return true
+    })
+
+    if (validFiles.length === 0) {
+      toast.error('No valid PDF files found')
+      return
+    }
+
+    setSelectedFiles(validFiles)
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
-    if (!selectedFile) {
-      toast.error('Please select a PDF file')
+    if (selectedFiles.length === 0) {
+      toast.error('Please select at least one PDF file')
       return
     }
 
     try {
       setLoading(true)
 
-      const uploadResult = await api.documents.upload(token, selectedFile, {
-        project_id: projectId,
-        title: title.trim() || undefined,
-        description: description.trim() || undefined,
+      console.log(`[UPLOAD] Uploading ${selectedFiles.length} document(s)...`)
+
+      // Upload all files in parallel
+      const uploadPromises = selectedFiles.map(file =>
+        api.documents.upload(token, file, {
+          project_id: projectId,
+          title: file.name.replace('.pdf', ''),
+          description: description.trim() || undefined,
+        })
+      )
+
+      const uploadResults = await Promise.all(uploadPromises)
+      console.log(`[UPLOAD] ✓ All ${uploadResults.length} documents uploaded successfully`)
+
+      // Track analytics for each upload
+      uploadResults.forEach(result => {
+        trackEvent.documentUploaded(projectId, result.document.id)
       })
 
-      const documentId = uploadResult.document.id
-      const docTitle = uploadResult.document.title
-      console.log('[UPLOAD] Document uploaded successfully, ID:', documentId)
-
-      // Track analytics
-      trackEvent.documentUploaded(projectId, documentId)
-
-      // Auto-trigger RAG ingestion asynchronously (don't block the UI)
-      console.log('[UPLOAD] Triggering RAG ingestion for document:', documentId)
-      api.rag.ingest(token, documentId).catch((ingestError: any) => {
-        console.error('[UPLOAD] RAG ingestion failed:', ingestError)
+      // Trigger RAG ingestion for all documents in parallel
+      const ingestPromises = uploadResults.map(result => {
+        console.log('[UPLOAD] Triggering RAG ingestion for document:', result.document.id)
+        return api.rag.ingest(token, result.document.id).catch((ingestError: any) => {
+          console.error('[UPLOAD] RAG ingestion failed for document:', result.document.id, ingestError)
+        })
       })
 
-      // Auto-trigger document analysis after a brief delay (500ms) to avoid race condition with RAG
-      // This ensures RAG has set initial status before analysis starts
-      console.log('[UPLOAD] Scheduling document analysis for document:', documentId)
-      setTimeout(() => {
-        console.log('[UPLOAD] Auto-triggering document analysis for document:', documentId)
-        api.documents.analyze(token, documentId)
-          .then((analyzeResult) => {
-            console.log('[UPLOAD] ✓ Document analysis triggered successfully!', analyzeResult)
-          })
-          .catch((analysisError: any) => {
-            console.error('[UPLOAD] ✗ Document analysis failed to trigger:', analysisError)
-            toast.error('Analysis failed to start automatically. Please refresh the page.', { duration: 6000 })
-          })
-      }, 500)
+      // Fire-and-forget for ingestion (don't wait)
+      Promise.allSettled(ingestPromises)
+
+      // Collect titles for success modal
+      const titles = uploadResults.map(r => r.document.title)
 
       // Reset form
-      setSelectedFile(null)
-      setTitle('')
+      setSelectedFiles([])
       setDescription('')
       setIsDragging(false)
       if (fileInputRef.current) {
@@ -149,11 +180,12 @@ export default function UploadDocumentModal({
 
       // Close upload modal and show success modal
       onClose()
-      setUploadedDocTitle(docTitle)
+      setUploadedCount(uploadResults.length)
+      setUploadedTitles(titles)
       setShowSuccessModal(true)
       onSuccess()
     } catch (error: any) {
-      handleError(error, 'uploading document')
+      handleError(error, 'uploading documents')
     } finally {
       setLoading(false)
     }
@@ -161,8 +193,7 @@ export default function UploadDocumentModal({
 
   const handleClose = () => {
     if (!loading) {
-      setSelectedFile(null)
-      setTitle('')
+      setSelectedFiles([])
       setDescription('')
       setIsDragging(false)
       if (fileInputRef.current) {
@@ -257,6 +288,7 @@ export default function UploadDocumentModal({
                         ref={fileInputRef}
                         type="file"
                         accept="application/pdf,.pdf"
+                        multiple
                         onChange={handleFileSelect}
                         disabled={loading}
                         className="hidden"
@@ -267,22 +299,22 @@ export default function UploadDocumentModal({
                         className="flex flex-col items-center gap-2 cursor-pointer"
                       >
                         <DocumentArrowUpIcon className={`h-10 w-10 ${isDragging ? 'text-accent-primary' : 'text-text-tertiary'}`} />
-                        {selectedFile ? (
+                        {selectedFiles.length > 0 ? (
                           <div className="text-center">
                             <p className="text-sm text-text-primary font-medium tracking-normal">
-                              {selectedFile.name}
+                              {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
                             </p>
                             <p className="text-xs text-text-muted mt-1 tracking-normal">
-                              Click or drag to change file
+                              Click or drag to change files
                             </p>
                           </div>
                         ) : (
                           <div className="text-center">
                             <p className="text-sm text-text-secondary font-medium tracking-normal">
-                              {isDragging ? 'Drop file here' : 'Drag & drop or click to browse'}
+                              {isDragging ? 'Drop files here' : 'Drag & drop or click to browse'}
                             </p>
                             <p className="text-xs font-mono text-text-muted mt-1">
-                              PDF files only, max 50MB
+                              PDF files only, max {MAX_SIZE_MB}MB each, up to {MAX_FILES} files
                             </p>
                           </div>
                         )}
@@ -290,24 +322,39 @@ export default function UploadDocumentModal({
                     </div>
                   </div>
 
-                  {/* Title */}
-                  <div>
-                    <label
-                      htmlFor="title"
-                      className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
-                    >
-                      Title <span className="text-text-muted font-mono text-xs">(optional)</span>
-                    </label>
-                    <input
-                      id="title"
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
-                      placeholder="Defaults to filename"
-                      disabled={loading}
-                    />
-                  </div>
+                  {/* Selected Files List */}
+                  {selectedFiles.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
+                        Selected Files
+                      </label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto bg-bg-elevated border border-border-default rounded-md p-3">
+                        {selectedFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between gap-3 p-2 bg-bg-surface border border-border-default rounded-md group hover:border-accent-primary/30 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-text-primary font-medium truncate tracking-normal">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-text-muted font-mono">
+                                {(file.size / (1024 * 1024)).toFixed(2)} MB
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              disabled={loading}
+                              className="flex-shrink-0 text-text-muted hover:text-red-500 transition-colors p-1"
+                            >
+                              <XMarkIcon className="h-5 w-5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Description */}
                   <div>
@@ -340,16 +387,18 @@ export default function UploadDocumentModal({
                     </button>
                     <button
                       type="submit"
-                      disabled={loading || !selectedFile}
+                      disabled={loading || selectedFiles.length === 0}
                       className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-normal"
                     >
                       {loading ? (
                         <>
                           <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                          Uploading...
+                          Uploading {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''}...
                         </>
                       ) : (
-                        'Upload Document'
+                        <>
+                          Upload {selectedFiles.length > 0 ? `${selectedFiles.length} ` : ''}Document{selectedFiles.length > 1 ? 's' : ''}
+                        </>
                       )}
                     </button>
                   </div>
@@ -365,7 +414,8 @@ export default function UploadDocumentModal({
     <UploadSuccessModal
       isOpen={showSuccessModal}
       onClose={() => setShowSuccessModal(false)}
-      documentTitle={uploadedDocTitle}
+      uploadedCount={uploadedCount}
+      documentTitles={uploadedTitles}
     />
     </>
   )

@@ -34,9 +34,11 @@ client = get_openai_client()
 # AI Prompts for Claim Extraction
 # ============================================
 
-CLAIM_EXTRACTION_PROMPT = """You are an expert academic reviewer analyzing research drafts.
+CLAIM_EXTRACTION_PROMPT = """You are an expert academic reviewer analyzing research drafts with deep expertise in identifying substantive claims.
 
-Extract factual claims, hypotheses, and assertions from this research draft section.
+Extract ALL meaningful claims, hypotheses, and assertions from this research draft section.
+Be thorough - aim to extract 15-25 claims per 10-page draft, capturing both primary and supporting arguments.
+
 Respond with ONLY valid JSON.
 
 Return this exact structure:
@@ -45,12 +47,16 @@ Return this exact structure:
     {
       "claim_text": "The exact text of the claim as it appears in the draft",
       "claim_type": "empirical|theoretical|methodological",
+      "claim_subtype": "factual|causal|comparative|normative|descriptive",
+      "claim_level": "thesis|main|supporting|contextual",
+      "evidence_type": "experimental|observational|theoretical|computational|qualitative|mixed",
+      "confidence_level": "definitive|tentative|exploratory|speculative",
       "section_location": "section name where claim appears",
       "importance_score": 0.0-1.0,
       "confidence_score": 0.0-1.0,
       "requires_citation": true|false,
       "existing_citations": ["Author (Year)", "Author et al. (Year)"],
-      "reasoning": "Brief explanation of claim type and importance"
+      "reasoning": "Detailed explanation of claim type, importance, and evidence requirements"
     }
   ]
 }
@@ -62,7 +68,7 @@ Confidence Score (0.0 to 1.0):
 - 0.0-0.3: Low confidence (may not be a claim)
 - Claims with confidence < 0.6 will be hidden by default to reduce hallucinations
 
-Claim Types:
+Claim Types (Primary Classification):
 - **empirical**: Data-based claims about observations, measurements, or experimental results
   Example: "The system achieved 95% accuracy on the test dataset"
 
@@ -71,6 +77,33 @@ Claim Types:
 
 - **methodological**: Claims about approaches, techniques, or procedures
   Example: "We employed a mixed-methods approach combining surveys and interviews"
+
+Claim Subtypes (Secondary Classification):
+- **factual**: States a fact or observation ("X exists", "Y was measured at Z")
+- **causal**: Claims a cause-effect relationship ("X causes Y", "X leads to Y")
+- **comparative**: Compares entities or methods ("X is better than Y", "X differs from Y in Z")
+- **normative**: Makes a value judgment or recommendation ("X should be done", "Y is important")
+- **descriptive**: Describes a phenomenon or pattern ("X exhibits property Y")
+
+Claim Levels (Hierarchy):
+- **thesis**: Core thesis claim, primary research question or contribution (1-3 per paper)
+- **main**: Major findings or key supporting claims (5-10 per paper)
+- **supporting**: Supporting details or secondary arguments (10-20 per paper)
+- **contextual**: Background information or minor details (numerous)
+
+Evidence Types:
+- **experimental**: Based on controlled experiments with data
+- **observational**: Based on observations without manipulation
+- **theoretical**: Based on logical reasoning or mathematical proof
+- **computational**: Based on simulations or computational analysis
+- **qualitative**: Based on interviews, surveys, case studies
+- **mixed**: Combines multiple evidence types
+
+Confidence Levels (Author's Certainty):
+- **definitive**: Strongly stated, presented as established fact
+- **tentative**: Cautiously stated, acknowledges uncertainty
+- **exploratory**: Presented as preliminary or investigative
+- **speculative**: Presented as conjecture or hypothesis
 
 Importance Score (0.0 to 1.0):
 - 1.0: Core thesis claim, primary research question
@@ -87,12 +120,37 @@ Existing Citations:
 - Format: "Author (Year)" or "Author et al. (Year)"
 - Empty array if no citations found
 
-Guidelines:
-- Focus on substantive claims, not trivial statements
-- Look for claims that make assertions about reality, theory, or methodology
-- Identify claims that would be challenged in peer review if unsupported
-- Extract 5-15 most important claims per section (don't extract every sentence)
-- Be precise with claim text - extract the exact wording
+Guidelines for Comprehensive Extraction:
+1. **Be thorough**: Extract 15-25 claims per 10-page section (vs previous 5-15)
+2. **Capture hierarchy**: Identify thesis-level claims, main claims, and supporting claims
+3. **Look for nuance**: Distinguish between definitive vs tentative claims
+4. **Identify patterns**: Spot factual, causal, comparative, and normative claims
+5. **Context matters**: Consider how claims relate to each other (main vs supporting)
+6. **Evidence assessment**: Identify what type of evidence supports each claim
+7. **Citation needs**: Be specific about which claims MUST have citations
+8. **Exact wording**: Extract claims as they appear in the text
+
+Examples of Claims to Extract:
+
+**Thesis-level (importance: 1.0)**:
+- "We propose a novel attention mechanism that reduces computational complexity by 40%"
+- "This study demonstrates that X causes Y in previously unexplored contexts"
+
+**Main claims (importance: 0.7-0.9)**:
+- "Our model achieves 95% accuracy on benchmark dataset Z"
+- "The results show a significant correlation between X and Y (p < 0.01)"
+- "Previous work has not adequately addressed limitation Z"
+
+**Supporting claims (importance: 0.4-0.6)**:
+- "Dataset X contains 10,000 labeled examples"
+- "We used a train-test split of 80-20"
+- "The attention mechanism was inspired by transformer architecture"
+
+**Contextual claims (importance: 0.1-0.3)**:
+- "Machine learning has applications in healthcare"
+- "Data quality is important for model performance"
+
+Be precise, be thorough, and extract the full argumentative structure of the draft.
 """
 
 
@@ -128,7 +186,7 @@ Guidelines:
 def extract_claims_from_section(
     section_text: str,
     section_name: str,
-    model: str = "gpt-4o"
+    model: str = "gpt-5.2-chat-latest"
 ) -> List[Dict[str, Any]]:
     """
     Extract claims from a single document section using AI.
@@ -155,6 +213,7 @@ def extract_claims_from_section(
         # Use first 6000 characters of section to stay within token limits
         analysis_text = section_text[:6000]
 
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -164,9 +223,7 @@ def extract_claims_from_section(
                     "content": f"Extract claims from this {section_name} section:\n\n{analysis_text}"
                 }
             ],
-            response_format={"type": "json_object"},
-            temperature=0.2,  # Low temperature for consistent extraction
-            max_tokens=2000,
+            max_completion_tokens=2000,
             **get_completion_params()  # Enable zero data retention
         )
 
@@ -195,7 +252,7 @@ def extract_claims_from_section(
 def extract_claims_from_draft(
     draft_text: str,
     structure: Dict[str, Any],
-    model: str = "gpt-4o"
+    model: str = "gpt-5.2-chat-latest"
 ) -> List[Dict[str, Any]]:
     """
     Extract claims from entire draft using document structure.
@@ -507,11 +564,18 @@ async def analyze_draft_claims(draft_id: str) -> Dict[str, Any]:
 
         # 2. Extract claims
         logger.info("Extracting claims from draft")
-        claims = extract_claims_from_draft(draft_text, structure, model="gpt-4o")
+        claims = extract_claims_from_draft(draft_text, structure, model="gpt-5.2-chat-latest")
 
         # 3. Map citations to claims with sections for location tracking
         logger.info("Mapping citations to claims with section-based location tracking")
         claims = map_citations_to_claims(claims, draft_text, sections=sections)
+
+        # 4. Enhance claims with semantic similarity to literature
+        logger.info("Enhancing claims with literature mapping and citation strength analysis")
+        from app.services.coverage_analysis import enhance_claims_with_literature_mapping
+        project_id = draft.get("project_id")
+        if project_id:
+            claims = await enhance_claims_with_literature_mapping(claims, project_id)
 
         # 4. Store claims in database
         logger.info(f"Storing {len(claims)} claims in database")
@@ -528,11 +592,21 @@ async def analyze_draft_claims(draft_id: str) -> Dict[str, Any]:
                 "claim_type": claim.get("claim_type", "empirical"),
                 "section_location": claim.get("section_location"),
                 "importance_score": claim.get("importance_score", 0.5),
-                "confidence_score": confidence_score,  # NEW: AI extraction confidence
-                "hidden": hidden,  # NEW: Hide low-confidence claims by default
+                "confidence_score": confidence_score,  # AI extraction confidence
+                "hidden": hidden,  # Hide low-confidence claims by default
                 "requires_citation": claim.get("requires_citation", True),
                 "existing_citations": claim.get("existing_citations", []),
-                "reasoning": claim.get("reasoning", ""),  # NEW: AI reasoning for transparency
+                "reasoning": claim.get("reasoning", ""),  # AI reasoning for transparency
+                # NEW: Enhanced claim categorization
+                "claim_subtype": claim.get("claim_subtype"),  # factual, causal, comparative, normative
+                "claim_level": claim.get("claim_level"),  # thesis, main, supporting, contextual
+                "evidence_type": claim.get("evidence_type"),  # experimental, theoretical, etc.
+                "confidence_level": claim.get("confidence_level"),  # definitive, tentative, exploratory
+                # NEW: Citation strength analysis
+                "citation_strength": claim.get("citation_strength"),  # strong, moderate, weak, missing
+                "max_similarity": claim.get("max_similarity", 0.0),  # Max similarity to literature
+                "unsupported": claim.get("unsupported", False),  # Flag for unsupported claims
+                "supporting_literature": claim.get("supporting_literature", []),  # Top similar literature
                 # EXISTING: Line positioning fields
                 "line_number": claim.get("line_number"),
                 "char_start": claim.get("char_start"),

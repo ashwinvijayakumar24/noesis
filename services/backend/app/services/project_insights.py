@@ -111,7 +111,7 @@ def analyze_project_insights(document_analyses: List[Dict[str, Any]]) -> Dict[st
     Args:
         document_analyses: List of document analysis objects, each containing:
             - title: Document title
-            - analysis: The GPT-4o analysis with executive_summary, methodology, etc.
+            - analysis: The GPT-5.2 analysis with executive_summary, methodology, etc.
             - document_id: UUID to fetch structured claims/methods/findings
 
     Returns:
@@ -227,16 +227,15 @@ Key Citations:
     # Combine all papers
     full_context = "\n\n" + "="*80 + "\n\n".join(papers_context)
 
+    # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
     # Call OpenAI to analyze
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-5.2-chat-latest",
         messages=[
             {"role": "system", "content": INSIGHTS_SYSTEM_PROMPT},
             {"role": "user", "content": f"Analyze these {len(document_analyses)} research papers and identify cross-paper insights:\n{full_context}"}
         ],
-        response_format={"type": "json_object"},
-        temperature=0.3,
-        max_tokens=3000,
+        max_completion_tokens=3000,
         **get_completion_params()  # Enable zero data retention
     )
 
@@ -246,7 +245,7 @@ Key Citations:
     # Add metadata
     insights['analysis_metadata'] = {
         'num_papers_analyzed': len(document_analyses),
-        'model': 'gpt-4o',
+        'model': 'gpt-5.2-chat-latest',
         'enhanced_with_langgraph': True,  # Using structured claims/methods/findings
         'timestamp': None  # Will be set by caller
     }

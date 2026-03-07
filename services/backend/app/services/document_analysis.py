@@ -1,6 +1,6 @@
 """
 Document Analysis Service
-Provides AI-powered structured analysis of research papers using GPT-4o.
+Provides AI-powered structured analysis of research papers using GPT-5.2.
 """
 
 import json
@@ -293,9 +293,9 @@ Guidelines:
 """
 
 
-def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-4o") -> Dict[str, Any]:
+def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-5.2-chat-latest") -> Dict[str, Any]:
     """
-    Analyze a research paper using GPT-4o and return structured analysis.
+    Analyze a research paper using GPT-5.2 and return structured analysis.
 
     Uses adaptive analysis depth based on paper length:
     - SHORT (1-5 pages): Basic analysis
@@ -346,21 +346,28 @@ def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-
         else:
             truncated_text = paper_text
 
-        # Call OpenAI API with JSON mode
+        # Call OpenAI API - GPT-5.2 relies on explicit JSON instructions in prompts
+        # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
         response = client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analyze this research paper:\n\n{truncated_text}"}
+                {"role": "user", "content": f"Analyze this research paper and respond ONLY with valid JSON (no markdown, no code blocks):\n\n{truncated_text}"}
             ],
-            response_format={"type": "json_object"},  # Force JSON output
-            temperature=0.3,  # Lower temperature for more consistent output
-            max_tokens=max_tokens,  # Tier-appropriate token limit
+            max_completion_tokens=max_tokens,  # GPT-5.2 uses max_completion_tokens
             **get_completion_params()  # Enable zero data retention
         )
 
         # Extract and parse the JSON response
         analysis_json = response.choices[0].message.content
+
+        # Debug logging to see what GPT-5.2 actually returned
+        logger.info(f"Response content (first 500 chars): {str(analysis_json)[:500] if analysis_json else 'NONE/EMPTY'}")
+        logger.info(f"Response object: refusal={response.choices[0].message.refusal if hasattr(response.choices[0].message, 'refusal') else 'N/A'}")
+
+        if not analysis_json or analysis_json.strip() == "":
+            raise ValueError("GPT-5.2 returned empty response. Check prompt engineering - ensure explicit JSON instructions are clear.")
+
         analysis = json.loads(analysis_json)
 
         # Add metadata including tier information
@@ -414,9 +421,10 @@ def extract_citation_metadata(paper_text: str) -> Dict[str, Any]:
     try:
         logger.info(f"Extracting citation metadata")
 
-        # Use GPT-4o to extract citation info
+        # Use GPT-5-mini to extract citation info - relies on explicit JSON instructions
+        # Note: Removing temperature parameter to use model defaults
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Use mini for speed/cost
+            model="gpt-5-mini",  # Use mini for speed/cost
             messages=[
                 {
                     "role": "system",
@@ -438,12 +446,10 @@ Guidelines:
                 },
                 {
                     "role": "user",
-                    "content": f"Extract citation metadata from this paper (look at the first 2000 characters):\n\n{paper_text[:2000]}"
+                    "content": f"Extract citation metadata from this paper (look at the first 2000 characters) and respond ONLY with valid JSON:\n\n{paper_text[:2000]}"
                 }
             ],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-            max_tokens=200,
+            max_completion_tokens=200,
             **get_completion_params()  # Enable zero data retention
         )
 

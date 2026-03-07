@@ -350,15 +350,14 @@ def analyze_document_structure(draft_text: str) -> Dict[str, Any]:
         # This reduces token usage while capturing essential structure
         analysis_text = draft_text[:8000]
 
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Use mini for cost efficiency
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": STRUCTURE_ANALYSIS_PROMPT},
                 {"role": "user", "content": f"Analyze this research draft structure:\n\n{analysis_text}"}
             ],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-            max_tokens=1000,
+            max_completion_tokens=2000,
             **get_completion_params()  # Enable zero data retention
         )
 
@@ -519,7 +518,7 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
                 "processing_timestamp": datetime.datetime.utcnow().isoformat(),
                 "file_type": file_type,
                 "text_length": len(full_text),
-                "model_used": "gpt-4o-mini" if file_type != 'pdf' else "grobid",
+                "model_used": "gpt-5.2-chat-latest" if file_type != 'pdf' else "grobid",
                 # Store GROBID metadata for PDFs
                 "grobid_title": extracted_data.get("title", ""),
                 "grobid_authors": extracted_data.get("authors", []),

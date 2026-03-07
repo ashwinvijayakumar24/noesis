@@ -9,6 +9,15 @@ export default {
       fontFamily: {
         'sans': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
         'mono': ['JetBrains Mono', 'Courier New', 'monospace'],
+        // HEADING FONT — uncomment one line to swap active font:
+        // 'heading': ['Plus Jakarta Sans', 'Inter', 'sans-serif'],         // ✅ ACTIVE (default)
+        'heading': ['Sora', 'Inter', 'sans-serif'],                   // option 2: geometric (not bad)
+        // 'heading': ['Manrope', 'Inter', 'sans-serif'],                // option 3: modern
+        // 'heading': ['DM Sans', 'Inter', 'sans-serif'],                // option 4: editorial
+        // 'heading': ['Space Grotesk', 'Inter', 'sans-serif'],          // option 5: technical
+        // 'heading': ['Outfit', 'Inter', 'sans-serif'],                 // option 6: clean
+        // 'heading': ['Figtree', 'Inter', 'sans-serif'],                // option 7: friendly
+        // 'heading': ['Bricolage Grotesque', 'Inter', 'sans-serif'],    // option 8: editorial
       },
       letterSpacing: {
         'tightest': '-0.02em',      // Display headings

@@ -286,6 +286,61 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
 
         print(f"[INSIGHTS-BG] Successfully stored insights for project_id={project_id}")
 
+        # 6. Auto-generate research questions + paper recs on FIRST insights generation only
+        existing_rq = supabase.table("research_questions").select("id", count="exact")\
+            .eq("project_id", project_id)\
+            .eq("user_id", user_id)\
+            .execute()
+        rq_count = existing_rq.count if existing_rq.count is not None else 0
+
+        if rq_count == 0:
+            print(f"[INSIGHTS-BG] First insights generation — auto-generating research questions")
+            try:
+                from app.services.research_questions import generate_research_questions
+                questions = generate_research_questions(insights)
+                for q in questions[:5]:
+                    supabase.table("research_questions").insert({
+                        "project_id": project_id,
+                        "user_id": user_id,
+                        "question": q['question'],
+                        "rationale": q['rationale'],
+                        "suggested_methodology": q['suggested_methodology'],
+                        "gap_category": q['gap_category'],
+                        "status": "new"
+                    }).execute()
+                print(f"[INSIGHTS-BG] Auto-generated {min(len(questions), 5)} research questions")
+            except Exception as rq_err:
+                print(f"[INSIGHTS-BG] Auto-RQ generation failed (non-fatal): {rq_err}")
+
+        existing_pr = supabase.table("paper_recommendations").select("id", count="exact")\
+            .eq("project_id", project_id)\
+            .eq("user_id", user_id)\
+            .execute()
+        pr_count = existing_pr.count if existing_pr.count is not None else 0
+
+        if pr_count == 0:
+            print(f"[INSIGHTS-BG] First insights generation — auto-generating paper recommendations")
+            try:
+                from app.services.paper_recommendations import generate_paper_recommendations
+                proj_res = supabase.table("projects").select("title, description").eq("id", project_id).execute()
+                project_data = {"title": proj_res.data[0].get("title", "") if proj_res.data else "", "description": proj_res.data[0].get("description", "") if proj_res.data else ""}
+                papers = generate_paper_recommendations(
+                    project_data=project_data,
+                    insights=insights,
+                    research_questions=[],
+                    limit=5
+                )
+                for paper in papers[:5]:
+                    supabase.table("paper_recommendations").insert({
+                        "project_id": project_id,
+                        "user_id": user_id,
+                        **paper,
+                        "status": "new"
+                    }).execute()
+                print(f"[INSIGHTS-BG] Auto-generated {min(len(papers), 5)} paper recommendations")
+            except Exception as pr_err:
+                print(f"[INSIGHTS-BG] Auto-PR generation failed (non-fatal): {pr_err}")
+
     except Exception as e:
         print(f"[INSIGHTS-BG] ERROR for project_id={project_id}: {type(e).__name__}: {str(e)}")
         # Update status to failed
@@ -548,3 +603,82 @@ async def export_project_bibtex(
     except Exception as e:
         logger.error(f"Failed to export BibTeX: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to export BibTeX: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Draft version history & cross-draft memory
+# (Mounted at /projects so paths resolve to /projects/{project_id}/drafts/...)
+# ---------------------------------------------------------------------------
+
+@router.get("/{project_id}/drafts/timeline")
+def get_drafts_timeline(
+    project_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Version history timeline for all analyzed drafts in a project."""
+    drafts_response = supabase.table("drafts")\
+        .select("id, title, version, created_at")\
+        .eq("project_id", project_id)\
+        .eq("user_id", user_id)\
+        .eq("status", "analyzed")\
+        .order("version", desc=False)\
+        .execute()
+
+    drafts = drafts_response.data or []
+    if not drafts:
+        return {"timeline": []}
+
+    timeline = []
+    prev_score = None
+
+    for draft in drafts:
+        draft_id = draft["id"]
+
+        feedback_res = supabase.table("reviewer_feedback")\
+            .select("severity").eq("draft_id", draft_id).execute()
+        gaps_res = supabase.table("coverage_gaps")\
+            .select("priority").eq("draft_id", draft_id).execute()
+        claims_res = supabase.table("draft_claims")\
+            .select("id").eq("draft_id", draft_id).execute()
+
+        feedback_items = feedback_res.data or []
+        gap_items = gaps_res.data or []
+        claim_count = len(claims_res.data or [])
+
+        critical = sum(1 for f in feedback_items if f.get("severity") == "critical")
+        major = sum(1 for f in feedback_items if f.get("severity") == "major")
+        high_gaps = sum(1 for g in gap_items if g.get("priority") == "high")
+        health_score = max(0, 100 - (critical * 15) - (major * 8) - (high_gaps * 5))
+
+        delta = (health_score - prev_score) if prev_score is not None else None
+        prev_score = health_score
+
+        timeline.append({
+            "draft_id": draft_id,
+            "title": draft["title"],
+            "version": draft["version"],
+            "created_at": draft["created_at"],
+            "health_score": health_score,
+            "score_delta": delta,
+            "critical_issues": critical,
+            "major_issues": major,
+            "claim_count": claim_count,
+            "gap_count": len(gap_items),
+        })
+
+    return {"timeline": timeline}
+
+
+@router.get("/{project_id}/drafts/recurring-patterns")
+async def get_recurring_patterns(
+    project_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Identify recurring feedback patterns across all analyzed drafts (3+ needed)."""
+    try:
+        from app.services.draft_memory import identify_recurring_patterns
+        result = await identify_recurring_patterns(project_id, user_id)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to identify recurring patterns for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to identify patterns: {str(e)}")

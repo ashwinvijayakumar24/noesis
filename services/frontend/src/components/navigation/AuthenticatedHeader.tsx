@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { MagnifyingGlassIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { Menu } from '@headlessui/react'
+import { NoesisLogo } from '../ui/NoesisLogo'
 
 interface Breadcrumb {
   label: string
@@ -19,7 +20,7 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
 
   const handleSignOut = async () => {
     await signOut()
-    navigate('/login')
+    navigate('/')
   }
 
   return (
@@ -33,14 +34,7 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
               to="/projects"
               className="flex items-center gap-2 group transition-all duration-150"
             >
-              <img
-                src="/noesis.png"
-                alt="Noesis"
-                className="h-6 transition-all duration-150"
-              />
-              <span className="hidden sm:inline text-sm font-sans font-semibold text-text-primary transition-colors duration-150 group-hover:text-accent-primary">
-                Noesis
-              </span>
+              <NoesisLogo size="sm" className="transition-opacity duration-150 group-hover:opacity-80" />
             </Link>
 
             {/* Breadcrumbs - Hidden on mobile */}

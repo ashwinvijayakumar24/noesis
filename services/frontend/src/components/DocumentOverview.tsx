@@ -359,7 +359,7 @@ export default function DocumentOverview({ documentId, onTriggerAnalysis }: Docu
             <h4 className="text-sm font-medium text-text-tertiary mb-2">Techniques Used:</h4>
             <div className="flex flex-wrap gap-2">
               {analysis.methodology.techniques.map((tech, i) => (
-                <span key={i} className="px-3 py-1 bg-purple-900/30 text-purple-200 rounded-full text-sm">
+                <span key={i} className="px-3 py-1 bg-indigo-700 text-white rounded-md text-sm font-medium">
                   {tech}
                 </span>
               ))}

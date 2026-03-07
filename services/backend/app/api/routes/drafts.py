@@ -688,7 +688,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
                     asyncio.run(track_openai_usage(
                         user_id=user_id,
                         operation_type="draft_analysis",
-                        model="gpt-4o-mini",  # Structure analysis uses mini
+                        model="gpt-5.2-chat-latest",
                         prompt_tokens=800,  # Estimated (structure analysis uses ~8000 chars)
                         completion_tokens=200,  # Estimated (structure JSON response)
                         project_id=project_id,
@@ -702,6 +702,43 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         except Exception as tracking_error:
             # Don't fail the analysis if tracking fails
             print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Failed to track quota/usage: {tracking_error}")
+
+        # Auto-trigger comparison if a previous analyzed draft exists in the project
+        print(f"[DRAFT-ANALYZE-BG-LG] ========== STEP 5: AUTO-COMPARISON ==========")
+        try:
+            if project_id:
+                # Find the most recent *other* analyzed draft in this project
+                prev_drafts = supabase.table("drafts")\
+                    .select("id, created_at")\
+                    .eq("project_id", project_id)\
+                    .eq("status", "analyzed")\
+                    .neq("id", draft_id)\
+                    .order("created_at", desc=True)\
+                    .limit(1)\
+                    .execute()
+
+                if prev_drafts.data:
+                    prev_draft_id = prev_drafts.data[0]["id"]
+                    print(f"[DRAFT-ANALYZE-BG-LG] Found previous analyzed draft: {prev_draft_id}")
+
+                    from app.services.draft_comparison import compare_drafts as run_compare
+                    loop2 = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop2)
+                    loop2.run_until_complete(
+                        run_compare(
+                            draft_v1_id=prev_draft_id,
+                            draft_v2_id=draft_id,
+                            project_id=project_id,
+                            user_id=user_id
+                        )
+                    )
+                    loop2.close()
+                    print(f"[DRAFT-ANALYZE-BG-LG] ✓ Auto-comparison completed")
+                else:
+                    print(f"[DRAFT-ANALYZE-BG-LG] No previous draft to compare against, skipping")
+        except Exception as cmp_err:
+            print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Auto-comparison failed: {cmp_err}")
+            # Don't fail the overall task if comparison fails
 
         print(f"[DRAFT-ANALYZE-BG-LG] ========== BACKGROUND TASK COMPLETED SUCCESSFULLY ==========")
 
@@ -844,11 +881,14 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
         analysis_response = supabase.table("draft_analysis").select("*").eq("draft_id", draft_id).execute()
 
         if status == "analyzed" and analysis_response.data:
+            analysis_data = analysis_response.data[0]
+            analysis_metadata = analysis_data.get("analysis_metadata") or {}
             return {
                 "status": "analyzed",
                 "draft_id": draft_id,
                 "draft_title": draft.get("title"),
-                "analysis": analysis_response.data[0]
+                "analysis": analysis_data,
+                "priority_actions": analysis_metadata.get("priority_actions", [])
             }
         elif status == "processing":
             return {
@@ -1094,12 +1134,16 @@ async def get_feedback_by_section(
                 detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
             )
 
+        # Status filter: when querying "new", also include items with NULL status
+        # (legacy data created before the status column was added)
+        status_filter = f"status.eq.{status},status.is.null" if status == "new" else f"status.eq.{status}"
+
         # Fetch claims for this section + status
         claims_response = supabase.table("draft_claims")\
             .select("*")\
             .eq("draft_id", draft_id)\
             .eq("section_type", section_type)\
-            .eq("status", status)\
+            .or_(status_filter)\
             .eq("hidden", False)\
             .order("importance_score", desc=True)\
             .execute()
@@ -1109,7 +1153,7 @@ async def get_feedback_by_section(
             .select("*")\
             .eq("draft_id", draft_id)\
             .eq("section_type", section_type)\
-            .eq("status", status)\
+            .or_(status_filter)\
             .order("priority", desc=False)\
             .execute()
 
@@ -1118,7 +1162,7 @@ async def get_feedback_by_section(
             .select("*")\
             .eq("draft_id", draft_id)\
             .eq("section_type", section_type)\
-            .eq("status", status)\
+            .or_(status_filter)\
             .order("priority", desc=False)\
             .execute()
 
@@ -1268,7 +1312,7 @@ async def get_section_summary(
         }
     """
     try:
-        # Verify draft ownership
+        # Verify draft ownership (1 query)
         draft_response = supabase.table("drafts")\
             .select("id")\
             .eq("id", draft_id)\
@@ -1278,65 +1322,53 @@ async def get_section_summary(
         if not draft_response.data:
             raise HTTPException(status_code=404, detail="Draft not found")
 
-        # Call PostgreSQL function to get counts
-        # Note: Supabase Python client doesn't directly support RPC for custom functions,
-        # so we'll use raw SQL via the REST API or compute manually
+        # Fetch all rows in 3 bulk queries instead of 72 individual queries
+        claims_res = supabase.table("draft_claims")\
+            .select("section_type, status")\
+            .eq("draft_id", draft_id)\
+            .execute()
 
-        # Manual computation (fallback approach)
-        sections = ['abstract', 'introduction', 'literature_review', 'methodology', 'results', 'discussion', 'conclusion', 'references']
+        gaps_res = supabase.table("coverage_gaps")\
+            .select("section_type, status")\
+            .eq("draft_id", draft_id)\
+            .execute()
+
+        feedback_res = supabase.table("reviewer_feedback")\
+            .select("section_type, status")\
+            .eq("draft_id", draft_id)\
+            .execute()
+
+        # Aggregate in Python
+        from collections import defaultdict
+        counts: dict = defaultdict(lambda: {"new": 0, "saved": 0, "dismissed": 0})
+
+        for row in (claims_res.data or []) + (gaps_res.data or []) + (feedback_res.data or []):
+            section = row.get("section_type") or "introduction"
+            status = row.get("status") or "new"
+            if status in ("new", "saved", "dismissed"):
+                counts[section][status] += 1
+
         section_summaries = []
-        total_new = 0
-        total_saved = 0
-        total_dismissed = 0
+        total_new = total_saved = total_dismissed = 0
 
-        for section in sections:
-            # Count claims
-            claims_new = supabase.table("draft_claims").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "new").eq("hidden", False).execute()
-            claims_saved = supabase.table("draft_claims").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "saved").eq("hidden", False).execute()
-            claims_dismissed = supabase.table("draft_claims").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "dismissed").eq("hidden", False).execute()
-
-            # Count gaps
-            gaps_new = supabase.table("coverage_gaps").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "new").execute()
-            gaps_saved = supabase.table("coverage_gaps").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "saved").execute()
-            gaps_dismissed = supabase.table("coverage_gaps").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "dismissed").execute()
-
-            # Count feedback
-            feedback_new = supabase.table("reviewer_feedback").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "new").execute()
-            feedback_saved = supabase.table("reviewer_feedback").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "saved").execute()
-            feedback_dismissed = supabase.table("reviewer_feedback").select("id", count='exact')\
-                .eq("draft_id", draft_id).eq("section_type", section).eq("status", "dismissed").execute()
-
-            new_count = (claims_new.count or 0) + (gaps_new.count or 0) + (feedback_new.count or 0)
-            saved_count = (claims_saved.count or 0) + (gaps_saved.count or 0) + (feedback_saved.count or 0)
-            dismissed_count = (claims_dismissed.count or 0) + (gaps_dismissed.count or 0) + (feedback_dismissed.count or 0)
-            total_count = new_count + saved_count + dismissed_count
-
-            if total_count > 0:  # Only include sections with feedback
-                section_summaries.append({
-                    "section_type": section,
-                    "new_count": new_count,
-                    "saved_count": saved_count,
-                    "dismissed_count": dismissed_count,
-                    "total_count": total_count
-                })
-
-                total_new += new_count
-                total_saved += saved_count
-                total_dismissed += dismissed_count
+        for section, c in counts.items():
+            n, s, d = c["new"], c["saved"], c["dismissed"]
+            section_summaries.append({
+                "section_type": section,
+                "new_count": n,
+                "saved_count": s,
+                "dismissed_count": d,
+                "total_count": n + s + d,
+            })
+            total_new += n
+            total_saved += s
+            total_dismissed += d
 
         return {
             "sections": section_summaries,
             "total_new": total_new,
             "total_saved": total_saved,
-            "total_dismissed": total_dismissed
+            "total_dismissed": total_dismissed,
         }
 
     except HTTPException:
@@ -1408,3 +1440,5 @@ async def assign_sections(
     except Exception as e:
         logger.error(f"Failed to assign sections for draft {draft_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to assign sections: {str(e)}")
+
+

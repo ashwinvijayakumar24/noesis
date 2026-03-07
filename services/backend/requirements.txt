@@ -1,41 +1,73 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-asyncpg
-pydantic
-pydantic-settings
-python-dotenv
-psycopg2-binary
-httpx
-alembic
-supabase
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
-pandas
-pymupdf
-pypdf
-python-docx
-openai
-tiktoken
-requests
-weasyprint
-markdown
-slowapi==0.1.9
-sentry-sdk[fastapi]==1.40.0
-cohere  # For reranking in hybrid search (RAG optimization)
+# Core FastAPI and server dependencies
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.22
 
-# LangGraph and LangChain for adaptive workflows (Phase 2)
-langgraph>=0.2.0
-langchain-core>=0.3.0
-langchain-openai>=0.2.0
+# Database and ORM
+supabase==2.10.0
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+alembic==1.14.0
 
-# Celery and Redis for task queue (Phase 3)
+# Authentication and security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Pydantic for data validation
+pydantic==2.10.5
+pydantic-settings==2.7.1
+email-validator==2.2.0
+
+# Environment and configuration
+python-dotenv==1.0.1
+
+# OpenAI and AI dependencies
+openai==1.109.1
+tiktoken==0.8.0
+
+# LangChain and LangGraph (compatible versions)
+langgraph==0.2.64
+langchain-core==0.3.63
+langchain-openai==0.2.14
+langchain==0.3.13
+langchain-community==0.3.13
+langchain-text-splitters==0.3.8
+langsmith==0.1.147
+
+# Document processing
+pymupdf==1.24.14
+pypdf==5.1.0
+python-docx==1.1.2
+
+# PDF generation and export
+weasyprint==63.1
+reportlab==4.2.5
+markdown==3.7
+
+# HTTP clients and requests
+httpx==0.27.2
+requests==2.32.5
+aiohttp==3.11.11
+
+# Data processing
+pandas==2.2.3
+
+# Celery and task queue
 celery[redis]==5.3.4
 redis==4.6.0
 
-# Testing
-pytest
-pytest-asyncio
-hypothesis
-faker
+# Rate limiting
+slowapi==0.1.9
+
+# Error tracking
+sentry-sdk[fastapi]==1.40.0
+
+# Retry logic
+tenacity==8.5.0
+
+# Stripe payments
+stripe==11.2.0
+
+# Cohere for reranking
+cohere==5.13.4

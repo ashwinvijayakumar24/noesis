@@ -377,7 +377,7 @@ async def update_claims_section_types(
 
         # Update claim
         supabase.table("draft_claims").update(
-            {"section_type": section_type}
+            {"section_type": section_type, "status": "new"}
         ).eq("id", claim["id"]).execute()
         updated_count += 1
 
@@ -427,7 +427,7 @@ async def update_gaps_section_types(
 
         # Update gap
         supabase.table("coverage_gaps").update(
-            {"section_type": section_type}
+            {"section_type": section_type, "status": "new"}
         ).eq("id", gap["id"]).execute()
         updated_count += 1
 
@@ -487,7 +487,7 @@ async def update_feedback_section_types(
 
         # Update feedback
         supabase.table("reviewer_feedback").update(
-            {"section_type": section_type}
+            {"section_type": section_type, "status": "new"}
         ).eq("id", feedback["id"]).execute()
         updated_count += 1
 
@@ -512,12 +512,13 @@ async def auto_migrate_existing_draft(draft_id: str) -> Dict[str, Any]:
     logger.info(f"Auto-migrating existing draft {draft_id} to section-based view")
 
     try:
-        # Check if already migrated
+        # Check if already migrated (section_type AND status both set)
         claims_check = (
             supabase.table("draft_claims")
             .select("id")
             .eq("draft_id", draft_id)
             .not_.is_("section_type", "null")
+            .not_.is_("status", "null")
             .limit(1)
             .execute()
         )

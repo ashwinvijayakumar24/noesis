@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { XMarkIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
+import FeedbackButton from './FeedbackButton'
 
 interface ResearchAssistantPanelProps {
   projectId: string
@@ -15,7 +16,7 @@ interface ResearchAssistantPanelProps {
 }
 
 export default function ResearchAssistantPanel({
-  projectId: _projectId,
+  projectId,
   token: _token,
   currentTab,
   chatMessages,
@@ -96,12 +97,18 @@ export default function ResearchAssistantPanel({
                 <Dialog.Title className="text-2xl font-sans font-bold text-text-primary">
                   Research Assistant
                 </Dialog.Title>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="text-text-secondary hover:text-accent-primary transition-all duration-200 hover:rotate-90"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <FeedbackButton
+                    featureType="research_chat"
+                    contextId={projectId}
+                  />
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="text-text-secondary hover:text-accent-primary transition-all duration-200 hover:rotate-90"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
               </div>
 
               {/* Context banner */}

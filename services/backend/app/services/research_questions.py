@@ -98,14 +98,14 @@ Return a JSON object with a "questions" array in the format:
     logger.info("Generating research questions from insights")
 
     try:
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.7,  # Slightly creative but focused
-            response_format={"type": "json_object"},
+            max_completion_tokens=2000,
             **get_completion_params()  # Enable zero data retention
         )
 

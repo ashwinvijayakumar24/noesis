@@ -47,7 +47,7 @@ MULTI_QUERY_CONFIG = {
 # HELPER FUNCTIONS
 # ============================================
 
-def embed_query(query: str, model: str = "text-embedding-3-small") -> List[float]:
+def embed_query(query: str, model: str = "text-embedding-3-large") -> List[float]:
     """
     Generate embedding for a query string using OpenAI API.
 
@@ -159,7 +159,7 @@ def retrieve_relevant_chunks_hybrid(
     )
 
     # Generate query embedding for semantic search
-    query_embedding = embed_query(query, model="text-embedding-3-small")
+    query_embedding = embed_query(query, model="text-embedding-3-large")
 
     # Get more candidates for reranking (if enabled)
     candidate_count = RERANKING_CONFIG["rerank_candidates"] if RERANKING_CONFIG["enabled"] else limit
@@ -350,7 +350,7 @@ def retrieve_with_reranking(
 async def expand_query_llm(
     original_query: str,
     num_variants: int = 3,
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-5-mini"
 ) -> List[str]:
     """
     Generate query variants using LLM for multi-perspective retrieval.
@@ -378,12 +378,11 @@ Return ONLY a JSON object with a "queries" array:
 {{"queries": ["variant 1", "variant 2", "variant 3"]}}"""
 
     try:
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.7,  # Slight creativity for diversity
-            max_tokens=200,
+            max_completion_tokens=200,
             **get_completion_params()
         )
 
@@ -524,9 +523,10 @@ async def retrieve_with_multi_query(
         chunk['query_ranks'] = item['query_ranks']
         final_results.append(chunk)
 
+    top_scores = [f"{item['rrf_score']:.3f}" for item in fused_chunks[:3]]
     logger.info(
         f"[Multi-Query] Fused {len(chunk_scores)} unique chunks → "
-        f"Top {limit} results (RRF scores: {[f'{item['rrf_score']:.3f}' for item in fused_chunks[:3]]})"
+        f"Top {limit} results (RRF scores: {top_scores})"
     )
 
     return final_results

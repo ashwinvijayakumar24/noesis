@@ -81,7 +81,7 @@ async def get_my_cost_summary(
         - total_cost: Total estimated cost in USD
         - total_tokens: Total tokens used
         - by_operation: Breakdown by operation type (document_analysis, chat, etc.)
-        - by_model: Breakdown by model (gpt-4o, gpt-4o-mini, etc.)
+        - by_model: Breakdown by model (gpt-4o, gpt-5-mini, etc.)
         - date_range: Date range for the summary
     """
     try:

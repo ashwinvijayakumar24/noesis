@@ -241,19 +241,23 @@ export default function SectionFeedbackTabs({
   return (
     <div className="space-y-4">
       {/* Status Tabs (New / Saved / Dismissed) */}
-      <div className="flex space-x-2 border-b border-slate-700">
+      <div className="flex space-x-1 border-b border-border-default">
         <button
           onClick={() => setStatusFilter('new')}
           className={`
-            px-4 py-2 text-sm font-medium border-b-2 transition-colors
+            px-4 py-2 text-sm font-semibold border-b-2 transition-all duration-fast
             ${statusFilter === 'new'
-              ? 'border-blue-500 text-blue-300'
-              : 'border-transparent text-slate-400 hover:text-slate-300'
+              ? 'border-accent-primary text-text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
             }
           `}
         >
           New {statusCounts.new > 0 && (
-            <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-blue-950 text-blue-300 border border-blue-800">
+            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs border ${
+              statusFilter === 'new'
+                ? 'bg-accent-primary/10 text-accent-primary border-accent-primary/20'
+                : 'bg-bg-elevated text-text-muted border-border-default'
+            }`}>
               {statusCounts.new}
             </span>
           )}
@@ -262,15 +266,19 @@ export default function SectionFeedbackTabs({
         <button
           onClick={() => setStatusFilter('saved')}
           className={`
-            px-4 py-2 text-sm font-medium border-b-2 transition-colors
+            px-4 py-2 text-sm font-semibold border-b-2 transition-all duration-fast
             ${statusFilter === 'saved'
-              ? 'border-green-500 text-green-300'
-              : 'border-transparent text-slate-400 hover:text-slate-300'
+              ? 'border-success text-text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
             }
           `}
         >
           Saved {statusCounts.saved > 0 && (
-            <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-green-950 text-green-300 border border-green-800">
+            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs border ${
+              statusFilter === 'saved'
+                ? 'bg-success/10 text-success border-success/20'
+                : 'bg-bg-elevated text-text-muted border-border-default'
+            }`}>
               {statusCounts.saved}
             </span>
           )}
@@ -279,15 +287,15 @@ export default function SectionFeedbackTabs({
         <button
           onClick={() => setStatusFilter('dismissed')}
           className={`
-            px-4 py-2 text-sm font-medium border-b-2 transition-colors
+            px-4 py-2 text-sm font-semibold border-b-2 transition-all duration-fast
             ${statusFilter === 'dismissed'
-              ? 'border-slate-500 text-slate-300'
-              : 'border-transparent text-slate-400 hover:text-slate-300'
+              ? 'border-border-subtle text-text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
             }
           `}
         >
           Dismissed {statusCounts.dismissed > 0 && (
-            <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-slate-800 text-slate-400 border border-slate-700">
+            <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-bg-elevated text-text-muted border border-border-default">
               {statusCounts.dismissed}
             </span>
           )}
@@ -299,10 +307,10 @@ export default function SectionFeedbackTabs({
         <button
           onClick={() => setCategoryFilter('all')}
           className={`
-            px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+            px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all duration-fast
             ${categoryFilter === 'all'
-              ? 'bg-slate-700 text-slate-100 border border-slate-600'
-              : 'bg-slate-900 text-slate-400 border border-slate-700 hover:bg-slate-800'
+              ? 'bg-bg-elevated text-text-primary border-border-subtle'
+              : 'bg-bg-surface text-text-secondary border-border-default hover:text-text-primary hover:border-border-subtle'
             }
           `}
         >
@@ -314,10 +322,10 @@ export default function SectionFeedbackTabs({
             key={tab.category}
             onClick={() => setCategoryFilter(tab.category)}
             className={`
-              px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all duration-fast
               ${categoryFilter === tab.category
-                ? 'bg-slate-700 text-slate-100 border border-slate-600'
-                : 'bg-slate-900 text-slate-400 border border-slate-700 hover:bg-slate-800'
+                ? 'bg-bg-elevated text-text-primary border-border-subtle'
+                : 'bg-bg-surface text-text-secondary border-border-default hover:text-text-primary hover:border-border-subtle'
               }
             `}
           >
@@ -335,16 +343,16 @@ export default function SectionFeedbackTabs({
           currentStatus={statusFilter}
         />
       ) : (
-        <div className="text-center py-12 text-slate-400">
-          <p className="text-sm">
+        <div className="text-center py-12">
+          <p className="text-sm text-text-secondary">
             {statusFilter === 'new' && 'No new feedback items'}
             {statusFilter === 'saved' && 'No saved feedback items'}
             {statusFilter === 'dismissed' && 'No dismissed feedback items'}
           </p>
-          <p className="text-xs mt-1 text-slate-500">
+          <p className="text-xs mt-1 text-text-muted">
             {statusFilter === 'new' && 'Great work! All items have been reviewed.'}
             {statusFilter === 'saved' && 'Save useful feedback to review later.'}
-            {statusFilter === 'dismissed' && 'Dismissed items won\'t be shown in the New tab.'}
+            {statusFilter === 'dismissed' && "Dismissed items won't appear in the New tab."}
           </p>
         </div>
       )}

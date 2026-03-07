@@ -91,9 +91,107 @@ def get_chat_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _save_message_to_db(
+    project_id: str,
+    user_id: str,
+    role: str,
+    content: str,
+    sources: Optional[List[dict]] = None,
+    model: Optional[str] = None
+) -> None:
+    """Write a chat message to the DB. Called programmatically (no HTTP request needed)."""
+    try:
+        message_data = {
+            "project_id": project_id,
+            "user_id": user_id,
+            "role": role,
+            "content": content,
+            "sources": sources,
+            "model": model,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        supabase.table("chat_messages").insert(message_data).execute()
+    except Exception as e:
+        print(f"[CHAT] Warning: failed to save message: {e}")
+
+
+async def _get_project_research_context(project_id: str, user_id: str) -> str:
+    """
+    Fetch structured analysis metadata to enrich the system prompt.
+    Returns a formatted context block, or empty string on failure.
+    """
+    try:
+        lines = []
+
+        # Get the latest analyzed draft for this project
+        draft_res = (supabase.table("drafts")
+            .select("id, title, version")
+            .eq("project_id", project_id)
+            .eq("user_id", user_id)
+            .eq("status", "analyzed")
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute())
+
+        if draft_res.data:
+            draft = draft_res.data[0]
+            draft_id = draft["id"]
+            lines.append(f"CURRENT DRAFT: \"{draft['title']}\" (v{draft['version']})")
+
+            # Top unsupported claims (importance >= 0.6, requires_citation=true)
+            claims_res = (supabase.table("draft_claims")
+                .select("claim_text, importance_score, section_location")
+                .eq("draft_id", draft_id)
+                .eq("requires_citation", True)
+                .gte("importance_score", 0.6)
+                .order("importance_score", desc=True)
+                .limit(5)
+                .execute())
+
+            if claims_res.data:
+                lines.append("\nTOP UNSUPPORTED CLAIMS (need citations):")
+                for c in claims_res.data:
+                    loc = f" [§{c['section_location']}]" if c.get("section_location") else ""
+                    lines.append(f"  • {c['claim_text']}{loc}")
+
+            # Critical coverage gaps
+            gaps_res = (supabase.table("coverage_gaps")
+                .select("description, gap_type, priority")
+                .eq("draft_id", draft_id)
+                .in_("priority", ["high", "critical"])
+                .order("priority", desc=True)
+                .limit(3)
+                .execute())
+
+            if gaps_res.data:
+                lines.append("\nCRITICAL COVERAGE GAPS:")
+                for g in gaps_res.data:
+                    lines.append(f"  • [{g['priority'].upper()}] {g['description']}")
+
+            # Reviewer feedback summary
+            feedback_res = (supabase.table("reviewer_feedback")
+                .select("feedback_text, severity, section_reference")
+                .eq("draft_id", draft_id)
+                .in_("severity", ["critical", "major"])
+                .order("severity", desc=True)
+                .limit(3)
+                .execute())
+
+            if feedback_res.data:
+                lines.append("\nCRITICAL REVIEWER FEEDBACK:")
+                for f in feedback_res.data:
+                    sec = f" (§{f['section_reference']})" if f.get("section_reference") else ""
+                    lines.append(f"  • [{f['severity'].upper()}]{sec} {f['feedback_text']}")
+
+        return "\n".join(lines) if lines else ""
+    except Exception as e:
+        print(f"[CHAT] Warning: failed to fetch research context: {e}")
+        return ""
+
+
 @router.post("/projects/{project_id}/messages")
 @limiter.limit("30/minute")  # Max 30 chat messages per minute
-def save_chat_message(
+async def save_chat_message(
     request: Request,
     project_id: str,
     role: str,
@@ -111,23 +209,8 @@ def save_chat_message(
         if not project_res.data:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        # Save message
-        message_data = {
-            "project_id": project_id,
-            "user_id": user_id,
-            "role": role,
-            "content": content,
-            "sources": sources,
-            "model": model,
-            "created_at": datetime.utcnow().isoformat()
-        }
-
-        result = supabase.table("chat_messages").insert(message_data).execute()
-
-        if not result.data:
-            raise HTTPException(status_code=500, detail="Failed to save message")
-
-        return result.data[0]
+        await _save_message_to_db(project_id, user_id, role, content, sources, model)
+        return {"status": "saved"}
     except HTTPException:
         raise
     except Exception as e:
@@ -139,7 +222,7 @@ async def stream_chat_response(
     project_id: str,
     query: str,
     user_id: str,
-    model: str = "gpt-4o",
+    model: str = "gpt-5.2-chat-latest",
     max_chunks: int = 5,
     document_id: str = None,
     include_drafts: bool = False,
@@ -227,6 +310,9 @@ async def stream_chat_response(
 
             context = "\\n\\n---\\n\\n".join(context_parts)
 
+        # Fetch project research context for richer system prompt
+        research_context = await _get_project_research_context(project_id, user_id)
+
         # Get recent chat history for context
         history_res = (supabase.table("chat_messages")
             .select("role, content")
@@ -236,11 +322,22 @@ async def stream_chat_response(
             .limit(10)
             .execute())
 
+        # Build project context block to prepend to any system prompt branch
+        project_context_block = ""
+        if research_context:
+            project_context_block = f"""PROJECT RESEARCH CONTEXT:
+{research_context}
+
+This context comes from your structured analysis. Use it to give more targeted answers about the user's specific draft and literature gaps.
+
+---
+"""
+
         # Build messages for OpenAI
         # Use structured system prompt if optimization is enabled
         if optimization_enabled:
             # Structured context already includes query and section headings
-            system_content = f"""{retrieval_result['system_prompt']}
+            system_content = project_context_block + f"""{retrieval_result['system_prompt']}
 
 {context}
 
@@ -265,7 +362,7 @@ If the context doesn't contain enough information to answer the question, say so
         else:
             # Fallback to simple system prompt
             if include_drafts or draft_id:
-                system_content = f"""You are a helpful AI research assistant helping users with their research drafts. You have access to both the user's draft content and their literature database.
+                system_content = project_context_block + f"""You are a helpful AI research assistant helping users with their research drafts. You have access to both the user's draft content and their literature database.
 
 Context from sources:
 {context}
@@ -294,7 +391,7 @@ If the context doesn't contain enough information to answer the question, say so
 Example response format:
 In your draft, you mention X [1]. This aligns with recent research showing Y [2]. Multiple studies confirm this relationship [2][3]."""
             else:
-                system_content = f"""You are a helpful AI research assistant. Answer questions based on the provided context from research documents.
+                system_content = project_context_block + f"""You are a helpful AI research assistant. Answer questions based on the provided context from research documents.
 
 Context from documents:
 {context}
@@ -339,12 +436,12 @@ The study found that caffeine improves cognitive performance [1] and increases a
         # Stream response from OpenAI
         full_response = ""
 
+        # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
         stream = await openai_client.chat.completions.create(
             model=model,
             messages=messages,
             stream=True,
-            temperature=0.7,
-            max_tokens=1000,
+            max_completion_tokens=1000,
             **get_completion_params()  # Enable zero data retention
         )
 
@@ -362,21 +459,23 @@ The study found that caffeine improves cognitive performance [1] and increases a
         yield json.dumps({"type": "done", "data": full_response}) + "\n"
 
         # Save assistant message to database
-        save_chat_message(
+        await _save_message_to_db(
             project_id=project_id,
+            user_id=user_id,
             role="assistant",
             content=full_response,
             sources=sources,
-            model=model,
-            user_id=user_id
+            model=model
         )
 
         # Track quota usage and OpenAI costs
         try:
             from app.services.quota_management import increment_quota_usage, track_openai_usage
 
-            # Increment quota counter
+            # Increment quota counters (monthly + daily)
             await increment_quota_usage(user_id, "chat")
+            from app.services.quota_management import increment_daily_chat
+            await increment_daily_chat(user_id)
             print(f"[CHAT] Quota incremented for user_id={user_id}")
 
             # Estimate token usage for streaming responses
@@ -416,7 +515,7 @@ The study found that caffeine improves cognitive performance [1] and increases a
 async def query_stream(
     project_id: str,
     query: str,
-    model: str = "gpt-4o",
+    model: str = "gpt-5.2-chat-latest",
     max_chunks: int = 5,
     document_id: Optional[str] = None,
     include_drafts: bool = False,
@@ -460,11 +559,11 @@ async def query_stream(
             raise HTTPException(status_code=404, detail="Project not found")
 
         # Save user message first
-        save_chat_message(
+        await _save_message_to_db(
             project_id=project_id,
+            user_id=user_id,
             role="user",
-            content=query,
-            user_id=user_id
+            content=query
         )
 
         # Return streaming response with proper headers to prevent buffering

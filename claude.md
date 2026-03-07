@@ -1,6 +1,47 @@
 # Claude.md: Noesis Draft-Aware Research Intelligence Platform
 
-> **Quick Context (January 2025):** Production-ready research intelligence platform deployed on Vercel + AWS + Supabase. Core features complete: LangGraph workflow orchestration, draft analysis with parallel processing, citation management, RAG chat, BibTeX/PDF export, Celery background tasks. Current priority: user validation and RAG quality improvements. Tech: React + FastAPI + LangGraph + GPT-4o + pgvector + Celery/Redis. Cost: $10/mo infrastructure.
+> **Quick Context (March 2026):** Production-ready research intelligence platform deployed on Vercel + AWS + Supabase. Core features complete: LangGraph workflow orchestration, draft analysis with parallel processing, citation management, RAG chat, BibTeX/PDF export, Celery background tasks, Stripe monetization, paper discovery, referral system, analytics dashboard, draft comparison. **Current priority: end-to-end testing and document upload validation after switching from GPT-4o to GPT-5.2.** Tech: React + FastAPI + LangGraph + **GPT-5.2** + pgvector + Celery/Redis. Cost: $10-50/mo infrastructure.
+
+## ⚠️ CRITICAL: Current Session Context (March 2026)
+
+### What We Are Working On RIGHT NOW
+1. **End-to-end testing** — validating the full upload → analysis pipeline works correctly
+2. **Document upload fixes** — race condition fixed, multi-select upload implemented, success modal simplified
+3. **GPT-5.2 migration** — switched from GPT-4o to GPT-5.2; API uses `max_completion_tokens` NOT `max_tokens`
+
+### GPT-5.2 API Breaking Change (IMPORTANT)
+All OpenAI calls now use `gpt-5.2` model. GPT-5.2 requires `max_completion_tokens` instead of `max_tokens`:
+```python
+# ✅ CORRECT for GPT-5.2
+response = client.chat.completions.create(
+    model="gpt-5.2",
+    max_completion_tokens=2000,
+    ...
+)
+# ❌ WRONG — causes 400 error with GPT-5.2
+# max_tokens=2000
+```
+This was fixed in 15 files (see `GPT52_API_FIX.md`). Do NOT revert to `max_tokens`.
+
+### Document Upload Status
+- ✅ Race condition fixed: backend auto-triggers analysis after RAG ingestion completes
+- ✅ Multi-select upload: up to 10 PDFs simultaneously with parallel processing
+- ✅ Success modal simplified: clean UX, no technical jargon
+- ✅ Celery configured for 4 concurrent tasks
+- ⚠️ OpenAI rate limits: free tier is 3 req/min — need to upgrade to Tier 1 for batch uploads
+- ⚠️ Still testing: verify documents flow uploaded → processing → analyzing → analyzed
+
+### Design System Reference
+**ALWAYS read `DESIGN_SYSTEM.md` before making any frontend changes.** The design uses:
+- Dark charcoal theme (`bg-bg-void: #0F0F14`, `bg-bg-surface: #18181F`)
+- Rose-crimson accent (`accent-primary: #E5484D`)
+- `border-border-default: rgba(255,255,255,0.08)` for all borders
+- Max `rounded-xl` (12px), no `rounded-2xl` or `rounded-3xl`
+- 150ms transitions, Inter font, font-semibold (NOT font-bold)
+- See `DESIGN_SYSTEM.md` and `services/frontend/tailwind.config.js` for full token system
+
+### Dual Tool Workflow
+This project is worked on with both **Claude Code** and **Cursor Pro**. See `WORKING_STATE.md` for current state. Always commit before switching tools.
 
 ## Project Overview
 
@@ -25,8 +66,9 @@ Noesis is a draft-aware research intelligence platform that provides expert acad
 - **Authentication**: Supabase Auth
 - **File Storage**: Supabase Storage
 - **PDF Processing**: GROBID 0.7.0 (Docker container)
-- **AI Services**: OpenAI GPT-4o (analysis), text-embedding-3-small (embeddings)
+- **AI Services**: OpenAI **GPT-5.2** (analysis, uses `max_completion_tokens`), text-embedding-3-small (embeddings)
 - **Infrastructure**: Docker Compose, Vercel (frontend), Nginx
+- **Payments**: Stripe (checkout, subscriptions, webhooks)
 
 ### Docker Architecture
 ```yaml
@@ -73,16 +115,16 @@ citation_suggestions (id, draft_id, claim_id, suggested_citation_id, confidence_
 ## Implemented Features
 
 ### ✅ Core Features (Working)
-1. **Intelligent Document Management** - PDF upload, GROBID processing, project organization
-2. **AI-Powered Paper Analysis** - GPT-4o analysis with structured insights
+1. **Intelligent Document Management** - PDF upload, GROBID processing, multi-select (up to 10 files), project organization
+2. **AI-Powered Paper Analysis** - GPT-5.2 analysis with structured insights (upgraded from GPT-4o)
 3. **Research Insights Generation** - Cross-paper synthesis, gap identification
 4. **Literature Review Compass** - Structural guidance WITHOUT auto-writing (senior researcher mentorship)
 5. **RAG-Based Research Chat** - Citation-grounded conversations
 6. **Citation Network Visualization** - Interactive D3.js graphs
 7. **Research Question Generation** - AI-generated research questions
 8. **Paper Recommendations** - Semantic similarity suggestions
-9. **Advanced Search** - Full-text and semantic search
-10. **Analytics & Tracking** - Usage analytics and progress tracking
+9. **Advanced Search** - Full-text and semantic search (hybrid BM25 + vector)
+10. **Analytics & Tracking** - Usage analytics and progress tracking (MAU, DAU, activation, retention)
 11. **Quota Management** - Usage limits and cost tracking to prevent cost explosion
 
 ### ✅ Draft-Aware Intelligence (Recently Implemented)
@@ -100,7 +142,7 @@ citation_suggestions (id, draft_id, claim_id, suggested_citation_id, confidence_
 4. **One-click Citation Insertion** - Proper formatting and insertion
 5. **Duplicate Detection** - Citation consolidation and management
 
-### ✅ Export & Integration (Recently Implemented - January 2025)
+### ✅ Export & Integration (Implemented)
 1. **BibTeX Citation Export** - Generate .bib files from project documents for LaTeX/Zotero
 2. **Draft Analysis PDF Reports** - Comprehensive PDF with claims, gaps, feedback, citations
 3. **Multiple Export Formats** - JSON, Markdown, Text for different workflows
@@ -110,8 +152,20 @@ citation_suggestions (id, draft_id, claim_id, suggested_citation_id, confidence_
 1. **Draft Analysis Workflow** - Parallel claim processing with conditional routing
 2. **Document Analysis Workflow** - Structured extraction pipeline
 3. **Checkpoint System** - Resumable workflows with state persistence
-4. **Celery Integration** - Background task processing with Redis queue
-5. **Error Handling** - Graceful failure recovery and retry logic
+4. **Celery Integration** - Background task processing with Redis queue (concurrency=4)
+5. **Error Handling** - Graceful failure recovery and retry logic with exponential backoff
+
+### ✅ Growth & Monetization Features (Implemented - February/March 2026)
+1. **Paper Discovery Agent** - Auto-discover papers from PubMed, arXiv, Semantic Scholar
+2. **Hybrid Search** - Semantic + BM25 keyword search (70/30 weighting) with query expansion and reranking
+3. **Referral System** - Unique codes, tracking, stats dashboard
+4. **Stripe Integration** - Checkout, subscriptions, webhooks, usage limits
+5. **Pricing Tiers** - Free (1 draft/mo, 5 papers), Pro ($12/mo), Team ($20/user/mo, min 3)
+6. **Analytics Dashboard** - MAU, DAU, activation rate, retention cohorts, power users
+7. **Draft Comparison** - Version diff with improvement score (0-100)
+8. **User Feedback System** - 5-star ratings + categorized feedback
+9. **Embedding Cache** - Redis-backed, 7-day TTL, 40-50% API cost reduction
+10. **Retry Logic** - Exponential backoff for OpenAI + Supabase API failures
 
 ## Service Architecture
 
@@ -155,13 +209,13 @@ services/background_tasks.py    # Async task processing
 ```python
 # Core routes (working)
 api/routes/projects.py           # Project management
-api/routes/documents.py          # Document upload, analysis, BibTeX export (BibTeX endpoint added Jan 2025)
-api/routes/chat.py              # RAG chat functionality
+api/routes/documents.py          # Document upload, analysis, BibTeX export
+api/routes/chat.py              # RAG chat functionality (GPT-5.2)
 api/routes/compass.py           # Literature Review Compass guidance
 api/routes/rag.py               # RAG configuration (NOTE: User-adjustable settings to be removed)
 
 # Draft-aware routes (implemented)
-api/routes/drafts.py            # Draft management, analysis, PDF export (PDF endpoint added Jan 2025)
+api/routes/drafts.py            # Draft management, analysis, PDF export
 api/routes/citations.py         # Citation management and suggestions
 
 # Research insight routes (implemented)
@@ -169,12 +223,31 @@ api/routes/research_questions.py           # Research question generation
 api/routes/methodology_recommendations.py  # Methodology suggestions
 api/routes/paper_recommendations.py        # Paper recommendations
 
+# Growth & monetization routes (implemented - Feb/Mar 2026)
+api/routes/paper_discovery.py   # Paper discovery agent (PubMed, arXiv, Semantic Scholar)
+api/routes/feedback.py          # User feedback (5-star + text)
+api/routes/referrals.py         # Referral codes, tracking, stats
+api/routes/platform.py          # Platform stats (for landing page)
+api/routes/subscriptions.py     # Stripe checkout, subscriptions, webhooks
+api/routes/comparisons.py       # Draft version comparison
+
 # Infrastructure routes (implemented)
 api/routes/auth.py              # Authentication
-api/routes/analytics.py         # Analytics dashboard
+api/routes/analytics.py         # Analytics dashboard (MAU, DAU, activation, retention)
 api/routes/analytics_tracking.py # Usage tracking
 api/routes/search.py            # Advanced search
 api/routes/tags.py              # Project tagging
+```
+
+### New Services (Feb/Mar 2026)
+```python
+services/paper_discovery_agent.py  # PubMed, arXiv, Semantic Scholar search + download
+services/platform_stats.py         # Real-time platform statistics (researchers, drafts, universities)
+services/analytics_service.py      # MAU, DAU, activation rate, retention cohorts
+services/stripe_service.py         # Stripe checkout, subscriptions, webhooks
+services/retry_utils.py            # Exponential backoff for OpenAI + Supabase
+services/embedding_cache.py        # Redis-backed embedding cache (7-day TTL)
+services/draft_comparison.py       # Draft version diff + improvement score
 ```
 
 ### Key API Endpoints (Recent Additions - January 2025)
@@ -250,14 +323,39 @@ LOG_LEVEL=INFO
 
 ## Implementation Roadmap (See IMPLEMENTATION_ROADMAP.md)
 
-### ✅ Recently Completed (January 2025)
+### ✅ Recently Completed (February-March 2026)
 - LangGraph workflow orchestration (draft + document analysis)
-- Celery + Redis background task processing
-- BibTeX citation export
-- Draft analysis PDF reports
-- Complete export system (JSON, Markdown, Text, PDF, BibTeX)
+- Celery + Redis background task processing (concurrency=4)
+- BibTeX citation export + Draft PDF reports
+- Paper Discovery Agent (PubMed, arXiv, Semantic Scholar)
+- Hybrid search (semantic + BM25), query expansion, result reranking
+- Referral system, testimonials, platform statistics
+- Stripe integration (checkout, subscriptions, webhooks)
+- Analytics dashboard (MAU, DAU, activation, retention)
+- Draft comparison mode (side-by-side, improvement score)
+- Embedding cache (Redis, 40-50% cost reduction)
+- Retry logic with exponential backoff
+- **GPT-5.2 migration** (all files updated to `max_completion_tokens`)
+- **Document upload fixes** (race condition, multi-select, simplified modal)
 
-### ⚠️ Phase 1: Critical RAG Improvements (2-3 weeks) - CURRENT PRIORITY
+### 🚧 CURRENT PRIORITY: End-to-End Testing (March 2026)
+
+**Goal:** Validate the full user flow works after GPT-5.2 migration and upload fixes.
+
+**Testing Checklist:**
+1. [ ] Single document upload → processing → analyzing → analyzed
+2. [ ] Multi-file upload (3-5 files simultaneously)
+3. [ ] Draft upload and analysis
+4. [ ] RAG chat after document analysis
+5. [ ] Paper discovery agent
+6. [ ] Stripe checkout flow
+7. [ ] Referral code generation
+
+**Known blockers:**
+- OpenAI Tier 1 needed for parallel batch uploads (currently 3 req/min limit on free tier)
+- Rebuild containers after GPT-5.2 changes: `cd infra && docker-compose down && docker-compose up --build`
+
+### ⚠️ Phase 1: Critical RAG Improvements (Pending after testing)
 **Goal**: Fix fundamental issues with retrieval quality and document analysis depth
 
 1. **Remove User-Adjustable RAG Settings** ⚠️ CRITICAL
@@ -447,33 +545,44 @@ noesis/
 
 ## Current Status & Roadmap
 
-### ✅ Completed (Production Ready - January 2025)
+### ✅ Completed (Production Ready - March 2026)
 - Draft-aware intelligence platform transformation
 - **LangGraph workflow orchestration** (draft + document analysis with parallel processing)
-- **Celery + Redis background task processing**
-- Smart citation management system (with BibTeX export)
-- Export features (BibTeX citations + Draft PDF reports + JSON/Markdown/Text)
+- **Celery + Redis background task processing** (concurrency=4)
+- Smart citation management system (BibTeX export, multiple formats)
+- Export features (BibTeX + Draft PDF reports + JSON/Markdown/Text)
 - Literature Review Compass (structural guidance without auto-writing)
 - All core literature analysis features
 - Quota management and cost tracking
+- **Paper Discovery Agent** (PubMed, arXiv, Semantic Scholar)
+- **Hybrid search** (semantic + BM25 keyword, 70/30 weighting)
+- **Stripe integration** (Free, Pro $12/mo, Team $20/user/mo)
+- **Analytics dashboard** (MAU, DAU, activation, retention, power users)
+- **Referral system** with viral loop mechanics
+- **Draft comparison** mode (version diff + improvement score)
+- **Embedding cache** (Redis, 7-day TTL, 40-50% cost reduction)
+- **Retry logic** (exponential backoff for all external APIs)
+- **GPT-5.2 migration** (all 15 files updated to `max_completion_tokens`)
+- **Document upload improvements** (race condition fix, multi-select, simplified modal)
 - Production deployment on Vercel + Supabase + AWS
 
-### ⚠️ Known Issues (To Be Fixed in Phase 1)
-- **RAG Settings**: User-adjustable settings cause cost explosion risk → Will be removed
-- **Chunk Sizes**: Fixed 1000-token chunks too small for academic papers → Implementing adaptive sizing
-- **Document Analysis**: Too shallow for 14-page papers → Implementing depth tiers
-- **Search Quality**: Pure semantic search misses exact terms → Implementing hybrid search
+### ⚠️ Known Issues
+- **OpenAI rate limits**: Free tier = 3 req/min. Batch uploads require Tier 1 upgrade.
+- **RAG Settings**: User-adjustable settings still exposed → planned removal
+- **Chunk Sizes**: Fixed 1000-token chunks → adaptive sizing planned
+- **Search**: Hybrid search implemented in backend but not fully surfaced in UI
 
-### 🚧 Current Priority: Phase 1 Implementation (See IMPLEMENTATION_ROADMAP.md)
-**Focus**: Critical RAG improvements (remove user settings, adaptive chunking, better analysis)
-**Timeline**: 2-3 weeks
-**After Phase 1**: Move to LangGraph draft analysis transformation (Phase 2)
+### 🚧 Current Priority: End-to-End Testing (March 2026)
+**Focus**: Validate GPT-5.2 migration + document upload fixes work correctly
+**After testing**: Deploy frontend Week 2-4 features (PaperDiscoveryModal, ReferralWidget, etc.)
+**Then**: Phase 1 RAG improvements (adaptive chunking, remove user settings)
 
 ### 📋 Important Notes for Development
-- **DO NOT** make UI changes yet - Phase 1 focuses on backend improvements first
-- **REFERENCE**: IMPLEMENTATION_ROADMAP.md contains complete 3-phase plan with subtasks
-- **PRIORITY**: Remove RAG settings exposure, then fix chunking, then improve analysis depth
-- **LangGraph**: Will be implemented in Phase 2 for draft analysis ONLY (not basic RAG)
-- **Cost Control**: Quota management already implemented, adaptive chunking adds another layer
+- **GPT-5.2**: Use `max_completion_tokens` NOT `max_tokens` for all OpenAI calls
+- **Design**: Always read `DESIGN_SYSTEM.md` before any frontend work
+- **Tool workflow**: See `WORKING_STATE.md` for current state and which files are in progress
+- **Plan**: Full growth strategy in `plan/` directory (30-day, 6-month roadmaps)
+- **Goal**: 100-500 users in 30 days (see `plan/00_OVERVIEW.md`)
+- **Startup stage**: Seed-stage, targeting Georgia Tech researchers first, then university expansion
 
-This project represents a significant evolution from a basic literature review tool to a comprehensive research intelligence platform that serves serious academic researchers with expert-level feedback and analysis capabilities. The current roadmap focuses on optimization and quality before expanding features.
+This project represents a significant evolution from a basic literature review tool to a comprehensive research intelligence platform. The 30-day goal is 100-500 signups with 50+ activated users (uploaded ≥1 paper + analyzed ≥1 draft). Monetization launches in Month 3 ($5K MRR target). Seed fundraising by Month 6 ($50K MRR, 30K users).

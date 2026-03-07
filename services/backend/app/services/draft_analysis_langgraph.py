@@ -197,7 +197,7 @@ async def analyze_draft_with_langgraph(
                 claim = claim_with_citation.get("claim", {})
                 citations = claim_with_citation.get("citations", [])
                 citation_quality = claim_with_citation.get("citation_quality", "unknown")
-                gaps = claim_with_citation.get("gaps", [])
+                claim_gaps = claim_with_citation.get("gaps", [])
 
                 # Create citation suggestions for each found citation
                 for citation in citations:
@@ -236,8 +236,8 @@ async def analyze_draft_with_langgraph(
                     elif citation_quality == "weak":
                         reasoning_parts.append("Current citation support is weak.")
 
-                    if gaps:
-                        reasoning_parts.append("Gaps identified: " + "; ".join(gaps))
+                    if claim_gaps:
+                        reasoning_parts.append("Gaps identified: " + "; ".join(claim_gaps))
 
                     reasoning = " ".join(reasoning_parts) if reasoning_parts else "Citation suggestion based on literature search"
 

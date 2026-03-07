@@ -300,25 +300,24 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     const goToNextPage = () => setCurrentPage(prev => Math.min(numPages, prev + 1))
 
     return (
-      <div className="h-full flex flex-col bg-surface rounded-lg border border-border-default">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border-default bg-surface">
-          <span className="text-xs text-text-tertiary font-mono">
+      <div className="h-full flex flex-col bg-bg-surface border border-border-default rounded-lg overflow-hidden">
+        {/* Toolbar — fixed at top */}
+        <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-border-default bg-bg-elevated">
+          <span className="text-xs text-text-secondary font-mono">
             {numPages > 0 ? `Page ${currentPage} of ${numPages}` : 'Loading...'}
           </span>
-
           <div className="flex items-center gap-2">
             <button
               onClick={zoomOut}
-              className="p-1 text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded transition-colors"
+              className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors duration-fast"
               title="Zoom Out"
             >
               <MagnifyingGlassMinusIcon className="h-4 w-4" />
             </button>
-            <span className="text-xs text-text-muted font-mono">{Math.round(scale * 100)}%</span>
+            <span className="text-xs text-text-muted font-mono w-10 text-center">{Math.round(scale * 100)}%</span>
             <button
               onClick={zoomIn}
-              className="p-1 text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded transition-colors"
+              className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors duration-fast"
               title="Zoom In"
             >
               <MagnifyingGlassPlusIcon className="h-4 w-4" />
@@ -326,80 +325,74 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
           </div>
         </div>
 
-        {/* PDF Content - Single Page with Navigation */}
-        <div className="flex-1 overflow-auto bg-surface">
-          <div className="flex flex-col items-center min-h-full p-4">
-            <div className="flex-1 flex items-start justify-center w-full">
-              <Document
-                key={fileUrl}
-                file={fileConfig}
-                onLoadSuccess={onDocumentLoadSuccess}
-                onLoadError={onDocumentLoadError}
-                options={pdfOptions}
-                loading={
-                  <div className="text-center py-12">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary"></div>
-                    <p className="mt-2 text-xs text-text-tertiary">Loading PDF...</p>
-                  </div>
-                }
-                error={
-                  <div className="text-center py-12">
-                    <p className="text-error font-medium">Failed to load PDF</p>
-                    <p className="text-xs text-text-tertiary mt-2">Please try refreshing the page</p>
-                  </div>
-                }
-              >
-                <Page
-                  pageNumber={currentPage}
-                  scale={scale}
-                  renderTextLayer={true}
-                  renderAnnotationLayer={true}
-                  className="shadow-lg"
-                />
-              </Document>
-            </div>
-
-            {/* Page Navigation Arrows */}
-            {numPages > 1 && (
-              <div className="flex items-center gap-4 mt-4 pb-4">
-                <button
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg border font-medium transition-colors
-                    ${currentPage === 1
-                      ? 'border-slate-700 text-slate-600 cursor-not-allowed'
-                      : 'border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-slate-500'
-                    }
-                  `}
-                  title="Previous Page"
-                >
-                  <ChevronLeftIcon className="h-4 w-4" />
-                  <span className="text-sm">Previous</span>
-                </button>
-
-                <span className="text-sm text-slate-400 font-mono">
-                  {currentPage} / {numPages}
-                </span>
-
-                <button
-                  onClick={goToNextPage}
-                  disabled={currentPage === numPages}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg border font-medium transition-colors
-                    ${currentPage === numPages
-                      ? 'border-slate-700 text-slate-600 cursor-not-allowed'
-                      : 'border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-slate-500'
-                    }
-                  `}
-                  title="Next Page"
-                >
-                  <span className="text-sm">Next</span>
-                  <ChevronRightIcon className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+        {/* PDF page — scrollable area, one page at a time */}
+        <div className="flex-1 overflow-auto bg-bg-void">
+          <div className="flex justify-center p-6">
+            <Document
+              key={fileUrl}
+              file={fileConfig}
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
+              options={pdfOptions}
+              loading={
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary"></div>
+                  <p className="mt-2 text-xs text-text-secondary">Loading PDF...</p>
+                </div>
+              }
+              error={
+                <div className="text-center py-12">
+                  <p className="text-error font-semibold">Failed to load PDF</p>
+                  <p className="text-xs text-text-secondary mt-2">Please try refreshing the page</p>
+                </div>
+              }
+            >
+              <Page
+                pageNumber={currentPage}
+                scale={scale}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                className="shadow-xl"
+              />
+            </Document>
           </div>
+        </div>
+
+        {/* Page navigation — fixed at bottom, always visible */}
+        <div className="shrink-0 flex items-center justify-center gap-3 py-3 border-t border-border-default bg-bg-elevated">
+          <button
+            onClick={goToPreviousPage}
+            disabled={currentPage === 1}
+            className={`
+              flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-semibold transition-all duration-fast
+              ${currentPage === 1
+                ? 'border-border-default text-text-muted cursor-not-allowed opacity-40'
+                : 'border-border-default text-text-primary hover:bg-bg-hover hover:border-border-subtle'
+              }
+            `}
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+            Previous
+          </button>
+
+          <span className="text-sm text-text-secondary font-mono tabular-nums">
+            {currentPage} / {numPages || '—'}
+          </span>
+
+          <button
+            onClick={goToNextPage}
+            disabled={currentPage === numPages}
+            className={`
+              flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-semibold transition-all duration-fast
+              ${currentPage === numPages
+                ? 'border-border-default text-text-muted cursor-not-allowed opacity-40'
+                : 'border-border-default text-text-primary hover:bg-bg-hover hover:border-border-subtle'
+              }
+            `}
+          >
+            Next
+            <ChevronRightIcon className="h-4 w-4" />
+          </button>
         </div>
       </div>
     )

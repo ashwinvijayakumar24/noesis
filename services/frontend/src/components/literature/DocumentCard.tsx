@@ -20,6 +20,7 @@ const getStatusBadge = (status: string): { variant: BadgeVariant; label: string;
   switch (statusLower) {
     case 'processing':
     case 'uploaded':
+    case 'ready':  // Backend intermediate state - treat as processing
       return { variant: 'warning', label: 'Processing', animate: true }
     case 'analyzing':
       return { variant: 'warning', label: 'Analyzing', animate: true }
@@ -40,10 +41,9 @@ const getIconColor = (status: string): string => {
       return 'text-error'
     case 'processing':
     case 'uploaded':
+    case 'ready':  // Backend intermediate state - treat as processing
     case 'analyzing':
       return 'text-warning'
-    case 'ready':
-      return 'text-text-muted'
     case 'analyzed':
       return 'text-success'
     default:
@@ -59,10 +59,9 @@ const getBorderColor = (status: string): string => {
       return 'border-error/60 group-hover:border-error'
     case 'processing':
     case 'uploaded':
+    case 'ready':  // Backend intermediate state - treat as processing
     case 'analyzing':
       return 'border-warning/60 group-hover:border-warning'
-    case 'ready':
-      return 'border-border-default'
     case 'analyzed':
       return 'border-success/60 group-hover:border-success'
     default:

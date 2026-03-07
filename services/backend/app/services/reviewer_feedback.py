@@ -43,15 +43,19 @@ Return this exact structure:
 {
   "feedback_items": [
     {
-      "feedback_type": "positioning|argumentation|coverage|methodology",
+      "feedback_type": "positioning|argumentation|coverage|methodology|evidence|clarity|logic",
       "severity": "critical|major|minor|suggestion",
       "section_reference": "Which section this applies to",
+      "line_reference": "Specific line number or paragraph location (e.g., 'Line 45-47', 'Paragraph 3', 'Introduction, para 2')",
       "feedback_text": "Detailed critique in academic reviewer style",
+      "specific_issue": "The exact problem identified (e.g., 'Unsupported claim', 'Missing citation', 'Weak methodology justification')",
       "suggested_improvements": [
-        "Specific actionable suggestion 1",
-        "Specific actionable suggestion 2"
+        "Concrete, actionable suggestion 1 with specific guidance",
+        "Concrete, actionable suggestion 2 with specific guidance",
+        "Concrete, actionable suggestion 3 with specific guidance"
       ],
-      "reasoning": "Why this matters for the work"
+      "example_fix": "Brief example of how to address this (NOT a rewrite, but a directional example)",
+      "reasoning": "Why this matters for the work and potential reviewer concerns"
     }
   ]
 }
@@ -84,23 +88,107 @@ Severity Levels:
 - **suggestion**: Optional consideration (ideas for enhancement)
 
 Guidelines for Feedback:
-1. **Be specific**: Point to exact issues, not vague concerns
-2. **Be constructive**: Suggest HOW to improve, not just WHAT is wrong
+1. **Be ultra-specific**: Include exact line numbers, paragraph locations, or section markers
+2. **Be constructive**: Provide 2-4 concrete, actionable suggestions per issue
 3. **Be academic**: Use scholarly tone appropriate for peer review
 4. **NO rewriting**: Never provide rewritten text. Only describe what to change
 5. **Focus on substance**: Critique ideas, arguments, and positioning
-6. **Prioritize**: Mark critical issues clearly
+6. **Prioritize**: Mark critical issues clearly with severity levels
 7. **Be fair**: Acknowledge strengths alongside weaknesses
+8. **Provide context**: Explain why each issue matters for peer review acceptance
+9. **Give examples**: Provide brief directional examples (not rewrites) where helpful
 
-Examples of GOOD feedback:
-- "The introduction positions this work as 'novel' but doesn't clearly distinguish it from Smith et al. (2020). Clarify what specifically is new beyond their approach."
-- "The claim in lines 45-47 lacks empirical support. Consider adding citations or data to strengthen this assertion."
-- "The methodology section jumps from data collection to results without explaining the analysis procedure. Add a subsection detailing analytical steps."
+Examples of EXCELLENT feedback:
+
+**Example 1: Unsupported Claim (Critical)**
+```json
+{
+  "feedback_type": "evidence",
+  "severity": "critical",
+  "section_reference": "Results",
+  "line_reference": "Paragraph 2, lines 45-47",
+  "feedback_text": "The claim that 'our model outperforms all existing approaches' lacks empirical support. No baseline comparisons, metrics, or statistical significance tests are provided.",
+  "specific_issue": "Unsupported comparative claim without quantitative evidence",
+  "suggested_improvements": [
+    "Add a comparison table showing your model vs. 3-5 recent baselines (SOTA methods from 2022-2024)",
+    "Include standard metrics (accuracy, F1, precision/recall) with confidence intervals or standard deviations",
+    "Report statistical significance tests (t-test, Wilcoxon) with p-values < 0.05",
+    "Cite the baseline methods being compared against"
+  ],
+  "example_fix": "For instance, you could add: 'Our model achieved 95.2% accuracy (±1.1%), significantly outperforming BERT (92.3%, p<0.01) and GPT-3 (93.1%, p<0.05) on the test set.'",
+  "reasoning": "Reviewers will reject claims of superiority without rigorous empirical validation. Comparative claims are the most scrutinized in peer review."
+}
+```
+
+**Example 2: Positioning Issue (Major)**
+```json
+{
+  "feedback_type": "positioning",
+  "severity": "major",
+  "section_reference": "Introduction",
+  "line_reference": "Paragraph 1",
+  "feedback_text": "The introduction does not clearly articulate the research gap this work addresses. It jumps directly from describing the general problem to proposing your solution.",
+  "specific_issue": "Missing explicit gap identification and novelty statement",
+  "suggested_improvements": [
+    "Add a paragraph explicitly stating what prior work has NOT done",
+    "Use transition phrases like 'However, existing approaches fail to...', 'Despite progress, a key limitation remains...'",
+    "Clearly state your specific contribution that fills this gap",
+    "Position your work relative to 2-3 most related recent papers (2023-2024)"
+  ],
+  "example_fix": "For example: 'While Smith et al. (2023) addressed X and Jones et al. (2024) improved Y, neither approach handles Z due to [limitation]. Our work is the first to...'",
+  "reasoning": "Reviewers need to immediately understand the gap and your unique contribution. Without this, they may question the novelty and significance of your work."
+}
+```
+
+**Example 3: Methodology Gap (Major)**
+```json
+{
+  "feedback_type": "methodology",
+  "severity": "major",
+  "section_reference": "Methods",
+  "line_reference": "Section 3.2, after data collection description",
+  "feedback_text": "The methodology section describes data collection but provides no detail on the analysis procedure. Reviewers cannot assess rigor or reproduce your work.",
+  "specific_issue": "Missing analytical pipeline and reproducibility details",
+  "suggested_improvements": [
+    "Add a subsection (3.3 Analytical Procedure) detailing step-by-step analysis",
+    "Specify preprocessing steps (cleaning, normalization, feature extraction)",
+    "Describe model architecture, hyperparameters, and training procedure",
+    "Include validation strategy (cross-validation, train-test split ratios)",
+    "Mention tools/libraries used (scikit-learn 1.2.0, PyTorch 2.0, etc.)"
+  ],
+  "example_fix": "Add a flow diagram: Data Collection → Preprocessing (remove outliers, normalize) → Feature Extraction (TF-IDF) → Model Training (5-fold CV) → Evaluation (accuracy, F1)",
+  "reasoning": "Methodological transparency is essential for peer review. Reviewers need to assess whether your approach is sound and whether results are reproducible."
+}
+```
+
+**Example 4: Literature Coverage (Minor)**
+```json
+{
+  "feedback_type": "coverage",
+  "severity": "minor",
+  "section_reference": "Related Work",
+  "line_reference": "Section 2, paragraph 3",
+  "feedback_text": "The related work discusses transformer-based approaches but omits recent state-of-the-art models from 2024 (e.g., LLaMA 3, Claude 3, Gemini 1.5).",
+  "specific_issue": "Incomplete literature coverage - missing recent SOTA models",
+  "suggested_improvements": [
+    "Add a paragraph on 2024 large language models and their relevant contributions",
+    "Compare your approach to these recent models (even if just conceptually)",
+    "Explain why your approach differs from or improves upon these baselines",
+    "Cite 3-5 key papers from 2024 in your domain"
+  ],
+  "example_fix": "For instance: 'Recent models like LLaMA 3 (Meta, 2024) and Claude 3 (Anthropic, 2024) have shown X, but our approach uniquely addresses Y by...'",
+  "reasoning": "Reviewers expect awareness of cutting-edge work. Missing recent papers suggests the work may be outdated or the authors are not engaged with the latest research."
+}
+```
 
 Examples of BAD feedback (NEVER do this):
 - "Rewrite the introduction as: [new text]" ❌ (This is rewriting)
-- "Change this sentence to..." ❌ (This is rewriting)
-- "The paper is bad" ❌ (Too vague, not constructive)
+- "Change this sentence to: [exact new sentence]" ❌ (This is rewriting)
+- "The paper is bad" ❌ (Too vague, not constructive, no specifics)
+- "Fix the methodology" ❌ (No line reference, no concrete suggestions)
+- "This needs improvement" ❌ (Generic, not actionable)
+
+Remember: Your feedback should feel like it came from a senior researcher who carefully read the paper and wants to help improve it for publication.
 """
 
 
@@ -169,6 +257,44 @@ def map_severity_to_priority(severity: str) -> str:
 # Feedback Generation Functions
 # ============================================
 
+def _extract_section_text(section_title: str, grobid_sections: list, draft_text: str) -> str:
+    """
+    Extract actual text for a section.
+
+    Tries in order:
+    1. GROBID section content (most accurate, available for PDFs)
+    2. Position-based extraction using heading regex
+    3. Fallback to a portion of the full text near the heading
+    """
+    # 1. GROBID section content
+    if grobid_sections:
+        for gs in grobid_sections:
+            if gs.get("title", "").strip().lower() == section_title.strip().lower():
+                content = gs.get("content", "")
+                if content:
+                    return content[:4000]
+
+    # 2. Position-based extraction: find heading, take text until next heading
+    heading_pattern = re.compile(
+        r'(?:^|\n)(' + re.escape(section_title) + r')\s*\n(.*?)(?=\n[A-Z][^\n]{3,60}\n|\Z)',
+        re.IGNORECASE | re.DOTALL
+    )
+    match = heading_pattern.search(draft_text)
+    if match:
+        return match.group(2)[:4000]
+
+    # 3. Find heading position and grab following text
+    title_lower = section_title.lower()
+    text_lower = draft_text.lower()
+    pos = text_lower.find(title_lower)
+    if pos >= 0:
+        start = pos + len(section_title)
+        return draft_text[start:start + 4000]
+
+    # 4. Last resort: return first 2000 chars (same as before, better than nothing)
+    return draft_text[:2000]
+
+
 async def generate_section_feedback(
     section_text: str,
     section_name: str,
@@ -221,8 +347,9 @@ async def generate_section_feedback(
             if gaps_in_section:
                 context_str += f"\nIdentified gaps related to this section: {len(gaps_in_section)}"
 
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": REVIEWER_FEEDBACK_PROMPT},
                 {
@@ -230,9 +357,7 @@ async def generate_section_feedback(
                     "content": f"{context_str}\n\nProvide reviewer feedback for this section:\n\n{analysis_text}"
                 }
             ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=2000,
+            max_completion_tokens=2000,
             **get_completion_params()  # Enable zero data retention
         )
 
@@ -285,8 +410,9 @@ async def analyze_positioning(
         # Focus on introduction and abstract for positioning
         intro_text = draft_text[:6000]  # First 6000 chars typically capture intro
 
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": POSITIONING_ANALYSIS_PROMPT},
                 {
@@ -294,9 +420,7 @@ async def analyze_positioning(
                     "content": f"Analyze the positioning of this research draft:\n\n{intro_text}"
                 }
             ],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-            max_tokens=1500,
+            max_completion_tokens=1500,
             **get_completion_params()  # Enable zero data retention
         )
 
@@ -687,13 +811,15 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
         all_feedback = []
         sections = structure.get("sections", [])
 
-        for section in sections[:5]:  # Limit to first 5 sections for token economy
+        for section in sections:  # Process all sections
             section_title = section.get("title", "Unknown")
             section_type = section.get("type", "other")
 
-            # Extract section text (simplified - would use proper extraction in production)
+            # Extract actual section content: prefer GROBID content, fallback to position-based slicing
+            section_text = _extract_section_text(section_title, grobid_sections, draft_text)
+
             section_feedback = await generate_section_feedback(
-                draft_text[:2000],  # Simplified
+                section_text,
                 section_title,
                 section_type,
                 draft_context
@@ -813,9 +939,14 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
                 "feedback_type": feedback.get("feedback_type", "argumentation"),
                 "feedback_text": feedback.get("feedback_text", ""),
                 "severity": severity,
-                "priority": priority,  # NEW: Priority mapping (high/medium/low)
+                "priority": priority,  # Priority mapping (high/medium/low)
                 "section_reference": section_ref,
                 "suggestions": feedback.get("suggested_improvements", []),
+                # NEW: Enhanced feedback fields
+                "line_reference": feedback.get("line_reference"),  # Specific line/para reference
+                "specific_issue": feedback.get("specific_issue"),  # Exact problem identified
+                "example_fix": feedback.get("example_fix"),  # Directional example
+                "reasoning": feedback.get("reasoning"),  # Why this matters
                 # EXISTING: Line positioning fields
                 "line_number": line_number,
                 "char_start": char_start,

@@ -387,7 +387,7 @@ def _run_analysis_task(document_id: str, file_url: str):
         print(f"[ANALYZE-BG-LG] Step 4a: Running traditional GPT-4o analysis for narrative quality...")
         from app.services.document_analysis import analyze_paper_text, validate_analysis
 
-        comprehensive_analysis = analyze_paper_text(paper_text, page_count=page_count, model="gpt-4o")
+        comprehensive_analysis = analyze_paper_text(paper_text, page_count=page_count, model="gpt-5.2-chat-latest")
         validate_analysis(comprehensive_analysis)
         print(f"[ANALYZE-BG-LG] ✓ Traditional analysis complete (high-quality narrative)")
 
@@ -480,7 +480,7 @@ def _run_analysis_task(document_id: str, file_url: str):
             # Generate embeddings for all claims
             claim_texts = [c["claim_text"] for c in claims]
             embeddings_response = client.embeddings.create(
-                model="text-embedding-3-small",
+                model="text-embedding-3-large",
                 input=claim_texts,
                 dimensions=1536
             )
@@ -562,7 +562,7 @@ def _run_analysis_task(document_id: str, file_url: str):
                 asyncio.run(track_openai_usage(
                     user_id=user_id,
                     operation_type="document_analysis",
-                    model=metadata.get("model", "gpt-4o"),
+                    model=metadata.get("model", "gpt-5.2-chat-latest"),
                     prompt_tokens=metadata["prompt_tokens"],
                     completion_tokens=metadata["completion_tokens"],
                     project_id=project_id,
@@ -672,6 +672,9 @@ def _run_analysis_task(document_id: str, file_url: str):
                 "error_type": type(e).__name__
             }
         }).eq("id", document_id).execute()
+
+        # CRITICAL: Re-raise the exception so Celery knows the task failed and can retry
+        raise
 
 
 @router.post("/{document_id}/analyze")
