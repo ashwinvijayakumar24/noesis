@@ -17,21 +17,21 @@ interface PriorityGroupProps {
 // Priority configuration for group headers
 const PRIORITY_HEADER_CONFIG = {
   high: {
-    bg: 'bg-red-950',
-    border: 'border-red-900',
-    text: 'text-red-300',
+    bg: 'bg-error/5',
+    border: 'border-error/20',
+    text: 'text-error',
     label: 'High Priority'
   },
   medium: {
-    bg: 'bg-amber-950',
-    border: 'border-amber-900',
-    text: 'text-amber-300',
+    bg: 'bg-warning/5',
+    border: 'border-warning/20',
+    text: 'text-warning',
     label: 'Medium Priority'
   },
   low: {
-    bg: 'bg-blue-950',
-    border: 'border-blue-900',
-    text: 'text-blue-300',
+    bg: 'bg-bg-elevated',
+    border: 'border-border-default',
+    text: 'text-text-secondary',
     label: 'Low Priority'
   }
 }
@@ -103,15 +103,15 @@ export default function PriorityGroup({
             {/* Count Badge */}
             <span className={`
               px-2 py-0.5 rounded-full text-xs font-semibold
-              bg-slate-900 ${config.text} border ${config.border}
+              bg-bg-void ${config.text} border ${config.border}
             `}>
               {items.length} {items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
 
           {/* Collapse hint */}
-          <span className="text-xs text-slate-500">
-            {isCollapsed ? 'Click to expand' : 'Click to collapse'}
+          <span className="text-xs text-text-muted">
+            {isCollapsed ? 'Expand' : 'Collapse'}
           </span>
         </button>
 

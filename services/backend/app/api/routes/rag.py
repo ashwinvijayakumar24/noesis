@@ -184,7 +184,7 @@ async def retrieve_endpoint(
 async def rag_query_endpoint(
     project_id: str,
     query: str,
-    model: Optional[str] = "gpt-4o",
+    model: Optional[str] = "gpt-5.2-chat-latest",
     max_chunks: Optional[int] = 5,
     user_id: str = Depends(get_current_user)
 ):

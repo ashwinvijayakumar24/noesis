@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { NoesisLogo } from '../components/ui/NoesisLogo'
 import {
   ShieldCheckIcon,
   LockClosedIcon,
@@ -441,11 +442,8 @@ export default function PrivacyPolicy() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-bg-base/80 backdrop-blur-sm border-b border-border-base">
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center gap-3">
-              <img src="/noesis.png" alt="Noesis" className="h-8" />
-              <span className="text-lg font-serif font-semibold text-text-primary">
-                Noesis
-              </span>
+            <Link to="/" className="flex items-center">
+              <NoesisLogo size="md" />
             </Link>
             <Link
               to="/"
@@ -614,11 +612,8 @@ export default function PrivacyPolicy() {
       <footer className="py-12 px-6 sm:px-8 border-t border-border-base">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-3">
-              <img src="/noesis.png" alt="Noesis" className="h-8" />
-              <span className="text-lg font-serif font-semibold text-text-primary">
-                Noesis
-              </span>
+            <div className="flex items-center">
+              <NoesisLogo size="md" />
             </div>
             <div className="text-text-muted text-sm font-mono">
               © 2026 Noesis. All rights reserved.

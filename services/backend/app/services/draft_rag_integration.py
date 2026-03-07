@@ -85,12 +85,12 @@ async def ingest_draft_for_rag(draft_id: str, project_id: str) -> Dict[str, Any]
 
         chunk_size = rag_settings.get("chunk_size", 500)
         chunk_overlap = rag_settings.get("chunk_overlap", 100)
-        embedding_model = rag_settings.get("embedding_model", "text-embedding-3-small")
+        embedding_model = rag_settings.get("embedding_model", "text-embedding-3-large")
 
         logger.info(f"Using RAG settings - chunk_size: {chunk_size}, overlap: {chunk_overlap}, model: {embedding_model}")
 
         # 5. Chunk the draft text
-        chunks = chunk_text(draft_text, max_tokens=chunk_size, overlap_tokens=chunk_overlap)
+        chunks = chunk_text(draft_text, max_completion_tokens=chunk_size, overlap_tokens=chunk_overlap)
 
         if not chunks:
             raise ValueError("Draft chunking produced no chunks")
@@ -241,7 +241,7 @@ def search_project_content(
         # Fetch project RAG settings for model
         project_record = supabase.table("projects").select("rag_settings").eq("id", project_id).single().execute()
         rag_settings = project_record.data.get("rag_settings", {}) if project_record.data else {}
-        embedding_model = rag_settings.get("embedding_model", "text-embedding-3-small")
+        embedding_model = rag_settings.get("embedding_model", "text-embedding-3-large")
 
         query_embedding = embed_query(query, model=embedding_model)
 
@@ -269,8 +269,11 @@ def search_project_content(
                 "match_project_content",
                 {
                     "query_embedding": query_embedding,
-                    "p_project_id": project_id,
-                    "match_count": limit
+                    "filter_project_id": project_id,
+                    "match_count": limit,
+                    "match_threshold": 0.0,
+                    "include_drafts": True,
+                    "filter_draft_id": None
                 }
             ).execute()
 

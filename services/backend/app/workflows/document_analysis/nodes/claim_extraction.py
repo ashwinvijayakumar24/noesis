@@ -106,9 +106,10 @@ def extract_claims_node(state: DocumentAnalysisState) -> DocumentAnalysisState:
         logger.info(f"[DOC-CLAIMS] Analyzing {len(analysis_text)} characters for {target_claims} claims")
 
         # Call GPT-4o to extract claims
-        logger.info(f"[DOC-CLAIMS] Calling GPT-4o for claim extraction...")
+        logger.info(f"[DOC-CLAIMS] Calling GPT-5.2 for claim extraction...")
+        # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": CLAIM_EXTRACTION_PROMPT},
                 {
@@ -116,9 +117,7 @@ def extract_claims_node(state: DocumentAnalysisState) -> DocumentAnalysisState:
                     "content": f"Extract {target_claims} claims from this document:\n\nTitle: {structure.get('title', 'Unknown')}\n\n{analysis_text}"
                 }
             ],
-            response_format={"type": "json_object"},
-            temperature=0.4,
-            max_tokens=3000,
+            max_completion_tokens=3000,
             **get_completion_params()  # Enable zero data retention
         )
 

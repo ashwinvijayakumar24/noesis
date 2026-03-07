@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { NoesisLogo } from '../components/ui/NoesisLogo'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -47,9 +48,8 @@ export default function ConfirmEmail() {
       <div className="max-w-md w-full">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-3 mb-4">
-            <img src="/noesis.png" alt="Noesis" className="h-12" />
-            <span className="text-2xl font-serif font-semibold text-text-primary">Noesis</span>
+          <Link to="/" className="inline-flex items-center mb-4">
+            <NoesisLogo size="lg" />
           </Link>
           <p className="text-text-muted text-sm font-mono">AI-powered research workspace</p>
         </div>

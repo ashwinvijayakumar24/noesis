@@ -57,7 +57,7 @@ async def find_supporting_claims(
 
         # Generate embedding for the draft claim
         embedding_response = client.embeddings.create(
-            model="text-embedding-3-small",
+            model="text-embedding-3-large",
             input=[draft_claim_text],
             dimensions=1536
         )

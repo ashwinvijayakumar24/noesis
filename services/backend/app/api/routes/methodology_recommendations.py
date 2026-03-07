@@ -143,7 +143,7 @@ def generate_methodology_recommendations(
             "user_id": user_id,
             "question": question_text,
             "recommendations": recommendations,
-            "model": "gpt-4o"
+            "model": "gpt-5.2-chat-latest"
         }
 
         if research_question_id:

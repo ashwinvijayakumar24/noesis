@@ -39,7 +39,7 @@ def add_transparency_metadata(
     Args:
         analysis_result: The analysis result to enrich
         analysis_type: Type of analysis (e.g., "claim_extraction", "coverage_analysis")
-        model_used: AI model used for analysis (e.g., "gpt-4o")
+        model_used: AI model used for analysis (e.g., "gpt-5.2-chat-latest")
         input_sources: List of sources used in analysis
         reasoning: Optional explanation of analysis approach
 

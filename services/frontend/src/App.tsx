@@ -6,14 +6,18 @@ import ErrorBoundary from './components/ErrorBoundary'
 
 // Lazy load page components for code splitting
 const Landing = lazy(() => import('./pages/Landing'))
+const Demo = lazy(() => import('./pages/Demo'))
 const Login = lazy(() => import('./pages/Login'))
 const SignUp = lazy(() => import('./pages/SignUp'))
 const ConfirmEmail = lazy(() => import('./pages/ConfirmEmail'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
+const Pricing = lazy(() => import('./pages/Pricing'))
+const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'))
 const Projects = lazy(() => import('./pages/Projects'))
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
 const DraftAnalysis = lazy(() => import('./pages/DraftAnalysis'))
+const DraftComparison = lazy(() => import('./pages/DraftComparison'))
 const DocumentAnalysis = lazy(() => import('./pages/DocumentAnalysis'))
 
 // Loading fallback component
@@ -62,6 +66,8 @@ function App() {
           <Routes>
           {/* Public routes */}
           <Route path="/" element={<Landing />} />
+          <Route path="/demo" element={<Demo />} />
+          <Route path="/pricing" element={<Pricing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/auth/confirm" element={<ConfirmEmail />} />
@@ -94,10 +100,26 @@ function App() {
           }
         />
         <Route
+          path="/projects/:projectId/compare/:draftV1Id/:draftV2Id"
+          element={
+            <ProtectedRoute>
+              <DraftComparison />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/projects/:projectId/documents/:documentId"
           element={
             <ProtectedRoute>
               <DocumentAnalysis />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <ProtectedRoute>
+              <AnalyticsDashboard />
             </ProtectedRoute>
           }
         />

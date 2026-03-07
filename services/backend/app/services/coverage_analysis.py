@@ -77,6 +77,192 @@ Guidelines:
 
 
 # ============================================
+# Semantic Similarity Utilities
+# ============================================
+
+async def compute_claim_literature_similarity(
+    claim_text: str,
+    project_id: str,
+    top_k: int = 5
+) -> List[Dict[str, Any]]:
+    """
+    Compute semantic similarity between a claim and project literature.
+
+    Uses embedding cosine similarity to find the most relevant literature
+    chunks that support or relate to this claim.
+
+    Args:
+        claim_text: The claim text to analyze
+        project_id: Project identifier
+        top_k: Number of top similar chunks to return
+
+    Returns:
+        List of literature chunks with similarity scores
+    """
+    try:
+        from app.services.rag_ingest import embed_chunks
+
+        # Generate embedding for claim
+        embeddings = embed_chunks([claim_text])
+        if not embeddings or len(embeddings) == 0:
+            logger.warning(f"Failed to generate embedding for claim")
+            return []
+
+        claim_embedding = embeddings[0].embedding
+
+        # Search for similar chunks in literature
+        search_results = supabase.rpc(
+            "match_document_chunks",
+            {
+                "query_embedding": claim_embedding,
+                "proj_id": project_id,
+                "match_count": top_k
+            }
+        ).execute()
+
+        if not search_results.data:
+            return []
+
+        # Format results with similarity scores
+        similar_chunks = []
+        for result in search_results.data:
+            similar_chunks.append({
+                "document_id": result.get("document_id"),
+                "chunk_content": result.get("content"),
+                "similarity_score": float(result.get("similarity", 0)),
+                "metadata": result.get("metadata", {})
+            })
+
+        return similar_chunks
+
+    except Exception as e:
+        logger.error(f"Similarity computation failed: {e}")
+        return []
+
+
+def categorize_citation_strength(
+    similarity_score: float,
+    citation_count: int,
+    claim_importance: float
+) -> str:
+    """
+    Categorize the strength of citation support for a claim.
+
+    Args:
+        similarity_score: Semantic similarity to literature (0.0 to 1.0)
+        citation_count: Number of existing citations
+        claim_importance: Importance score of the claim (0.0 to 1.0)
+
+    Returns:
+        Strength category: "strong", "moderate", "weak", "missing"
+    """
+    # High-importance claims need stronger evidence
+    if claim_importance > 0.7:
+        required_citations = 2
+        required_similarity = 0.7
+    elif claim_importance > 0.4:
+        required_citations = 1
+        required_similarity = 0.6
+    else:
+        required_citations = 1
+        required_similarity = 0.5
+
+    # Strong: Has citations AND high similarity to literature
+    if citation_count >= required_citations and similarity_score >= required_similarity:
+        return "strong"
+
+    # Moderate: Has some citations OR moderate similarity
+    elif citation_count >= 1 or similarity_score >= 0.6:
+        return "moderate"
+
+    # Weak: Limited support
+    elif citation_count > 0 or similarity_score >= 0.4:
+        return "weak"
+
+    # Missing: No meaningful support
+    else:
+        return "missing"
+
+
+async def enhance_claims_with_literature_mapping(
+    claims: List[Dict[str, Any]],
+    project_id: str
+) -> List[Dict[str, Any]]:
+    """
+    Enhance claims with semantic similarity to literature and citation strength.
+
+    For each claim:
+    1. Compute semantic similarity to project literature
+    2. Identify most relevant supporting literature
+    3. Assess citation strength (strong/moderate/weak/missing)
+    4. Flag unsupported claims
+
+    Args:
+        claims: List of extracted claims
+        project_id: Project identifier
+
+    Returns:
+        Enhanced claims with literature mapping and citation strength
+    """
+    try:
+        logger.info(f"Enhancing {len(claims)} claims with literature mapping")
+
+        for claim in claims:
+            claim_text = claim.get("claim_text", "")
+            importance = claim.get("importance_score", 0.5)
+            citation_count = len(claim.get("existing_citations", []))
+            requires_citation = claim.get("requires_citation", True)
+
+            if not claim_text or not requires_citation:
+                # Skip if no text or doesn't require citation
+                claim["citation_strength"] = "original_contribution"
+                claim["supporting_literature"] = []
+                claim["max_similarity"] = 0.0
+                claim["unsupported"] = False
+                continue
+
+            # Find similar literature
+            similar_chunks = await compute_claim_literature_similarity(
+                claim_text,
+                project_id,
+                top_k=5
+            )
+
+            # Get maximum similarity score
+            max_similarity = max(
+                [chunk["similarity_score"] for chunk in similar_chunks],
+                default=0.0
+            )
+
+            # Categorize citation strength
+            citation_strength = categorize_citation_strength(
+                max_similarity,
+                citation_count,
+                importance
+            )
+
+            # Flag as unsupported if missing or weak
+            unsupported = citation_strength in ["missing", "weak"] and importance > 0.5
+
+            # Add to claim
+            claim["citation_strength"] = citation_strength
+            claim["supporting_literature"] = similar_chunks
+            claim["max_similarity"] = max_similarity
+            claim["unsupported"] = unsupported
+
+        # Count unsupported claims
+        unsupported_count = sum(1 for c in claims if c.get("unsupported", False))
+        if unsupported_count > 0:
+            logger.warning(f"Found {unsupported_count} unsupported claims")
+
+        return claims
+
+    except Exception as e:
+        logger.error(f"Literature mapping enhancement failed: {e}")
+        return claims
+
+
+# ============================================
 # Coverage Gap Detection
 # ============================================
 
@@ -160,7 +346,10 @@ async def analyze_literature_coverage(
 
 async def detect_coverage_gaps(draft_text: str) -> Dict[str, Any]:
     """
-    Use AI to detect coverage gaps in draft.
+    Use AI to detect coverage gaps in draft using 3-window parallel analysis.
+
+    Runs 3 concurrent GPT calls covering intro, methods, and discussion/conclusion
+    sections so no part of the paper is missed. Results are merged and deduplicated.
 
     Args:
         draft_text: Full text of research draft
@@ -173,40 +362,96 @@ async def detect_coverage_gaps(draft_text: str) -> Dict[str, Any]:
     if not client:
         raise ValueError("OpenAI API key not configured")
 
+    import asyncio
     start_time = time.time()
 
     try:
-        logger.info(f"Detecting coverage gaps (text length: {len(draft_text)} chars)")
+        text_len = len(draft_text)
+        window_size = 8000
 
-        # Analyze first 8000 characters (captures most important content)
-        analysis_text = draft_text[:8000]
+        logger.info(f"Detecting coverage gaps with 3-window analysis (text length: {text_len} chars)")
 
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": COVERAGE_ANALYSIS_PROMPT},
-                {
-                    "role": "user",
-                    "content": f"Analyze this research draft for literature coverage gaps:\n\n{analysis_text}"
-                }
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=2000,
-            **get_completion_params()  # Enable zero data retention
+        # Build 3 windows: intro, methods, discussion/conclusion
+        windows = [("introduction/abstract", draft_text[:window_size])]
+
+        if text_len > window_size:
+            mid_start = max(0, text_len // 2 - window_size // 2)
+            windows.append(("methods/results", draft_text[mid_start:mid_start + window_size]))
+
+        if text_len > window_size * 2:
+            end_start = max(0, text_len - window_size)
+            windows.append(("discussion/conclusion", draft_text[end_start:]))
+
+        async def analyze_window(window_label: str, window_text: str) -> Dict[str, Any]:
+            def _sync_call():
+                response = client.chat.completions.create(
+                    model="gpt-5.2-chat-latest",
+                    messages=[
+                        {"role": "system", "content": COVERAGE_ANALYSIS_PROMPT},
+                        {
+                            "role": "user",
+                            "content": f"Analyze the {window_label} section of this research draft for literature coverage gaps:\n\n{window_text}"
+                        }
+                    ],
+                    max_completion_tokens=2000,
+                    **get_completion_params()
+                )
+                return json.loads(response.choices[0].message.content)
+
+            return await asyncio.to_thread(_sync_call)
+
+        # Run all windows in parallel
+        results = await asyncio.gather(
+            *[analyze_window(label, text) for label, text in windows],
+            return_exceptions=True
         )
 
-        coverage_json = response.choices[0].message.content
-        coverage_analysis = json.loads(coverage_json)
+        # Merge and deduplicate results
+        all_research_areas: list = []
+        all_gaps: list = []
+        all_approaches: list = []
+        all_missing_approaches: list = []
+        all_framework_gaps: list = []
+        seen_gap_keys: set = set()
+        seen_area_keys: set = set()
+
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.warning(f"Window {i} analysis failed: {result}")
+                continue
+
+            for area in result.get("research_areas", []):
+                area_key = area.get("area", "")[:50].lower().strip()
+                if area_key and area_key not in seen_area_keys:
+                    seen_area_keys.add(area_key)
+                    all_research_areas.append(area)
+
+            for gap in result.get("identified_gaps", []):
+                gap_key = gap.get("description", "")[:80].lower().strip()
+                if gap_key and gap_key not in seen_gap_keys:
+                    seen_gap_keys.add(gap_key)
+                    all_gaps.append(gap)
+
+            methodological = result.get("methodological_assessment", {})
+            all_approaches.extend(methodological.get("approaches_covered", []))
+            all_missing_approaches.extend(methodological.get("missing_approaches", []))
+            all_framework_gaps.extend(methodological.get("framework_gaps", []))
 
         processing_time = time.time() - start_time
-        logger.info(f"Coverage gap detection completed in {processing_time:.2f}s")
+        logger.info(
+            f"3-window coverage gap detection completed in {processing_time:.2f}s "
+            f"({len(windows)} windows, {len(all_gaps)} unique gaps)"
+        )
 
-        return coverage_analysis
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse coverage analysis JSON: {e}")
-        raise Exception(f"Coverage analysis returned invalid JSON: {e}")
+        return {
+            "research_areas": all_research_areas[:10],
+            "identified_gaps": all_gaps[:15],
+            "methodological_assessment": {
+                "approaches_covered": list(dict.fromkeys(all_approaches))[:10],
+                "missing_approaches": list(dict.fromkeys(all_missing_approaches))[:10],
+                "framework_gaps": list(dict.fromkeys(all_framework_gaps))[:10]
+            }
+        }
 
     except Exception as e:
         logger.error(f"Coverage gap detection failed: {e}")

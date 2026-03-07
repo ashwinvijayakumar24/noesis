@@ -404,7 +404,7 @@ def generate_compass_guidance(
     - Synthesis questions
     - Positioning prompts
 
-    Uses ONLY existing insights data. No GPT-4o calls needed.
+    Uses ONLY existing insights data. No GPT-5.2 calls needed.
 
     Args:
         insights: Project insights analysis data

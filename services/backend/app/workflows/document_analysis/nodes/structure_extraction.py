@@ -85,17 +85,16 @@ def extract_structure_node(state: DocumentAnalysisState) -> DocumentAnalysisStat
         # Use first 8000 characters for structure analysis (to stay within token limits)
         analysis_text = document_text[:8000]
 
-        # Call GPT-4o to extract structure
-        logger.info(f"[DOC-STRUCTURE] Calling GPT-4o for structure extraction...")
+        # Call GPT-5.2 to extract structure - relies on explicit JSON instructions in prompt
+        # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
+        logger.info(f"[DOC-STRUCTURE] Calling GPT-5.2-chat-latest for structure extraction...")
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": STRUCTURE_EXTRACTION_PROMPT},
                 {"role": "user", "content": f"Analyze this document:\n\n{analysis_text}"}
             ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=2000,
+            max_completion_tokens=2000,
             **get_completion_params()  # Enable zero data retention
         )
 

@@ -17,13 +17,16 @@ interface DocumentListItemProps {
 const getStatusBadge = (status: string): { variant: BadgeVariant; label: string; animate: boolean } => {
   const statusLower = status.toLowerCase()
   switch (statusLower) {
-    case 'ready':
-      return { variant: 'neutral', label: 'Ready', animate: false }
     case 'processing':
     case 'uploaded':
+    case 'ready':  // Backend intermediate state - treat as processing
       return { variant: 'warning', label: 'Processing', animate: true }
+    case 'analyzing':
+      return { variant: 'warning', label: 'Analyzing', animate: true }
     case 'failed':
       return { variant: 'error', label: 'Failed', animate: false }
+    case 'analyzed':
+      return { variant: 'success', label: 'Processed', animate: false }
     default:
       return { variant: 'success', label: 'Processed', animate: false }
   }
@@ -33,13 +36,16 @@ const getStatusBadge = (status: string): { variant: BadgeVariant; label: string;
 const getStatusColor = (status: string): string => {
   const statusLower = status.toLowerCase()
   switch (statusLower) {
-    case 'ready':
-      return 'bg-gray-500'
     case 'processing':
     case 'uploaded':
+    case 'ready':  // Backend intermediate state - treat as processing
+      return 'bg-amber-400 animate-pulse'
+    case 'analyzing':
       return 'bg-amber-400 animate-pulse'
     case 'failed':
       return 'bg-red-500'
+    case 'analyzed':
+      return 'bg-green-400'
     default:
       return 'bg-blue-400'
   }

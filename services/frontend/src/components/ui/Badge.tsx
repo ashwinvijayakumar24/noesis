@@ -12,14 +12,14 @@ export function Badge({ variant = 'neutral', children, className = '' }: BadgePr
   const baseStyles = 'px-2.5 py-1 text-xs font-medium rounded-sm inline-flex items-center gap-1'
 
   const variantStyles = {
-    success: 'bg-success-light text-success border border-success/30',
+    success: 'bg-success text-white',
     warning: 'bg-amber-light text-amber-primary border border-amber-primary/30',
     error: 'bg-ruby-light text-ruby-primary border border-ruby-primary/30',
-    info: 'bg-indigo-light text-indigo-primary border border-indigo-primary/30',
+    info: 'bg-indigo-700 text-white',
     neutral: 'bg-bg-elevated text-text-secondary border border-border-default',
     primary: 'bg-accent-light text-accent-primary border border-accent-primary/30',
-    teal: 'bg-teal-light text-teal-primary border border-teal-primary/30',
-    indigo: 'bg-indigo-light text-indigo-primary border border-indigo-primary/30',
+    teal: 'bg-teal-primary text-white',
+    indigo: 'bg-indigo-700 text-white',
     amber: 'bg-amber-light text-amber-primary border border-amber-primary/30',
     rose: 'bg-accent-light text-accent-primary border border-accent-primary/30'
   }

@@ -6,9 +6,12 @@ import { handleError } from '../lib/errorHandler'
 import { useAuthStore } from '../stores/authStore'
 import DocumentViewer, { type DocumentViewerRef } from '../components/DocumentViewer'
 import DraftHealthSummary from '../components/draft-analysis/DraftHealthSummary'
+import TopActionItems from '../components/draft-analysis/TopActionItems'
+import VersionProgressCard from '../components/draft-analysis/VersionProgressCard'
 import SectionNavigation from '../components/draft-analysis/SectionNavigation'
 import SectionFeedbackTabs from '../components/draft-analysis/SectionFeedbackTabs'
 import { ProgressIndicator, useEstimatedProgress } from '../components/ui/ProgressIndicator'
+import FeedbackButton from '../components/FeedbackButton'
 import toast from 'react-hot-toast'
 
 interface Claim {
@@ -98,6 +101,8 @@ export default function DraftAnalysis() {
     gaps: Gap[]
     feedback: Feedback[]
   }>({ claims: [], gaps: [], feedback: [] })
+  const [priorityActions, setPriorityActions] = useState<string[]>([])
+  const [latestComparison, setLatestComparison] = useState<any>(null)
   const [activeAnnotation, setActiveAnnotation] = useState<Annotation | null>(null)
   const [sectionsAssigned, setSectionsAssigned] = useState(false)
 
@@ -166,22 +171,18 @@ export default function DraftAnalysis() {
     }
   }, [draftId, token])
 
-  // Assign sections (auto-migration for old drafts)
+  // Assign sections (auto-migration for old drafts) — silent, runs on every analyzed draft load
   const assignSections = useCallback(async () => {
     if (!draftId || !token || sectionsAssigned) return
 
     try {
       await api.drafts.assignSections(token, draftId)
       setSectionsAssigned(true)
-      toast.success('Sections assigned successfully')
-
-      // Reload section summary
-      await fetchSectionSummary()
+      // No toast — this is automatic and silent
     } catch (error) {
       console.error('Failed to assign sections:', error)
-      // Don't show error toast - this is automatic
     }
-  }, [draftId, token, sectionsAssigned, fetchSectionSummary])
+  }, [draftId, token, sectionsAssigned])
 
   // Update feedback status (save/dismiss)
   const handleStatusChange = useCallback(async (
@@ -237,6 +238,9 @@ export default function DraftAnalysis() {
       const response = await api.drafts.getAnalysis(token, draftId)
 
       if (response.status === 'analyzed') {
+        if (response.priority_actions?.length) {
+          setPriorityActions(response.priority_actions)
+        }
         await fetchDraft()
         await assignSections()
         await fetchSectionSummary()
@@ -258,32 +262,60 @@ export default function DraftAnalysis() {
       setLoading(true)
 
       try {
-        // Fetch draft metadata and section summary in parallel
-        const [draftData, summaryResponse] = await Promise.all([
+        // Fetch draft metadata, section summary, analysis, and comparisons in parallel
+        const [draftData, summaryResponse, analysisResponse, comparisonsResponse] = await Promise.all([
           api.drafts.get(token, draftId),
-          api.drafts.getSectionSummary(token, draftId)
+          api.drafts.getSectionSummary(token, draftId),
+          api.drafts.getAnalysis(token, draftId),
+          projectId ? api.drafts.listComparisons(token, projectId).catch(() => null) : Promise.resolve(null)
         ])
 
-        setDraft(draftData)
-        setSectionSummary(summaryResponse.sections)
-
-        // Auto-select first section with feedback
-        if (summaryResponse.sections.length > 0) {
-          setActiveSection(summaryResponse.sections[0].section_type)
+        if (analysisResponse?.priority_actions?.length) {
+          setPriorityActions(analysisResponse.priority_actions)
         }
+
+        // Find the most recent comparison involving this draft
+        if (comparisonsResponse?.comparisons?.length) {
+          const myComparison = comparisonsResponse.comparisons.find(
+            (c: any) => c.draft_v2_id === draftId || c.draft_v1_id === draftId
+          )
+          if (myComparison) {
+            try {
+              const detail = await api.drafts.getComparison(token, myComparison.comparison_id)
+              setLatestComparison(detail)
+            } catch {
+              // Comparison detail not critical
+            }
+          }
+        }
+
+        setDraft(draftData)
 
         // Load signed URL in background (non-blocking)
         fetchSignedUrl()
 
-        // Only assign sections if summary is empty or incomplete
-        if (!summaryResponse.sections || summaryResponse.sections.length === 0) {
+        if (draftData.status === 'analyzed') {
+          // Ensure sections are assigned (silent, idempotent)
           await assignSections()
-          // Fetch summary again after assignment
-          const updatedSummary = await api.drafts.getSectionSummary(token, draftId)
-          setSectionSummary(updatedSummary.sections)
 
-          if (updatedSummary.sections.length > 0) {
-            setActiveSection(updatedSummary.sections[0].section_type)
+          // Re-fetch summary after assignment to get correct section types
+          const updatedSummary = await api.drafts.getSectionSummary(token, draftId)
+          const sections = updatedSummary.sections
+          setSectionSummary(sections)
+
+          // Pre-fetch feedback for the first section so health score is correct from first render
+          const firstSection = sections.length > 0 ? sections[0].section_type : 'introduction'
+          setActiveSection(firstSection)
+          const feedbackResponse = await api.drafts.getFeedbackBySection(token, draftId, firstSection, 'new')
+          setSectionFeedback({
+            claims: feedbackResponse.claims || [],
+            gaps: feedbackResponse.gaps || [],
+            feedback: feedbackResponse.feedback || []
+          })
+        } else {
+          setSectionSummary(summaryResponse.sections)
+          if (summaryResponse.sections.length > 0) {
+            setActiveSection(summaryResponse.sections[0].section_type)
           }
         }
       } catch (error) {
@@ -297,12 +329,12 @@ export default function DraftAnalysis() {
     init()
   }, [draftId, token, assignSections, fetchSignedUrl])
 
-  // Load section feedback when active section changes
+  // Load section feedback when user switches sections (after initial load)
   useEffect(() => {
-    if (activeSection && draft?.status === 'analyzed') {
+    if (activeSection && draft?.status === 'analyzed' && !loading) {
       fetchSectionFeedback(activeSection)
     }
-  }, [activeSection, draft?.status, fetchSectionFeedback])
+  }, [activeSection]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll for analysis completion
   useEffect(() => {
@@ -409,6 +441,10 @@ export default function DraftAnalysis() {
             </h1>
           </div>
         </div>
+        <FeedbackButton
+          featureType="draft_analysis"
+          contextId={draftId}
+        />
       </header>
 
       {/* Main Content: Document Viewer + Analysis */}
@@ -459,8 +495,20 @@ export default function DraftAnalysis() {
 
         {/* Right: Section-Based Analysis */}
         <div className="w-1/2 flex flex-col bg-slate-950 overflow-hidden">
-          {/* Health Summary */}
+          {/* Top Action Items + Version Progress + Health Summary */}
           <div className="px-4 pt-4 shrink-0">
+            <TopActionItems actions={priorityActions} />
+            {latestComparison && (
+              <VersionProgressCard
+                projectId={projectId!}
+                comparisonId={latestComparison.comparison_id}
+                improvementScore={latestComparison.improvement_score}
+                feedbackTracked={latestComparison.feedback_tracked || []}
+                narrative={latestComparison.narrative}
+                v1Id={latestComparison.stats ? latestComparison.detailed_changes?.metadata?.draft_v1_id ?? '' : ''}
+                v2Id={draftId!}
+              />
+            )}
             <DraftHealthSummary
               draft={draft}
               claims={sectionFeedback.claims}

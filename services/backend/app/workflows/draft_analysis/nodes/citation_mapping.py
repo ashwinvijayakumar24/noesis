@@ -84,15 +84,14 @@ Found Literature:
    Similarity: {result.get('similarity', 'N/A')}
 """
 
+        # Note: Removing temperature to use model defaults
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Use mini for cost efficiency
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": CITATION_QUALITY_PROMPT},
                 {"role": "user", "content": context}
             ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=800,
+            max_completion_tokens=800,
             **get_completion_params()  # Enable zero data retention
         )
 

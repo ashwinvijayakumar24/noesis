@@ -11,8 +11,28 @@ Key Features:
 """
 
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
+import os
 from app.core.supabase_client import supabase
+
+
+def _get_redis_client():
+    """Get Redis client for daily rate limiting."""
+    import redis as redis_lib
+    return redis_lib.Redis(
+        host=os.getenv('REDIS_HOST', 'redis'),
+        port=int(os.getenv('REDIS_PORT', 6379)),
+        db=int(os.getenv('REDIS_DB', 0)),
+        decode_responses=True
+    )
+
+
+DAILY_CHAT_LIMITS = {
+    'free': 20,
+    'pro': 100,
+    'team': 500,
+    'enterprise': 9999,
+}
 
 
 class QuotaExceededError(Exception):
@@ -22,6 +42,44 @@ class QuotaExceededError(Exception):
         self.limit = limit
         self.current = current
         super().__init__(message)
+
+
+async def check_daily_chat_quota(user_id: str, plan_tier: str) -> None:
+    """Raise QuotaExceededError if user has hit their daily chat limit."""
+    daily_limit = DAILY_CHAT_LIMITS.get(plan_tier, DAILY_CHAT_LIMITS['free'])
+    if daily_limit >= 9999:
+        return  # unlimited
+
+    today = date.today().isoformat()
+    key = f"daily_chat:{user_id}:{today}"
+    try:
+        r = _get_redis_client()
+        count = int(r.get(key) or 0)
+        if count >= daily_limit:
+            raise QuotaExceededError(
+                f"Daily chat limit reached ({daily_limit} messages/day). Resets tomorrow.",
+                quota_type="daily_chat",
+                limit=daily_limit,
+                current=count
+            )
+    except QuotaExceededError:
+        raise
+    except Exception as e:
+        print(f"[QUOTA] Daily limit check failed (Redis): {e}")  # fail open
+
+
+async def increment_daily_chat(user_id: str) -> None:
+    """Increment daily chat counter in Redis with 25h TTL."""
+    today = date.today().isoformat()
+    key = f"daily_chat:{user_id}:{today}"
+    try:
+        r = _get_redis_client()
+        pipe = r.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, 90000)  # 25 hours
+        pipe.execute()
+    except Exception as e:
+        print(f"[QUOTA] Failed to increment daily chat counter: {e}")
 
 
 async def check_quota(user_id: str, operation_type: str) -> bool:
@@ -95,6 +153,9 @@ async def check_quota(user_id: str, operation_type: str) -> bool:
                 current=current
             )
 
+        # Daily check via Redis
+        await check_daily_chat_quota(user_id, quota.get('plan_tier', 'free'))
+
     return True
 
 
@@ -144,7 +205,7 @@ async def track_openai_usage(
     Args:
         user_id: User UUID
         operation_type: Type of operation (document_analysis, chat, etc.)
-        model: OpenAI model used (gpt-4o, text-embedding-3-small, etc.)
+        model: OpenAI model used (gpt-4o, gpt-5-mini, text-embedding-3-large, etc.)
         prompt_tokens: Number of prompt tokens
         completion_tokens: Number of completion tokens
         project_id: Optional project ID
@@ -154,10 +215,16 @@ async def track_openai_usage(
     if not supabase:
         raise Exception("Supabase client not configured")
 
-    # Cost estimation (as of January 2025)
+    # Cost estimation (as of March 2026)
     costs = {
-        'gpt-4o': {'input': 0.0025, 'output': 0.01},  # per 1K tokens
-        'gpt-4o-mini': {'input': 0.00015, 'output': 0.0006},
+        # GPT-5 series (current - March 2026)
+        'gpt-5.2': {'input': 0.00175, 'output': 0.014},  # per 1K tokens
+        'gpt-5.2-chat-latest': {'input': 0.00175, 'output': 0.014},
+        'gpt-5.2-pro': {'input': 0.00350, 'output': 0.028},  # Estimate: 2x gpt-5.2
+        'gpt-5-mini': {'input': 0.00025, 'output': 0.002},
+        'gpt-5-nano': {'input': 0.00005, 'output': 0.0004},
+
+        # Embeddings (unchanged)
         'text-embedding-3-small': {'input': 0.00002, 'output': 0},
         'text-embedding-3-large': {'input': 0.00013, 'output': 0}
     }

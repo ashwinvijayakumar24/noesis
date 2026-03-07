@@ -10,6 +10,7 @@ import DeleteProjectModal from '../components/DeleteProjectModal'
 import GlobalSearch from '../components/GlobalSearch'
 import TagInput from '../components/TagInput'
 import OnboardingTour from '../components/OnboardingTour'
+import ReferralWidget from '../components/ReferralWidget'
 import { trackEvent } from '../lib/analytics'
 import { handleError } from '../lib/errorHandler'
 import { SkeletonProjectCard, SkeletonGrid } from '../components/ui/Skeleton'
@@ -188,8 +189,8 @@ export default function Projects() {
           onClick={() => setIsCreateModalOpen(true)}
           variant="primary"
           size="lg"
-          icon={<PlusIcon className="h-5 w-5" />}
         >
+          <PlusIcon className="h-5 w-5" />
           Create Project
         </Button>
       }
@@ -398,6 +399,13 @@ export default function Projects() {
           projectTitle={deleteProject.title}
         />
       )}
+
+      {/* Referral Widget — temporarily hidden */}
+      {/* {!loading && projects.length > 0 && (
+        <div className="mt-8">
+          <ReferralWidget />
+        </div>
+      )} */}
 
       {/* Global Search Modal */}
       <GlobalSearch

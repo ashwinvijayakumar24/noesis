@@ -3,17 +3,28 @@ RAG Retrieval Service
 
 Handles semantic search and retrieval of relevant document chunks
 using pgvector similarity search.
+
+Enhanced with:
+- Hybrid search (semantic + keyword)
+- Query expansion
+- Result reranking
 """
 
 from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.core.openai_client import get_openai_client, get_completion_params
+from app.services.embedding_cache import get_cached_embedding, cache_embedding
+from app.services.retry_utils import retry_openai
 from typing import List, Dict, Any
+import json
 
 
-def embed_query(query: str, model: str = "text-embedding-3-small") -> List[float]:
+def embed_query(query: str, model: str = "text-embedding-3-large") -> List[float]:
     """
     Generate embedding for a query string using OpenAI API.
+
+    Uses Redis cache to avoid regenerating same embeddings.
+    Includes retry logic for resilience.
 
     Args:
         query: Query text to embed
@@ -29,15 +40,28 @@ def embed_query(query: str, model: str = "text-embedding-3-small") -> List[float
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not configured in environment variables")
 
-    client = get_openai_client()
+    # Try to get from cache first
+    cached = get_cached_embedding(query, model)
+    if cached is not None:
+        return cached
 
-    response = client.embeddings.create(
-        model=model,
-        input=query,
-        dimensions=1536  # Fixed at 1536 for pgvector index compatibility
-    )
+    # Generate embedding with retry logic
+    @retry_openai
+    def _generate():
+        client = get_openai_client()
+        response = client.embeddings.create(
+            model=model,
+            input=query,
+            dimensions=1536  # Fixed at 1536 for pgvector index compatibility
+        )
+        return response.data[0].embedding
 
-    return response.data[0].embedding
+    embedding = _generate()
+
+    # Cache for future use
+    cache_embedding(query, embedding, model)
+
+    return embedding
 
 
 def retrieve_relevant_chunks(
@@ -65,7 +89,7 @@ def retrieve_relevant_chunks(
     rag_settings = project_record.data.get("rag_settings", {}) if project_record.data else {}
 
     # Use provided values or fall back to project settings
-    embedding_model = rag_settings.get("embedding_model", "text-embedding-3-small")
+    embedding_model = rag_settings.get("embedding_model", "text-embedding-3-large")
     max_chunks = limit if limit is not None else rag_settings.get("max_chunks", 5)
     min_similarity = similarity_threshold if similarity_threshold is not None else rag_settings.get("similarity_threshold", 0.0)
 
@@ -160,7 +184,7 @@ def retrieve_relevant_chunks_with_drafts(
 def generate_rag_answer(
     project_id: str,
     query: str,
-    model: str = "gpt-4o",
+    model: str = "gpt-5.2-chat-latest",
     max_chunks: int = 5,
     document_id: str = None,
     include_drafts: bool = False,
@@ -255,6 +279,7 @@ def generate_rag_answer(
             "Always cite which parts of the context you used to formulate your answer."
         )
 
+    # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
     completion = client.chat.completions.create(
         model=model,
         messages=[
@@ -267,8 +292,7 @@ def generate_rag_answer(
                 "content": f"Context from research sources:\n\n{context}\n\n---\n\nUser question: {query}"
             }
         ],
-        temperature=0.7,
-        max_tokens=1000,
+        max_completion_tokens=1000,
         **get_completion_params()  # Enable zero data retention
     )
 
@@ -279,3 +303,311 @@ def generate_rag_answer(
         "model": model,
         "includes_drafts": include_drafts or (draft_id is not None)
     }
+
+
+# ================================
+# HYBRID SEARCH ENHANCEMENTS
+# ================================
+
+def expand_query(query: str) -> List[str]:
+    """
+    Expand natural language query into academic terminology
+
+    Uses GPT-5.2-mini to generate query variations with academic terms
+
+    Args:
+        query: Original user query
+
+    Returns:
+        List of expanded query variations
+    """
+    client = get_openai_client()
+
+    prompt = f"""Given this research query: "{query}"
+
+Generate 3 academic query variations that:
+1. Use domain-specific terminology
+2. Include common academic phrasings
+3. Cover different aspects of the query
+
+Return as JSON array of strings.
+
+Example:
+Query: "how do transformers work"
+Output: ["transformer architecture attention mechanisms", "self-attention neural networks NLP", "multi-head attention deep learning"]
+"""
+
+    try:
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
+        response = client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_completion_tokens=200,
+            **get_completion_params()
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        variations = result.get("queries", result.get("variations", [query]))
+
+        return [query] + variations[:3]  # Original + 3 variations
+
+    except Exception as e:
+        # Fallback: return original query
+        return [query]
+
+
+def keyword_search(
+    project_id: str,
+    query: str,
+    limit: int = 20
+) -> List[Dict[str, Any]]:
+    """
+    Keyword-based search using PostgreSQL full-text search
+
+    Args:
+        project_id: Project to search in
+        query: Search query
+        limit: Maximum results
+
+    Returns:
+        List of matching chunks with keyword relevance scores
+    """
+    # Use PostgreSQL full-text search (ts_rank)
+    response = supabase.rpc(
+        "keyword_search_chunks",
+        {
+            "proj_id": project_id,
+            "search_query": query,
+            "match_count": limit
+        }
+    ).execute()
+
+    chunks = response.data if response.data else []
+
+    return chunks
+
+
+def semantic_search(
+    project_id: str,
+    query: str,
+    limit: int = 20
+) -> List[Dict[str, Any]]:
+    """
+    Semantic search using vector similarity
+
+    Args:
+        project_id: Project to search in
+        query: Search query
+        limit: Maximum results
+
+    Returns:
+        List of matching chunks with similarity scores
+    """
+    # Use existing retrieve_relevant_chunks
+    return retrieve_relevant_chunks(
+        project_id=project_id,
+        query=query,
+        limit=limit,
+        similarity_threshold=0.0  # No threshold, get top N
+    )
+
+
+def hybrid_search(
+    project_id: str,
+    query: str,
+    limit: int = 5,
+    semantic_weight: float = 0.7,
+    keyword_weight: float = 0.3
+) -> List[Dict[str, Any]]:
+    """
+    Hybrid search combining semantic and keyword search
+
+    Args:
+        project_id: Project to search in
+        query: Search query
+        limit: Final number of results
+        semantic_weight: Weight for semantic scores (default 0.7)
+        keyword_weight: Weight for keyword scores (default 0.3)
+
+    Returns:
+        Ranked list of chunks combining both search methods
+    """
+    # Expand query for better recall
+    query_variations = expand_query(query)
+
+    # Run both searches in parallel
+    semantic_results = []
+    keyword_results = []
+
+    # Semantic search with query variations
+    for q in query_variations:
+        results = semantic_search(project_id, q, limit=10)
+        semantic_results.extend(results)
+
+    # Keyword search with original query
+    keyword_results = keyword_search(project_id, query, limit=20)
+
+    # Merge and score results
+    chunk_scores: Dict[str, Dict[str, Any]] = {}
+
+    # Process semantic results
+    for chunk in semantic_results:
+        chunk_id = chunk.get("id")
+        if chunk_id not in chunk_scores:
+            chunk_scores[chunk_id] = {
+                "chunk": chunk,
+                "semantic_score": 0.0,
+                "keyword_score": 0.0
+            }
+        # Similarity score (0-1 range, higher is better)
+        similarity = chunk.get("similarity", 0.0)
+        chunk_scores[chunk_id]["semantic_score"] = max(
+            chunk_scores[chunk_id]["semantic_score"],
+            similarity
+        )
+
+    # Process keyword results
+    for chunk in keyword_results:
+        chunk_id = chunk.get("id")
+        if chunk_id not in chunk_scores:
+            chunk_scores[chunk_id] = {
+                "chunk": chunk,
+                "semantic_score": 0.0,
+                "keyword_score": 0.0
+            }
+        # Keyword rank score (normalize by position)
+        rank = chunk.get("rank", 0.0)
+        chunk_scores[chunk_id]["keyword_score"] = max(
+            chunk_scores[chunk_id]["keyword_score"],
+            rank
+        )
+
+    # Calculate combined scores
+    scored_results = []
+    for chunk_id, scores in chunk_scores.items():
+        combined_score = (
+            semantic_weight * scores["semantic_score"] +
+            keyword_weight * scores["keyword_score"]
+        )
+
+        chunk_data = scores["chunk"]
+        chunk_data["combined_score"] = combined_score
+        chunk_data["semantic_score"] = scores["semantic_score"]
+        chunk_data["keyword_score"] = scores["keyword_score"]
+
+        scored_results.append(chunk_data)
+
+    # Sort by combined score
+    scored_results.sort(key=lambda x: x["combined_score"], reverse=True)
+
+    # Return top N
+    return scored_results[:limit]
+
+
+def rerank_results(
+    chunks: List[Dict[str, Any]],
+    query: str,
+    top_k: int = 5
+) -> List[Dict[str, Any]]:
+    """
+    Rerank search results using GPT-5.2-mini
+
+    Takes top N results and reranks them based on relevance to query
+
+    Args:
+        chunks: List of chunks to rerank
+        query: Original query
+        top_k: Number of results to return
+
+    Returns:
+        Reranked list of chunks
+    """
+    if len(chunks) <= top_k:
+        return chunks
+
+    client = get_openai_client()
+
+    # Prepare chunks for reranking
+    chunk_texts = []
+    for idx, chunk in enumerate(chunks[:20]):  # Only rerank top 20
+        chunk_texts.append(f"[{idx}] {chunk['content'][:500]}")  # Truncate long chunks
+
+    prompt = f"""Given this research query: "{query}"
+
+Rank these text passages by relevance (most relevant first).
+
+Passages:
+{chr(10).join(chunk_texts)}
+
+Return the indices of the top {top_k} most relevant passages as a JSON array.
+Example: {{"indices": [3, 7, 1, 15, 9]}}
+"""
+
+    try:
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
+        response = client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_completion_tokens=100,
+            **get_completion_params()
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        indices = result.get("indices", list(range(top_k)))
+
+        # Reorder chunks based on indices
+        reranked = []
+        for idx in indices[:top_k]:
+            if 0 <= idx < len(chunks):
+                reranked.append(chunks[idx])
+
+        # Fill remaining slots if needed
+        while len(reranked) < top_k and len(reranked) < len(chunks):
+            for chunk in chunks:
+                if chunk not in reranked:
+                    reranked.append(chunk)
+                    break
+
+        return reranked
+
+    except Exception as e:
+        # Fallback: return original order
+        return chunks[:top_k]
+
+
+def retrieve_relevant_chunks_hybrid(
+    project_id: str,
+    query: str,
+    limit: int = 5,
+    use_reranking: bool = True
+) -> List[Dict[str, Any]]:
+    """
+    Enhanced retrieval using hybrid search + reranking
+
+    This is the recommended retrieval method for best quality
+
+    Args:
+        project_id: Project to search in
+        query: Search query
+        limit: Final number of results
+        use_reranking: Whether to rerank results with LLM
+
+    Returns:
+        High-quality ranked results
+    """
+    # Step 1: Hybrid search (get top 20)
+    hybrid_results = hybrid_search(
+        project_id=project_id,
+        query=query,
+        limit=20,
+        semantic_weight=0.7,
+        keyword_weight=0.3
+    )
+
+    # Step 2: Rerank to get best N
+    if use_reranking and len(hybrid_results) > limit:
+        final_results = rerank_results(hybrid_results, query, top_k=limit)
+    else:
+        final_results = hybrid_results[:limit]
+
+    return final_results

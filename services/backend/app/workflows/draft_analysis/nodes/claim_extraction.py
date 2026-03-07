@@ -127,16 +127,15 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
     draft_content = state["draft_content"]
 
     try:
-        # Call GPT-4o-mini to extract claims (faster, cheaper, sufficient for extraction)
+        # Use gpt-5.2-chat-latest for higher quality claim extraction
+        # Note: Removing temperature to use model defaults
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": CLAIM_EXTRACTION_PROMPT},
                 {"role": "user", "content": f"Extract claims from this draft:\n\n{draft_content}"}
             ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=3000,
+            max_completion_tokens=4000,
             **get_completion_params()  # Enable zero data retention
         )
 

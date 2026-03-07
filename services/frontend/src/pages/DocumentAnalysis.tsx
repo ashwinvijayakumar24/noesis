@@ -352,7 +352,7 @@ export default function DocumentAnalysis() {
                 {/* Executive Summary */}
                 {analysis.executive_summary && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Executive Summary
                     </h3>
                     <p className="text-sm text-text-secondary leading-relaxed">
@@ -364,7 +364,7 @@ export default function DocumentAnalysis() {
                 {/* Research Problem */}
                 {analysis.research_problem && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Research Problem
                     </h3>
                     <p className="text-sm text-text-secondary leading-relaxed">
@@ -376,7 +376,7 @@ export default function DocumentAnalysis() {
                 {/* Key Questions */}
                 {analysis.key_questions && analysis.key_questions.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Research Questions
                     </h3>
                     <ul className="space-y-2">
@@ -393,7 +393,7 @@ export default function DocumentAnalysis() {
                 {/* Limitations */}
                 {analysis.limitations && analysis.limitations.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Limitations
                     </h3>
                     <ul className="space-y-2">
@@ -410,7 +410,7 @@ export default function DocumentAnalysis() {
                 {/* Future Work */}
                 {analysis.future_work && analysis.future_work.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Future Directions
                     </h3>
                     <ul className="space-y-2">
@@ -429,7 +429,7 @@ export default function DocumentAnalysis() {
               <Tab.Panel className="h-full overflow-y-auto p-6 space-y-6">
                 {analysis.methodology?.approach && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Approach
                     </h3>
                     <p className="text-sm text-text-secondary leading-relaxed">
@@ -440,7 +440,7 @@ export default function DocumentAnalysis() {
 
                 {analysis.methodology?.techniques && analysis.methodology.techniques.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Techniques Used
                     </h3>
                     <div className="flex flex-wrap gap-2">
@@ -455,7 +455,7 @@ export default function DocumentAnalysis() {
 
                 {analysis.methodology?.dataset && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Dataset
                     </h3>
                     <p className="text-sm text-text-secondary leading-relaxed">
@@ -470,7 +470,7 @@ export default function DocumentAnalysis() {
                 {/* Key Findings */}
                 {analysis.key_findings && analysis.key_findings.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Key Findings
                     </h3>
                     <ul className="space-y-3">
@@ -486,7 +486,7 @@ export default function DocumentAnalysis() {
                 {/* Results Summary */}
                 {analysis.results?.summary && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Results Summary
                     </h3>
                     <p className="text-sm text-text-secondary leading-relaxed">
@@ -498,7 +498,7 @@ export default function DocumentAnalysis() {
                 {/* Metrics */}
                 {analysis.results?.metrics && analysis.results.metrics.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-3">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-3">
                       Performance Metrics
                     </h3>
                     <ul className="space-y-2">
@@ -517,7 +517,7 @@ export default function DocumentAnalysis() {
               <Tab.Panel className="h-full overflow-y-auto p-6">
                 {analysis.key_citations && analysis.key_citations.length > 0 ? (
                   <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-text-tertiary font-mono uppercase mb-4">
+                    <h3 className="text-sm font-medium text-text-tertiary font-mono mb-4">
                       Key Citations ({analysis.key_citations.length})
                     </h3>
                     {analysis.key_citations.map((citation, idx) => (

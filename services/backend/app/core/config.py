@@ -19,6 +19,16 @@ class Settings(BaseSettings):
     # Sentry Configuration (Error Tracking)
     SENTRY_DSN: Optional[str] = None
 
+    # Stripe Configuration
+    STRIPE_PUBLISHABLE_KEY: Optional[str] = None
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    STRIPE_PRICE_ID_PRO: Optional[str] = None  # Monthly Pro plan
+    STRIPE_PRICE_ID_TEAM: Optional[str] = None  # Monthly Team plan
+
+    # Figma Configuration (for MCP integration)
+    FIGMA_PAT: Optional[str] = None
+
     # Database Configuration
     DATABASE_URL: Optional[str] = None
 

@@ -2,7 +2,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.supabase_client import supabase
 from app.core.config import settings
-from app.api.routes import auth, projects, documents, drafts, rag, chat, search, tags, compass, research_questions, methodology_recommendations, paper_recommendations, analytics, analytics_tracking, citations, tasks, quota
+from app.api.routes import (
+    auth, projects, documents, drafts, rag, chat, search, tags, compass,
+    research_questions, methodology_recommendations, paper_recommendations,
+    analytics, analytics_tracking, citations, tasks, quota,
+    # New routes (Week 2-4 implementation)
+    paper_discovery, feedback, referrals, platform, subscriptions, comparisons
+)
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -138,6 +144,21 @@ app.include_router(analytics_tracking.router, prefix="/analytics-tracking", tags
 app.include_router(citations.router, prefix="/citations", tags=["Citations"])
 app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(quota.router, prefix="/quota", tags=["Quota"])
+
+# ============================================
+# NEW ROUTES - Week 2-4 Implementation
+# ============================================
+# Week 2: Literature Discovery & RAG Quality
+app.include_router(paper_discovery.router, prefix="/api", tags=["Paper Discovery"])
+app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
+
+# Week 3: Viral Growth & Monetization
+app.include_router(referrals.router, prefix="/api", tags=["Referrals"])
+app.include_router(platform.router, prefix="/api", tags=["Platform"])
+app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
+
+# Week 4: Performance & Polish
+app.include_router(comparisons.router, prefix="", tags=["Comparisons"])
 
 @app.get("/health")
 async def health():

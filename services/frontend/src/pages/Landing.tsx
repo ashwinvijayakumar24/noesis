@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   DocumentTextIcon as _DocumentTextIcon,
@@ -12,16 +12,236 @@ import {
   AcademicCapIcon,
   CheckBadgeIcon,
   SparklesIcon,
+  DocumentArrowDownIcon,
+  BookOpenIcon,
+  ExclamationCircleIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { NoesisLogo } from '../components/ui/NoesisLogo'
+
+const TABS = [
+  { id: 'analysis', label: 'Draft Analysis' },
+  { id: 'feedback', label: 'Reviewer Feedback' },
+  { id: 'gaps', label: 'Coverage Gaps' },
+] as const
+
+type TabId = typeof TABS[number]['id']
+
+function AnalysisTab() {
+  return (
+    <div className="space-y-3">
+      <div className="bg-accent-light border border-accent-primary/30 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <ExclamationCircleIcon className="h-4 w-4 text-accent-primary shrink-0" />
+          <h3 className="text-sm font-semibold text-accent-primary">Top Action Items</h3>
+        </div>
+        <ol className="space-y-2">
+          {[
+            'Add primary citations for CRISPR efficiency claims in §2.3',
+            'Address off-target effect coverage gap in Methods section',
+            'Strengthen Discussion with Cas9 variant comparison data',
+          ].map((action, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-accent-primary text-white text-xs font-semibold flex items-center justify-center mt-0.5">
+                {i + 1}
+              </span>
+              <span className="text-sm text-text-secondary leading-snug">{action}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="bg-bg-surface rounded-lg border border-warning p-4">
+        <div className="flex items-center gap-4 mb-4">
+          <ExclamationTriangleIcon className="h-8 w-8 text-warning shrink-0" />
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-5xl font-sans font-extrabold text-warning tracking-tighter">74</span>
+              <span className="text-sm font-semibold text-text-secondary">/ 100 · Needs Work</span>
+            </div>
+            <p className="text-xs font-mono text-text-muted mt-0.5">CRISPR-Cas9 Off-Target Effects — v2</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Claims', value: '12', note: '4 need citation', color: 'text-warning' },
+            { label: 'Gaps', value: '5', note: '2 critical', color: 'text-error' },
+            { label: 'Feedback', value: '8', note: '3 critical', color: 'text-error' },
+          ].map(m => (
+            <div key={m.label} className="bg-bg-elevated rounded-lg p-3 border border-border-default">
+              <p className="text-xs text-text-muted font-mono uppercase tracking-wide mb-1">{m.label}</p>
+              <p className="text-2xl font-sans font-bold text-text-primary">{m.value}</p>
+              <p className={`text-xs font-medium ${m.color}`}>{m.note}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeedbackTab() {
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 flex-wrap">
+        {['Introduction', 'Methods ⚠', 'Results', 'Discussion'].map((s, i) => (
+          <button key={s} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+            i === 1
+              ? 'bg-bg-elevated text-text-primary border-border-subtle'
+              : 'bg-bg-surface text-text-secondary border-border-default'
+          }`}>
+            {s}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex space-x-1 border-b border-border-default">
+        <button className="px-4 py-2 text-sm font-semibold border-b-2 border-accent-primary text-text-primary">
+          New
+          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-accent-light text-accent-primary border border-accent-primary/30">7</span>
+        </button>
+        <button className="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-text-secondary">
+          Saved
+          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-bg-elevated text-text-muted border border-border-default">2</span>
+        </button>
+        <button className="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-text-secondary">
+          Dismissed
+        </button>
+      </div>
+
+      <div className="bg-bg-surface rounded-lg border border-border-default border-l-4 border-l-accent-primary p-4 transition-all duration-150">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-accent-light text-accent-primary border border-accent-primary/30">
+              Unsupported Claim
+            </span>
+            <span className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-error-light text-error border border-error/30">
+              HIGH
+            </span>
+          </div>
+        </div>
+        <p className="text-sm text-text-primary leading-relaxed mb-3">
+          The reported CRISPR efficiency of &gt;85% in vivo lacks primary data support in this manuscript.
+        </p>
+        <div className="flex gap-2 mb-3">
+          <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">§ Methods · 2.3</span>
+          <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">High confidence</span>
+        </div>
+        <div className="border-t border-border-default pt-3 flex items-center gap-2">
+          <p className="text-xs text-text-muted">Suggested:</p>
+          <span className="text-xs font-mono text-accent-primary">Zhang et al. (2023) · 94% match</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function GapsTab() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-sm font-semibold text-text-secondary">Coverage Analysis</h3>
+        <span className="text-xs font-mono text-error bg-error-light border border-error/30 px-2 py-0.5 rounded-md">3 Critical Gaps</span>
+      </div>
+      {[
+        { type: 'Missing Methodology', priority: 'CRITICAL', color: 'error',
+          title: 'Off-target effect measurement protocols not cited',
+          suggestion: 'Anzalone et al. (2020), Kleinstiver et al. (2019)' },
+        { type: 'Theoretical Gap', priority: 'HIGH', color: 'warning',
+          title: 'Cas9 variant comparison literature absent from §3',
+          suggestion: 'Spencer & Zhang (2022)' },
+        { type: 'Statistical Support', priority: 'HIGH', color: 'warning',
+          title: 'In vivo efficiency claims lack comparative studies',
+          suggestion: 'Liu et al. (2021)' },
+      ].map((gap, i) => (
+        <div key={i} className={`bg-bg-surface rounded-lg border-l-2 ${
+          gap.color === 'error' ? 'border-l-error' : 'border-l-warning'
+        } border border-border-default p-3`}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-md ${
+              gap.color === 'error' ? 'bg-error-light text-error border border-error/30'
+              : 'bg-warning-light text-warning border border-warning/30'}`}>{gap.priority}</span>
+            <span className="text-xs text-text-muted">{gap.type}</span>
+          </div>
+          <p className="text-sm text-text-primary mb-2">{gap.title}</p>
+          <p className="text-xs text-text-muted">Suggested: <span className="text-accent-primary font-mono">{gap.suggestion}</span></p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ProductShowcase() {
+  const [activeTab, setActiveTab] = useState<TabId>('analysis')
+  return (
+    <div className="bg-bg-surface border border-border-default rounded-xl overflow-hidden shadow-2xl">
+      <div className="flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default">
+        <div className="flex gap-1.5 shrink-0">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+          <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+        </div>
+        <div className="flex gap-1 ml-2">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150 ${
+                activeTab === tab.id
+                  ? 'bg-bg-surface text-text-primary border border-border-default'
+                  : 'text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="p-5 min-h-[380px] relative overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.15 }}
+          >
+            {activeTab === 'analysis' && <AnalysisTab />}
+            {activeTab === 'feedback' && <FeedbackTab />}
+            {activeTab === 'gaps' && <GapsTab />}
+          </motion.div>
+        </AnimatePresence>
+        <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-bg-void/70 to-transparent pointer-events-none" />
+      </div>
+    </div>
+  )
+}
+
+interface Testimonial {
+  id: string
+  name: string
+  role: string
+  institution: string
+  quote: string
+  approved: boolean
+}
 
 export default function Landing() {
   const navigate = useNavigate()
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
 
   useEffect(() => {
     document.title = 'Noesis - AI-Powered Research Intelligence Platform'
+    loadTestimonials()
   }, [])
+
+  const loadTestimonials = async () => {
+    // TODO: Implement testimonials API endpoint
+    // For now, skip loading testimonials
+    setTestimonials([])
+  }
 
   const fadeIn = {
     initial: { opacity: 0, y: 12 },
@@ -49,6 +269,16 @@ export default function Landing() {
       icon: BeakerIcon,
       title: 'Citation Gap Detection',
       description: 'Identify unsupported claims in your draft and get AI-suggested papers from your literature to strengthen arguments.'
+    },
+    {
+      icon: BookOpenIcon,
+      title: 'BibTeX Citation Export',
+      description: 'Export your entire literature collection as properly formatted BibTeX files for seamless integration with LaTeX, Zotero, and reference managers.'
+    },
+    {
+      icon: DocumentArrowDownIcon,
+      title: 'Professional PDF Reports',
+      description: 'Download comprehensive analysis reports with claims, coverage gaps, reviewer feedback, and suggested citations in publication-ready format.'
     }
   ]
 
@@ -79,16 +309,9 @@ export default function Landing() {
         className="fixed top-0 left-0 right-0 z-50 bg-bg-surface/95 backdrop-blur-md border-b border-border-default"
       >
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
-          <div className="flex justify-between items-center h-14">
-            <div className="flex items-center gap-3">
-              <img
-                src="/noesis.png"
-                alt="Noesis"
-                className="h-6"
-              />
-              <span className="text-sm font-sans font-semibold text-text-primary">
-                Noesis
-              </span>
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <NoesisLogo size="md" />
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -109,125 +332,78 @@ export default function Landing() {
         </div>
       </motion.nav>
 
-      {/* Hero Section - Professional Dark Gradient */}
-      <section className="relative pt-32 pb-24 sm:pt-40 sm:pb-32 px-6 sm:px-8 overflow-hidden bg-gradient-to-br from-bg-void via-bg-surface to-bg-void">
-        <div className="max-w-5xl mx-auto">
-          {/* Centered Content */}
-          <motion.div
-            className="text-center space-y-8 relative z-10"
-            initial="initial"
-            animate="animate"
-            variants={{
-              animate: { transition: { staggerChildren: 0.15 } }
-            }}
-          >
-            {/* Main Headline - Centered */}
-            <motion.h1
-              variants={fadeIn}
-              className="text-5xl sm:text-6xl lg:text-7xl font-sans font-semibold leading-display tracking-tightest mx-auto"
-            >
-              Strengthen Your Research{' '}
-              <span className="text-accent-primary">Before Peer Review</span>
-            </motion.h1>
+      {/* Hero Section - Two Column Layout */}
+      <section className="relative pt-28 pb-16 sm:pt-36 sm:pb-20 px-6 sm:px-8 overflow-hidden bg-gradient-to-br from-bg-void via-bg-surface to-bg-void">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-center">
 
-            {/* Subheadline - Centered */}
-            <motion.p
-              variants={fadeIn}
-              className="text-xl sm:text-2xl text-text-secondary leading-body-large tracking-normal max-w-3xl mx-auto"
-            >
-              AI research assistant that critiques your drafts, surfaces citation gaps, and identifies weak claims—like a reviewer, before submission.
-            </motion.p>
-
-            {/* CTA Buttons - Centered */}
+            {/* Left Column — Text + CTA */}
             <motion.div
-              variants={fadeIn}
-              className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
+              className="space-y-8 relative z-10 text-center lg:text-left"
+              initial="initial"
+              animate="animate"
+              variants={{ animate: { transition: { staggerChildren: 0.15 } } }}
             >
-              <Button
-                onClick={() => navigate('/signup')}
-                variant="primary"
-                size="lg"
-                className="flex items-center gap-2 group"
+              <motion.h1
+                variants={fadeIn}
+                className="text-4xl sm:text-5xl xl:text-6xl font-heading font-semibold leading-display tracking-tightest"
               >
-                Get Started Free
-                <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <button
-                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                className="px-8 py-4 text-text-secondary font-semibold hover:text-text-primary transition-colors text-lg"
+                Strengthen Your Research{' '}
+                <span className="text-accent-primary">Before Peer Review</span>
+              </motion.h1>
+
+              <motion.p
+                variants={fadeIn}
+                className="text-lg sm:text-xl text-text-secondary leading-body-large tracking-normal max-w-xl mx-auto lg:mx-0"
               >
-                Watch Demo
-              </button>
+                Know every weakness in your draft before peer reviewers do. Unsupported claims, citation gaps, and coverage blind spots surfaced from your own literature.
+              </motion.p>
+
+              <motion.div
+                variants={fadeIn}
+                className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4"
+              >
+                <Button
+                  onClick={() => navigate('/signup')}
+                  variant="primary"
+                  size="lg"
+                  className="flex items-center gap-2 group"
+                >
+                  Get Started Free
+                  <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </motion.div>
+
+              <motion.div
+                variants={fadeIn}
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-sm text-text-muted font-mono"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
+                  <span>No credit card</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
+                  <span>Free tier</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
+                  <span>Privacy-first</span>
+                </div>
+              </motion.div>
             </motion.div>
 
-            {/* Trust Badges - Centered */}
+            {/* Right Column — Product Showcase */}
             <motion.div
-              variants={fadeIn}
-              className="flex flex-wrap items-center justify-center gap-6 pt-4 text-sm text-text-muted font-mono"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="relative z-10"
             >
-              <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
-                <span>No credit card</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
-                <span>Free tier</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
-                <span>Privacy-first</span>
-              </div>
+              <ProductShowcase />
             </motion.div>
-          </motion.div>
 
-          {/* Demo Card - Below Content, Centered */}
-          <motion.div
-            className="mt-16 max-w-2xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            {/* Demo Card - Professional, Static */}
-            <div className="bg-bg-surface border border-border-default rounded-lg p-8 shadow-lg">
-              {/* Mock Analysis Content */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <SparklesIcon className="h-6 w-6 text-accent-primary" />
-                  <span className="text-lg font-sans font-semibold text-text-primary">
-                    Draft Analysis
-                  </span>
-                </div>
-
-                {/* Stat Cards - Dark Theme */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-accent-light border border-accent-primary/30 rounded-md p-5">
-                    <div className="text-3xl font-sans font-bold text-accent-primary mb-1">12</div>
-                    <div className="text-xs font-mono text-text-muted">Claims Analyzed</div>
-                  </div>
-                  <div className="bg-indigo-light border border-indigo-primary/30 rounded-md p-5">
-                    <div className="text-3xl font-sans font-bold text-indigo-primary mb-1">5</div>
-                    <div className="text-xs font-mono text-text-muted">Citations Found</div>
-                  </div>
-                </div>
-
-                {/* Progress Bar - Rose Gradient */}
-                <div className="space-y-2 mt-6">
-                  <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                    <span>Coverage Score</span>
-                    <span>87%</span>
-                  </div>
-                  <div className="h-2.5 bg-bg-hover rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-accent-primary to-rose-primary"
-                      initial={{ width: 0 }}
-                      animate={{ width: '87%' }}
-                      transition={{ duration: 1.5, delay: 0.6 }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -237,13 +413,22 @@ export default function Landing() {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             transition={{ duration: 0.3 }}
             className="mb-16 text-center"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-heading-1 tracking-tighter text-text-primary mb-6">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-semibold leading-heading-1 tracking-tighter text-text-primary mb-6">
               Research Intelligence, <br className="hidden sm:block" />
-              <span className="text-accent-primary">Not Auto-Writing</span>
+              <span className="text-accent-primary relative inline-block">
+                Not Auto-Writing
+                <motion.span
+                  className="absolute -bottom-1 left-0 right-0 h-0.5 bg-accent-primary/60 rounded-full"
+                  initial={{ scaleX: 0, originX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: false }}
+                  transition={{ delay: 0.4, duration: 0.7, ease: 'easeOut' }}
+                />
+              </span>
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary max-w-3xl mx-auto leading-body-large tracking-normal">
               Powered by advanced AI, semantic search, and intelligent analytics
@@ -255,10 +440,10 @@ export default function Landing() {
             {features.map((feature, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1, duration: 0.3 }}
+                initial={{ opacity: 0, y: 32, scale: 0.96 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: false, amount: 0.15 }}
+                transition={{ delay: index * 0.08, duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
                 className="group bg-bg-surface border border-border-default rounded-lg p-8 hover:border-accent-primary/30 hover:-translate-y-0.5 transition-all duration-150 shadow-xs hover:shadow-sm"
               >
                 <div className="space-y-6">
@@ -293,10 +478,10 @@ export default function Landing() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             className="bg-bg-surface border border-accent-primary/20 rounded-lg p-8 sm:p-12"
           >
-            <h3 className="text-3xl sm:text-4xl font-sans font-semibold text-text-primary mb-8 text-center tracking-tight">
+            <h3 className="text-3xl sm:text-4xl font-heading font-semibold text-text-primary mb-8 text-center tracking-tight">
               Built on <span className="text-accent-primary">Trust & Academic Integrity</span>
             </h3>
 
@@ -359,11 +544,11 @@ export default function Landing() {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             transition={{ duration: 0.5 }}
             className="mb-16 text-center"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
               Built for <span className="text-accent-primary">Serious Researchers</span>
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary tracking-normal">
@@ -377,7 +562,7 @@ export default function Landing() {
                 key={index}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+                viewport={{ once: false }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 className="group bg-bg-surface border border-border-default rounded-lg p-8 hover:border-accent-primary/30 hover:-translate-y-0.5 transition-all duration-150"
               >
@@ -391,9 +576,9 @@ export default function Landing() {
                     </p>
                   </div>
                   <div className="md:text-right shrink-0">
-                    <div className="px-4 py-2 bg-accent-light border border-accent-primary/30 rounded-md">
-                      <div className="text-xs font-mono text-text-muted mb-1">Impact</div>
-                      <div className="text-base font-sans font-semibold text-accent-primary">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-bg-elevated border border-border-default rounded-lg">
+                      <div className="h-2 w-2 rounded-full bg-accent-primary"></div>
+                      <div className="text-sm font-sans font-medium text-text-primary">
                         {useCase.impact}
                       </div>
                     </div>
@@ -405,16 +590,101 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How It Works - Clean, Professional */}
-      <section className="py-32 px-6 sm:px-8 bg-bg-surface">
+      {/* Trusted by Researchers Section */}
+      <section className="py-16 px-6 sm:px-8 bg-bg-void">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
+            transition={{ duration: 0.4 }}
+            className="text-center"
+          >
+            <h3 className="text-xl font-semibold text-text-primary mb-20">
+              Trusted by researchers across the country
+            </h3>
+            <div className="flex flex-wrap items-center justify-center gap-10 sm:gap-16">
+              {[
+                { src: '/gt_logo.png', alt: 'Georgia Tech' },
+                { src: '/rice_logo.png', alt: 'Rice University' },
+                { src: '/ut_austin_logo.png', alt: 'UT Austin' },
+                { src: '/texas_am_logo.png', alt: 'Texas A&M' },
+                { src: '/unc_logo.png', alt: 'UNC' },
+                { src: '/uh_logo.png', alt: 'University of Houston' },
+              ].map((logo) => (
+                <img
+                  key={logo.alt}
+                  src={logo.src}
+                  alt={logo.alt}
+                  className="h-16 sm:h-20 object-contain opacity-80 hover:opacity-100 transition-opacity duration-200"
+                />
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      {testimonials.length > 0 && (
+        <section className="py-24 px-6 sm:px-8 bg-bg-surface">
+          <div className="max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false }}
+              transition={{ duration: 0.5 }}
+              className="text-center mb-16"
+            >
+              <h2 className="text-4xl sm:text-5xl font-sans font-semibold text-text-primary mb-4 tracking-tight">
+                What Researchers Are Saying
+              </h2>
+              <p className="text-xl text-text-secondary tracking-normal">
+                Real feedback from academics using Noesis
+              </p>
+            </motion.div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {testimonials.map((testimonial, index) => (
+                <motion.div
+                  key={testimonial.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false }}
+                  transition={{ delay: index * 0.1, duration: 0.5 }}
+                  className="bg-bg-void border border-border-default rounded-lg p-8"
+                >
+                  <div className="mb-6">
+                    <p className="text-base text-text-secondary leading-relaxed tracking-normal italic">
+                      "{testimonial.quote}"
+                    </p>
+                  </div>
+                  <div className="border-t border-border-default pt-4">
+                    <div className="font-sans font-semibold text-text-primary text-sm tracking-normal">
+                      {testimonial.name}
+                    </div>
+                    <div className="text-xs text-text-tertiary font-mono mt-1">
+                      {testimonial.role}
+                    </div>
+                    <div className="text-xs text-text-muted font-mono mt-1">
+                      {testimonial.institution}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* How It Works - Clean, Professional */}
+      <section className="py-32 px-6 sm:px-8 bg-bg-void">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false }}
             className="mb-20 text-center"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
               Simple. Powerful. <span className="text-accent-primary">Fast.</span>
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary tracking-normal">
@@ -443,88 +713,87 @@ export default function Landing() {
                 color: 'indigo'
               }
             ].map((step, index) => (
-              <motion.div
+              <div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.2, duration: 0.3 }}
                 className={`flex flex-col md:flex-row gap-12 items-center ${
                   index % 2 === 1 ? 'md:flex-row-reverse' : ''
                 }`}
               >
-                {/* Number Badge - NO Spring Animation */}
-                <div className="shrink-0">
-                  <div
-                    className={`w-32 h-32 rounded-xl ${
-                      step.color === 'rose' ? 'bg-accent-light border-accent-primary/30' :
-                      step.color === 'teal' ? 'bg-teal-light border-teal-primary/30' :
-                      'bg-indigo-light border-indigo-primary/30'
-                    } border flex items-center justify-center`}
-                  >
-                    <span className={`text-5xl font-sans font-bold ${
-                      step.color === 'rose' ? 'text-accent-primary' :
-                      step.color === 'teal' ? 'text-teal-primary' :
-                      'text-indigo-primary'
-                    }`}>
-                      {step.number}
-                    </span>
-                  </div>
-                </div>
+                {/* Number Badge - spring pop-in */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.4 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: false, amount: 0.5 }}
+                  transition={{
+                    delay: index * 0.1,
+                    duration: 0.5,
+                    type: 'spring',
+                    stiffness: 180,
+                    damping: 14
+                  }}
+                  className="shrink-0 w-32 h-32 flex items-center justify-center"
+                >
+                  <span className={`text-6xl font-heading font-bold ${
+                    step.color === 'rose' ? 'text-accent-primary' :
+                    step.color === 'teal' ? 'text-teal-primary' :
+                    'text-indigo-primary'
+                  }`}>
+                    {step.number}
+                  </span>
+                </motion.div>
 
-                {/* Content Card */}
-                <div className="flex-1">
+                {/* Content Card - slide in from alternating side */}
+                <motion.div
+                  initial={{ opacity: 0, x: index % 2 === 0 ? 48 : -48 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: false, amount: 0.3 }}
+                  transition={{ delay: index * 0.1 + 0.1, duration: 0.4, ease: 'easeOut' }}
+                  className="flex-1"
+                >
                   <div className="bg-bg-void border border-border-default rounded-lg p-8 space-y-4">
-                    <h3 className="text-3xl sm:text-4xl font-sans font-semibold text-text-primary tracking-normal">
+                    <h3 className="text-3xl sm:text-4xl font-heading font-semibold text-text-primary tracking-normal">
                       {step.title}
                     </h3>
                     <p className="text-lg text-text-secondary leading-relaxed tracking-normal">
                       {step.description}
                     </p>
                   </div>
-                </div>
-              </motion.div>
+                </motion.div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Pricing Section - Professional Dark */}
-      <section className="relative py-32 overflow-hidden bg-bg-void">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+      <section className="relative py-32 bg-bg-void overflow-visible">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 overflow-visible">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
               <span className="text-accent-primary">Transparent</span>, Research-Friendly Pricing
             </h2>
             <p className="text-lg sm:text-xl text-text-secondary max-w-3xl mx-auto tracking-normal">
-              All users are currently on the <span className="font-semibold text-accent-primary">Free Beta Plan</span>.
-              Usage limits ensure fair access during beta testing. Future paid plans will support heavier usage.
+              Choose the plan that fits your research needs. Start free, upgrade anytime.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 max-w-7xl mx-auto pt-8 overflow-visible">
             {/* Free Beta Plan - Current */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.5 }}
-              viewport={{ once: true }}
-              className="bg-bg-surface border-2 border-accent-primary rounded-lg p-8 relative shadow-md"
+              viewport={{ once: false }}
+              className="bg-bg-surface border-2 border-accent-primary rounded-lg p-8 shadow-md flex flex-col"
             >
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="px-4 py-1 bg-teal-primary text-white text-sm font-semibold rounded-full">
-                  Current Plan
-                </span>
-              </div>
-
-              <div className="space-y-6 mt-4">
-                <div>
+              <div className="flex flex-col flex-1">
+                <div className="mb-6">
                   <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
                     Free (Beta)
                   </h3>
@@ -537,7 +806,7 @@ export default function Landing() {
                   </p>
                 </div>
 
-                <ul className="space-y-3">
+                <ul className="space-y-3 mb-6 flex-1">
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
                     <span className="text-text-secondary">10 draft analyses per month</span>
@@ -568,40 +837,36 @@ export default function Landing() {
                   </li>
                 </ul>
 
-                <button
-                  disabled
-                  className="w-full py-3 px-4 bg-surface border-2 border-accent-primary text-text-primary font-semibold rounded-lg cursor-not-allowed"
-                >
-                  Active Plan
-                </button>
+                <div className="mt-auto space-y-4">
+                  <button
+                    disabled
+                    className="w-full py-3 px-4 bg-surface border-2 border-accent-primary text-text-primary font-semibold rounded-lg cursor-not-allowed text-center"
+                  >
+                    Active Plan
+                  </button>
 
-                <p className="text-xs text-text-muted text-center font-mono">
-                  Currently available to all users during beta
-                </p>
+                  <p className="text-xs text-text-muted text-center font-mono">
+                    Currently available to all users during beta
+                  </p>
+                </div>
               </div>
             </motion.div>
 
-            {/* Student/Researcher Plan - Coming Soon */}
+            {/* Pro Plan */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              viewport={{ once: true }}
-              className="bg-bg-surface border border-border-default rounded-lg p-8 relative"
+              viewport={{ once: false }}
+              className="bg-bg-surface border border-border-default rounded-lg p-8 relative hover:border-accent-primary transition-all duration-200 flex flex-col"
             >
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="px-4 py-1 bg-amber-primary text-white text-sm font-semibold rounded-full">
-                  Coming Soon
-                </span>
-              </div>
-
-              <div className="space-y-6 mt-4">
-                <div>
+              <div className="flex flex-col flex-1">
+                <div className="mb-6">
                   <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
-                    Student / Researcher
+                    Pro
                   </h3>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-text-primary">$15</span>
+                    <span className="text-4xl font-bold text-text-primary">$12</span>
                     <span className="text-text-tertiary">/month</span>
                   </div>
                   <p className="text-sm text-text-tertiary mt-2">
@@ -609,7 +874,7 @@ export default function Landing() {
                   </p>
                 </div>
 
-                <ul className="space-y-3">
+                <ul className="space-y-3 mb-6 flex-1">
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
                     <span className="text-text-secondary">Unlimited draft analyses</span>
@@ -640,47 +905,48 @@ export default function Landing() {
                   </li>
                 </ul>
 
-                <button
-                  disabled
-                  className="w-full py-3 px-4 border border-border-base text-text-muted font-semibold rounded-lg cursor-not-allowed opacity-50"
-                >
-                  Notify Me
-                </button>
+                <div className="mt-auto space-y-4">
+                  <button
+                    disabled
+                    className="block w-full py-3 px-4 bg-accent-primary text-white font-semibold rounded-lg text-center opacity-50 cursor-not-allowed"
+                  >
+                    Get Started
+                  </button>
 
-                <p className="text-xs text-text-muted text-center font-mono">
-                  Planned for Spring 2026
-                </p>
+                  <p className="text-xs text-text-muted text-center font-mono">
+                    Billed monthly • Cancel anytime
+                  </p>
+                </div>
               </div>
             </motion.div>
 
-            {/* Lab/Team Plan - Future */}
+            {/* Team Plan */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              viewport={{ once: true }}
-              className="bg-bg-surface border border-border-default rounded-lg p-8 relative"
+              viewport={{ once: false }}
+              className="bg-bg-surface border border-border-default rounded-lg p-8 relative hover:border-accent-primary transition-all duration-200 flex flex-col"
             >
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="px-4 py-1 bg-bg-hover text-text-primary text-sm font-semibold rounded-full border border-border-default">
-                  Future
-                </span>
-              </div>
-
-              <div className="space-y-6 mt-4">
-                <div>
+              <div className="flex flex-col flex-1">
+                <div className="mb-6">
                   <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
-                    Lab / Team
+                    Team
                   </h3>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-text-primary">Custom</span>
+                    <span className="text-4xl font-bold text-text-primary">$20</span>
+                    <span className="text-text-tertiary">/user/month</span>
                   </div>
                   <p className="text-sm text-text-tertiary mt-2">
-                    For research groups and institutions
+                    For research groups (minimum 3 users)
                   </p>
                 </div>
 
-                <ul className="space-y-3">
+                <ul className="space-y-3 mb-6 flex-1">
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Everything in Pro</span>
+                  </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
                     <span className="text-text-secondary">Shared project workspaces</span>
@@ -691,32 +957,101 @@ export default function Landing() {
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Dedicated support</span>
+                    <span className="text-text-secondary">Shared literature libraries</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Custom usage limits</span>
+                    <span className="text-text-secondary">Add or remove seats anytime</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">SSO integration (optional)</span>
+                    <span className="text-text-secondary">Priority support</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Everything in Student plan</span>
+                    <span className="text-text-secondary">Usage analytics dashboard</span>
                   </li>
                 </ul>
 
-                <button
-                  disabled
-                  className="w-full py-3 px-4 border border-border-base text-text-muted font-semibold rounded-lg cursor-not-allowed opacity-50"
-                >
-                  Contact Sales
-                </button>
+                <div className="mt-auto space-y-4">
+                  <button
+                    disabled
+                    className="block w-full py-3 px-4 bg-accent-primary text-white font-semibold rounded-lg text-center opacity-50 cursor-not-allowed"
+                  >
+                    Get Started
+                  </button>
 
-                <p className="text-xs text-text-muted text-center font-mono">
-                  Roadmap for late 2026
-                </p>
+                  <p className="text-xs text-text-muted text-center font-mono">
+                    Starting at $60/month • Flexible seat count
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Enterprise Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              viewport={{ once: false }}
+              className="bg-bg-surface border border-border-default rounded-lg p-8 relative hover:border-accent-primary transition-all duration-200 flex flex-col"
+            >
+              <div className="flex flex-col flex-1">
+                <div className="mb-6">
+                  <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
+                    Enterprise
+                  </h3>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-text-primary">Custom</span>
+                  </div>
+                  <p className="text-sm text-text-tertiary mt-2">
+                    For large institutions and universities
+                  </p>
+                </div>
+
+                <ul className="space-y-3 mb-6 flex-1">
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Everything in Team</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">SSO integration (SAML, OAuth)</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Custom deployment options</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Dedicated account manager</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Custom SLA & uptime guarantees</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Volume pricing discounts</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Advanced compliance support</span>
+                  </li>
+                </ul>
+
+                <div className="mt-auto space-y-4">
+                  <button
+                    disabled
+                    className="block w-full py-3 px-4 border-2 border-accent-primary text-accent-primary font-semibold rounded-lg text-center opacity-50 cursor-not-allowed"
+                  >
+                    Contact Sales
+                  </button>
+
+                  <p className="text-xs text-text-muted text-center font-mono">
+                    Tailored to your institution's needs
+                  </p>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -726,13 +1061,13 @@ export default function Landing() {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             className="mt-12 max-w-3xl mx-auto bg-bg-surface border border-border-default rounded-lg p-6 text-center"
           >
             <p className="text-sm text-text-tertiary tracking-normal">
               <span className="font-semibold text-text-secondary">Beta Period:</span> All features are free while we collect feedback and refine the platform.
               Limits exist to prevent abuse and ensure quality service for all researchers.
-              <a href="mailto:support@noesis.ai" className="text-accent-primary hover:text-accent-hover transition-colors duration-150 ml-1">
+              <a href="mailto:support@noesis.is" className="text-accent-primary hover:text-accent-hover transition-colors duration-150 ml-1">
                 Contact us
               </a> if you need higher limits for a research project.
             </p>
@@ -746,7 +1081,7 @@ export default function Landing() {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             className="text-center space-y-8 bg-bg-surface border border-accent-primary/20 rounded-xl p-12 sm:p-16"
           >
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-sans font-semibold leading-[1.1] tracking-tight text-text-primary">
@@ -795,15 +1130,8 @@ export default function Landing() {
       <footer className="py-12 px-6 sm:px-8 border-t border-border-default bg-bg-void">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-3">
-              <img
-                src="/noesis.png"
-                alt="Noesis"
-                className="h-8"
-              />
-              <span className="text-lg font-sans font-semibold text-text-primary">
-                Noesis
-              </span>
+            <div className="flex items-center">
+              <NoesisLogo size="md" />
             </div>
             <div className="text-text-muted text-sm font-mono">
               © 2026 Noesis. All rights reserved.

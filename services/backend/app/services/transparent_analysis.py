@@ -63,7 +63,7 @@ async def analyze_claims_with_transparency(draft_id: str) -> Dict[str, Any]:
     transparent_result = add_transparency_metadata(
         analysis_result=result,
         analysis_type="claim_extraction",
-        model_used="gpt-4o",
+        model_used="gpt-5.2-chat-latest",
         input_sources=[source_ref],
         reasoning="Used AI to identify factual claims, hypotheses, and assertions from draft text. "
                   "Categorized claims by type (empirical, theoretical, methodological) and "
@@ -81,7 +81,7 @@ async def analyze_claims_with_transparency(draft_id: str) -> Dict[str, Any]:
             "total_claims": result.get("total_claims", 0),
             "num_sections": len(result.get("claims_by_type", {}))
         },
-        method="AI-powered semantic analysis using GPT-4o"
+        method="AI-powered semantic analysis using GPT-5.2"
     )
 
     transparent_result["_explanation"] = explanation
@@ -152,7 +152,7 @@ async def analyze_coverage_with_transparency(
     transparent_result = add_transparency_metadata(
         analysis_result=result,
         analysis_type="coverage_analysis",
-        model_used="gpt-4o",
+        model_used="gpt-5.2-chat-latest",
         input_sources=sources,
         reasoning="Compared draft content against project literature database to identify gaps. "
                   "Used semantic similarity to find missing seminal papers, uncovered methodologies, "
@@ -235,7 +235,7 @@ async def generate_feedback_with_transparency(draft_id: str) -> Dict[str, Any]:
     transparent_result = add_transparency_metadata(
         analysis_result=result,
         analysis_type="reviewer_feedback",
-        model_used="gpt-4o",
+        model_used="gpt-5.2-chat-latest",
         input_sources=[source_ref],
         reasoning="Generated academic peer reviewer-style feedback based on draft content, "
                   "claim analysis, citation quality assessment, and coverage gap analysis. "
@@ -296,7 +296,7 @@ async def generate_feedback_with_transparency(draft_id: str) -> Dict[str, Any]:
             "total_feedback_items": result.get("total_feedback_items", 0),
             "critical_items": result.get("feedback_by_severity", {}).get("critical", 0)
         },
-        method="Academic peer review simulation using GPT-4o"
+        method="Academic peer review simulation using GPT-5.2"
     )
 
     transparent_result["_explanation"] = explanation

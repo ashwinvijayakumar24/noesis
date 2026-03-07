@@ -135,7 +135,7 @@ def chunk_text(text: str, max_tokens: int = 500, overlap_tokens: int = 100) -> L
     return chunks
 
 
-def embed_chunks(chunks: List[str], model: str = "text-embedding-3-small") -> List:
+def embed_chunks(chunks: List[str], model: str = "text-embedding-3-large") -> List:
     """
     Generate embeddings for text chunks using OpenAI API.
 
@@ -308,7 +308,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             )
 
         # Use default embedding model (server-controlled, no user config)
-        embedding_model = "text-embedding-3-small"
+        embedding_model = "text-embedding-3-large"
         logger.info(f"[RAG-INGEST] Using embedding model: {embedding_model}")
 
         # 7. Chunk text (using appropriate strategy)
@@ -319,7 +319,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             logger.info(f"[RAG-INGEST] ✓ Created {len(chunks)} section-aware chunks")
         else:
             # Use basic chunking
-            chunks = chunk_text(full_text, max_tokens=chunk_size, overlap_tokens=chunk_overlap)
+            chunks = chunk_text(full_text, max_completion_tokens=chunk_size, overlap_tokens=chunk_overlap)
             logger.info(f"[RAG-INGEST] ✓ Created {len(chunks)} basic chunks")
 
         if not chunks:
@@ -413,6 +413,24 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
         supabase.table("documents").update(metadata_update).eq("id", document_id).execute()
 
         logger.info(f"[RAG-INGEST] ✓ Document metadata updated")
+
+        # Auto-trigger document analysis after RAG completion (if not already analyzing)
+        # This prevents race conditions and ensures analysis always runs after RAG
+        if current_status not in ["analyzing", "analyzed"]:
+            logger.info(f"[RAG-INGEST] Auto-triggering document analysis...")
+            try:
+                from app.tasks.document_analysis import analyze_document_task
+
+                # Note: user_id is already fetched from record.data at line 210
+                task_result = analyze_document_task.delay(document_id, user_id, project_id)
+                logger.info(f"[RAG-INGEST] ✓ Analysis task submitted (task_id={task_result.id})")
+            except Exception as analysis_error:
+                logger.error(f"[RAG-INGEST] ✗ Failed to trigger analysis: {analysis_error}")
+                logger.error(f"[RAG-INGEST] Analysis error traceback:", exc_info=True)
+                # Don't fail the entire ingestion if analysis trigger fails
+        else:
+            logger.info(f"[RAG-INGEST] Skipping auto-trigger (status={current_status})")
+
         logger.info(f"[RAG-INGEST] ========== INGESTION COMPLETE ==========")
 
         return {

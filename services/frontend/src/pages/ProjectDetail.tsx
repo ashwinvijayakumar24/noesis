@@ -1,12 +1,14 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
 import type { ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { NoesisLogo } from '../components/ui/NoesisLogo'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DocumentTextIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon } from '@heroicons/react/24/outline'
 import UploadDocumentModal from '../components/UploadDocumentModal'
+import PaperDiscoveryModal from '../components/PaperDiscoveryModal'
 import DeleteDocumentModal from '../components/DeleteDocumentModal'
 import ChatMessage from '../components/ChatMessage'
 import GlobalSearch from '../components/GlobalSearch'
@@ -27,7 +29,7 @@ interface TabItem {
   label: string
   icon?: ReactNode
   badgeCount?: number
-  badgeVariant?: 'neutral' | 'pink' | 'warning' | 'success'
+  badgeVariant?: 'neutral' | 'primary' | 'warning' | 'success'
   isProcessing?: boolean
 }
 
@@ -77,6 +79,7 @@ export default function ProjectDetail() {
 
   // Document modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isPaperDiscoveryModalOpen, setIsPaperDiscoveryModalOpen] = useState(false)
   const [deleteDocument, setDeleteDocument] = useState<{ id: string; title: string } | null>(null)
 
   // Draft modals
@@ -97,7 +100,7 @@ export default function ProjectDetail() {
   const [streamingMessage, setStreamingMessage] = useState('')
   const [streamingSources, setStreamingSources] = useState<any[]>([])
   const [isFullScreen, setIsFullScreen] = useState(false)
-  const [includeDrafts, setIncludeDrafts] = useState(false)  // NEW: draft-aware chat toggle
+  const [includeDrafts, setIncludeDrafts] = useState(true)  // draft-aware chat always on by default
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
@@ -168,6 +171,7 @@ export default function ProjectDetail() {
     const hasProcessingDocs = documents.some(
       (doc) => doc.status.toLowerCase() === 'processing' ||
                doc.status.toLowerCase() === 'uploaded' ||
+               doc.status.toLowerCase() === 'ready' ||
                doc.status.toLowerCase() === 'analyzing'
     )
 
@@ -326,7 +330,7 @@ export default function ProjectDetail() {
     try {
       const params = new URLSearchParams({
         query: userMessage,
-        model: 'gpt-4o',
+        model: 'gpt-5.2-chat-latest',
         max_chunks: '5',
         include_drafts: includeDrafts.toString(),  // NEW: include drafts in search
       })
@@ -342,6 +346,19 @@ export default function ProjectDetail() {
       )
 
       if (!response.ok) {
+        if (response.status === 429) {
+          const parsed = await response.json().catch(() => null)
+          const detail = parsed?.detail
+          if (detail?.error === 'quota_exceeded') {
+            const isDaily = detail.quota_type === 'daily_chat'
+            toast.error(isDaily
+              ? `Daily chat limit reached (${detail.limit} messages/day). Resets tomorrow.`
+              : `Monthly chat limit reached. Upgrade to Pro for more.`
+            )
+            setIsStreaming(false)
+            return
+          }
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
@@ -553,7 +570,7 @@ export default function ProjectDetail() {
         </svg>
       ),
       badgeCount: draftCount > 0 ? draftCount : undefined,
-      badgeVariant: 'pink',
+      badgeVariant: 'primary',
     },
   ]
 
@@ -608,8 +625,8 @@ export default function ProjectDetail() {
                   <Button
                     onClick={handleSaveProject}
                     variant="primary"
-                    icon={<CheckIcon className="h-4 w-4" />}
                   >
+                    <CheckIcon className="h-4 w-4" />
                     Save Changes
                   </Button>
                   <button
@@ -695,10 +712,23 @@ export default function ProjectDetail() {
                     <Button
                       onClick={() => setIsUploadModalOpen(true)}
                       variant="primary"
-                      icon={<PlusIcon className="h-4 w-4" />}
                     >
+                      <PlusIcon className="h-4 w-4" />
                       Upload Paper
                     </Button>
+
+                    {/* Discover Papers button — coming soon */}
+                    <div title="Coming soon" className="cursor-not-allowed">
+                      <Button
+                        onClick={undefined}
+                        variant="secondary"
+                        disabled
+                        className="pointer-events-none opacity-50"
+                      >
+                        <LightBulbIcon className="h-4 w-4" />
+                        Discover Papers
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -816,8 +846,8 @@ export default function ProjectDetail() {
                 <Button
                   onClick={() => setIsUploadDraftModalOpen(true)}
                   variant="primary"
-                  icon={<PlusIcon className="h-4 w-4" />}
                 >
+                  <PlusIcon className="h-4 w-4" />
                   Upload Draft
                 </Button>
               </div>
@@ -984,7 +1014,7 @@ export default function ProjectDetail() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-16">
                 <div className="flex items-center gap-3">
-                  <img src="/noesis.png" alt="Noesis" className="h-10" />
+                  <NoesisLogo size="sm" />
                   <div className="h-6 w-px bg-border-subtle"></div>
                   <div className="flex items-center gap-4 text-sm font-mono text-text-secondary">
                     <div className="flex items-center gap-2">
@@ -1123,6 +1153,17 @@ export default function ProjectDetail() {
         />
       )}
 
+      {/* Paper Discovery Modal */}
+      {session?.access_token && projectId && (
+        <PaperDiscoveryModal
+          isOpen={isPaperDiscoveryModalOpen}
+          onClose={() => setIsPaperDiscoveryModalOpen(false)}
+          onSuccess={loadProjectDetails}
+          token={session.access_token}
+          projectId={projectId}
+        />
+      )}
+
       {/* Upload Draft Modal */}
       {session?.access_token && projectId && (
         <UploadDraftModal
@@ -1155,8 +1196,8 @@ export default function ProjectDetail() {
         onClose={() => setIsSearchOpen(false)}
       />
 
-      {/* Research Assistant Panel (replaces Chat tab) */}
-      {session?.access_token && projectId && !isFullScreen && (
+      {/* Research Assistant Panel — temporarily hidden until chat is production-ready */}
+      {/* {session?.access_token && projectId && !isFullScreen && (
         <ResearchAssistantPanel
           projectId={projectId}
           token={session.access_token}
@@ -1168,7 +1209,7 @@ export default function ProjectDetail() {
           isLoading={isStreaming}
           clearChat={handleClearChat}
         />
-      )}
+      )} */}
     </PageContainer>
   )
 }

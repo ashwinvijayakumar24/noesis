@@ -114,14 +114,13 @@ Make all recommendations specific and actionable. Include at least 2 alternative
     logger.info(f"Generating methodology recommendations for question")
 
     try:
+        # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.6,  # Balanced between creativity and precision
-            response_format={"type": "json_object"},
             **get_completion_params()  # Enable zero data retention
         )
 

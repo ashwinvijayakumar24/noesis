@@ -95,9 +95,16 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
   const [status, setStatus] = useState<'not_analyzed' | 'analyzing' | 'analyzed' | 'failed'>('not_analyzed')
   const [insights, setInsights] = useState<Insights | null>(null)
   const [guidance, setGuidance] = useState<CompassGuidance | null>(null)
+  const [guidanceLoading, setGuidanceLoading] = useState(false)
+  const [guidanceError, setGuidanceError] = useState<string | null>(null)
+  const [isStale, setIsStale] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pollingInterval, setPollingInterval] = useState<number | null>(null)
   const [showToast, setShowToast] = useState(false)
+
+  // Use refs for things that need to be current inside interval callbacks
+  // (avoids stale closure bugs that caused the infinite guidance loading loop)
+  const pollingIntervalRef = useRef<number | null>(null)
+  const guidanceLoadedTimestampRef = useRef<string | null>(null)
   const previousTimestampRef = useRef<string | null>(null)
   const isInitialLoadRef = useRef(true)
 
@@ -114,20 +121,27 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
     if (session?.access_token && projectId) {
       loadInsights()
     }
-
     return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
       }
     }
   }, [projectId, session])
 
-  // Load compass guidance when insights are ready
-  useEffect(() => {
-    if (insights && session?.access_token) {
-      loadGuidance()
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
     }
-  }, [insights, session])
+  }
+
+  const startPolling = () => {
+    if (pollingIntervalRef.current) return // already polling
+    pollingIntervalRef.current = setInterval(() => {
+      loadInsights()
+    }, 3000) as unknown as number
+  }
 
   const loadInsights = async () => {
     if (!session?.access_token) return
@@ -141,39 +155,37 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
       if (data.status === 'analyzed') {
         const newTimestamp = data.insights?.analysis_metadata?.timestamp
 
-        // Check if insights were updated (new timestamp and not initial load)
+        // Show toast when insights were just refreshed (not on initial load)
         if (newTimestamp &&
             !isInitialLoadRef.current &&
             previousTimestampRef.current &&
             previousTimestampRef.current !== newTimestamp) {
           setShowToast(true)
+          setIsStale(false)
         }
 
-        // Update the timestamp reference
         if (newTimestamp) {
           previousTimestampRef.current = newTimestamp
         }
 
         setInsights(data.insights)
+        setIsStale(data.is_stale || false)
         isInitialLoadRef.current = false
 
-        if (pollingInterval) {
-          clearInterval(pollingInterval)
-          setPollingInterval(null)
+        stopPolling()
+
+        // Load guidance only once per unique insights timestamp
+        const timestampKey = newTimestamp || 'no-timestamp'
+        if (timestampKey !== guidanceLoadedTimestampRef.current) {
+          guidanceLoadedTimestampRef.current = timestampKey
+          loadGuidance()
         }
+
       } else if (data.status === 'analyzing') {
-        if (!pollingInterval) {
-          const interval = setInterval(() => {
-            loadInsights()
-          }, 3000)
-          setPollingInterval(interval)
-        }
+        startPolling()
       } else if (data.status === 'failed') {
         setError(data.message || 'Insights analysis failed')
-        if (pollingInterval) {
-          clearInterval(pollingInterval)
-          setPollingInterval(null)
-        }
+        stopPolling()
       }
     } catch (err: any) {
       console.error('Failed to load insights:', err)
@@ -186,11 +198,23 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
   const loadGuidance = async () => {
     if (!session?.access_token) return
 
+    setGuidanceLoading(true)
+    setGuidanceError(null)
     try {
       const data = await api.compass.getGuidance(session.access_token, projectId)
       setGuidance(data)
     } catch (error: any) {
       console.error('Failed to load guidance:', error)
+      const msg = error?.message || ''
+      if (msg.includes('2 analyzed documents') || msg.includes('Need at least')) {
+        setGuidanceError('needs_more_docs')
+      } else if (msg.includes('insights must be analyzed')) {
+        setGuidanceError('needs_insights')
+      } else {
+        setGuidanceError('unknown')
+      }
+    } finally {
+      setGuidanceLoading(false)
     }
   }
 
@@ -200,12 +224,8 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
     try {
       setLoading(true)
       await api.projects.analyzeInsights(session.access_token, projectId)
-
       setStatus('analyzing')
-      const interval = setInterval(() => {
-        loadInsights()
-      }, 3000)
-      setPollingInterval(interval)
+      startPolling()
     } catch (err: any) {
       console.error('Failed to start insights analysis:', err)
       setError(err.message || 'Failed to start insights analysis')
@@ -299,16 +319,38 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
 
   return (
     <div className="space-y-4">
-      {/* Success Banner */}
-      <div className="bg-surface border border-border-default rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-success">
-        <CheckCircleIcon className="h-6 w-6 text-success shrink-0 mt-0.5" />
-        <div className="flex-1">
-          <h4 className="text-text-primary font-medium">Insights Analysis Complete</h4>
-          <p className="text-text-secondary text-sm mt-1">
-            Analyzed {insights.analysis_metadata?.num_papers_analyzed || 0} papers
-          </p>
+      {/* Stale Literature Banner */}
+      {isStale && (
+        <div className="bg-surface border border-border-default rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-yellow-500">
+          <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h4 className="text-text-primary font-semibold">Literature has changed</h4>
+            <p className="text-text-secondary text-sm mt-1">
+              Documents have been added or removed since your last analysis. Regenerate to get up-to-date insights.
+            </p>
+          </div>
+          <button
+            onClick={handleAnalyze}
+            className="shrink-0 px-4 py-2 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            Regenerate
+          </button>
         </div>
-      </div>
+      )}
+
+      {/* Success Banner */}
+      {!isStale && (
+        <div className="bg-surface border border-border-default rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-success">
+          <CheckCircleIcon className="h-6 w-6 text-success shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h4 className="text-text-primary font-medium">Insights Analysis Complete</h4>
+            <p className="text-text-secondary text-sm mt-1">
+              Analyzed {insights.analysis_metadata?.num_papers_analyzed || 0} papers
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Section 1: Overview & Key Insights */}
       <SectionHeader
@@ -486,21 +528,41 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
       </SectionHeader>
 
       {/* Section 5: Synthesis Questions (from Compass) */}
-      {guidance?.synthesis_questions && guidance.synthesis_questions.length > 0 && (
-        <SectionHeader
-          title="Synthesis Questions"
-          icon={<BeakerIcon className="h-5 w-5" />}
-          iconBg="bg-slate-700/50"
-          iconColor="text-pink-400"
-          iconBorderColor="border-pink-500/60"
-          expanded={expandedSections.synthesis}
-          onToggle={() => toggleSection('synthesis')}
-        >
+      <SectionHeader
+        title="Synthesis Questions"
+        icon={<BeakerIcon className="h-5 w-5" />}
+        iconBg="bg-slate-700/50"
+        iconColor="text-pink-400"
+        iconBorderColor="border-pink-500/60"
+        expanded={expandedSections.synthesis}
+        onToggle={() => toggleSection('synthesis')}
+      >
+        {guidanceLoading ? (
+          <ComponentLoader />
+        ) : guidanceError === 'needs_more_docs' ? (
+          <div className="bg-surface/50 rounded-lg border border-border-default p-6 text-center">
+            <p className="text-text-tertiary text-sm">
+              Synthesis questions require at least 2 analyzed documents in this project. Upload more papers to unlock this section.
+            </p>
+          </div>
+        ) : guidanceError ? (
+          <div className="bg-surface/50 rounded-lg border border-border-default p-6 text-center">
+            <p className="text-text-tertiary text-sm">
+              Could not load synthesis questions. Try refreshing or re-running insights analysis.
+            </p>
+          </div>
+        ) : guidance?.synthesis_questions && guidance.synthesis_questions.length > 0 ? (
           <Suspense fallback={<ComponentLoader />}>
             <SynthesisQuestionsTab questions={guidance.synthesis_questions} />
           </Suspense>
-        </SectionHeader>
-      )}
+        ) : (
+          <div className="bg-surface/50 rounded-lg border border-border-default p-6 text-center">
+            <p className="text-text-tertiary text-sm">
+              No synthesis questions generated yet. Add more documents with conflicting findings or research gaps to generate questions.
+            </p>
+          </div>
+        )}
+      </SectionHeader>
 
       {/* Toast notification for insights update */}
       {showToast && (

@@ -174,16 +174,15 @@ Coverage Gaps:
         for gap in major_gaps[:3]:
             context += f"  * {gap['description']}\n"
 
-        # Generate feedback using GPT-4o
+        # Generate feedback using GPT-5.2-chat-latest
+        # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": REVIEWER_FEEDBACK_PROMPT},
                 {"role": "user", "content": f"Generate reviewer feedback based on:\n\n{context}"}
             ],
-            response_format={"type": "json_object"},
-            temperature=0.4,
-            max_tokens=2000,
+            max_completion_tokens=2000,
             **get_completion_params()  # Enable zero data retention
         )
 
@@ -212,10 +211,30 @@ Coverage Gaps:
             f"questions={questions}, suggestions={suggestions}"
         )
 
+        priority_actions = result.get('priority_actions', [])
+
+        # Persist priority_actions to draft_analysis.analysis_metadata so the UI can surface them
+        try:
+            existing = supabase.table("draft_analysis")\
+                .select("analysis_metadata")\
+                .eq("draft_id", draft_id)\
+                .execute()
+
+            if existing.data:
+                metadata = existing.data[0].get("analysis_metadata") or {}
+                metadata["priority_actions"] = priority_actions
+                supabase.table("draft_analysis")\
+                    .update({"analysis_metadata": metadata})\
+                    .eq("draft_id", draft_id)\
+                    .execute()
+                logger.info(f"[Reviewer Feedback] Saved {len(priority_actions)} priority_actions to draft_analysis")
+        except Exception as persist_err:
+            logger.warning(f"[Reviewer Feedback] Could not persist priority_actions: {persist_err}")
+
         return {
             'reviewer_feedback': feedback_items,
             'overall_assessment': result.get('overall_assessment', ''),
-            'priority_actions': result.get('priority_actions', []),
+            'priority_actions': priority_actions,
             'current_step': 'Reviewer Feedback',
             'progress_percentage': 85
         }

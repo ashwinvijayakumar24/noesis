@@ -13,6 +13,8 @@ interface AuthState {
   // Actions
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
+  sendOtp: (email: string) => Promise<void>
+  verifyOtp: (email: string, token: string) => Promise<void>
   signOut: () => Promise<void>
   initialize: () => Promise<void>
   setSession: (session: Session) => void
@@ -61,6 +63,53 @@ export const useAuthStore = create<AuthState>()(
             options: {
               emailRedirectTo: `${window.location.origin}/auth/callback`
             }
+          })
+
+          if (error) throw error
+
+          // Set analytics auth token
+          if (data.session?.access_token) {
+            analytics.setAuthToken(data.session.access_token)
+          }
+
+          set({
+            user: data.user,
+            session: data.session,
+            loading: false,
+          })
+        } catch (error) {
+          set({ loading: false })
+          throw error
+        }
+      },
+
+      sendOtp: async (email: string) => {
+        set({ loading: true })
+        try {
+          const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: true,
+              emailRedirectTo: `${window.location.origin}/auth/callback`
+            }
+          })
+
+          if (error) throw error
+
+          set({ loading: false })
+        } catch (error) {
+          set({ loading: false })
+          throw error
+        }
+      },
+
+      verifyOtp: async (email: string, token: string) => {
+        set({ loading: true })
+        try {
+          const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token,
+            type: 'email'
           })
 
           if (error) throw error

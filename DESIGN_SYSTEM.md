@@ -1,6 +1,8 @@
-# Noesis Design System Documentation
+# Noesis Design System Reference
 
-> **Last Updated:** February 2026
+> **For Claude Code and Cursor:** Always reference this file before building or modifying any frontend UI. All components must follow these conventions exactly. The tailwind config at `services/frontend/tailwind.config.js` is the source of truth for all tokens.
+
+> **Last Updated:** March 2026
 > **Design Philosophy:** Professional, scholarly, trustworthy—inspired by Linear's workflow precision and Stripe's polished aesthetic.
 
 ---

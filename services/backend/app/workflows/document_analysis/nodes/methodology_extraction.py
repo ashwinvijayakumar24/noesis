@@ -110,10 +110,11 @@ def extract_methodology_node(state: DocumentAnalysisState) -> DocumentAnalysisSt
             analysis_text = document_text[:15000]
             logger.info(f"[DOC-METHODS] No explicit methods section, analyzing {len(analysis_text)} chars")
 
-        # Call GPT-4o to extract methodology
-        logger.info(f"[DOC-METHODS] Calling GPT-4o for methodology extraction...")
+        # Call GPT-5.2 to extract methodology - relies on explicit JSON instructions in prompt
+        # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
+        logger.info(f"[DOC-METHODS] Calling GPT-5.2-chat-latest for methodology extraction...")
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": METHODOLOGY_EXTRACTION_PROMPT},
                 {
@@ -121,9 +122,7 @@ def extract_methodology_node(state: DocumentAnalysisState) -> DocumentAnalysisSt
                     "content": f"Extract methodology from this document:\n\nTitle: {structure.get('title', 'Unknown')}\n\n{analysis_text}"
                 }
             ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=2500,
+            max_completion_tokens=2500,
             **get_completion_params()  # Enable zero data retention
         )
 
