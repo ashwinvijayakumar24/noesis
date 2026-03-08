@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircleIcon, EnvelopeIcon, KeyIcon } from '@heroicons/react/24/outline'
+import { EnvelopeIcon, KeyIcon } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'

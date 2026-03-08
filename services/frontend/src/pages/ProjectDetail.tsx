@@ -15,7 +15,6 @@ import GlobalSearch from '../components/GlobalSearch'
 import DraftsPanel from '../components/DraftsPanel'
 import UploadDraftModal from '../components/UploadDraftModal'
 import EmptyStateGuide from '../components/EmptyStateGuide'
-import ResearchAssistantPanel from '../components/ResearchAssistantPanel'
 import PageContainer from '../components/layout/PageContainer'
 import { TabNavigation } from '../components/navigation/TabNavigation'
 import { Button } from '../components/ui/Button'
@@ -1158,8 +1157,6 @@ export default function ProjectDetail() {
         <PaperDiscoveryModal
           isOpen={isPaperDiscoveryModalOpen}
           onClose={() => setIsPaperDiscoveryModalOpen(false)}
-          onSuccess={loadProjectDetails}
-          token={session.access_token}
           projectId={projectId}
         />
       )}

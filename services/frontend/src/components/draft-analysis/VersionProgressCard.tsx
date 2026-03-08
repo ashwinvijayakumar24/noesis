@@ -18,7 +18,7 @@ interface Narrative {
 
 interface VersionProgressCardProps {
   projectId: string
-  comparisonId: string
+  comparisonId?: string
   improvementScore: number
   previousScore?: number
   feedbackTracked: FeedbackTracked[]
@@ -41,7 +41,6 @@ const readinessLabels = {
 
 export default function VersionProgressCard({
   projectId,
-  comparisonId,
   improvementScore,
   previousScore,
   feedbackTracked,
