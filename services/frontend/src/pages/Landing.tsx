@@ -11,7 +11,6 @@ import {
   UserIcon,
   AcademicCapIcon,
   CheckBadgeIcon,
-  SparklesIcon,
   DocumentArrowDownIcon,
   BookOpenIcon,
   ExclamationCircleIcon,
@@ -600,24 +599,32 @@ export default function Landing() {
             transition={{ duration: 0.4 }}
             className="text-center"
           >
-            <h3 className="text-xl font-semibold text-text-primary mb-20">
-              Trusted by researchers across the country
-            </h3>
-            <div className="flex flex-wrap items-center justify-center gap-10 sm:gap-16">
+            <h2 className="text-2xl sm:text-3xl font-heading font-semibold text-text-primary mb-8">
+              Used by researchers at
+            </h2>
+            <div className="flex flex-wrap items-center justify-center gap-4">
               {[
-                { src: '/gt_logo.png', alt: 'Georgia Tech' },
-                { src: '/rice_logo.png', alt: 'Rice University' },
-                { src: '/ut_austin_logo.png', alt: 'UT Austin' },
-                { src: '/texas_am_logo.png', alt: 'Texas A&M' },
-                { src: '/unc_logo.png', alt: 'UNC' },
-                { src: '/uh_logo.png', alt: 'University of Houston' },
-              ].map((logo) => (
-                <img
-                  key={logo.alt}
-                  src={logo.src}
-                  alt={logo.alt}
-                  className="h-16 sm:h-20 object-contain opacity-80 hover:opacity-100 transition-opacity duration-200"
-                />
+                { name: 'Georgia Tech',          color: '#B3A369' },
+                { name: 'Rice University',        color: '#4A7FBF' },
+                { name: 'UT Austin',              color: '#BF5700' },
+                { name: 'Texas A&M',              color: '#7A1E1E' },
+                { name: 'UNC',                    color: '#4B9CD3' },
+                { name: 'University of Houston',  color: '#C8102E' },
+              ].map((school, i) => (
+                <motion.span
+                  key={school.name}
+                  initial={{ opacity: 0, y: 8 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false }}
+                  transition={{ delay: i * 0.07, duration: 0.35 }}
+                  className="px-6 py-3 rounded-lg text-base font-semibold tracking-normal"
+                  style={{
+                    color: school.color,
+                    border: `1px solid ${school.color}60`,
+                  }}
+                >
+                  {school.name}
+                </motion.span>
               ))}
             </div>
           </motion.div>

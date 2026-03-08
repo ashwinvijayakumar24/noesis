@@ -99,7 +99,7 @@ export default function ResearchAssistantPanel({
                 </Dialog.Title>
                 <div className="flex items-center gap-3">
                   <FeedbackButton
-                    featureType="research_chat"
+                    featureType="rag_chat"
                     contextId={projectId}
                   />
                   <button
