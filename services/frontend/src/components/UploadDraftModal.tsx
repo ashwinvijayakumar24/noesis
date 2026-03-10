@@ -4,7 +4,7 @@ import { XMarkIcon, DocumentArrowUpIcon, ShieldCheckIcon } from '@heroicons/reac
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
 import { trackEvent } from '../lib/analytics'
-import { validateFileSize, validateFileType, handleError } from '../lib/errorHandler'
+import { validateFileSize, validateFileType, handleError, handleQuotaError } from '../lib/errorHandler'
 
 interface UploadDraftModalProps {
   isOpen: boolean
@@ -92,7 +92,9 @@ export default function UploadDraftModal({
       onClose()
       onSuccess()
     } catch (error: any) {
-      handleError(error, 'uploading draft')
+      if (!handleQuotaError(error)) {
+        handleError(error, 'uploading draft')
+      }
     } finally {
       setLoading(false)
     }

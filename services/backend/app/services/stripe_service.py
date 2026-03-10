@@ -28,30 +28,49 @@ PLAN_CONFIGS = {
             "Export analysis as PDF"
         ],
         "limits": {
-            "monthly_draft_limit": -1,  # Unlimited
-            "library_size_limit": -1,
-            "monthly_chat_limit": -1
+            "monthly_draft_limit": 9999,
+            "library_size_limit": 9999,
+            "monthly_chat_limit": 9999
+        }
+    },
+    "lab": {
+        "name": "Lab Plan",
+        "price_monthly": 49.00,  # Flat rate for up to 5 users
+        "max_users": 5,
+        "features": [
+            "Up to 5 users included (PI + 4 lab members)",
+            "Flat $49/month — no per-seat counting",
+            "Shared project workspaces",
+            "Everything in Pro — unlimited analyses",
+            "Lab member invite link",
+            "Dedicated support",
+            "Priority feature requests"
+        ],
+        "limits": {
+            "monthly_draft_limit": 9999,
+            "library_size_limit": 9999,
+            "monthly_chat_limit": 9999,
+            "team_members": 5
         }
     },
     "team": {
-        "name": "Team Plan",
+        "name": "Research Group Plan",
         "price_per_user_monthly": 20.00,  # $20/user/month
         "minimum_seats": 3,
         "maximum_seats": 100,
         "features": [
-            "Everything in Pro",
-            "Minimum 3 users, add/remove seats anytime",
+            "Everything in Lab",
+            "More than 5 users — add/remove seats anytime",
             "Shared literature base",
-            "Team collaboration",
             "Admin dashboard",
             "Usage analytics dashboard",
             "Dedicated customer success"
         ],
         "limits": {
-            "monthly_draft_limit": -1,
-            "library_size_limit": -1,
-            "monthly_chat_limit": -1,
-            "team_members": -1  # Unlimited, controlled by seat count
+            "monthly_draft_limit": 9999,
+            "library_size_limit": 9999,
+            "monthly_chat_limit": 9999,
+            "team_members": 9999
         }
     }
 }
@@ -123,12 +142,14 @@ def create_checkout_session(
         price_id = None
         if plan_tier == "pro":
             price_id = settings.STRIPE_PRICE_ID_PRO
+        elif plan_tier == "lab":
+            price_id = getattr(settings, 'STRIPE_PRICE_ID_LAB', None)
         elif plan_tier == "team":
             price_id = settings.STRIPE_PRICE_ID_TEAM
 
         # If no price ID configured, create one dynamically
         if not price_id:
-            if plan_tier == "pro":
+            if plan_tier in ("pro", "lab"):
                 price = stripe.Price.create(
                     product_data={
                         "name": plan_config["name"],

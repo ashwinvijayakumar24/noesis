@@ -253,13 +253,22 @@ async def track_openai_usage(
 
 
 async def create_default_quota(user_id: str) -> None:
-    """Create default free tier quota for user."""
+    """Create default free tier quota for user.
+
+    Free tier limits (beta-generous to reduce activation friction):
+    - 50 documents/month
+    - 10 draft analyses/month
+    - 500 chat messages/month
+    """
     if not supabase:
         raise Exception("Supabase client not configured")
 
     supabase.table('user_quotas').insert({
         'user_id': user_id,
-        'plan_tier': 'free'
+        'plan_tier': 'free',
+        'monthly_document_limit': 50,
+        'monthly_draft_limit': 10,
+        'monthly_chat_messages_limit': 500,
     }).execute()
 
 

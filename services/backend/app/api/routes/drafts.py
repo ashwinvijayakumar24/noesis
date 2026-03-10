@@ -9,6 +9,7 @@ Requirements: 1.1, 1.3, 1.5
 
 from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form, Query, Request
 from fastapi.responses import Response
+from pydantic import BaseModel
 from app.core.supabase_client import supabase
 from app.services.draft_processing import ingest_draft, validate_file_format
 from app.services.draft_export import export_draft_analysis_as_pdf
@@ -1440,5 +1441,59 @@ async def assign_sections(
     except Exception as e:
         logger.error(f"Failed to assign sections for draft {draft_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to assign sections: {str(e)}")
+
+
+class FeedbackReactionBody(BaseModel):
+    action: str  # 'helpful' | 'dispute'
+
+
+@router.post("/{draft_id}/feedback/{feedback_id}/react")
+@limiter.limit("30/minute")
+async def react_to_feedback(
+    request: Request,
+    draft_id: str,
+    feedback_id: str,
+    body: FeedbackReactionBody,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Record a user reaction on a reviewer feedback item.
+
+    Stores 'helpful' or 'dispute' reactions for each feedback item.
+    Disputes are used to suppress repeated false-positive flags.
+    Uses upsert so the user can change their reaction.
+
+    Args:
+        draft_id: Draft UUID
+        feedback_id: UUID of the reviewer_feedback row
+        body: {action: 'helpful' | 'dispute'}
+
+    Returns:
+        {success: true, action: str, feedback_id: str}
+    """
+    if body.action not in ("helpful", "dispute"):
+        raise HTTPException(status_code=400, detail="action must be 'helpful' or 'dispute'")
+
+    # Verify draft belongs to user
+    draft_response = supabase.table("drafts")\
+        .select("id")\
+        .eq("id", draft_id)\
+        .eq("user_id", user_id)\
+        .execute()
+
+    if not draft_response.data:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    # Upsert reaction (one per user per feedback item)
+    supabase.table("user_feedback_on_analysis").upsert({
+        "draft_id": draft_id,
+        "feedback_id": feedback_id,
+        "user_id": user_id,
+        "user_action": body.action,
+    }, on_conflict="draft_id,feedback_id,user_id").execute()
+
+    logger.info(f"User {user_id} marked feedback {feedback_id} as {body.action}")
+
+    return {"success": True, "action": body.action, "feedback_id": feedback_id}
 
 

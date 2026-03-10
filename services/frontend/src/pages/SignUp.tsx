@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { EnvelopeIcon, KeyIcon } from '@heroicons/react/24/outline'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { EnvelopeIcon, KeyIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -14,11 +14,29 @@ export default function SignUp() {
   const [otp, setOtp] = useState('')
   const [step, setStep] = useState<'email' | 'otp'>('email')
   const [resendTimer, setResendTimer] = useState(0)
+  const [labInviteName, setLabInviteName] = useState<string | null>(null)
   const { sendOtp, verifyOtp, loading } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
     document.title = 'Sign Up | Noesis'
+
+    // Read lab invite code from URL, store for post-signup processing
+    const labInviteCode = searchParams.get('lab_invite')
+    if (labInviteCode) {
+      sessionStorage.setItem('pending_lab_invite', labInviteCode)
+      // Fetch lab name for display
+      fetch(`/api/lab-invite/${labInviteCode}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.lab_name) {
+            setLabInviteName(data.lab_name)
+            sessionStorage.setItem('pending_lab_invite_name', data.lab_name)
+          }
+        })
+        .catch(() => {})
+    }
   }, [])
 
   // Countdown timer for resend button
@@ -134,6 +152,21 @@ export default function SignUp() {
           </Link>
           <p className="text-text-muted text-sm font-mono">AI-powered research workspace</p>
         </div>
+
+        {/* Lab Invite Banner */}
+        {labInviteName && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 flex items-center gap-3 px-4 py-3 bg-accent-light border border-accent-primary/30 rounded-lg"
+          >
+            <UserGroupIcon className="h-5 w-5 text-accent-primary shrink-0" />
+            <p className="text-sm text-text-primary">
+              You've been invited to join{' '}
+              <span className="font-semibold text-accent-primary">{labInviteName}</span>'s workspace on Noesis.
+            </p>
+          </motion.div>
+        )}
 
         {/* Signup Card */}
         <motion.div

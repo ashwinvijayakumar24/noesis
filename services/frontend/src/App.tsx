@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import { lazy, Suspense } from 'react'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
+import UpgradeModal from './components/UpgradeModal'
 
 // Lazy load page components for code splitting
 const Landing = lazy(() => import('./pages/Landing'))
@@ -62,7 +63,10 @@ function App() {
             },
           }}
         />
-        <Suspense fallback={<PageLoader />}>
+        {/* Global upgrade modal — triggered by quota 429 errors anywhere in the app */}
+      <UpgradeModal />
+
+      <Suspense fallback={<PageLoader />}>
           <Routes>
           {/* Public routes */}
           <Route path="/" element={<Landing />} />

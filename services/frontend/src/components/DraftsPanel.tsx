@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DocumentTextIcon, TrashIcon, CalendarIcon, ArrowsRightLeftIcon, ClockIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, TrashIcon, CalendarIcon, ArrowsRightLeftIcon, ClockIcon, ExclamationTriangleIcon, XMarkIcon, UserGroupIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { handleError } from '../lib/errorHandler'
@@ -8,6 +8,7 @@ import { Badge, type BadgeVariant } from './ui/Badge'
 import { SkeletonListItem, SkeletonList } from './ui/Skeleton'
 import VersionTimeline from './draft-analysis/VersionTimeline'
 import RecurringPatterns from './draft-analysis/RecurringPatterns'
+import VersionProgressCard from './draft-analysis/VersionProgressCard'
 
 interface Draft {
   id: string
@@ -50,6 +51,11 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   const [recurringPatterns, setRecurringPatterns] = useState<any[]>([])
   const [overallObservation, setOverallObservation] = useState<string | null>(null)
   const [patternsLoading, setPatternsLoading] = useState(false)
+  const [latestComparison, setLatestComparison] = useState<any | null>(null)
+  const [inviteModal, setInviteModal] = useState<{ isOpen: boolean; inviteUrl: string; labName: string }>({
+    isOpen: false, inviteUrl: '', labName: '',
+  })
+  const [inviteLoading, setInviteLoading] = useState(false)
 
   const loadDrafts = async () => {
     try {
@@ -77,18 +83,36 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     loadDrafts()
   }, [token, projectId, refreshTrigger])
 
-  // Load timeline and recurring patterns when analyzed draft count changes
+  // Load timeline, recurring patterns, and latest comparison when analyzed draft count changes
   useEffect(() => {
     const analyzedCount = drafts.filter(d => d.status === 'analyzed').length
     if (analyzedCount < 2) {
       setTimeline([])
       setRecurringPatterns([])
+      setLatestComparison(null)
       return
     }
 
     // Fetch timeline (2+ analyzed drafts)
     api.drafts.getTimeline(token, projectId)
       .then(data => setTimeline(data.timeline || []))
+      .catch(() => {}) // non-critical
+
+    // Fetch latest comparison for VersionProgressCard
+    api.drafts.listComparisons(token, projectId)
+      .then(async (data) => {
+        const comparisons = data.comparisons || []
+        if (comparisons.length === 0) return
+        const latest = comparisons[0]
+        // Fetch full comparison details for the card
+        try {
+          const detail = await api.drafts.getComparison(token, latest.comparison_id)
+          setLatestComparison({ ...detail, v1Id: latest.draft_v1_id, v2Id: latest.draft_v2_id })
+        } catch {
+          // non-critical — just show the card without full data
+          setLatestComparison(latest)
+        }
+      })
       .catch(() => {}) // non-critical
 
     // Fetch recurring patterns (3+ analyzed drafts)
@@ -163,6 +187,23 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     }
   }
 
+  const handleInviteLab = async () => {
+    try {
+      setInviteLoading(true)
+      const data = await api.labInvites.generate(token, projectId)
+      setInviteModal({ isOpen: true, inviteUrl: data.invite_url, labName: data.lab_name })
+    } catch (error: any) {
+      handleError(error, 'generating lab invite')
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleCopyInviteUrl = () => {
+    navigator.clipboard.writeText(inviteModal.inviteUrl)
+    toast.success('Invite link copied!')
+  }
+
   const getStatusBadge = (status: string): BadgeVariant => {
     switch (status) {
       case 'analyzed':
@@ -228,25 +269,28 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
 
   return (
     <>
-      {/* Action buttons row (shows when 2+ analyzed drafts exist) */}
-      {analyzedDrafts.length >= 2 && (
-        <div className="mb-4 flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => handleOpenCompareModal(analyzedDrafts[0].id)}
-            className="px-4 py-2 bg-indigo-600/20 border-2 border-indigo-600/50 text-indigo-300 font-semibold rounded-lg hover:bg-indigo-600/30 hover:border-indigo-500 transition-all flex items-center gap-2"
-          >
-            <ArrowsRightLeftIcon className="h-5 w-5" />
-            Compare Versions
-          </button>
-          <button
-            onClick={() => setShowTimeline(v => !v)}
-            className="px-4 py-2 bg-bg-surface border border-border-default text-text-secondary font-semibold rounded-lg hover:border-accent-primary/40 hover:text-text-primary transition-all flex items-center gap-2"
-          >
-            <ClockIcon className="h-5 w-5" />
-            {showTimeline ? 'Hide History' : 'Version History'}
-          </button>
-        </div>
-      )}
+      {/* Action buttons row */}
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        {analyzedDrafts.length >= 2 && (
+          <>
+            <button
+              onClick={() => handleOpenCompareModal(analyzedDrafts[0].id)}
+              className="px-4 py-2 bg-indigo-600/20 border-2 border-indigo-600/50 text-indigo-300 font-semibold rounded-lg hover:bg-indigo-600/30 hover:border-indigo-500 transition-all flex items-center gap-2"
+            >
+              <ArrowsRightLeftIcon className="h-5 w-5" />
+              Compare Versions
+            </button>
+            <button
+              onClick={() => setShowTimeline(v => !v)}
+              className="px-4 py-2 bg-bg-surface border border-border-default text-text-secondary font-semibold rounded-lg hover:border-accent-primary/40 hover:text-text-primary transition-all flex items-center gap-2"
+            >
+              <ClockIcon className="h-5 w-5" />
+              {showTimeline ? 'Hide History' : 'Version History'}
+            </button>
+          </>
+        )}
+        {/* Invite Lab Members — temporarily disabled, pending worktree implementation */}
+      </div>
 
       {/* Version Timeline */}
       {showTimeline && timeline.length > 0 && (
@@ -266,6 +310,21 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
             patterns={recurringPatterns}
             overallObservation={overallObservation}
             loading={patternsLoading}
+          />
+        </div>
+      )}
+
+      {/* Version Progress Card — shows improvement trajectory when a comparison exists */}
+      {latestComparison && latestComparison.v1Id && latestComparison.v2Id && (
+        <div className="mb-4">
+          <VersionProgressCard
+            projectId={projectId}
+            comparisonId={latestComparison.comparison_id}
+            improvementScore={latestComparison.improvement_score ?? 0}
+            feedbackTracked={latestComparison.feedback_tracked ?? []}
+            narrative={latestComparison.narrative}
+            v1Id={latestComparison.v1Id}
+            v2Id={latestComparison.v2Id}
           />
         </div>
       )}
@@ -382,6 +441,46 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lab Invite Modal */}
+      {inviteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setInviteModal(prev => ({ ...prev, isOpen: false }))} />
+          <div className="relative bg-bg-surface border border-border-default rounded-xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border-default">
+              <div className="flex items-center gap-3">
+                <UserGroupIcon className="h-5 w-5 text-accent-primary" />
+                <h2 className="text-lg font-semibold text-text-primary">Invite Lab Members</h2>
+              </div>
+              <button onClick={() => setInviteModal(prev => ({ ...prev, isOpen: false }))} className="p-1 text-text-secondary hover:text-text-primary rounded transition-colors">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-6 space-y-4">
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Share this link with your lab members. When they sign up, they'll get a personalized welcome experience linked to <span className="font-semibold text-text-primary">{inviteModal.labName}</span>.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={inviteModal.inviteUrl}
+                  className="flex-1 px-3 py-2 bg-bg-hover border border-border-default rounded-lg text-sm text-text-secondary font-mono truncate focus:outline-none"
+                />
+                <button
+                  onClick={handleCopyInviteUrl}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-colors shrink-0"
+                >
+                  <ClipboardDocumentIcon className="h-4 w-4" />
+                  Copy
+                </button>
+              </div>
+              <p className="text-xs text-text-muted">
+                Free for your whole lab during beta. One early finding from a real reviewer = worth it.
+              </p>
+            </div>
           </div>
         </div>
       )}

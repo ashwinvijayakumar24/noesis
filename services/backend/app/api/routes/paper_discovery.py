@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
 from typing import Optional
 import logging
+import os
+from datetime import date
 
 from app.core.supabase_client import get_supabase_client
 from app.core.security_middleware import SecureAuthValidator
@@ -14,6 +16,46 @@ from app.services.paper_discovery_agent import discover_papers
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+DAILY_DISCOVERY_LIMITS = {
+    'free': 3,
+    'pro': 999,
+    'team': 999,
+    'enterprise': 9999,
+}
+
+
+def _check_discovery_quota(user_id: str, plan_tier: str = 'free') -> None:
+    """Raise HTTPException if user has exceeded daily paper discovery limit."""
+    daily_limit = DAILY_DISCOVERY_LIMITS.get(plan_tier, DAILY_DISCOVERY_LIMITS['free'])
+    if daily_limit >= 999:
+        return  # unlimited
+
+    try:
+        import redis as redis_lib
+        r = redis_lib.Redis(
+            host=os.getenv('REDIS_HOST', 'redis'),
+            port=int(os.getenv('REDIS_PORT', 6379)),
+            db=int(os.getenv('REDIS_DB', 0)),
+            decode_responses=True
+        )
+        today = date.today().isoformat()
+        key = f"daily_discovery:{user_id}:{today}"
+        count = int(r.get(key) or 0)
+        if count >= daily_limit:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Daily paper discovery limit reached ({daily_limit} searches/day on free plan). Upgrade to Pro for unlimited searches."
+            )
+        # Increment with 25h TTL
+        pipe = r.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, 90000)
+        pipe.execute()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"[DISCOVERY-QUOTA] Redis check failed (fail open): {e}")
 
 
 def get_current_user(authorization: str = Header(None)):
@@ -73,6 +115,11 @@ async def discover_papers_endpoint(
 
         if not project.data:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        # Check daily quota (free tier: 3 searches/day)
+        quota_res = supabase.table("user_quotas").select("plan_tier").eq("user_id", user_id).execute()
+        plan_tier = quota_res.data[0].get("plan_tier", "free") if quota_res.data else "free"
+        _check_discovery_quota(user_id, plan_tier)
 
         # Run discovery workflow
         result = await discover_papers(

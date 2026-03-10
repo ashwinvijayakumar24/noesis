@@ -723,6 +723,38 @@ def validate_feedback_content(feedback: Dict[str, Any]) -> Dict[str, Any]:
 # Complete Reviewer Feedback Pipeline
 # ============================================
 
+def _get_source_grounding(feedback_text: str, project_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Find the most relevant literature passage that grounds this feedback item.
+
+    Returns the top matching chunk from the project's literature with:
+    - document_title: Source paper name
+    - excerpt: Relevant passage (up to 300 chars)
+    - similarity: Cosine similarity score (0-1)
+    """
+    try:
+        from app.services.rag_retrieval import retrieve_relevant_chunks
+        chunks = retrieve_relevant_chunks(
+            project_id=project_id,
+            query=feedback_text[:500],  # Use first 500 chars as search query
+            limit=1,
+            similarity_threshold=0.25,
+        )
+        if chunks:
+            chunk = chunks[0]
+            similarity = chunk.get("similarity", 0.0)
+            return {
+                "document_title": chunk.get("document_title") or chunk.get("title", "Unknown source"),
+                "excerpt": chunk.get("content", "")[:300].strip(),
+                "similarity": round(float(similarity), 3),
+                "chunk_index": chunk.get("chunk_index", 0),
+            }
+        return None
+    except Exception as e:
+        logger.debug(f"Source grounding lookup skipped: {e}")
+        return None
+
+
 async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
     """
     Generate comprehensive reviewer-style feedback for a draft.
@@ -872,6 +904,26 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
                     "reasoning": "Logical flow is critical for persuasive research"
                 })
 
+        # 11b. Enrich feedback items with source grounding from literature
+        if project_id:
+            for feedback_item in all_feedback:
+                grounding = _get_source_grounding(
+                    feedback_item.get("feedback_text", ""),
+                    project_id
+                )
+                feedback_item["source_grounding"] = grounding
+                # Set confidence level based on grounding similarity
+                if grounding:
+                    sim = grounding.get("similarity", 0)
+                    if sim >= 0.65:
+                        feedback_item["confidence_level"] = "high"
+                    elif sim >= 0.45:
+                        feedback_item["confidence_level"] = "medium"
+                    else:
+                        feedback_item["confidence_level"] = "low"
+                else:
+                    feedback_item["confidence_level"] = "medium"
+
         # 12. Store feedback in database with line positioning
         feedback_records = []
         for feedback in all_feedback:
@@ -956,7 +1008,10 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
                 "section_id": section_id,
                 "char_offset_from_section": char_offset_from_section,
                 "pdf_coordinates": pdf_coordinates,
-                "match_confidence": match_confidence
+                "match_confidence": match_confidence,
+                # Source grounding: literature passage that informed this feedback
+                "source_grounding": feedback.get("source_grounding"),
+                "confidence_level": feedback.get("confidence_level", "medium"),
             }
             feedback_records.append(record)
 

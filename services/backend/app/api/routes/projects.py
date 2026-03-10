@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, Header, Response
+from fastapi import APIRouter, HTTPException, Depends, Header, Response, UploadFile, File, Request
 from app.core.supabase_client import supabase
-from app.services.citation_management import format_citation_bibtex
+from app.services.citation_management import format_citation_bibtex, parse_bibtex_file
 from app.core.security_middleware import SecureAuthValidator, limiter
 from app.schemas.projects import ProjectBundle, Dataset, Document
 from typing import Optional, List, Dict, Any
@@ -160,6 +160,119 @@ def delete_project(project_id: str, user_id: str = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Error deleting project {project_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete project: {str(e)}")
+
+# BIBTEX IMPORT
+@router.post("/{project_id}/import-bibtex")
+@limiter.limit("10/minute")
+async def import_bibtex(
+    request: Request,
+    project_id: str,
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Import a BibTeX (.bib) file into a project as metadata-only document records.
+
+    Each BibTeX entry becomes a document with status='imported'. No PDF is attached.
+    Researchers can optionally add PDFs later.
+
+    Supports entries exported from Zotero, Mendeley, Endnote, and most reference managers.
+    """
+    # Verify project exists and belongs to user
+    project_res = supabase.table("projects").select("id").eq("id", project_id).eq("user_id", user_id).execute()
+    if not project_res.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Validate file type
+    filename = file.filename or ""
+    if not filename.lower().endswith('.bib'):
+        raise HTTPException(status_code=400, detail="File must be a BibTeX (.bib) file")
+
+    # Read and parse file
+    try:
+        content_bytes = await file.read()
+        # Try UTF-8, fall back to latin-1 (common for older .bib files)
+        try:
+            bibtex_content = content_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            bibtex_content = content_bytes.decode('latin-1')
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+
+    # Parse BibTeX entries
+    try:
+        parsed_entries = parse_bibtex_file(bibtex_content)
+    except Exception as e:
+        logger.error(f"BibTeX parse error: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse BibTeX file: {str(e)}")
+
+    if not parsed_entries:
+        raise HTTPException(status_code=400, detail="No valid BibTeX entries found in file")
+
+    # Cap at 500 entries per import to prevent abuse
+    MAX_ENTRIES = 500
+    if len(parsed_entries) > MAX_ENTRIES:
+        parsed_entries = parsed_entries[:MAX_ENTRIES]
+
+    # Create document records for each entry
+    now = datetime.datetime.utcnow().isoformat()
+    imported = 0
+    skipped = 0
+    errors = []
+
+    for entry in parsed_entries:
+        title = entry.get('title', 'Untitled').strip() or 'Untitled'
+        authors = entry.get('authors', [])
+        year = entry.get('year', '')
+
+        try:
+            doc_record = {
+                "user_id": user_id,
+                "project_id": project_id,
+                "title": title,
+                "description": None,
+                "file_url": None,
+                "file_type": "bibtex_import",
+                "file_size": 0,
+                "status": "imported",
+                "metadata": {
+                    "import_source": "bibtex",
+                    "bibtex_key": entry.get('bibtex_key', ''),
+                    "entry_type": entry.get('entry_type', 'article'),
+                    "authors": authors,
+                    "year": year,
+                    "abstract": entry.get('abstract', ''),
+                    "doi": entry.get('doi', ''),
+                    "url": entry.get('url', ''),
+                    "journal": entry.get('journal', ''),
+                    "booktitle": entry.get('booktitle', ''),
+                    "volume": entry.get('volume', ''),
+                    "pages": entry.get('pages', ''),
+                    "publisher": entry.get('publisher', ''),
+                    "import_timestamp": now,
+                },
+                "created_at": now,
+                "updated_at": now,
+            }
+
+            res = supabase.table("documents").insert(doc_record).execute()
+            if res.data:
+                imported += 1
+            else:
+                skipped += 1
+        except Exception as e:
+            logger.warning(f"Failed to import BibTeX entry '{title}': {e}")
+            errors.append(title)
+            skipped += 1
+
+    return {
+        "message": f"Imported {imported} references from BibTeX file",
+        "imported": imported,
+        "skipped": skipped,
+        "total_in_file": len(parsed_entries),
+        "errors": errors[:10],  # Return first 10 error titles only
+    }
+
 
 # ATTACH DATASET TO PROJECT
 @router.post("/{project_id}/attach-dataset/{dataset_id}")

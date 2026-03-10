@@ -80,19 +80,21 @@ export default function Pricing() {
       name: 'Free',
       price: 0,
       interval: 'month',
-      description: 'Perfect for exploring Noesis and small research projects',
+      description: 'Perfect for exploring Noesis — generous limits for beta users',
       features: [
-        '1 draft analysis per month',
-        '5 document uploads per month',
+        '10 draft analyses per month',
+        '50 document uploads per month',
+        'BibTeX import from Zotero/Mendeley',
+        'Paper discovery (3 searches/day)',
         'Unlimited chat queries',
         'Citation gap detection',
-        'Reviewer-style feedback',
+        'Reviewer-style feedback with source grounding',
         'BibTeX export',
         'All core features',
       ],
       limitations: [
-        'Limited draft analyses',
-        'Limited document uploads',
+        'Limited draft analyses per month',
+        'Limited paper discovery searches',
       ],
       cta: 'Get Started Free',
       icon: AcademicCapIcon,
@@ -119,23 +121,21 @@ export default function Pricing() {
       icon: SparklesIcon,
     },
     {
-      name: 'Team',
-      price: 20,
-      interval: 'user/month',
-      description: 'For research labs and collaborative teams (minimum 3 users)',
+      name: 'Lab',
+      price: 49,
+      interval: 'month',
+      description: 'Flat rate for PI + up to 4 lab members — no per-seat counting',
       features: [
-        'Starting at $60/month for 3 users',
-        'Add or remove seats anytime',
+        'Up to 5 users included',
         'Shared project workspaces',
+        'Everything in Pro — unlimited analyses',
         'Team collaboration features',
-        'Real-time activity tracking',
+        'Lab member invite link',
         'Dedicated support',
-        'Admin dashboard',
         'Priority feature requests',
-        'Everything in Pro',
       ],
       limitations: [],
-      cta: 'Subscribe to Team',
+      cta: 'Subscribe to Lab',
       icon: UserGroupIcon,
     },
   ]
@@ -201,6 +201,7 @@ export default function Pricing() {
             {pricingTiers.map((tier, index) => (
               <motion.div
                 key={tier.name}
+                id={`plan-${tier.name.toLowerCase()}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}

@@ -232,7 +232,7 @@ export default function Landing() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
 
   useEffect(() => {
-    document.title = 'Noesis - AI-Powered Research Intelligence Platform'
+    document.title = 'Noesis - Know What Reviewer 2 Will Say Before You Submit'
     loadTestimonials()
   }, [])
 
@@ -250,52 +250,52 @@ export default function Landing() {
 
   const features = [
     {
-      icon: LightBulbIcon,
-      title: 'AI-Powered Analysis',
-      description: 'Advanced AI analyzes research papers for methodology, findings, claims, and citations—building your research knowledge base.'
-    },
-    {
       icon: ClipboardDocumentCheckIcon,
-      title: 'Draft Critique & Feedback',
-      description: 'Upload your draft and get reviewer-style feedback: unsupported claims, missing citations, coverage gaps, and structural suggestions.'
-    },
-    {
-      icon: ChatBubbleLeftRightIcon,
-      title: 'Conversational Research Assistant',
-      description: 'Ask questions in natural language and receive answers grounded in your literature, never hallucinating citations.'
-    },
-    {
-      icon: BeakerIcon,
-      title: 'Citation Gap Detection',
-      description: 'Identify unsupported claims in your draft and get AI-suggested papers from your literature to strengthen arguments.'
+      title: 'Expert Reviewer Feedback',
+      description: 'Upload your draft and get expert academic reviewer-style critique: unsupported claims, missing citations, coverage gaps, and argument weaknesses — with source passages shown.'
     },
     {
       icon: BookOpenIcon,
-      title: 'BibTeX Citation Export',
-      description: 'Export your entire literature collection as properly formatted BibTeX files for seamless integration with LaTeX, Zotero, and reference managers.'
+      title: 'Import Your Library Instantly',
+      description: 'Export from Zotero, Mendeley, or Endnote as a .bib file and import in seconds. No rebuilding your library from scratch — your references are ready immediately.'
+    },
+    {
+      icon: BeakerIcon,
+      title: 'Discover 200M+ Papers',
+      description: 'Not just your uploads. Noesis searches PubMed, arXiv, and Semantic Scholar to surface papers relevant to your coverage gaps — then adds them to your project automatically.'
+    },
+    {
+      icon: ChatBubbleLeftRightIcon,
+      title: 'Citation-Grounded Research Chat',
+      description: 'Ask questions in natural language and receive answers grounded in your literature, never hallucinating citations. Every answer cites the exact passage it came from.'
+    },
+    {
+      icon: LightBulbIcon,
+      title: 'Grounded in Your Literature',
+      description: 'Every piece of feedback shows the exact passage from your uploaded literature that informed it. Not a black box — see the AI\'s reasoning and evaluate it yourself.'
     },
     {
       icon: DocumentArrowDownIcon,
-      title: 'Professional PDF Reports',
-      description: 'Download comprehensive analysis reports with claims, coverage gaps, reviewer feedback, and suggested citations in publication-ready format.'
+      title: 'BibTeX Export + PDF Reports',
+      description: 'Export your literature as .bib files for LaTeX and Zotero. Download comprehensive PDF reports with claims, gaps, feedback, and citations for submission preparation.'
     }
   ]
 
   const useCases = [
     {
+      role: 'PIs & Postdocs',
+      description: 'Run every lab draft through Noesis before submission. Catch unsupported claims and coverage gaps before Reviewer 2 does. One caught comment = weeks saved.',
+      impact: 'Protect submission timelines'
+    },
+    {
       role: 'PhD Students',
-      description: 'Get reviewer-style feedback on dissertation drafts before your advisor sees them. Surface weak claims and citation gaps early.',
-      impact: 'Pre-review confidence'
+      description: 'Get expert reviewer-style feedback before your advisor sees your draft. Know the weaknesses before the high-stakes conversation.',
+      impact: 'Confident revisions'
     },
     {
-      role: 'Academic Researchers',
-      description: 'Strengthen grant proposals and papers before submission. Identify coverage gaps and improve argument defensibility.',
-      impact: 'Stronger submissions'
-    },
-    {
-      role: 'Systematic Review Authors',
-      description: 'Manage large literature collections, identify synthesis gaps, and ensure comprehensive coverage before publication.',
-      impact: 'Complete coverage'
+      role: 'Grant Writers',
+      description: 'Strengthen NIH and NSF proposals with comprehensive literature coverage analysis. Identify gaps reviewers will flag before the study section sees your application.',
+      impact: 'Stronger grant applications'
     }
   ]
 
@@ -347,15 +347,16 @@ export default function Landing() {
                 variants={fadeIn}
                 className="text-4xl sm:text-5xl xl:text-6xl font-heading font-semibold leading-display tracking-tightest"
               >
-                Strengthen Your Research{' '}
-                <span className="text-accent-primary">Before Peer Review</span>
+                Know What{' '}
+                <span className="text-accent-primary">Reviewer 2</span>{' '}
+                Will Say Before You Submit
               </motion.h1>
 
               <motion.p
                 variants={fadeIn}
                 className="text-lg sm:text-xl text-text-secondary leading-body-large tracking-normal max-w-xl mx-auto lg:mx-0"
               >
-                Know every weakness in your draft before peer reviewers do. Unsupported claims, citation gaps, and coverage blind spots surfaced from your own literature.
+                Upload your draft. Noesis finds unsupported claims, citation gaps, and blind spots — grounded in your literature and 200M+ papers. Not AI writing. Expert AI review.
               </motion.p>
 
               <motion.div
@@ -417,9 +418,9 @@ export default function Landing() {
             className="mb-16 text-center"
           >
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-semibold leading-heading-1 tracking-tighter text-text-primary mb-6">
-              Research Intelligence, <br className="hidden sm:block" />
+              Pre-Submission{' '}
               <span className="text-accent-primary relative inline-block">
-                Not Auto-Writing
+                Peer Review
                 <motion.span
                   className="absolute -bottom-1 left-0 right-0 h-0.5 bg-accent-primary/60 rounded-full"
                   initial={{ scaleX: 0, originX: 0 }}
@@ -430,7 +431,7 @@ export default function Landing() {
               </span>
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary max-w-3xl mx-auto leading-body-large tracking-normal">
-              Powered by advanced AI, semantic search, and intelligent analytics
+              Expert AI feedback grounded in your literature — not a writing assistant
             </p>
           </motion.div>
 
@@ -589,47 +590,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Trusted by Researchers Section */}
-      <section className="py-16 px-6 sm:px-8 bg-bg-void">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false }}
-            transition={{ duration: 0.4 }}
-            className="text-center"
-          >
-            <h2 className="text-2xl sm:text-3xl font-heading font-semibold text-text-primary mb-8">
-              Used by researchers at
-            </h2>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {[
-                { name: 'Georgia Tech',          color: '#B3A369' },
-                { name: 'Rice University',        color: '#4A7FBF' },
-                { name: 'UT Austin',              color: '#BF5700' },
-                { name: 'Texas A&M',              color: '#7A1E1E' },
-                { name: 'UNC',                    color: '#4B9CD3' },
-                { name: 'University of Houston',  color: '#C8102E' },
-              ].map((school, i) => (
-                <motion.span
-                  key={school.name}
-                  initial={{ opacity: 0, y: 8 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: false }}
-                  transition={{ delay: i * 0.07, duration: 0.35 }}
-                  className="px-6 py-3 rounded-lg text-base font-semibold tracking-normal"
-                  style={{
-                    color: school.color,
-                    border: `1px solid ${school.color}60`,
-                  }}
-                >
-                  {school.name}
-                </motion.span>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      {/* Trusted by Researchers Section — removed pending verified user list */}
 
       {/* Testimonials Section */}
       {testimonials.length > 0 && (

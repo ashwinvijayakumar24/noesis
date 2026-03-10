@@ -87,7 +87,7 @@ async def create_checkout(
         if not user_id:
             raise HTTPException(status_code=401, detail="User authentication required")
 
-        if request.plan_tier not in ["pro", "team"]:
+        if request.plan_tier not in ["pro", "lab", "team"]:
             raise HTTPException(status_code=400, detail="Invalid plan tier")
 
         # Validate team_seats for team plan
