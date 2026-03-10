@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition, Tab } from '@headlessui/react'
-import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon, LightBulbIcon, MagnifyingGlassIcon, MapPinIcon, LinkIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon, LightBulbIcon, MagnifyingGlassIcon, MapPinIcon, LinkIcon, HandThumbUpIcon, FlagIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
 import { handleError } from '../lib/errorHandler'
 import DocumentViewer from './DocumentViewer'
@@ -51,6 +51,13 @@ interface Gap {
   suggested_papers: any[]
 }
 
+interface SourceGrounding {
+  document_title: string
+  excerpt: string
+  similarity: number
+  chunk_index: number
+}
+
 interface Feedback {
   id: string
   feedback_type: string
@@ -58,6 +65,8 @@ interface Feedback {
   feedback_text: string
   suggestions: string[]
   section_reference?: string
+  source_grounding?: SourceGrounding | null
+  confidence_level?: 'high' | 'medium' | 'low'
   // Location tracking fields
   section_id?: string
   char_offset_from_section?: number
@@ -88,6 +97,8 @@ export default function DraftAnalysisModal({
   const [feedback, setFeedback] = useState<Feedback[]>([])
   const [generatingSuggestions, setGeneratingSuggestions] = useState<string | null>(null)
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null)
+  const [feedbackReactions, setFeedbackReactions] = useState<Record<string, 'helpful' | 'dispute'>>({})
+  const [reactingTo, setReactingTo] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen && draftId) {
@@ -193,6 +204,46 @@ export default function DraftAnalysisModal({
         icon: 'ℹ️',
         duration: 3000
       })
+    }
+  }
+
+  const handleReact = async (feedbackId: string, action: 'helpful' | 'dispute') => {
+    // Toggle off if same reaction is clicked again
+    const current = feedbackReactions[feedbackId]
+    const newAction = current === action ? null : action
+
+    // Optimistic update
+    setFeedbackReactions(prev => {
+      const next = { ...prev }
+      if (newAction) {
+        next[feedbackId] = newAction
+      } else {
+        delete next[feedbackId]
+      }
+      return next
+    })
+
+    if (!newAction) return // no-op if toggling off (keep local state cleared)
+
+    try {
+      setReactingTo(feedbackId)
+      await api.drafts.reactToFeedback(token, draftId, feedbackId, newAction)
+      if (newAction === 'dispute') {
+        toast('Flagged as incorrect — we'll use this to improve future analyses.', { icon: '⚑', duration: 3000 })
+      }
+    } catch {
+      // Revert optimistic update
+      setFeedbackReactions(prev => {
+        const next = { ...prev }
+        if (current) {
+          next[feedbackId] = current
+        } else {
+          delete next[feedbackId]
+        }
+        return next
+      })
+    } finally {
+      setReactingTo(null)
     }
   }
 
@@ -386,9 +437,61 @@ export default function DraftAnalysisModal({
                                           </div>
                                         )}
 
+                                        {/* Source grounding — shows what literature informed this feedback */}
+                                        {item.source_grounding && (
+                                          <div className="mt-3 pt-3 border-t border-border-default">
+                                            <div className="flex items-start gap-2 p-3 bg-bg-elevated rounded-md border border-border-default">
+                                              <LinkIcon className="h-3.5 w-3.5 text-text-muted shrink-0 mt-0.5" />
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-mono text-text-muted mb-1">
+                                                  Based on:{' '}
+                                                  <span className="text-accent-primary font-semibold">
+                                                    {item.source_grounding.document_title}
+                                                  </span>
+                                                  {item.source_grounding.similarity >= 0.65 && (
+                                                    <span className="ml-2 text-xs text-teal-400">· High match</span>
+                                                  )}
+                                                </p>
+                                                <p className="text-xs text-text-secondary leading-relaxed italic">
+                                                  "{item.source_grounding.excerpt.slice(0, 200)}{item.source_grounding.excerpt.length > 200 ? '…' : ''}"
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Helpful / Dispute reaction buttons */}
+                                        <div className="mt-3 pt-3 border-t border-border-default flex items-center gap-2">
+                                          <span className="text-xs text-text-muted mr-1">Was this helpful?</span>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleReact(item.id, 'helpful') }}
+                                            disabled={reactingTo === item.id}
+                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-all duration-150 ${
+                                              feedbackReactions[item.id] === 'helpful'
+                                                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                                                : 'border-border-default text-text-muted hover:border-emerald-500/40 hover:text-emerald-400'
+                                            }`}
+                                          >
+                                            <HandThumbUpIcon className="h-3.5 w-3.5" />
+                                            Helpful
+                                          </button>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleReact(item.id, 'dispute') }}
+                                            disabled={reactingTo === item.id}
+                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-all duration-150 ${
+                                              feedbackReactions[item.id] === 'dispute'
+                                                ? 'bg-accent-light border-accent-primary/40 text-accent-primary'
+                                                : 'border-border-default text-text-muted hover:border-accent-primary/40 hover:text-accent-primary'
+                                            }`}
+                                          >
+                                            <FlagIcon className="h-3.5 w-3.5" />
+                                            Incorrect
+                                          </button>
+                                        </div>
+
                                         {/* Location indicator */}
                                         {item.section_id && (
-                                          <div className="mt-3 pt-3 border-t border-border-default flex items-center gap-2 text-xs text-text-muted">
+                                          <div className="mt-3 flex items-center gap-2 text-xs text-text-muted">
                                             <MapPinIcon className="h-3 w-3" />
                                             <span>Click to jump to location</span>
                                             {item.match_confidence && (

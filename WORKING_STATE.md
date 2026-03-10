@@ -11,16 +11,21 @@
 ---
 
 ## Current Priority
-**End-to-end testing** — validate full document upload → RAG ingestion → GPT-5.2 analysis pipeline after recent fixes.
+**Sprint Week 3 — "Monetization + Pricing Fix"**: All 3 technical tasks complete. Ready to deploy.
 
 ---
 
 ## In Progress
 
-- [ ] E2E test: single document upload → processing → analyzing → analyzed
-- [ ] E2E test: multi-file upload (3-5 files, verify parallel processing)
-- [ ] E2E test: draft upload + analysis
-- [ ] OpenAI Tier 1 upgrade needed for parallel batch uploads (currently 3 req/min)
+- [ ] Deploy frontend + backend to Vercel/AWS (includes all Week 1–3 changes)
+- [ ] Run DB migrations 009 + 010 on production Supabase (if not already done)
+- [ ] Add `STRIPE_PRICE_ID_LAB` to production `.env` (create Lab tier product in Stripe dashboard)
+- [ ] Test BibTeX import end-to-end with a real Zotero export
+- [ ] Test paper discovery quota (3/day free tier)
+- [ ] Verify `source_grounding` stored correctly in reviewer_feedback table
+- [ ] Product Hunt launch prep (Week 3 non-technical)
+- [ ] 10 PI outreach calls (Week 3 non-technical)
+- [ ] First 3 paying users target ($12 Pro or $49 Lab)
 
 ---
 
@@ -34,6 +39,22 @@
 - [x] Frontend components added: PaperDiscoveryModal, FeedbackButton, ReferralWidget, Pricing, AnalyticsDashboard, DraftComparison, EmailCaptureModal
 - [x] Design system documented in `DESIGN_SYSTEM.md`
 - [x] CLAUDE.md and .cursorrules updated to reflect March 2026 state
+- [x] **Sprint Week 1 implemented** (see `plan/noesis_pivot_plan.md`):
+  - [x] BibTeX import: `POST /projects/{project_id}/import-bibtex` + BibTeX tab in UploadDocumentModal
+  - [x] Paper Discovery quota: 3 searches/day free, unlimited Pro (Redis-backed)
+  - [x] Source citations on feedback: `_get_source_grounding()` enriches every feedback item with literature passage
+  - [x] Free tier limits updated: 50 documents/month, 10 drafts/month (was 5/1)
+  - [x] Landing page hero: "Know What Reviewer 2 Will Say Before You Submit"
+  - [x] Landing page features + use cases rewritten for PI/postdoc buyer persona
+  - [x] Pricing.tsx updated to reflect new free tier limits and BibTeX import
+- [x] **Sprint Week 2 implemented** (see `plan/noesis_pivot_plan.md`):
+  - [x] Dispute/Helpful reactions: `POST /drafts/{id}/feedback/{id}/react` + thumbs up / flag buttons on every feedback item in DraftAnalysisModal
+  - [x] Draft Comparison Visibility: VersionProgressCard wired into DraftsPanel (shows most recent comparison above draft list)
+  - [x] Invite Lab Members: button in DraftsPanel generates lab invite URL; `lab_invites` table tracks codes per project; SignUp.tsx shows welcome banner; Projects.tsx calls join on first load
+- [x] **Sprint Week 3 implemented** (see `plan/noesis_pivot_plan.md`):
+  - [x] Lab tier pricing ($49/mo flat, up to 5 users): added to `stripe_service.py` PLAN_CONFIGS, `subscriptions.py` validation updated, `Pricing.tsx` card updated
+  - [x] UpgradeModal: global `upgradeModalStore.ts` (Zustand) + `UpgradeModal.tsx` rendered in `App.tsx`; `handleQuotaError()` in `errorHandler.ts` intercepts 429 quota_exceeded errors; `UploadDocumentModal` + `UploadDraftModal` both use it
+  - [x] "Refer a Lab" viral loop: `_maybe_grant_lab_reward()` in `referrals.py` — when 3+ completed referrals share same institution email domain, grants referrer free Lab tier (9999 limits) via `user_quotas` update
 
 ---
 

@@ -1,11 +1,13 @@
 import { Fragment, useState, useRef, type FormEvent } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
-import { XMarkIcon, DocumentArrowUpIcon, LockClosedIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, DocumentArrowUpIcon, LockClosedIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
 import { trackEvent } from '../lib/analytics'
-import { validateFileSize, validateFileType, handleError } from '../lib/errorHandler'
+import { validateFileSize, validateFileType, handleError, handleQuotaError } from '../lib/errorHandler'
 import UploadSuccessModal from './UploadSuccessModal'
+
+type TabId = 'pdf' | 'bibtex'
 
 interface UploadDocumentModalProps {
   isOpen: boolean
@@ -22,6 +24,7 @@ export default function UploadDocumentModal({
   token,
   projectId,
 }: UploadDocumentModalProps) {
+  const [activeTab, setActiveTab] = useState<TabId>('pdf')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,6 +33,8 @@ export default function UploadDocumentModal({
   const [uploadedTitles, setUploadedTitles] = useState<string[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [bibtexFile, setBibtexFile] = useState<File | null>(null)
+  const bibtexInputRef = useRef<HTMLInputElement>(null)
 
   const MAX_FILES = 10
   const MAX_SIZE_MB = 50
@@ -185,7 +190,33 @@ export default function UploadDocumentModal({
       setShowSuccessModal(true)
       onSuccess()
     } catch (error: any) {
-      handleError(error, 'uploading documents')
+      if (!handleQuotaError(error)) {
+        handleError(error, 'uploading documents')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBibtexSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!bibtexFile) {
+      toast.error('Please select a .bib file')
+      return
+    }
+    try {
+      setLoading(true)
+      const result = await api.documents.importBibtex(token, projectId, bibtexFile)
+      setBibtexFile(null)
+      if (bibtexInputRef.current) bibtexInputRef.current.value = ''
+      onClose()
+      onSuccess()
+      setUploadedCount(result.imported)
+      setUploadedTitles([])
+      setShowSuccessModal(true)
+      toast.success(`Imported ${result.imported} references from BibTeX file`)
+    } catch (error: any) {
+      handleError(error, 'importing BibTeX file')
     } finally {
       setLoading(false)
     }
@@ -196,9 +227,9 @@ export default function UploadDocumentModal({
       setSelectedFiles([])
       setDescription('')
       setIsDragging(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      setBibtexFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (bibtexInputRef.current) bibtexInputRef.current.value = ''
       onClose()
     }
   }
@@ -235,7 +266,7 @@ export default function UploadDocumentModal({
                 <div className="px-6 py-5 border-b border-border-default">
                   <div className="flex items-center justify-between">
                     <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
-                      Upload Document
+                      Add Documents
                     </Dialog.Title>
                     <button
                       onClick={handleClose}
@@ -245,9 +276,102 @@ export default function UploadDocumentModal({
                       <XMarkIcon className="h-6 w-6" />
                     </button>
                   </div>
+                  {/* Tab switcher */}
+                  <div className="flex gap-1 mt-4 bg-bg-elevated rounded-lg p-1 border border-border-default">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('pdf')}
+                      className={`flex-1 py-2 px-3 rounded-md text-sm font-semibold transition-all duration-150 ${
+                        activeTab === 'pdf'
+                          ? 'bg-bg-surface text-text-primary border border-border-default shadow-xs'
+                          : 'text-text-muted hover:text-text-secondary'
+                      }`}
+                    >
+                      Upload PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('bibtex')}
+                      className={`flex-1 py-2 px-3 rounded-md text-sm font-semibold transition-all duration-150 ${
+                        activeTab === 'bibtex'
+                          ? 'bg-bg-surface text-text-primary border border-border-default shadow-xs'
+                          : 'text-text-muted hover:text-text-secondary'
+                      }`}
+                    >
+                      Import from Zotero (.bib)
+                    </button>
+                  </div>
                 </div>
 
-                {/* Form */}
+                {/* BibTeX Import Tab */}
+                {activeTab === 'bibtex' && (
+                  <form onSubmit={handleBibtexSubmit} className="p-6 space-y-5">
+                    <div className="rounded-md bg-bg-elevated p-4 border border-border-default">
+                      <p className="text-sm text-text-secondary leading-relaxed">
+                        Export your library from <span className="font-semibold text-text-primary">Zotero, Mendeley, or Endnote</span> as a .bib file, then import it here. All references are added instantly — no PDF required.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-2">
+                        BibTeX File (.bib)
+                      </label>
+                      <div
+                        className={`relative border-2 border-dashed rounded-md p-6 transition-all duration-150 ${
+                          bibtexFile ? 'border-accent-primary/50 bg-accent-light/10' : 'border-border-default hover:border-accent-primary/30'
+                        } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <input
+                          ref={bibtexInputRef}
+                          type="file"
+                          accept=".bib"
+                          onChange={(e) => setBibtexFile(e.target.files?.[0] || null)}
+                          disabled={loading}
+                          className="hidden"
+                          id="bibtex-upload"
+                        />
+                        <label htmlFor="bibtex-upload" className="flex flex-col items-center gap-2 cursor-pointer">
+                          <ArrowUpTrayIcon className={`h-10 w-10 ${bibtexFile ? 'text-accent-primary' : 'text-text-tertiary'}`} />
+                          {bibtexFile ? (
+                            <div className="text-center">
+                              <p className="text-sm text-text-primary font-medium">{bibtexFile.name}</p>
+                              <p className="text-xs text-text-muted font-mono mt-1">Click to change file</p>
+                            </div>
+                          ) : (
+                            <div className="text-center">
+                              <p className="text-sm text-text-secondary font-medium">Click to select .bib file</p>
+                              <p className="text-xs font-mono text-text-muted mt-1">Exports from Zotero, Mendeley, Endnote</p>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleClose}
+                        disabled={loading}
+                        className="flex-1 px-4 py-3 border border-border-default text-text-secondary font-medium rounded-md hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-hover transition-all duration-150 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading || !bibtexFile}
+                        className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {loading ? (
+                          <>
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent" />
+                            Importing...
+                          </>
+                        ) : 'Import References'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* PDF Upload Tab */}
+                {activeTab === 'pdf' && (
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                   {/* Privacy Notice */}
                   <div className="mb-4 rounded-md bg-bg-elevated p-4 border border-border-default">
@@ -403,6 +527,7 @@ export default function UploadDocumentModal({
                     </button>
                   </div>
                 </form>
+                )}
               </Dialog.Panel>
             </Transition.Child>
           </div>

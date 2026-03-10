@@ -12,6 +12,7 @@ import TagInput from '../components/TagInput'
 import OnboardingTour from '../components/OnboardingTour'
 import { trackEvent } from '../lib/analytics'
 import { handleError } from '../lib/errorHandler'
+import toast from 'react-hot-toast'
 import { SkeletonProjectCard, SkeletonGrid } from '../components/ui/Skeleton'
 import PageContainer from '../components/layout/PageContainer'
 import { Button } from '../components/ui/Button'
@@ -50,8 +51,25 @@ export default function Projects() {
   useEffect(() => {
     if (session?.access_token) {
       loadProjects()
+      handlePendingLabInvite(session.access_token)
     }
   }, [session])
+
+  const handlePendingLabInvite = async (token: string) => {
+    const code = sessionStorage.getItem('pending_lab_invite')
+    if (!code) return
+    sessionStorage.removeItem('pending_lab_invite')
+    try {
+      const result = await api.labInvites.join(token, code)
+      if (result.success) {
+        const labName = sessionStorage.getItem('pending_lab_invite_name') || 'your lab'
+        sessionStorage.removeItem('pending_lab_invite_name')
+        toast.success(`Welcome! You've joined ${labName}'s workspace on Noesis.`, { duration: 5000 })
+      }
+    } catch {
+      // Non-critical — invite may have expired, ignore silently
+    }
+  }
 
   const loadProjects = async () => {
     if (!session?.access_token) return

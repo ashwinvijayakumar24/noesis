@@ -716,18 +716,7 @@ export default function ProjectDetail() {
                       Upload Paper
                     </Button>
 
-                    {/* Discover Papers button — coming soon */}
-                    <div title="Coming soon" className="cursor-not-allowed">
-                      <Button
-                        onClick={undefined}
-                        variant="secondary"
-                        disabled
-                        className="pointer-events-none opacity-50"
-                      >
-                        <LightBulbIcon className="h-4 w-4" />
-                        Discover Papers
-                      </Button>
-                    </div>
+                    {/* Discover Papers — temporarily disabled, pending worktree implementation */}
                   </div>
                 </div>
 

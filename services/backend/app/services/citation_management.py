@@ -1066,3 +1066,203 @@ def detect_duplicate_citations(citations: List[Dict[str, Any]]) -> List[Dict[str
                 seen[key] = i
 
     return duplicates
+
+
+# ============================================
+# BibTeX Import Parser
+# ============================================
+
+def parse_bibtex_file(bibtex_content: str) -> List[Dict[str, Any]]:
+    """
+    Parse a BibTeX file and extract paper metadata.
+
+    Handles:
+    - Nested braces in field values
+    - Quote-delimited and bare values
+    - Multiple authors (separated by 'and')
+    - Common entry types: article, inproceedings, book, misc, etc.
+
+    Returns:
+        List of dicts with keys: entry_type, bibtex_key, title, authors,
+        year, abstract, doi, url, journal, booktitle, volume, pages, publisher
+    """
+    entries = []
+    i = 0
+    n = len(bibtex_content)
+
+    while i < n:
+        # Find @ symbol marking an entry
+        at_pos = bibtex_content.find('@', i)
+        if at_pos == -1:
+            break
+
+        i = at_pos + 1
+
+        # Read entry type (letters only)
+        entry_type_start = i
+        while i < n and bibtex_content[i].isalpha():
+            i += 1
+        entry_type = bibtex_content[entry_type_start:i].lower()
+
+        # Skip non-content entry types
+        if entry_type in ('comment', 'string', 'preamble') or not entry_type:
+            continue
+
+        # Skip whitespace
+        while i < n and bibtex_content[i].isspace():
+            i += 1
+
+        # Expect opening brace or paren
+        if i >= n or bibtex_content[i] not in ('{', '('):
+            continue
+
+        close_char = '}' if bibtex_content[i] == '(' else '}'
+        i += 1
+
+        # Skip whitespace before cite key
+        while i < n and bibtex_content[i].isspace():
+            i += 1
+
+        # Read cite key (up to comma or whitespace)
+        cite_key_start = i
+        while i < n and bibtex_content[i] not in (',', ' ', '\t', '\n', close_char):
+            i += 1
+        cite_key = bibtex_content[cite_key_start:i]
+
+        # Skip to first comma (end of cite key line)
+        while i < n and bibtex_content[i] != ',' and bibtex_content[i] != close_char:
+            i += 1
+
+        if i >= n:
+            break
+
+        if bibtex_content[i] == close_char:
+            # Empty entry
+            i += 1
+            entries.append({
+                'entry_type': entry_type, 'bibtex_key': cite_key,
+                'title': 'Untitled', 'authors': [], 'year': '',
+                'abstract': '', 'doi': '', 'url': '', 'journal': '',
+                'booktitle': '', 'volume': '', 'pages': '', 'publisher': '',
+            })
+            continue
+
+        i += 1  # skip comma after cite key
+
+        # Parse fields
+        fields: Dict[str, str] = {}
+        while i < n:
+            # Skip whitespace
+            while i < n and bibtex_content[i].isspace():
+                i += 1
+
+            # End of entry?
+            if i >= n or bibtex_content[i] == close_char:
+                if i < n:
+                    i += 1
+                break
+
+            # Read field name (alphanumeric + underscore)
+            field_name_start = i
+            while i < n and (bibtex_content[i].isalnum() or bibtex_content[i] == '_' or bibtex_content[i] == '-'):
+                i += 1
+            field_name = bibtex_content[field_name_start:i].lower()
+
+            if not field_name:
+                i += 1
+                continue
+
+            # Skip whitespace before =
+            while i < n and bibtex_content[i].isspace():
+                i += 1
+
+            # Expect =
+            if i >= n or bibtex_content[i] != '=':
+                continue
+            i += 1
+
+            # Skip whitespace after =
+            while i < n and bibtex_content[i].isspace():
+                i += 1
+
+            # Read field value
+            field_value = ''
+            if i < n and bibtex_content[i] == '{':
+                # Brace-delimited: handle nested braces
+                i += 1
+                depth = 1
+                value_chars = []
+                while i < n and depth > 0:
+                    c = bibtex_content[i]
+                    if c == '{':
+                        depth += 1
+                        value_chars.append(c)
+                    elif c == '}':
+                        depth -= 1
+                        if depth > 0:
+                            value_chars.append(c)
+                    else:
+                        value_chars.append(c)
+                    i += 1
+                field_value = ''.join(value_chars)
+            elif i < n and bibtex_content[i] == '"':
+                # Quote-delimited
+                i += 1
+                value_chars = []
+                while i < n and bibtex_content[i] != '"':
+                    if bibtex_content[i] == '\\' and i + 1 < n:
+                        i += 1
+                        value_chars.append(bibtex_content[i])
+                    else:
+                        value_chars.append(bibtex_content[i])
+                    i += 1
+                if i < n:
+                    i += 1  # skip closing "
+                field_value = ''.join(value_chars)
+            else:
+                # Bare value (number, macro)
+                value_chars = []
+                while i < n and bibtex_content[i] not in (',', '}', ')') and bibtex_content[i] != '\n':
+                    value_chars.append(bibtex_content[i])
+                    i += 1
+                field_value = ''.join(value_chars).strip()
+
+            # Normalize whitespace
+            import re as _re
+            field_value = _re.sub(r'\s+', ' ', field_value).strip()
+
+            if field_name:
+                fields[field_name] = field_value
+
+            # Skip whitespace, then optional comma
+            while i < n and bibtex_content[i].isspace():
+                i += 1
+            if i < n and bibtex_content[i] == ',':
+                i += 1
+
+        # Parse authors list
+        raw_authors = fields.get('author', '')
+        if raw_authors:
+            import re as _re2
+            author_parts = _re2.split(r'\s+and\s+', raw_authors, flags=_re2.IGNORECASE)
+            authors = [a.strip() for a in author_parts if a.strip()]
+        else:
+            authors = []
+
+        entries.append({
+            'entry_type': entry_type,
+            'bibtex_key': cite_key,
+            'title': fields.get('title', 'Untitled').strip(),
+            'authors': authors,
+            'year': fields.get('year', '').strip(),
+            'abstract': fields.get('abstract', '').strip(),
+            'doi': fields.get('doi', '').strip(),
+            'url': (fields.get('url', '') or fields.get('link', '')).strip(),
+            'journal': (fields.get('journal', '') or fields.get('journaltitle', '')).strip(),
+            'booktitle': fields.get('booktitle', '').strip(),
+            'volume': fields.get('volume', '').strip(),
+            'pages': fields.get('pages', '').strip(),
+            'publisher': fields.get('publisher', '').strip(),
+        })
+
+    return entries
