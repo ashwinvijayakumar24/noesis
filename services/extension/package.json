@@ -2,20 +2,5 @@
   "name": "noesis-extension",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "dev": "vite build --watch",
-    "build": "vite build"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "devDependencies": {
-    "@crxjs/vite-plugin": "^2.0.0-beta.26",
-    "@types/chrome": "^0.0.268",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^5.5.0",
-    "vite": "^7.0.0"
-  }
+  "description": "Noesis Chrome extension — no build step required, load unpacked from this directory"
 }
