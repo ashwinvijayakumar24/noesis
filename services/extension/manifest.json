@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Noesis Research Review",
+  "version": "1.0.0",
+  "description": "Get expert reviewer-style feedback on your research drafts directly from Overleaf.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://www.overleaf.com/*",
+    "https://api.noesis.is/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.overleaf.com/project/*"],
+      "js": ["content/overleaf.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "sidebar/index.html",
+    "default_title": "Noesis Research Review"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

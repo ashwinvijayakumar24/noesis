@@ -8,6 +8,7 @@ import CitationSuggestionSidebar from './CitationSuggestionSidebar'
 import { Badge, type BadgeVariant } from './ui/Badge'
 import { Button } from './ui/Button'
 import toast from 'react-hot-toast'
+import { useAnalysisStream } from '../hooks/useAnalysisStream'
 
 interface DraftAnalysisModalProps {
   isOpen: boolean
@@ -99,6 +100,8 @@ export default function DraftAnalysisModal({
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null)
   const [feedbackReactions, setFeedbackReactions] = useState<Record<string, 'helpful' | 'dispute'>>({})
   const [reactingTo, setReactingTo] = useState<string | null>(null)
+
+  const stream = useAnalysisStream(draftId ?? null, loading)
 
   useEffect(() => {
     if (isOpen && draftId) {
@@ -229,7 +232,7 @@ export default function DraftAnalysisModal({
       setReactingTo(feedbackId)
       await api.drafts.reactToFeedback(token, draftId, feedbackId, newAction)
       if (newAction === 'dispute') {
-        toast("Flagged as incorrect — we'll use this to improve future analyses.", { icon: '⚑', duration: 3000 })
+        toast('Flagged as incorrect — we'll use this to improve future analyses.', { icon: '⚑', duration: 3000 })
       }
     } catch {
       // Revert optimistic update
@@ -339,9 +342,20 @@ export default function DraftAnalysisModal({
                   <div className="w-1/2 flex flex-col overflow-hidden">
                     {loading ? (
                       <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center">
+                        <div className="text-center w-64">
                           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary"></div>
                           <p className="mt-2 text-sm text-text-tertiary">Loading analysis...</p>
+                          {stream.progress > 0 && (
+                            <div className="mt-4">
+                              <div className="w-full bg-bg-void rounded-full h-2">
+                                <div
+                                  className="bg-accent-primary h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${stream.progress}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-text-tertiary mt-2">{stream.message || 'Analyzing draft...'}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (
