@@ -1593,14 +1593,25 @@ async def draft_analysis_stream(
     await websocket.accept()
 
     r = aioredis.from_url(REDIS_URL)
+
+    # Send the latest known progress immediately so late subscribers don't start blank
+    try:
+        latest = await r.get(f"progress:{draft_id}:latest")
+        if latest:
+            if isinstance(latest, bytes):
+                latest = latest.decode()
+            await websocket.send_text(latest)
+    except Exception:
+        pass
+
     pubsub = r.pubsub()
     await pubsub.subscribe(f"progress:{draft_id}")
 
     try:
         # 20 minute hard timeout
-        deadline = asyncio.get_event_loop().time() + 1200
+        deadline = asyncio.get_running_loop().time() + 1200
         async for message in pubsub.listen():
-            if asyncio.get_event_loop().time() > deadline:
+            if asyncio.get_running_loop().time() > deadline:
                 break
             if message["type"] == "message":
                 data = message["data"]
