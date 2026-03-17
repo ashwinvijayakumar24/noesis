@@ -262,6 +262,7 @@ def get_cors_config(allowed_origins: list[str], environment: str) -> dict:
     if environment == "production":
         return {
             "allow_origins": allowed_origins,
+            "allow_origin_regex": r"chrome-extension://.*",
             "allow_credentials": True,
             "allow_methods": ["GET", "POST", "PUT", "DELETE"],  # Explicit methods only
             "allow_headers": ["authorization", "content-type", "accept"],  # Explicit headers

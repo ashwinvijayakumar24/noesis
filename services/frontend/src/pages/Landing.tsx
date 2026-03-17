@@ -763,7 +763,7 @@ export default function Landing() {
               <div className="flex flex-col flex-1">
                 <div className="mb-6">
                   <h3 className="text-2xl font-sans font-semibold text-text-primary mb-2 tracking-normal">
-                    Free (Beta)
+                    Free
                   </h3>
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-bold text-text-primary">$0</span>
@@ -813,9 +813,6 @@ export default function Landing() {
                     Active Plan
                   </button>
 
-                  <p className="text-xs text-text-muted text-center font-mono">
-                    Currently available to all users during beta
-                  </p>
                 </div>
               </div>
             </motion.div>
@@ -1024,22 +1021,6 @@ export default function Landing() {
             </motion.div>
           </div>
 
-          {/* Beta Notice */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            viewport={{ once: false }}
-            className="mt-12 max-w-3xl mx-auto bg-bg-surface border border-border-default rounded-lg p-6 text-center"
-          >
-            <p className="text-sm text-text-tertiary tracking-normal">
-              <span className="font-semibold text-text-secondary">Beta Period:</span> All features are free while we collect feedback and refine the platform.
-              Limits exist to prevent abuse and ensure quality service for all researchers.
-              <a href="mailto:support@noesis.is" className="text-accent-primary hover:text-accent-hover transition-colors duration-150 ml-1">
-                Contact us
-              </a> if you need higher limits for a research project.
-            </p>
-          </motion.div>
         </div>
       </section>
 

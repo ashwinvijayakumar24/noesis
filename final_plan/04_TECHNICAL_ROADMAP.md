@@ -502,3 +502,6 @@ def analyze_document_task(self, document_id: str, user_id: str):
 - ❌ Any new referral system features
 
 *The existing feature set is sufficient for validation. Every hour spent on new features is an hour not spent on distribution and user conversations.*
+
+
+
