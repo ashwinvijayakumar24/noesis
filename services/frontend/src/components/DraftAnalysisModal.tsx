@@ -229,7 +229,7 @@ export default function DraftAnalysisModal({
       setReactingTo(feedbackId)
       await api.drafts.reactToFeedback(token, draftId, feedbackId, newAction)
       if (newAction === 'dispute') {
-        toast('Flagged as incorrect — we'll use this to improve future analyses.', { icon: '⚑', duration: 3000 })
+        toast("Flagged as incorrect — we'll use this to improve future analyses.", { icon: '⚑', duration: 3000 })
       }
     } catch {
       // Revert optimistic update

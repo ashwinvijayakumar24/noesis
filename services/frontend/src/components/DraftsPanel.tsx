@@ -55,7 +55,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   const [inviteModal, setInviteModal] = useState<{ isOpen: boolean; inviteUrl: string; labName: string }>({
     isOpen: false, inviteUrl: '', labName: '',
   })
-  const [inviteLoading, setInviteLoading] = useState(false)
 
   const loadDrafts = async () => {
     try {
@@ -187,17 +186,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     }
   }
 
-  const handleInviteLab = async () => {
-    try {
-      setInviteLoading(true)
-      const data = await api.labInvites.generate(token, projectId)
-      setInviteModal({ isOpen: true, inviteUrl: data.invite_url, labName: data.lab_name })
-    } catch (error: any) {
-      handleError(error, 'generating lab invite')
-    } finally {
-      setInviteLoading(false)
-    }
-  }
 
   const handleCopyInviteUrl = () => {
     navigator.clipboard.writeText(inviteModal.inviteUrl)
