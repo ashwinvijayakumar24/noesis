@@ -151,6 +151,23 @@ async def confirm_email(token: str, type: str):
             detail="Invalid or expired confirmation link"
         )
 
+@router.get("/quota-summary")
+async def get_quota_summary(authorization: str = Header(None)):
+    """Return the current user's PDF + BibTeX quota summary for the upload modal."""
+    if supabase is None:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+    try:
+        user = supabase.auth.get_user(token)
+        user_id = user.user.id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    from app.services.quota_management import get_quota_summary
+    return await get_quota_summary(user_id)
+
+
 @router.post("/resend-confirmation")
 @limiter.limit("3/minute")  # Limit resend requests
 async def resend_confirmation(request: Request, credentials: ResendConfirmationRequest):

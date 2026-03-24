@@ -7,6 +7,7 @@ export interface Tab {
   badgeCount?: number
   badgeVariant?: 'neutral' | 'primary' | 'warning' | 'success'
   isProcessing?: boolean
+  colorScheme?: 'crimson' | 'amber' | 'emerald' | 'violet'
 }
 
 export interface TabNavigationProps {
@@ -16,38 +17,51 @@ export interface TabNavigationProps {
   className?: string
 }
 
-export function TabNavigation({ tabs, activeTab, onTabChange, className = '' }: TabNavigationProps) {
-  const getBadgeStyles = (variant: Tab['badgeVariant'] = 'neutral') => {
-    const styles = {
-      neutral: 'bg-bg-hover text-text-tertiary border-border-default',
-      primary: 'bg-accent-light text-accent-primary border-accent-primary/30',
-      warning: 'bg-warning-light text-warning border-warning/30',
-      success: 'bg-success-light text-success border-success/30',
-    }
-    return styles[variant]
-  }
+const colorSchemes: Record<NonNullable<Tab['colorScheme']>, { active: string; hover: string; badge: string }> = {
+  crimson: {
+    active: 'border-accent-primary text-accent-primary bg-accent-primary/8',
+    hover: 'hover:text-accent-primary/80 hover:bg-accent-primary/5',
+    badge: 'bg-accent-primary/15 text-accent-primary',
+  },
+  amber: {
+    active: 'border-amber-400 text-amber-400 bg-amber-400/8',
+    hover: 'hover:text-amber-400 hover:bg-amber-400/5',
+    badge: 'bg-amber-400/15 text-amber-300',
+  },
+  emerald: {
+    active: 'border-emerald-400 text-emerald-400 bg-emerald-400/8',
+    hover: 'hover:text-emerald-400 hover:bg-emerald-400/5',
+    badge: 'bg-emerald-400/15 text-emerald-300',
+  },
+  violet: {
+    active: 'border-violet-400 text-violet-400 bg-violet-400/8',
+    hover: 'hover:text-violet-400 hover:bg-violet-400/5',
+    badge: 'bg-violet-400/15 text-violet-300',
+  },
+}
 
+export function TabNavigation({ tabs, activeTab, onTabChange, className = '' }: TabNavigationProps) {
   return (
     <div className={`border-b border-border-default ${className}`}>
-      <div className="flex justify-start gap-2 overflow-x-auto scrollbar-hide">
+      <div className="flex w-full">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id
+          const scheme = colorSchemes[tab.colorScheme ?? 'crimson']
 
           return (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                relative flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 min-h-[48px] text-sm sm:text-base font-sans font-semibold
-                border-b-2 transition-all duration-150 whitespace-nowrap tracking-normal
-                ${
-                  isActive
-                    ? 'border-accent-primary text-accent-primary bg-accent-light/10'
-                    : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                flex-1 relative flex items-center justify-center gap-2 px-3 py-3.5 min-h-[52px]
+                text-sm font-semibold border-b-2 transition-all duration-150 whitespace-nowrap
+                ${isActive
+                  ? scheme.active
+                  : `border-transparent text-text-secondary ${scheme.hover}`
                 }
               `}
             >
-              {/* Icon */}
+              {/* Icon — inherits text color from button */}
               {tab.icon && (
                 <span className={`transition-transform duration-150 ${isActive ? 'scale-105' : ''}`}>
                   {tab.icon}
@@ -61,9 +75,9 @@ export function TabNavigation({ tabs, activeTab, onTabChange, className = '' }: 
               {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
                 <span
                   className={`
-                    inline-flex items-center justify-center min-w-[20px] h-5 px-1.5
-                    rounded-full text-xs font-mono font-semibold border
-                    ${getBadgeStyles(tab.badgeVariant)}
+                    inline-flex items-center justify-center min-w-[18px] h-[18px] px-1
+                    rounded-full text-[10px] font-semibold tabular-nums
+                    ${isActive ? scheme.badge : 'bg-white/8 text-text-tertiary'}
                   `}
                 >
                   {tab.badgeCount}
@@ -72,12 +86,11 @@ export function TabNavigation({ tabs, activeTab, onTabChange, className = '' }: 
 
               {/* Processing Indicator */}
               {tab.isProcessing && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning-light text-warning border border-warning/30">
-                  <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-warning-light text-warning border border-warning/30">
+                  <svg className="h-2.5 w-2.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span className="hidden sm:inline">Updating</span>
                 </span>
               )}
             </button>

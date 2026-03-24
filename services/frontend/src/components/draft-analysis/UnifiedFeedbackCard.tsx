@@ -22,42 +22,18 @@ interface UnifiedFeedbackCardProps {
   currentStatus: 'new' | 'saved' | 'dismissed'
 }
 
-// Priority configuration (neon-brutalist)
+// Left border accent — the card border communicates priority, no colored box needed
 const PRIORITY_CONFIG = {
-  high: {
-    accentBorder: 'border-l-4 border-l-accent-primary',
-    badge: 'bg-accent-primary/10 text-accent-primary border-accent-primary/30',
-    label: 'HIGH PRIORITY'
-  },
-  medium: {
-    accentBorder: 'border-l-4 border-l-warning',
-    badge: 'bg-warning/10 text-warning border-warning/30',
-    label: 'MEDIUM'
-  },
-  low: {
-    accentBorder: 'border-l-4 border-l-accent-teal',
-    badge: 'bg-accent-teal/10 text-accent-teal border-accent-teal/30',
-    label: 'LOW'
-  }
+  high:   { accentBorder: 'border-l-2 border-l-error',         label: 'High',   labelColor: 'text-error' },
+  medium: { accentBorder: 'border-l-2 border-l-warning',       label: 'Medium', labelColor: 'text-warning' },
+  low:    { accentBorder: 'border-l-2 border-l-border-subtle', label: 'Low',    labelColor: 'text-text-muted' },
 }
 
-// Type configuration (neon-brutalist)
+// Type indicator — icon + plain text label, no colored background
 const TYPE_CONFIG = {
-  claim: {
-    icon: InformationCircleIcon,
-    label: 'CLAIM',
-    badge: 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
-  },
-  gap: {
-    icon: ExclamationTriangleIcon,
-    label: 'GAP',
-    badge: 'bg-warning/10 text-warning border-warning/30'
-  },
-  feedback: {
-    icon: BeakerIcon,
-    label: 'FEEDBACK',
-    badge: 'bg-info/10 text-info border-info/30'
-  }
+  claim:    { icon: InformationCircleIcon, label: 'Claim',    color: 'text-text-secondary' },
+  gap:      { icon: ExclamationTriangleIcon, label: 'Gap',    color: 'text-text-secondary' },
+  feedback: { icon: BeakerIcon,            label: 'Feedback', color: 'text-text-secondary' },
 }
 
 export default function UnifiedFeedbackCard({
@@ -72,44 +48,31 @@ export default function UnifiedFeedbackCard({
   const typeConfig = TYPE_CONFIG[item.type]
   const TypeIcon = typeConfig.icon
 
-  // Extract content based on type
   const getContentText = () => {
-    if (item.type === 'claim') {
-      return item.content.claim_text
-    } else if (item.type === 'gap') {
-      return item.content.description
-    } else {
-      return item.content.feedback_text
-    }
+    if (item.type === 'claim') return item.content.claim_text
+    if (item.type === 'gap') return item.content.description
+    return item.content.feedback_text
   }
 
   const getSuggestions = () => {
-    if (item.type === 'claim') {
-      return item.content.existing_citations || []
-    } else if (item.type === 'gap') {
-      return item.content.suggested_papers || []
-    } else {
-      return item.content.suggestions || []
-    }
+    if (item.type === 'claim') return item.content.existing_citations || []
+    if (item.type === 'gap') return item.content.suggested_papers || []
+    return item.content.suggestions || []
   }
 
   const getMetadata = () => {
-    if (item.type === 'claim') {
-      return {
-        type: item.content.claim_type,
-        requiresCitation: item.content.requires_citation,
-        importance: item.content.importance_score
-      }
-    } else if (item.type === 'gap') {
-      return {
-        gapType: item.content.gap_type,
-        hasLiterature: item.content.has_relevant_literature
-      }
-    } else {
-      return {
-        feedbackType: item.content.feedback_type,
-        severity: item.content.severity
-      }
+    if (item.type === 'claim') return {
+      type: item.content.claim_type,
+      requiresCitation: item.content.requires_citation,
+      importance: item.content.importance_score,
+    }
+    if (item.type === 'gap') return {
+      gapType: item.content.gap_type,
+      hasLiterature: item.content.has_relevant_literature,
+    }
+    return {
+      feedbackType: item.content.feedback_type,
+      severity: item.content.severity,
     }
   }
 
@@ -118,170 +81,169 @@ export default function UnifiedFeedbackCard({
   const metadata = getMetadata()
   const hasLongContent = contentText.length > 200 || suggestions.length > 3
 
-  const handleSave = () => {
-    onStatusChange(item.id, item.type, 'saved')
-  }
-
-  const handleDismiss = () => {
-    onStatusChange(item.id, item.type, 'dismissed')
-  }
-
-  const handleViewInDocument = () => {
-    const lineNumber = item.content.line_number
-    if (lineNumber && onViewInDocument) {
-      onViewInDocument(lineNumber)
-    }
-  }
-
   return (
-    <div className={`group bg-bg-surface rounded-lg border border-border-default ${priorityConfig.accentBorder} p-5 transition-all duration-150 hover:border-accent-primary/30 hover:-translate-y-1 hover:shadow-card-lift`}>
-      {/* Header: Type Badge + Priority Badge */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-2">
-          {/* Type Badge */}
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase border ${typeConfig.badge}`}>
-            <TypeIcon className="w-4 h-4" />
-            {typeConfig.label}
-          </span>
+    <div className={`bg-bg-surface rounded-lg border border-border-default ${priorityConfig.accentBorder} p-4 transition-colors duration-150 hover:border-border-subtle`}>
 
-          {/* Priority Badge */}
-          <span className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase border ${priorityConfig.badge}`}>
-            {priorityConfig.label}
-          </span>
+      {/* Header: type + priority as plain text, no colored boxes */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <TypeIcon className={`w-3.5 h-3.5 ${typeConfig.color} shrink-0`} />
+          <span className="text-xs font-semibold text-text-secondary">{typeConfig.label}</span>
+          <span className="text-text-muted text-xs">·</span>
+          <span className={`text-xs font-medium ${priorityConfig.labelColor}`}>{priorityConfig.label}</span>
         </div>
 
-        {/* View in Document Link */}
         {item.content.line_number && (
           <button
-            onClick={handleViewInDocument}
-            className="text-xs text-accent-primary hover:text-accent-primary-bright flex items-center gap-1 font-medium transition-colors duration-200"
+            onClick={() => item.content.line_number && onViewInDocument?.(item.content.line_number)}
+            className="text-xs text-text-muted hover:text-text-primary flex items-center gap-1 transition-colors duration-150"
           >
             <span>Line {item.content.line_number}</span>
-            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
-      {/* Content Text */}
-      <div className="mb-4">
-        <p className={`text-text-primary leading-relaxed ${!isExpanded && hasLongContent ? 'line-clamp-3' : ''}`}>
+      {/* Content text */}
+      <div className="mb-3">
+        <p className={`text-sm text-text-primary leading-relaxed ${!isExpanded && hasLongContent ? 'line-clamp-3' : ''}`}>
           {contentText}
         </p>
       </div>
 
-      {/* Metadata */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Metadata — inline plain text, no chip boxes */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3 text-xs text-text-muted">
         {item.type === 'claim' && (
           <>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
-              Type: {metadata.type}
-            </span>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
-              Importance: {(metadata.importance * 100).toFixed(0)}%
-            </span>
+            <span>Type: <span className="text-text-secondary">{metadata.type}</span></span>
+            <span className="text-border-subtle">·</span>
+            <span>Importance: <span className="text-text-secondary">{((metadata.importance ?? 0) * 100).toFixed(0)}%</span></span>
             {metadata.requiresCitation && (
-              <span className="text-xs font-semibold text-warning bg-warning/10 px-2 py-1 rounded-md border border-warning/30">
-                Needs Citation
-              </span>
+              <>
+                <span className="text-border-subtle">·</span>
+                <span className="text-warning font-medium">Needs citation</span>
+              </>
             )}
           </>
         )}
 
         {item.type === 'gap' && (
           <>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
-              Type: {metadata.gapType}
-            </span>
+            <span>Type: <span className="text-text-secondary">{metadata.gapType}</span></span>
             {metadata.hasLiterature && (
-              <span className="text-xs font-semibold text-success bg-success/10 px-2 py-1 rounded-md border border-success/30">
-                Literature Available
-              </span>
+              <>
+                <span className="text-border-subtle">·</span>
+                <span className="text-success font-medium">Literature available</span>
+              </>
             )}
           </>
         )}
 
         {item.type === 'feedback' && (
           <>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
-              Type: {metadata.feedbackType}
-            </span>
-            <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">
-              Severity: {metadata.severity}
-            </span>
+            <span>Type: <span className="text-text-secondary">{metadata.feedbackType}</span></span>
+            <span className="text-border-subtle">·</span>
+            <span>Severity: <span className="text-text-secondary">{metadata.severity}</span></span>
           </>
         )}
       </div>
 
-      {/* Suggestions/Citations (Collapsible if long) */}
+      {/* Citation needed hint — shown when claim requires citation but has none */}
+      {item.type === 'claim' && metadata.requiresCitation && suggestions.length === 0 && (
+        <div className="mb-3 pl-3 border-l border-warning text-xs text-text-muted">
+          <span className="text-warning font-medium">Citation needed</span>
+          {' '}— Search your library or use Paper Discovery to find supporting references for this claim.
+        </div>
+      )}
+
+      {/* Suggestions / Citations */}
       {suggestions.length > 0 && (
-        <div className="mb-4">
-          <div
-            className="flex items-center justify-between cursor-pointer group/header"
+        <div className="mb-3">
+          <button
+            className="flex items-center gap-1.5 mb-2 group/toggle"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            <h4 className="text-sm font-sans font-semibold text-text-primary">
-              {item.type === 'claim' ? 'Existing Citations' : 'Suggestions'}
-              <span className="ml-2 text-text-muted font-mono text-xs">({suggestions.length})</span>
+            <h4 className="text-xs font-semibold text-text-secondary group-hover/toggle:text-text-primary transition-colors">
+              {item.type === 'claim' ? 'Existing citations' : 'Suggestions'}
             </h4>
+            <span className="text-text-muted text-xs">({suggestions.length})</span>
             {hasLongContent && (
-              <button className="text-text-secondary group-hover/header:text-accent-primary transition-colors duration-200">
-                {isExpanded ? (
-                  <ChevronUpIcon className="w-5 h-5" />
-                ) : (
-                  <ChevronDownIcon className="w-5 h-5" />
-                )}
-              </button>
+              isExpanded
+                ? <ChevronUpIcon className="w-3.5 h-3.5 text-text-muted" />
+                : <ChevronDownIcon className="w-3.5 h-3.5 text-text-muted" />
             )}
-          </div>
+          </button>
 
           {(isExpanded || !hasLongContent) && (
-            <ul className="mt-3 space-y-2">
+            <ul className="space-y-2">
               {suggestions.slice(0, isExpanded ? undefined : 3).map((suggestion: any, idx: number) => (
-                <li key={idx} className="text-sm text-text-secondary pl-4 border-l-2 border-accent-primary/30 hover:border-accent-primary transition-colors duration-200">
-                  {typeof suggestion === 'string' ? suggestion : suggestion.title || suggestion.citation_string || JSON.stringify(suggestion)}
+                <li key={idx} className="pl-3 border-l border-border-subtle">
+                  {typeof suggestion === 'string' ? (
+                    <span className="text-xs text-text-secondary">{suggestion}</span>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-text-primary font-medium leading-snug">
+                        {suggestion.title || suggestion.citation_string || 'Untitled'}
+                      </span>
+                      {(suggestion.authors || suggestion.year) && (
+                        <span className="text-xs text-text-muted">
+                          {suggestion.authors
+                            ? (Array.isArray(suggestion.authors) ? suggestion.authors.slice(0, 2).join(', ') + (suggestion.authors.length > 2 ? ' et al.' : '') : suggestion.authors)
+                            : ''}
+                          {suggestion.authors && suggestion.year ? ' · ' : ''}
+                          {suggestion.year}
+                        </span>
+                      )}
+                      {suggestion.open_access_url && (
+                        <a
+                          href={suggestion.open_access_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-accent-primary hover:underline flex items-center gap-1 mt-0.5 w-fit"
+                        >
+                          <span>View PDF</span>
+                          <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
               {!isExpanded && suggestions.length > 3 && (
-                <li className="text-sm text-text-muted pl-4 italic">
-                  +{suggestions.length - 3} more...
-                </li>
+                <li className="text-xs text-text-muted pl-3 italic">+{suggestions.length - 3} more</li>
               )}
             </ul>
           )}
         </div>
       )}
 
-      {/* Expand/Collapse for long content */}
+      {/* Expand/collapse for long content without suggestions */}
       {hasLongContent && !suggestions.length && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sm text-accent-primary hover:text-accent-primary-bright mb-4 flex items-center gap-1.5 font-medium transition-colors duration-200"
+          className="text-xs text-text-muted hover:text-text-primary mb-3 flex items-center gap-1 transition-colors duration-150"
         >
+          {isExpanded ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
           <span>{isExpanded ? 'Show less' : 'Show more'}</span>
-          {isExpanded ? (
-            <ChevronUpIcon className="w-4 h-4" />
-          ) : (
-            <ChevronDownIcon className="w-4 h-4" />
-          )}
         </button>
       )}
 
-      {/* Action Buttons (only show for 'new' status) */}
+      {/* Action buttons — solid, opaque, no translucent fills */}
       {currentStatus === 'new' && (
-        <div className="flex items-center gap-3 pt-4 border-t border-border-default opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <div className="flex items-center gap-2 pt-3 border-t border-border-default">
           <button
-            onClick={handleSave}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-success/10 text-success border border-success/30 hover:bg-success/20 hover:border-success/50 transition-all duration-200"
+            onClick={() => onStatusChange(item.id, item.type, 'saved')}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-success text-white hover:opacity-90 transition-opacity duration-150"
           >
-            <CheckIcon className="w-5 h-5" />
-            <span>Mark as Addressed</span>
+            <CheckIcon className="w-3.5 h-3.5" />
+            <span>Mark addressed</span>
           </button>
 
           <button
-            onClick={handleDismiss}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-bg-elevated text-text-secondary border border-border-default hover:bg-bg-hover hover:text-text-primary transition-all duration-200"
+            onClick={() => onStatusChange(item.id, item.type, 'dismissed')}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-bg-elevated text-text-secondary hover:text-text-primary border border-border-default hover:border-border-subtle transition-colors duration-150"
           >
-            <XMarkIcon className="w-5 h-5" />
+            <XMarkIcon className="w-3.5 h-3.5" />
             <span>Dismiss</span>
           </button>
         </div>
@@ -289,8 +251,8 @@ export default function UnifiedFeedbackCard({
 
       {/* Status indicator for saved/dismissed */}
       {currentStatus !== 'new' && (
-        <div className="pt-4 border-t border-border-default">
-          <span className={`text-sm font-semibold ${currentStatus === 'saved' ? 'text-success' : 'text-text-muted'}`}>
+        <div className="pt-3 border-t border-border-default">
+          <span className={`text-xs font-semibold ${currentStatus === 'saved' ? 'text-success' : 'text-text-muted'}`}>
             {currentStatus === 'saved' ? '✓ Addressed' : '✕ Dismissed'}
           </span>
         </div>

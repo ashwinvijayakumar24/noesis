@@ -18,7 +18,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 DAILY_DISCOVERY_LIMITS = {
-    'free': 3,
+    'free': 5,
     'pro': 999,
     'team': 999,
     'enterprise': 9999,

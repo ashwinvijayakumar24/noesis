@@ -121,7 +121,14 @@ def extract_claims_node(state: DocumentAnalysisState) -> DocumentAnalysisState:
             **get_completion_params()  # Enable zero data retention
         )
 
-        result = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content or ""
+        # Strip markdown code fences if GPT wrapped the JSON
+        if "```" in content:
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        content = content.strip()
+        result = json.loads(content)
         claims_data = result.get("claims", [])
 
         logger.info(f"[DOC-CLAIMS] ✓ Extracted {len(claims_data)} claims")

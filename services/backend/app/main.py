@@ -7,7 +7,9 @@ from app.api.routes import (
     research_questions, methodology_recommendations, paper_recommendations,
     analytics, analytics_tracking, citations, tasks, quota,
     # New routes (Week 2-4 implementation)
-    paper_discovery, feedback, referrals, platform, subscriptions, comparisons
+    paper_discovery, feedback, referrals, platform, subscriptions, comparisons,
+    # Zotero integration
+    zotero,
 )
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -159,6 +161,9 @@ app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
 
 # Week 4: Performance & Polish
 app.include_router(comparisons.router, prefix="", tags=["Comparisons"])
+
+# Zotero Integration
+app.include_router(zotero.router, prefix="/api", tags=["Zotero"])
 
 @app.get("/health")
 async def health():

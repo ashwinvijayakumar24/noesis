@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
-import { EllipsisVerticalIcon, TrashIcon, TagIcon, XMarkIcon, DocumentTextIcon, BeakerIcon, LightBulbIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { EllipsisVerticalIcon, TrashIcon, TagIcon, XMarkIcon, DocumentTextIcon, BeakerIcon, LightBulbIcon, PencilIcon, PlusIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import { Menu } from '@headlessui/react'
 import { motion } from 'framer-motion'
 import CreateProjectModal from '../components/CreateProjectModal'
 import DeleteProjectModal from '../components/DeleteProjectModal'
-import GlobalSearch from '../components/GlobalSearch'
 import TagInput from '../components/TagInput'
 import OnboardingTour from '../components/OnboardingTour'
 import { trackEvent } from '../lib/analytics'
@@ -34,11 +33,12 @@ interface ProjectTag {
 
 export default function Projects() {
   const navigate = useNavigate()
+  const FREE_PROJECT_LIMIT = 3
+
   const { session } = useAuthStore()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [deleteProject, setDeleteProject] = useState<{ id: string; title: string } | null>(null)
   const [projectTags, setProjectTags] = useState<Record<string, ProjectTag[]>>({})
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -164,52 +164,45 @@ export default function Projects() {
     setSelectedTags([])
   }
 
-  // Map color names to Tailwind classes (same as TagInput)
-  const getColorClasses = (color: string) => {
-    const colorMap: Record<string, { bg: string; text: string; border: string }> = {
-      'red-500': { bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/50' },
-      'orange-500': { bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/50' },
-      'yellow-500': { bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/50' },
-      'green-500': { bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/50' },
-      'blue-500': { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/50' },
-      'purple-500': { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/50' },
-      'pink-500': { bg: 'bg-pink-500/20', text: 'text-pink-300', border: 'border-pink-500/50' },
-      'cyan-500': { bg: 'bg-cyan-500/20', text: 'text-cyan-300', border: 'border-cyan-500/50' },
-      'indigo-500': { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/50' },
-      'rose-500': { bg: 'bg-rose-500/20', text: 'text-rose-300', border: 'border-rose-500/50' },
-    }
-    return colorMap[color] || { bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/50' }
-  }
-
   const uniqueTags = getAllUniqueTags()
-
-  // Helper to get a color for project cards based on index
-  const getProjectBorderColor = (index: number): string => {
-    const colors = [
-      'border-l-4 border-l-blue-400',
-      'border-l-4 border-l-purple-400',
-      'border-l-4 border-l-cyan-400',
-      'border-l-4 border-l-indigo-400',
-      'border-l-4 border-l-emerald-400',
-      'border-l-4 border-l-pink-400',
-    ]
-    return colors[index % colors.length]
-  }
 
   return (
     <PageContainer
       title="Projects"
       description="Manage your research projects and documents"
-      onSearchOpen={() => setIsSearchOpen(true)}
       headerActions={
-        <Button
-          onClick={() => setIsCreateModalOpen(true)}
-          variant="primary"
-          size="lg"
-        >
-          <PlusIcon className="h-5 w-5" />
-          Create Project
-        </Button>
+        projects.length >= FREE_PROJECT_LIMIT ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted">
+              {FREE_PROJECT_LIMIT}/{FREE_PROJECT_LIMIT} projects
+            </span>
+            <Button
+              variant="primary"
+              size="lg"
+              disabled
+              title={`Free plan is limited to ${FREE_PROJECT_LIMIT} projects`}
+            >
+              <LockClosedIcon className="h-4 w-4" />
+              Create Project
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            {projects.length > 0 && (
+              <span className="text-xs text-text-muted">
+                {projects.length}/{FREE_PROJECT_LIMIT} projects
+              </span>
+            )}
+            <Button
+              onClick={() => setIsCreateModalOpen(true)}
+              variant="primary"
+              size="lg"
+            >
+              <PlusIcon className="h-5 w-5" />
+              Create Project
+            </Button>
+          </div>
+        )
       }
       spacing="loose"
     >
@@ -234,7 +227,6 @@ export default function Projects() {
           </div>
           <div className="flex flex-wrap gap-2">
             {uniqueTags.map((tag) => {
-              const colors = getColorClasses(tag.color)
               const isSelected = selectedTags.includes(tag.name)
               return (
                 <button
@@ -242,7 +234,7 @@ export default function Projects() {
                   onClick={() => toggleTagFilter(tag.name)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border transition-all duration-150 tracking-normal ${
                     isSelected
-                      ? `${colors.bg} ${colors.text} ${colors.border} ring-2 ring-offset-2 ring-offset-bg-void`
+                      ? 'bg-bg-elevated border-border-default text-text-secondary ring-2 ring-offset-2 ring-offset-bg-void ring-border-default'
                       : 'bg-bg-hover text-text-tertiary border-border-default hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-elevated'
                   }`}
                 >
@@ -322,10 +314,10 @@ export default function Projects() {
             }
           }}
         >
-          {filteredProjects.map((project, index) => (
+          {filteredProjects.map((project) => (
             <motion.div
               key={project.id}
-              className={`group bg-bg-surface rounded-lg border border-border-default p-6 hover:border-accent-primary/30 hover:bg-bg-elevated hover:-translate-y-0.5 hover:shadow-md transition-all duration-150 relative cursor-pointer ${getProjectBorderColor(index)}`}
+              className="group bg-bg-surface rounded-xl border border-border-default p-6 hover:border-accent-primary/30 hover:bg-bg-elevated hover:-translate-y-0.5 hover:shadow-md transition-all duration-150 relative cursor-pointer"
               onClick={() => navigate(`/projects/${project.id}`)}
               variants={{
                 hidden: { opacity: 0, y: 20 },
@@ -424,11 +416,6 @@ export default function Projects() {
         </div>
       )} */}
 
-      {/* Global Search Modal */}
-      <GlobalSearch
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-      />
 
       {/* Onboarding Tour */}
       {showOnboarding && (

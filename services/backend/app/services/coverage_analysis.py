@@ -783,6 +783,174 @@ def prioritize_gaps(gaps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 # ============================================
+# Embedding-Based Real Gap Detection
+# ============================================
+
+async def analyze_coverage_with_embeddings(
+    draft_id: str,
+    project_id: str,
+    similarity_threshold: float = 0.65,
+) -> List[Dict[str, Any]]:
+    """
+    Detect REAL coverage gaps by comparing draft sections against project literature.
+
+    Unlike GPT-only gap detection, this compares actual embeddings so we detect
+    sections with no matching literature in the project (instead of hallucinating gaps).
+
+    Steps:
+    1. Fetch draft structure (section headings + first paragraph each)
+    2. Embed each section
+    3. Compare against document_chunks embeddings via pgvector
+    4. Sections with max similarity < threshold = real gap (no matching literature)
+    5. For high-priority real gaps, query OpenAlex for open-access external papers
+
+    Args:
+        draft_id: Draft identifier
+        project_id: Project identifier
+        similarity_threshold: Below this = no supporting literature (default 0.65)
+
+    Returns:
+        List of gap dicts with external_paper_suggestions where found
+    """
+    import asyncio
+    from app.services.rag_ingest import embed_chunks
+    from app.services.external_apis.openalex import find_open_access_papers_for_gap
+
+    try:
+        # 1. Fetch draft analysis to get section structure
+        analysis_resp = supabase.table("draft_analysis")\
+            .select("structure")\
+            .eq("draft_id", draft_id)\
+            .execute()
+
+        if not analysis_resp.data:
+            logger.warning(f"[EmbeddingGapDetection] No draft analysis for draft_id={draft_id}")
+            return []
+
+        structure = analysis_resp.data[0].get("structure", {})
+        sections = structure.get("sections", [])
+
+        if not sections:
+            logger.warning("[EmbeddingGapDetection] No sections in draft structure")
+            return []
+
+        # 2. Check if project has any literature at all
+        chunks_check = supabase.table("document_chunks")\
+            .select("id")\
+            .eq("project_id", project_id)\
+            .limit(1)\
+            .execute()
+
+        if not chunks_check.data:
+            logger.warning(f"[EmbeddingGapDetection] No document chunks in project {project_id}")
+            return []
+
+        # 3. Embed each section (title + content snippet)
+        section_texts = []
+        section_metas = []
+        for section in sections:
+            title = section.get("title", "")
+            content = section.get("content", section.get("text", ""))
+            if not title:
+                continue
+            # Use title + first 400 chars of content as search query
+            search_text = f"{title}: {content[:400]}" if content else title
+            section_texts.append(search_text)
+            section_metas.append({"title": title, "type": section.get("type", "other")})
+
+        if not section_texts:
+            return []
+
+        embeddings = embed_chunks(section_texts)
+        if not embeddings or len(embeddings) != len(section_texts):
+            logger.warning("[EmbeddingGapDetection] Failed to embed sections")
+            return []
+
+        # 4. For each section, find max similarity to any project chunk
+        real_gaps = []
+
+        for i, emb in enumerate(embeddings):
+            section_meta = section_metas[i]
+            embedding_vector = emb.embedding
+
+            search_result = supabase.rpc(
+                "match_document_chunks",
+                {
+                    "query_embedding": embedding_vector,
+                    "proj_id": project_id,
+                    "match_count": 3,
+                }
+            ).execute()
+
+            if search_result.data:
+                max_sim = max(float(r.get("similarity", 0)) for r in search_result.data)
+            else:
+                max_sim = 0.0
+
+            if max_sim < similarity_threshold:
+                # This section has no good literature match — real gap
+                real_gaps.append({
+                    "section_title": section_meta["title"],
+                    "section_type": section_meta["type"],
+                    "max_similarity": round(max_sim, 3),
+                    "gap_type": "missing_literature",
+                    "description": (
+                        f"Section '{section_meta['title']}' has no closely matching literature "
+                        f"in your project library (best match similarity: {max_sim:.0%}). "
+                        f"Consider adding papers that address this topic."
+                    ),
+                    "severity": "critical" if max_sim < 0.40 else "major",
+                    "external_paper_suggestions": [],
+                })
+
+        logger.info(
+            f"[EmbeddingGapDetection] Found {len(real_gaps)} real gaps "
+            f"(out of {len(sections)} sections) below threshold {similarity_threshold}"
+        )
+
+        if not real_gaps:
+            return []
+
+        # 5. For high-priority gaps, search OpenAlex for open-access papers
+        async def enrich_gap_with_external_papers(gap: Dict[str, Any]) -> None:
+            try:
+                papers = await find_open_access_papers_for_gap(
+                    gap_description=f"{gap['section_title']} {gap['description'][:200]}",
+                    limit=3,
+                )
+                gap["external_paper_suggestions"] = [
+                    {
+                        "title": p["title"],
+                        "authors": ", ".join(p["authors"][:3]) if p["authors"] else "",
+                        "year": p.get("year"),
+                        "open_access_url": p.get("open_access_url"),
+                        "relevance": (
+                            f"Open-access paper covering {gap['section_title']} "
+                            f"— may help address this gap"
+                        ),
+                    }
+                    for p in papers
+                    if p.get("open_access_url")
+                ]
+            except Exception as ext_err:
+                logger.warning(f"[EmbeddingGapDetection] External paper search failed: {ext_err}")
+
+        # Enrich critical and major gaps only (save API calls)
+        enrichment_tasks = [
+            enrich_gap_with_external_papers(g)
+            for g in real_gaps
+            if g["severity"] in ("critical", "major")
+        ]
+        await asyncio.gather(*enrichment_tasks, return_exceptions=True)
+
+        return real_gaps
+
+    except Exception as e:
+        logger.error(f"[EmbeddingGapDetection] Error: {e}")
+        return []
+
+
+# ============================================
 # Complete Coverage Gap Pipeline
 # ============================================
 
@@ -832,6 +1000,33 @@ async def generate_coverage_gap_report(
 
         # 4. Prioritize gaps
         gaps = prioritize_gaps(gaps)
+
+        # 4b. Enrich with external papers from OpenAlex via embedding-based gap detection
+        try:
+            embedding_gaps = await detect_embedding_based_gaps(draft_id, project_id)
+            for eg in embedding_gaps:
+                external_papers = eg.get("external_paper_suggestions", [])
+                if external_papers:
+                    gaps.append({
+                        "gap_type": "missing_literature",
+                        "description": eg["description"],
+                        "priority": "high" if eg.get("severity") == "critical" else "medium",
+                        "suggested_papers": [
+                            {
+                                "title": p.get("title", ""),
+                                "authors": p.get("authors", ""),
+                                "year": p.get("year"),
+                                "open_access_url": p.get("open_access_url"),
+                                "source": "openalex",
+                                "relevance_score": 0.8,
+                            }
+                            for p in external_papers
+                        ],
+                        "section": eg.get("section_title", ""),
+                    })
+            logger.info(f"[CoverageGap] Embedding detection added {len(embedding_gaps)} section gaps")
+        except Exception as emb_err:
+            logger.warning(f"[CoverageGap] Embedding gap detection failed (non-fatal): {emb_err}")
 
         # 5. Store gaps in database with line positioning
         gap_records = []

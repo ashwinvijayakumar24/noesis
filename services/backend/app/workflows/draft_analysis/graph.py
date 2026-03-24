@@ -8,6 +8,7 @@ from langgraph.graph import StateGraph, END
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.checkpoints import get_checkpoint_saver
 from app.core.logging_config import get_logger
+from app.services.progress_publisher import publish_progress
 
 # Import all workflow nodes
 from app.workflows.draft_analysis.nodes.structure_extraction import extract_structure_node
@@ -20,6 +21,90 @@ from app.workflows.draft_analysis.nodes.reviewer_feedback import generate_review
 from app.workflows.draft_analysis.nodes.report_synthesis import synthesize_report_node
 
 logger = get_logger(__name__)
+
+
+# ============================================
+# PROGRESS-EMITTING NODE WRAPPERS
+# ============================================
+
+async def _extract_structure_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "extract_structure_start", 4, "Analyzing draft structure...")
+    result = extract_structure_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "extract_structure", 10, "Draft structure analyzed")
+    return result
+
+
+async def _extract_claims_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "extract_claims_start", 12, "Extracting research claims...")
+    result = extract_claims_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "extract_claims", 25, "Research claims extracted")
+    return result
+
+
+async def _categorize_claims_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "categorize_claims_start", 27, "Categorizing claims...")
+    result = categorize_claims_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "categorize_claims", 35, "Claims categorized")
+    return result
+
+
+async def _literature_search_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "search_literature_start", 37, "Searching literature...")
+    result = literature_search_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "search_literature", 50, "Literature search complete")
+    return result
+
+
+async def _citation_mapping_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "map_citations_start", 52, "Mapping citations to claims...")
+    result = citation_mapping_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "map_citations", 65, "Citations mapped")
+    return result
+
+
+async def _detect_gaps_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "detect_gaps_start", 67, "Detecting coverage gaps...")
+    result = detect_gaps_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "detect_gaps", 75, "Coverage gaps identified")
+    return result
+
+
+async def _generate_feedback_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "generate_feedback_start", 77, "Generating reviewer feedback...")
+    result = generate_reviewer_feedback_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "generate_feedback", 88, "Reviewer feedback generated")
+    return result
+
+
+async def _synthesize_report_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "synthesize_report_start", 90, "Synthesizing report...")
+    result = synthesize_report_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "synthesize_report", 96, "Report synthesized")
+    return result
 
 
 # ============================================
@@ -114,14 +199,14 @@ def create_draft_analysis_workflow() -> StateGraph:
     # ADD NODES
     # ============================================
 
-    workflow.add_node("extract_structure", extract_structure_node)
-    workflow.add_node("extract_claims", extract_claims_node)
-    workflow.add_node("categorize_claims", categorize_claims_node)
-    workflow.add_node("search_literature", literature_search_node)
-    workflow.add_node("map_citations", citation_mapping_node)
-    workflow.add_node("detect_gaps", detect_gaps_node)
-    workflow.add_node("generate_feedback", generate_reviewer_feedback_node)
-    workflow.add_node("synthesize_report", synthesize_report_node)
+    workflow.add_node("extract_structure", _extract_structure_node_with_progress)
+    workflow.add_node("extract_claims", _extract_claims_node_with_progress)
+    workflow.add_node("categorize_claims", _categorize_claims_node_with_progress)
+    workflow.add_node("search_literature", _literature_search_node_with_progress)
+    workflow.add_node("map_citations", _citation_mapping_node_with_progress)
+    workflow.add_node("detect_gaps", _detect_gaps_node_with_progress)
+    workflow.add_node("generate_feedback", _generate_feedback_node_with_progress)
+    workflow.add_node("synthesize_report", _synthesize_report_node_with_progress)
 
     # ============================================
     # ADD EDGES
@@ -242,10 +327,16 @@ async def run_draft_analysis_workflow(
             )
             logger.info(f"[Workflow] Initial checkpoint saved")
 
+        # Publish initial progress so WebSocket subscribers see movement immediately
+        await publish_progress(draft_id, "start", 3, "Starting analysis...")
+
         # Execute workflow
         logger.info(f"[Workflow] Invoking workflow (this will execute all 8 nodes)...")
         final_state = await workflow.ainvoke(initial_state)
         logger.info(f"[Workflow] Workflow invocation completed!")
+
+        # Publish 100% completion event so WebSocket subscribers know we're done
+        await publish_progress(draft_id, "complete", 100, "Analysis complete")
 
         # Save final checkpoint
         if checkpoint_enabled:
