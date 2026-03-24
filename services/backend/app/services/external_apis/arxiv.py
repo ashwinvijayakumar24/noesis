@@ -71,11 +71,8 @@ class ArXivAPI:
             response = requests.get(
                 BASE_URL,
                 params=params,
-                timeout=30
+                timeout=15
             )
-
-            # arXiv recommends 3 seconds between requests
-            time.sleep(1)  # Be respectful, 1 second is enough for us
 
             response.raise_for_status()
 

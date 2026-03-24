@@ -777,27 +777,27 @@ export default function Landing() {
                 <ul className="space-y-3 mb-6 flex-1">
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">10 draft analyses per month</span>
+                    <span className="text-text-secondary">3 projects</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">50 document uploads per month</span>
+                    <span className="text-text-secondary">3 draft analyses per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Unlimited chat queries</span>
+                    <span className="text-text-secondary">10 PDF uploads per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Citation gap detection</span>
+                    <span className="text-text-secondary">10 BibTeX imports per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Reviewer-style feedback</span>
+                    <span className="text-text-secondary">3 paper discovery searches per day</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">BibTeX export</span>
+                    <span className="text-text-secondary">Citation gap detection & BibTeX export</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
@@ -877,10 +877,6 @@ export default function Landing() {
                   >
                     Get Started
                   </button>
-
-                  <p className="text-xs text-text-muted text-center font-mono">
-                    Billed monthly • Cancel anytime
-                  </p>
                 </div>
               </div>
             </motion.div>
@@ -945,10 +941,6 @@ export default function Landing() {
                   >
                     Get Started
                   </button>
-
-                  <p className="text-xs text-text-muted text-center font-mono">
-                    Starting at $60/month • Flexible seat count
-                  </p>
                 </div>
               </div>
             </motion.div>
@@ -1012,10 +1004,6 @@ export default function Landing() {
                   >
                     Contact Sales
                   </button>
-
-                  <p className="text-xs text-text-muted text-center font-mono">
-                    Tailored to your institution's needs
-                  </p>
                 </div>
               </div>
             </motion.div>

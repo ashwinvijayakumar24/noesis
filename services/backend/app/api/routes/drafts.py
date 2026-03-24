@@ -7,7 +7,7 @@ Drafts are uploaded for analysis, claim extraction, coverage gap detection, and 
 Requirements: 1.1, 1.3, 1.5
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from pydantic import BaseModel
 from app.core.supabase_client import supabase
@@ -19,11 +19,16 @@ from typing import Optional
 import datetime
 import uuid
 import logging
+import json
+import asyncio
+import redis.asyncio as aioredis
 
 router = APIRouter()
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+REDIS_URL = "redis://redis:6379/0"
 
 
 # Helper functions
@@ -89,6 +94,77 @@ def get_current_user(authorization: str = Header(None)):
             status_code=401,
             detail="Invalid or expired token"  # Don't expose error details
         )
+
+
+class ExtensionAnalyzeRequest(BaseModel):
+    content: str
+    title: Optional[str] = "Overleaf Document"
+    project_id: Optional[str] = None
+
+
+@router.post("/analyze-from-extension")
+async def analyze_draft_from_extension(
+    body: ExtensionAnalyzeRequest,
+    user_id: str = Depends(get_current_user),
+):
+    """
+    Create a draft from raw text content sent by the Chrome extension.
+    Used when user clicks 'Noesis Review' button in Overleaf.
+    """
+    from app.tasks.draft_analysis import analyze_draft_task
+
+    content = body.content.strip()
+    title = (body.title or "Overleaf Document").strip()
+    project_id = body.project_id
+
+    if not content or len(content) < 50:
+        raise HTTPException(status_code=400, detail="Document content too short")
+
+    # If no project_id provided, use or create a default project
+    if not project_id:
+        projects_resp = supabase.table("projects").select("id").eq("user_id", user_id).order("created_at", desc=True).limit(1).execute()
+        if projects_resp.data:
+            project_id = projects_resp.data[0]["id"]
+        else:
+            new_project = supabase.table("projects").insert({
+                "user_id": user_id,
+                "title": "Overleaf Drafts",
+                "description": "Drafts analyzed via Noesis Chrome extension",
+            }).execute()
+            project_id = new_project.data[0]["id"]
+
+    # Store content in Supabase Storage as .txt
+    draft_id = str(uuid.uuid4())
+    storage_path = f"{user_id}/{draft_id}.txt"
+
+    supabase.storage.from_("drafts").upload(
+        path=storage_path,
+        file=content.encode("utf-8"),
+        file_options={"content-type": "text/plain"},
+    )
+
+    file_url = supabase.storage.from_("drafts").get_public_url(storage_path)
+
+    draft_resp = supabase.table("drafts").insert({
+        "id": draft_id,
+        "user_id": user_id,
+        "project_id": project_id,
+        "title": title,
+        "version": 1,
+        "file_url": file_url,
+        "file_type": "txt",
+        "status": "processing",
+        "created_at": datetime.datetime.utcnow().isoformat(),
+        "updated_at": datetime.datetime.utcnow().isoformat(),
+    }).execute()
+
+    if not draft_resp.data:
+        raise HTTPException(status_code=500, detail="Failed to create draft record")
+
+    analyze_draft_task.delay(draft_id, project_id)
+    logger.info(f"[EXTENSION] Draft {draft_id} created and analysis triggered for user {user_id}")
+
+    return {"draft_id": draft_id, "project_id": project_id, "status": "processing"}
 
 
 @router.post("/upload")
@@ -1497,3 +1573,62 @@ async def react_to_feedback(
     return {"success": True, "action": body.action, "feedback_id": feedback_id}
 
 
+@router.websocket("/{draft_id}/analysis-stream")
+async def draft_analysis_stream(
+    draft_id: str,
+    websocket: WebSocket,
+    token: str = Query(...),
+):
+    """Stream draft analysis progress via WebSocket."""
+    # Validate token via Supabase
+    try:
+        user_response = supabase.auth.get_user(token)
+        if not user_response.user:
+            await websocket.close(code=4001)
+            return
+    except Exception:
+        await websocket.close(code=4001)
+        return
+
+    await websocket.accept()
+
+    r = aioredis.from_url(REDIS_URL)
+
+    # Send the latest known progress immediately so late subscribers don't start blank
+    try:
+        latest = await r.get(f"progress:{draft_id}:latest")
+        if latest:
+            if isinstance(latest, bytes):
+                latest = latest.decode()
+            await websocket.send_text(latest)
+    except Exception:
+        pass
+
+    pubsub = r.pubsub()
+    await pubsub.subscribe(f"progress:{draft_id}")
+
+    try:
+        # 20 minute hard timeout
+        deadline = asyncio.get_running_loop().time() + 1200
+        async for message in pubsub.listen():
+            if asyncio.get_running_loop().time() > deadline:
+                break
+            if message["type"] == "message":
+                data = message["data"]
+                if isinstance(data, bytes):
+                    data = data.decode()
+                await websocket.send_text(data)
+                event = json.loads(data)
+                if event.get("progress", 0) >= 100:
+                    break
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.warning(f"WebSocket error for draft {draft_id}: {e}")
+    finally:
+        await pubsub.unsubscribe(f"progress:{draft_id}")
+        await r.aclose()
+        try:
+            await websocket.close()
+        except Exception:
+            pass

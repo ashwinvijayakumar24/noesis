@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Noesis Research Review</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 380px;
+      min-height: 500px;
+      background: #0F0F14;
+      color: #E8E8F0;
+      font-family: Inter, system-ui, sans-serif;
+      padding: 20px;
+    }
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    #logo {
+      width: 32px;
+      height: 32px;
+      background: #E5484D;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+    #logo-text .name { font-weight: 600; font-size: 15px; }
+    #logo-text .sub { font-size: 11px; color: #6B6B7E; margin-top: 1px; }
+    #content { }
+    .center { text-align: center; padding: 40px 0; }
+    .muted { color: #9898A8; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+    .btn-primary {
+      background: #E5484D;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-secondary {
+      background: #18181F;
+      color: #E8E8F0;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-link {
+      display: block;
+      background: #E5484D;
+      color: white;
+      border-radius: 8px;
+      padding: 10px 16px;
+      text-align: center;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .progress-label { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+    .progress-track {
+      background: #18181F;
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #E5484D;
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .progress-msg { font-size: 12px; color: #6B6B7E; margin-top: 4px; }
+    .polling-note { font-size: 11px; color: #4B4B5E; margin-top: 8px; }
+    .complete-label { font-size: 14px; font-weight: 600; color: #5BE56B; margin-bottom: 16px; }
+    .actions-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9898A8;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .actions-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .action-item {
+      background: #18181F;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #C8C8D8;
+      line-height: 1.5;
+    }
+    .error-label { color: #E5484D; font-size: 14px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <div id="logo">N</div>
+    <div id="logo-text">
+      <div class="name">Noesis</div>
+      <div class="sub">Research Review</div>
+    </div>
+  </div>
+  <div id="content"></div>
+  <script src="sidebar.js"></script>
+</body>
+</html>

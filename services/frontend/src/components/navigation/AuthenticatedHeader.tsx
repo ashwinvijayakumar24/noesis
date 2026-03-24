@@ -91,7 +91,7 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
                       {user?.email?.charAt(0).toUpperCase() || 'U'}
                     </span>
                   </div>
-                  <span className="font-mono text-xs max-w-[150px] truncate">{user?.email}</span>
+                  <span className="text-xs max-w-[150px] truncate" style={{ fontFamily: "'Helvetica Now Display', 'Helvetica Neue', Arial, sans-serif" }}>{user?.email}</span>
                 </div>
                 <svg className="h-5 w-5 md:h-4 md:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -100,7 +100,7 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
 
               <Menu.Items className="absolute right-0 mt-2 w-56 bg-bg-surface rounded-lg shadow-lg border border-border-default overflow-hidden">
                 <div className="px-4 py-3 border-b border-border-default">
-                  <p className="text-xs text-text-muted font-mono mb-1">Signed in as</p>
+                  <p className="text-xs text-text-muted mb-1" style={{ fontFamily: "'Helvetica Now Display', 'Helvetica Neue', Arial, sans-serif" }}>Signed in as</p>
                   <p className="text-sm text-text-primary font-medium truncate">{user?.email}</p>
                 </div>
 

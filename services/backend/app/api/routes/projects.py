@@ -33,8 +33,33 @@ def get_current_user(authorization: str = Header(None)):
         )
 
 # CREATE
+PROJECT_LIMITS = {
+    'free': 3,
+    'pro': 999,
+    'team': 999,
+}
+
 @router.post("/")
 def create_project(title: str, description: Optional[str] = None, user_id: str = Depends(get_current_user)):
+    # Enforce per-plan project limit
+    quota_res = supabase.table('user_quotas').select('plan_tier').eq('user_id', user_id).execute()
+    plan_tier = quota_res.data[0]['plan_tier'] if quota_res.data else 'free'
+    project_limit = PROJECT_LIMITS.get(plan_tier, PROJECT_LIMITS['free'])
+
+    count_res = supabase.table('projects').select('id', count='exact').eq('user_id', user_id).execute()
+    project_count = count_res.count or 0
+
+    if project_count >= project_limit:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": f"Free plan is limited to {project_limit} projects. Upgrade to Pro for unlimited projects.",
+                "quota_type": "projects",
+                "limit": project_limit,
+                "current": project_count,
+            }
+        )
+
     data = {
         "user_id": user_id,
         "title": title,
@@ -173,11 +198,14 @@ async def import_bibtex(
     """
     Import a BibTeX (.bib) file into a project as metadata-only document records.
 
-    Each BibTeX entry becomes a document with status='imported'. No PDF is attached.
-    Researchers can optionally add PDFs later.
+    Each BibTeX entry becomes a document with source_type='bibtex_import' and
+    resolution_status='resolving'. A background Celery task then attempts to find
+    open-access PDFs and run full analysis for each entry.
 
     Supports entries exported from Zotero, Mendeley, Endnote, and most reference managers.
     """
+    from app.services.quota_management import check_quota, increment_quota_usage, QuotaExceededError
+
     # Verify project exists and belongs to user
     project_res = supabase.table("projects").select("id").eq("id", project_id).eq("user_id", user_id).execute()
     if not project_res.data:
@@ -191,7 +219,6 @@ async def import_bibtex(
     # Read and parse file
     try:
         content_bytes = await file.read()
-        # Try UTF-8, fall back to latin-1 (common for older .bib files)
         try:
             bibtex_content = content_bytes.decode('utf-8')
         except UnicodeDecodeError:
@@ -214,11 +241,28 @@ async def import_bibtex(
     if len(parsed_entries) > MAX_ENTRIES:
         parsed_entries = parsed_entries[:MAX_ENTRIES]
 
+    # Check bib_import quota (10 refs/month on free tier)
+    # Only check — we'll increment after all records are created
+    try:
+        await check_quota(user_id, "bib_import")
+    except QuotaExceededError as qe:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "quota_exceeded",
+                "quota_type": qe.quota_type,
+                "limit": qe.limit,
+                "current": qe.current,
+                "message": str(qe),
+            }
+        )
+
     # Create document records for each entry
     now = datetime.datetime.utcnow().isoformat()
     imported = 0
     skipped = 0
     errors = []
+    created_ids: List[str] = []
 
     for entry in parsed_entries:
         title = entry.get('title', 'Untitled').strip() or 'Untitled'
@@ -231,10 +275,12 @@ async def import_bibtex(
                 "project_id": project_id,
                 "title": title,
                 "description": None,
-                "file_url": None,
+                "file_url": "",
                 "file_type": "bibtex_import",
                 "file_size": 0,
                 "status": "imported",
+                "source_type": "bibtex_import",
+                "resolution_status": "resolving",
                 "metadata": {
                     "import_source": "bibtex",
                     "bibtex_key": entry.get('bibtex_key', ''),
@@ -258,6 +304,8 @@ async def import_bibtex(
             res = supabase.table("documents").insert(doc_record).execute()
             if res.data:
                 imported += 1
+                doc_id = res.data[0]["id"]
+                created_ids.append(doc_id)
             else:
                 skipped += 1
         except Exception as e:
@@ -265,12 +313,58 @@ async def import_bibtex(
             errors.append(title)
             skipped += 1
 
+    # Increment bib quota by actual number of records created
+    if imported > 0:
+        try:
+            await increment_quota_usage(user_id, "bib_import", count=imported)
+        except Exception as e:
+            logger.warning(f"Failed to increment bib quota: {e}")
+
+    # Submit background Celery task for OA PDF resolution
+    if created_ids:
+        try:
+            from app.tasks.bibtex_resolution_task import resolve_bibtex_task
+            task = resolve_bibtex_task.delay(created_ids, user_id, project_id)
+            logger.info(f"[BIBTEX] Submitted resolution task {task.id} for {len(created_ids)} entries")
+        except Exception as e:
+            logger.warning(f"[BIBTEX] Failed to submit resolution task: {e}")
+            # Non-fatal — documents still imported without resolution
+
     return {
         "message": f"Imported {imported} references from BibTeX file",
         "imported": imported,
         "skipped": skipped,
         "total_in_file": len(parsed_entries),
-        "errors": errors[:10],  # Return first 10 error titles only
+        "errors": errors[:10],
+        "document_ids": created_ids,
+        "resolution_started": len(created_ids) > 0,
+    }
+
+
+# BIB RESOLUTION STATUS (polled by frontend every 3s while resolving)
+@router.get("/{project_id}/bib-resolution-status")
+async def get_bib_resolution_status(
+    project_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """
+    Return resolution status for all bibtex_import documents in the project.
+    Used by the upload modal to show live resolution progress.
+    """
+    res = supabase.table("documents")\
+        .select("id, title, status, source_type, resolution_status, metadata")\
+        .eq("project_id", project_id)\
+        .eq("user_id", user_id)\
+        .eq("source_type", "bibtex_import")\
+        .order("created_at", desc=True)\
+        .execute()
+
+    entries = res.data or []
+    return {
+        "entries": entries,
+        "resolving_count": sum(1 for e in entries if e.get("resolution_status") == "resolving"),
+        "resolved_count": sum(1 for e in entries if e.get("resolution_status") == "resolved"),
+        "unresolved_count": sum(1 for e in entries if e.get("resolution_status") == "unresolved"),
     }
 
 
@@ -399,60 +493,54 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
 
         print(f"[INSIGHTS-BG] Successfully stored insights for project_id={project_id}")
 
-        # 6. Auto-generate research questions + paper recs on FIRST insights generation only
-        existing_rq = supabase.table("research_questions").select("id", count="exact")\
-            .eq("project_id", project_id)\
-            .eq("user_id", user_id)\
-            .execute()
-        rq_count = existing_rq.count if existing_rq.count is not None else 0
+        # 6. Always delete and re-generate research questions + paper recommendations on insights regeneration
+        print(f"[INSIGHTS-BG] Refreshing research questions — deleting existing and re-generating")
+        try:
+            supabase.table("research_questions").delete()\
+                .eq("project_id", project_id)\
+                .eq("user_id", user_id)\
+                .execute()
+            from app.services.research_questions import generate_research_questions
+            questions = generate_research_questions(insights)
+            for q in questions[:5]:
+                supabase.table("research_questions").insert({
+                    "project_id": project_id,
+                    "user_id": user_id,
+                    "question": q['question'],
+                    "rationale": q['rationale'],
+                    "suggested_methodology": q['suggested_methodology'],
+                    "gap_category": q['gap_category'],
+                    "status": "new"
+                }).execute()
+            print(f"[INSIGHTS-BG] Re-generated {min(len(questions), 5)} research questions")
+        except Exception as rq_err:
+            print(f"[INSIGHTS-BG] Auto-RQ generation failed (non-fatal): {rq_err}")
 
-        if rq_count == 0:
-            print(f"[INSIGHTS-BG] First insights generation — auto-generating research questions")
-            try:
-                from app.services.research_questions import generate_research_questions
-                questions = generate_research_questions(insights)
-                for q in questions[:5]:
-                    supabase.table("research_questions").insert({
-                        "project_id": project_id,
-                        "user_id": user_id,
-                        "question": q['question'],
-                        "rationale": q['rationale'],
-                        "suggested_methodology": q['suggested_methodology'],
-                        "gap_category": q['gap_category'],
-                        "status": "new"
-                    }).execute()
-                print(f"[INSIGHTS-BG] Auto-generated {min(len(questions), 5)} research questions")
-            except Exception as rq_err:
-                print(f"[INSIGHTS-BG] Auto-RQ generation failed (non-fatal): {rq_err}")
-
-        existing_pr = supabase.table("paper_recommendations").select("id", count="exact")\
-            .eq("project_id", project_id)\
-            .eq("user_id", user_id)\
-            .execute()
-        pr_count = existing_pr.count if existing_pr.count is not None else 0
-
-        if pr_count == 0:
-            print(f"[INSIGHTS-BG] First insights generation — auto-generating paper recommendations")
-            try:
-                from app.services.paper_recommendations import generate_paper_recommendations
-                proj_res = supabase.table("projects").select("title, description").eq("id", project_id).execute()
-                project_data = {"title": proj_res.data[0].get("title", "") if proj_res.data else "", "description": proj_res.data[0].get("description", "") if proj_res.data else ""}
-                papers = generate_paper_recommendations(
-                    project_data=project_data,
-                    insights=insights,
-                    research_questions=[],
-                    limit=5
-                )
-                for paper in papers[:5]:
-                    supabase.table("paper_recommendations").insert({
-                        "project_id": project_id,
-                        "user_id": user_id,
-                        **paper,
-                        "status": "new"
-                    }).execute()
-                print(f"[INSIGHTS-BG] Auto-generated {min(len(papers), 5)} paper recommendations")
-            except Exception as pr_err:
-                print(f"[INSIGHTS-BG] Auto-PR generation failed (non-fatal): {pr_err}")
+        print(f"[INSIGHTS-BG] Refreshing paper recommendations — deleting existing and re-generating")
+        try:
+            supabase.table("paper_recommendations").delete()\
+                .eq("project_id", project_id)\
+                .eq("user_id", user_id)\
+                .execute()
+            from app.services.paper_recommendations import generate_paper_recommendations
+            proj_res = supabase.table("projects").select("title, description").eq("id", project_id).execute()
+            project_data = {"title": proj_res.data[0].get("title", "") if proj_res.data else "", "description": proj_res.data[0].get("description", "") if proj_res.data else ""}
+            papers = generate_paper_recommendations(
+                project_data=project_data,
+                insights=insights,
+                research_questions=[],
+                limit=5
+            )
+            for paper in papers[:5]:
+                supabase.table("paper_recommendations").insert({
+                    "project_id": project_id,
+                    "user_id": user_id,
+                    **paper,
+                    "status": "new"
+                }).execute()
+            print(f"[INSIGHTS-BG] Re-generated {min(len(papers), 5)} paper recommendations")
+        except Exception as pr_err:
+            print(f"[INSIGHTS-BG] Auto-PR generation failed (non-fatal): {pr_err}")
 
     except Exception as e:
         print(f"[INSIGHTS-BG] ERROR for project_id={project_id}: {type(e).__name__}: {str(e)}")
@@ -497,8 +585,8 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
             "status": "analyzing"
         }
 
-    # 3. Get all documents for this project
-    documents_res = supabase.table("documents").select("id, title, status, analysis")\
+    # 3. Get all documents for this project (we filter in Python to handle legacy null file_type rows)
+    documents_res = supabase.table("documents").select("id, title, status, analysis, source_type, file_type")\
         .eq("project_id", project_id)\
         .eq("user_id", user_id)\
         .execute()
@@ -506,12 +594,23 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
     if not documents_res.data or len(documents_res.data) == 0:
         raise HTTPException(status_code=400, detail="No documents in project. Add documents first.")
 
-    documents = documents_res.data
+    # Only manually-uploaded PDFs require full analysis to gate insights.
+    # BibTeX imports, Zotero imports, and discovered papers are metadata-only and never block.
+    NON_PDF_SOURCES = ('bibtex_import', 'zotero_import', 'discovered')
+    pdf_docs = [
+        d for d in documents_res.data
+        if d.get('source_type') not in NON_PDF_SOURCES
+        and d.get('file_type') not in ('bibtex_import', 'zotero_import')
+    ]
 
-    # 4. Verify all documents are analyzed
+    if not pdf_docs:
+        # Project only has BibTeX/discovered references — that's fine, proceed
+        print(f"[INSIGHTS] Project {project_id} has no manually-uploaded PDFs; running insights on metadata")
+
+    # 4. Verify all PDF documents are analyzed
     unanalyzed_docs = []
-    for doc in documents:
-        if doc.get('status') != 'analyzed' or not doc.get('analysis'):
+    for doc in pdf_docs:
+        if doc.get('status') != 'analyzed':
             unanalyzed_docs.append(doc['title'])
 
     if unanalyzed_docs:
@@ -523,7 +622,7 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
             }
         )
 
-    print(f"[INSIGHTS] All {len(documents)} documents are analyzed")
+    print(f"[INSIGHTS] All {len(pdf_docs)} PDF documents are analyzed ({len(documents_res.data)} total)")
 
     # 5. Update status to 'analyzing'
     supabase.table("projects").update({
@@ -540,7 +639,7 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
     return {
         "message": "Insights analysis started",
         "status": "analyzing",
-        "num_documents": len(documents)
+        "num_documents": len(documents_res.data)
     }
 
 
@@ -600,7 +699,7 @@ def get_project_insights(project_id: str, user_id: str = Depends(get_current_use
     elif status == "failed":
         return {
             "status": "failed",
-            "message": "Insights analysis failed. Please try again."
+            "message": "Insights analysis failed. Please try again.",
         }
     else:  # not_analyzed
         return {

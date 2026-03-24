@@ -9,6 +9,31 @@ import { SkeletonListItem, SkeletonList } from './ui/Skeleton'
 import VersionTimeline from './draft-analysis/VersionTimeline'
 import RecurringPatterns from './draft-analysis/RecurringPatterns'
 import VersionProgressCard from './draft-analysis/VersionProgressCard'
+import { useAnalysisStream } from '../hooks/useAnalysisStream'
+
+function DraftProgressBar({ draftId, token }: { draftId: string; token: string }) {
+  const stream = useAnalysisStream(draftId, true)
+  const pct = Math.max(stream.progress, 5) // show at least 5% so bar is visible
+
+  return (
+    <div className="mt-3 px-1">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-xs text-slate-400">
+          {stream.message || 'Starting analysis...'}
+        </span>
+        {stream.progress > 0 && (
+          <span className="text-xs text-slate-500">{stream.progress}%</span>
+        )}
+      </div>
+      <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+        <div
+          className="h-full bg-accent-primary rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
 
 interface Draft {
   id: string
@@ -383,6 +408,11 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                   </button>
                 </div>
               </div>
+
+              {/* Progress bar — only shown while processing */}
+              {draft.status === 'processing' && (
+                <DraftProgressBar draftId={draft.id} token={token} />
+              )}
             </div>
           )
         })}

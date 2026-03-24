@@ -84,14 +84,10 @@ def retrieve_relevant_chunks(
     Returns:
         List of matching chunks with similarity scores and document metadata
     """
-    # Fetch project RAG settings
-    project_record = supabase.table("projects").select("rag_settings").eq("id", project_id).single().execute()
-    rag_settings = project_record.data.get("rag_settings", {}) if project_record.data else {}
-
-    # Use provided values or fall back to project settings
-    embedding_model = rag_settings.get("embedding_model", "text-embedding-3-large")
-    max_chunks = limit if limit is not None else rag_settings.get("max_chunks", 5)
-    min_similarity = similarity_threshold if similarity_threshold is not None else rag_settings.get("similarity_threshold", 0.0)
+    # Server-controlled defaults (no user-adjustable RAG settings)
+    embedding_model = "text-embedding-3-large"
+    max_chunks = limit if limit is not None else 5
+    min_similarity = similarity_threshold if similarity_threshold is not None else 0.0
 
     # Generate embedding for the query (using same model as ingestion)
     query_embedding = embed_query(query, model=embedding_model)

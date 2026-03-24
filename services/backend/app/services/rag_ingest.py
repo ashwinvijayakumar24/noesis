@@ -488,3 +488,49 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
 
         logger.error(f"[RAG-INGEST] ========== INGESTION FAILED ==========")
         raise
+
+
+def embed_imported_document(
+    document_id: str,
+    project_id: str,
+    title: str,
+    abstract: str = "",
+) -> int:
+    """
+    Embed title + abstract for a metadata-only imported document and store
+    one chunk in document_chunks with metadata.source = "abstract_only".
+
+    Called after BibTeX or Zotero inserts so imported references contribute
+    to semantic search, coverage gap detection, and citation suggestions.
+
+    Returns number of chunks stored (0 or 1).
+    """
+    embed_text = title.strip()
+    if abstract and abstract.strip():
+        embed_text += f"\n{abstract.strip()[:600]}"
+
+    if not embed_text:
+        return 0
+
+    try:
+        # Clear any prior chunk for this document (idempotent re-import)
+        supabase.table("document_chunks").delete().eq("document_id", document_id).execute()
+
+        embeddings = embed_chunks([embed_text], model="text-embedding-3-large")
+        if not embeddings:
+            return 0
+
+        supabase.table("document_chunks").insert({
+            "document_id": document_id,
+            "project_id": project_id,
+            "chunk_index": 0,
+            "content": embed_text,
+            "embedding": embeddings[0].embedding,
+        }).execute()
+
+        logger.info(f"[ImportEmbed] Stored abstract chunk for document_id={document_id}")
+        return 1
+
+    except Exception as e:
+        logger.warning(f"[ImportEmbed] Failed to embed imported document {document_id}: {e}")
+        return 0

@@ -82,14 +82,13 @@ class SemanticScholarAPI:
                 f"{BASE_URL}/paper/search",
                 params=params,
                 headers=self.headers,
-                timeout=30
+                timeout=15
             )
 
-            # Handle rate limiting
+            # Handle rate limiting — don't sleep/retry, just return empty
             if response.status_code == 429:
-                print("[SEMANTIC-SCHOLAR] Rate limited, waiting 20 seconds...")
-                time.sleep(20)
-                return self.search_papers(query, limit, year_min, year_max, fields_of_study, min_citation_count)
+                print("[SEMANTIC-SCHOLAR] Rate limited, returning empty results")
+                return []
 
             response.raise_for_status()
             data = response.json()
@@ -125,9 +124,8 @@ class SemanticScholarAPI:
             )
 
             if response.status_code == 429:
-                print("[SEMANTIC-SCHOLAR] Rate limited, waiting 20 seconds...")
-                time.sleep(20)
-                return self.get_recommendations(paper_id, limit)
+                print("[SEMANTIC-SCHOLAR] Rate limited, returning empty results")
+                return []
 
             response.raise_for_status()
             data = response.json()

@@ -316,3 +316,58 @@ def _score_papers(
         scored_papers.append(paper)
 
     return scored_papers
+
+
+def search_papers_by_query(query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Search papers by explicit user query.
+
+    Args:
+        query: User search query string
+        limit: Maximum results to return
+
+    Returns:
+        List of papers with relevance scoring
+    """
+    print(f"[PAPER-REC] Searching for query: '{query}'")
+
+    all_papers = []
+
+    # Primary: Semantic Scholar (has OA pdf_url)
+    try:
+        ss_papers = semantic_scholar.search_papers(
+            query=query,
+            limit=10,
+        )
+        all_papers.extend(ss_papers)
+        print(f"[PAPER-REC] Semantic Scholar returned {len(ss_papers)} papers")
+    except Exception as e:
+        print(f"[PAPER-REC] Semantic Scholar search failed: {e}")
+
+    # Supplement with arXiv if < 5 results
+    if len(all_papers) < 5:
+        try:
+            arxiv_papers = arxiv.search_papers(
+                query=query,
+                limit=5,
+            )
+            all_papers.extend(arxiv_papers)
+            print(f"[PAPER-REC] arXiv returned {len(arxiv_papers)} papers")
+        except Exception as e:
+            print(f"[PAPER-REC] arXiv search failed: {e}")
+
+    # Deduplicate
+    unique_papers = _deduplicate_papers(all_papers)
+    print(f"[PAPER-REC] After dedup: {len(unique_papers)} papers")
+
+    # Score using simple keyword matching against query
+    keywords = [w.lower().strip('.,;:?!()[]{}') for w in query.split() if len(w) > 2]
+    scored = _score_papers(
+        unique_papers,
+        keywords=keywords,
+        insights=None,
+        research_questions=None
+    )
+
+    scored.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+    return scored[:limit]

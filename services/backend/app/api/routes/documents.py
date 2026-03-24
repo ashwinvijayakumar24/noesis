@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from app.core.supabase_client import supabase
 from app.services.citation_management import format_citation_bibtex
 from app.core.security_middleware import SecureAuthValidator, limiter
+from app.tasks import analyze_document_task
 from typing import Optional
 from datetime import datetime
 import logging
@@ -59,7 +60,22 @@ async def upload_document(
     Rate limit: 10 uploads per minute per IP address
     """
     print(f"[UPLOAD] Received: file={file.filename}, project_id={project_id}, title={title}, user_id={user_id}")
+    from app.services.quota_management import check_quota, QuotaExceededError
     try:
+        # CHECK QUOTA BEFORE PROCESSING
+        try:
+            await check_quota(user_id, "document")
+        except QuotaExceededError as qe:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "quota_exceeded",
+                    "message": str(qe),
+                    "quota_type": qe.quota_type,
+                    "limit": qe.limit,
+                    "current": qe.current
+                }
+            )
         # Read file content
         file_content = await file.read()
         file_size = len(file_content)
@@ -107,6 +123,7 @@ async def upload_document(
             "file_type": file.content_type or "application/octet-stream",
             "file_size": file_size,
             "status": "uploaded",
+            "source_type": "manual_upload",
             "metadata": {
                 "original_filename": file.filename,
                 "upload_timestamp": datetime.utcnow().isoformat()
@@ -126,13 +143,30 @@ async def upload_document(
             raise HTTPException(status_code=400, detail="Failed to create document metadata")
 
         document = db_response.data[0]
-        print(f"[UPLOAD] Document created: id={document['id']}, project_id={document.get('project_id')}")
+        document_id = document['id']
+        print(f"[UPLOAD] Document created: id={document_id}, project_id={document.get('project_id')}")
+
+        # Auto-trigger analysis: set status to 'analyzing' and enqueue Celery task
+        if project_id:
+            try:
+                supabase.table("documents").update({"status": "analyzing"}).eq("id", document_id).execute()
+                analyze_document_task.delay(document_id, user_id, project_id)
+                print(f"[UPLOAD] Auto-triggered analysis for document_id={document_id}")
+            except Exception as task_err:
+                print(f"[UPLOAD] Warning: Failed to auto-trigger analysis: {task_err}")
+
+        # Refresh document record to reflect updated status
+        doc_refresh = supabase.table("documents").select("*").eq("id", document_id).execute()
+        if doc_refresh.data:
+            document = doc_refresh.data[0]
 
         return {
             "message": "Document uploaded successfully",
             "document": document
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -277,6 +311,33 @@ def delete_document(document_id: str, user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Failed to delete document")
 
     print(f"[DELETE] Successfully deleted document {document_id}")
+
+    # Invalidate project insights and clean up orphaned derived rows
+    project_id = document.get("project_id")
+    if project_id:
+        try:
+            supabase.table("projects").update({
+                "insights_status": "not_analyzed",
+                "insights": None,
+                "insights_doc_count": 0,
+                "insights_updated_at": None
+            }).eq("id", project_id).execute()
+            print(f"[DELETE] Invalidated insights for project_id={project_id}")
+        except Exception as e:
+            print(f"[DELETE] Warning: Failed to invalidate project insights: {e}")
+
+        try:
+            supabase.table("research_questions").delete().eq("project_id", project_id).execute()
+            print(f"[DELETE] Cleaned orphaned research_questions for project_id={project_id}")
+        except Exception as e:
+            print(f"[DELETE] Warning: Failed to clean research_questions: {e}")
+
+        try:
+            supabase.table("paper_recommendations").delete().eq("project_id", project_id).execute()
+            print(f"[DELETE] Cleaned orphaned paper_recommendations for project_id={project_id}")
+        except Exception as e:
+            print(f"[DELETE] Warning: Failed to clean paper_recommendations: {e}")
+
     return {"message": "Document deleted successfully"}
 
 
@@ -380,6 +441,40 @@ def _run_analysis_task(document_id: str, file_url: str):
         if len(paper_text) < 100:
             raise Exception("Extracted text is too short. PDF might be scanned or corrupted.")
 
+        # 3.5 Check shared_papers cache BEFORE calling GPT-5.2
+        # If another user already analyzed this exact paper, reuse the analysis.
+        try:
+            doc_meta_res = supabase.table("documents").select("metadata").eq("id", document_id).execute()
+            doc_meta = (doc_meta_res.data[0].get("metadata") or {}) if doc_meta_res.data else {}
+            cached_doi = doc_meta.get("doi")
+
+            if cached_doi:
+                doi_clean = cached_doi.replace("https://doi.org/", "").replace("http://doi.org/", "").strip()
+                cached_paper_res = supabase.table("shared_papers")\
+                    .select("analysis, title")\
+                    .eq("doi", doi_clean)\
+                    .limit(1)\
+                    .execute()
+                if cached_paper_res.data and cached_paper_res.data[0].get("analysis"):
+                    cached_analysis = cached_paper_res.data[0]["analysis"]
+                    print(f"[ANALYZE-BG-LG] ✓ CACHE HIT for DOI {cached_doi} — skipping GPT-5.2 call")
+                    # Still run RAG ingest for user-scoped chunks
+                    from app.services.rag_ingest import ingest_document
+                    try:
+                        ingest_document(document_id, file_url, project_id)
+                    except Exception as ingest_err:
+                        print(f"[ANALYZE-BG-LG] Warning: RAG ingest failed: {ingest_err}")
+                    asyncio.run(increment_quota_usage(user_id, "document"))
+                    supabase.table("documents").update({
+                        "analysis": cached_analysis,
+                        "status": "analyzed",
+                        "updated_at": datetime.utcnow().isoformat()
+                    }).eq("id", document_id).execute()
+                    print(f"[ANALYZE-BG-LG] ✓ Applied cached analysis — document {document_id} marked analyzed")
+                    return  # Skip expensive GPT call
+        except Exception as cache_err:
+            print(f"[ANALYZE-BG-LG] Cache check error (non-fatal): {cache_err}")
+
         # 4. Run BOTH workflows in parallel for best of both worlds
         print(f"[ANALYZE-BG-LG] Step 4: Running dual analysis (LangGraph + Traditional)...")
 
@@ -469,6 +564,11 @@ def _run_analysis_task(document_id: str, file_url: str):
 
         # 5. Store extracted claims, methods, and findings in database
         print(f"[ANALYZE-BG-LG] Step 5: Storing structured data in database...")
+
+        # Clear any existing structured data so re-analysis doesn't hit unique constraint violations
+        supabase.table("document_claims").delete().eq("document_id", document_id).execute()
+        supabase.table("document_methods").delete().eq("document_id", document_id).execute()
+        supabase.table("document_findings").delete().eq("document_id", document_id).execute()
 
         # Get OpenAI client for generating embeddings
         client = get_openai_client()
@@ -587,6 +687,27 @@ def _run_analysis_task(document_id: str, file_url: str):
 
         print(f"[ANALYZE-BG-LG] ✓ Analysis report stored")
 
+        # 6.5. Write to shared_papers cache so other users benefit
+        try:
+            doc_full = update_response.data[0]
+            doc_meta = doc_full.get("metadata") or {}
+            doi_to_cache = doc_meta.get("doi")
+            if doi_to_cache or doc_full.get("title"):
+                from app.services.shared_paper_cache import store_paper as _store_shared
+                asyncio.run(_store_shared({
+                    "doi": doi_to_cache,
+                    "title": doc_full.get("title"),
+                    "authors": doc_meta.get("authors", []),
+                    "year": doc_meta.get("year"),
+                    "abstract": doc_meta.get("abstract"),
+                    "journal": doc_meta.get("journal"),
+                    "analysis": analysis,
+                    "source": "user_upload",
+                }))
+                print(f"[ANALYZE-BG-LG] ✓ Shared paper cache updated")
+        except Exception as cache_write_err:
+            print(f"[ANALYZE-BG-LG] Warning: Failed to write to shared cache: {cache_write_err}")
+
         # 7. Auto-regenerate project insights (since new document analyzed)
         # Get the document's project_id
         document = update_response.data[0]
@@ -636,9 +757,9 @@ def _run_analysis_task(document_id: str, file_url: str):
                                 draft_id = draft.get("id")
                                 draft_title = draft.get("title", "Untitled")
 
-                                # Update draft status to analyzing
+                                # Update draft status to processing (re-analysis triggered)
                                 supabase.table("drafts").update({
-                                    "status": "analyzing",
+                                    "status": "processing",
                                     "updated_at": datetime.utcnow().isoformat()
                                 }).eq("id", draft_id).execute()
 
@@ -776,6 +897,45 @@ async def analyze_document(document_id: str, user_id: str = Depends(get_current_
         raise HTTPException(status_code=500, detail=f"Failed to start analysis: {str(e)}")
 
 
+@router.post("/{document_id}/resolve")
+async def resolve_document(document_id: str, user_id: str = Depends(get_current_user)):
+    """
+    Re-trigger the BibTeX resolution pipeline for a stuck imported document.
+
+    A document is considered 'stuck' when status='imported' and resolution_status is null.
+    This happens with legacy documents imported before the resolution pipeline existed,
+    or when the Celery task failed silently.
+
+    The resolution pipeline:
+    1. Searches arXiv / Semantic Scholar / Unpaywall for an open-access PDF
+    2. If found: downloads → GROBID → GPT-5.2 analysis → RAG embed → status='analyzed'
+    3. If not found: embeds title+abstract for basic RAG → resolution_status='unresolved'
+    """
+    doc_res = supabase.table("documents").select("*").eq("id", document_id).eq("user_id", user_id).execute()
+    if not doc_res.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc = doc_res.data[0]
+    project_id = doc.get("project_id")
+
+    if doc.get("resolution_status") == "resolving":
+        return {"message": "Resolution already in progress", "document_id": document_id}
+
+    # Mark as resolving so the UI updates immediately
+    supabase.table("documents").update({
+        "resolution_status": "resolving",
+        "updated_at": datetime.utcnow().isoformat()
+    }).eq("id", document_id).execute()
+
+    # Kick off the resolution task
+    from app.tasks.bibtex_resolution_task import resolve_bibtex_task
+    task_result = resolve_bibtex_task.delay([document_id], user_id, project_id)
+
+    logger.info(f"[RESOLVE] Triggered resolution for document_id={document_id} (task={task_result.id})")
+
+    return {"message": "Resolution started", "document_id": document_id, "task_id": task_result.id}
+
+
 @router.get("/{document_id}/file")
 async def get_document_file(document_id: str, user_id: str = Depends(get_current_user)):
     """
@@ -787,8 +947,8 @@ async def get_document_file(document_id: str, user_id: str = Depends(get_current
 
     print(f"[GET-FILE] Fetching file for document_id={document_id}, user_id={user_id}")
 
-    # Get document metadata
-    doc_response = supabase.table("documents").select("file_url, file_type, user_id, metadata").eq("id", document_id).eq("user_id", user_id).execute()
+    # Get document metadata (include resolution_status to distinguish no-PDF entries)
+    doc_response = supabase.table("documents").select("file_url, file_type, user_id, metadata, resolution_status").eq("id", document_id).eq("user_id", user_id).execute()
 
     if not doc_response.data:
         print(f"[GET-FILE] Document not found: {document_id}")
@@ -797,11 +957,20 @@ async def get_document_file(document_id: str, user_id: str = Depends(get_current
     document = doc_response.data[0]
     file_url = document.get("file_url")
     file_type = document.get("file_type", "application/pdf")
+    resolution_status = document.get("resolution_status")
 
-    print(f"[GET-FILE] file_url={file_url}, file_type={file_type}")
+    print(f"[GET-FILE] file_url={file_url}, file_type={file_type}, resolution_status={resolution_status}")
 
-    if not file_url:
-        raise HTTPException(status_code=404, detail="Document file not found")
+    # Documents that were analyzed from metadata only (no open-access PDF was found or
+    # storage upload failed) should return a descriptive 404 rather than a broken redirect.
+    if resolution_status == "resolved_no_pdf" or not file_url:
+        detail = (
+            "PDF not stored — paper was analyzed from metadata only"
+            if resolution_status == "resolved_no_pdf"
+            else "Document file not found"
+        )
+        print(f"[GET-FILE] No PDF available: resolution_status={resolution_status}")
+        raise HTTPException(status_code=404, detail=detail)
 
     # Extract storage path from file_url
     # URL format: https://.../storage/v1/object/public/documents/{path}
@@ -845,6 +1014,45 @@ async def get_document_file(document_id: str, user_id: str = Depends(get_current
     except Exception as e:
         print(f"[GET-FILE] ERROR: {type(e).__name__}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch document file: {str(e)}")
+
+
+@router.get("/{document_id}/signed-url")
+def get_document_signed_url(document_id: str, user_id: str = Depends(get_current_user)):
+    """
+    Return a short-lived Supabase signed URL for the document's PDF.
+    Use this instead of opening file_url directly (bucket may be private).
+    """
+    doc_response = supabase.table("documents").select("file_url, user_id, resolution_status").eq("id", document_id).eq("user_id", user_id).execute()
+
+    if not doc_response.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    document = doc_response.data[0]
+    file_url = document.get("file_url")
+    resolution_status = document.get("resolution_status")
+
+    if resolution_status == "resolved_no_pdf" or not file_url:
+        raise HTTPException(status_code=404, detail="PDF not stored — paper was analyzed from metadata only")
+
+    # Extract storage path from the public URL
+    # Format: https://.../storage/v1/object/public/documents/{path}
+    try:
+        path_parts = file_url.split("/documents/")
+        if len(path_parts) < 2:
+            raise ValueError(f"Invalid file URL format: {file_url}")
+        storage_path = path_parts[1]
+
+        signed_url_response = supabase.storage.from_("documents").create_signed_url(storage_path, 3600)
+        signed_url = signed_url_response.get("signedURL")
+
+        if not signed_url:
+            raise HTTPException(status_code=500, detail="Failed to generate signed URL")
+
+        return {"signed_url": signed_url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate signed URL: {str(e)}")
 
 
 @router.get("/{document_id}/analysis")

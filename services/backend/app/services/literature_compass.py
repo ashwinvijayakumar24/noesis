@@ -115,7 +115,7 @@ class TemplateLibrary:
         {
             "id": "generative",
             "priority": 3,
-            "condition": lambda ctx: True,  # Always matches as fallback
+            "condition": lambda ctx: bool(ctx.get("insight")),
             "template": "Reflecting on {insight}: How does this pattern position your research contribution? What aspects of the existing literature does your work extend, challenge, or synthesize?",
             "difficulty": "low",
             "category": "positioning",
@@ -150,14 +150,14 @@ class TemplateLibrary:
             if t["condition"](context) and t["id"] not in used_template_ids
         ]
 
-        # If all templates used, allow reuse but add randomization
+        # If all templates used, allow reuse with randomization (no re-sort — that kills variation)
         if not matching_templates:
             matching_templates = [t for t in templates if t["condition"](context)]
             if matching_templates:
-                # Add slight randomization to priority to ensure variation
                 random.shuffle(matching_templates)
+            return matching_templates[0] if matching_templates else None
 
-        # Sort by priority (highest first)
+        # Sort by priority (highest first) — only for the primary (non-fallback) path
         matching_templates.sort(key=lambda t: t["priority"], reverse=True)
 
         return matching_templates[0] if matching_templates else None
@@ -639,10 +639,11 @@ def generate_synthesis_questions(
         List of question dictionaries with metadata (confidence, difficulty, sources)
     """
     questions = []
-    used_template_ids = set()
+    seen_questions: set = set()  # Global dedup on final question text
 
-    # From conflicts - use template library with rich metadata
+    # From conflicts — each loop gets its own fresh used_template_ids
     for conflict in insights.get('conflicting_findings', []):
+        loop_used: set = set()
         context = TemplateLibrary.build_context(
             insights=insights,
             documents=documents,
@@ -652,12 +653,15 @@ def generate_synthesis_questions(
         template = TemplateLibrary.select_template(
             TemplateLibrary.SYNTHESIS_TEMPLATES,
             context,
-            used_template_ids
+            loop_used
         )
 
         if template:
-            used_template_ids.add(template["id"])
+            loop_used.add(template["id"])
             question_text = TemplateLibrary.populate_template(template["template"], context)
+            if question_text in seen_questions:
+                continue
+            seen_questions.add(question_text)
             sources = TemplateLibrary.extract_source_ids(conflict=conflict)
             confidence = TemplateLibrary.calculate_question_confidence(context, template)
 
@@ -675,8 +679,9 @@ def generate_synthesis_questions(
                 "actionable": True
             })
 
-    # From gaps - use template library
+    # From gaps
     for gap in insights.get('research_gaps', []):
+        loop_used = set()
         context = TemplateLibrary.build_context(
             insights=insights,
             documents=documents,
@@ -686,12 +691,15 @@ def generate_synthesis_questions(
         template = TemplateLibrary.select_template(
             TemplateLibrary.SYNTHESIS_TEMPLATES,
             context,
-            used_template_ids
+            loop_used
         )
 
         if template:
-            used_template_ids.add(template["id"])
+            loop_used.add(template["id"])
             question_text = TemplateLibrary.populate_template(template["template"], context)
+            if question_text in seen_questions:
+                continue
+            seen_questions.add(question_text)
             sources = TemplateLibrary.extract_source_ids(gap=gap)
             confidence = TemplateLibrary.calculate_question_confidence(context, template)
 
@@ -707,12 +715,13 @@ def generate_synthesis_questions(
                 "requirements": gap.get("suggested_directions", [])
             })
 
-    # From patterns - use template library (only if usage >= 3)
+    # From patterns (only if usage >= 3)
     for pattern in insights.get('methodological_patterns', []):
         usage_count = pattern.get('usage_count', 0)
         if usage_count < 3:
-            continue  # Skip patterns with low usage
+            continue
 
+        loop_used = set()
         context = TemplateLibrary.build_context(
             insights=insights,
             documents=documents,
@@ -722,12 +731,15 @@ def generate_synthesis_questions(
         template = TemplateLibrary.select_template(
             TemplateLibrary.SYNTHESIS_TEMPLATES,
             context,
-            used_template_ids
+            loop_used
         )
 
         if template:
-            used_template_ids.add(template["id"])
+            loop_used.add(template["id"])
             question_text = TemplateLibrary.populate_template(template["template"], context)
+            if question_text in seen_questions:
+                continue
+            seen_questions.add(question_text)
             sources = TemplateLibrary.extract_source_ids(pattern=pattern)
             confidence = TemplateLibrary.calculate_question_confidence(context, template)
 
@@ -745,7 +757,7 @@ def generate_synthesis_questions(
     # Positioning prompts from key insights (limit to top 5)
     key_insights = insights.get('key_insights', [])
     for insight in key_insights[:5]:
-        # Build context with theme
+        loop_used = set()
         context = TemplateLibrary.build_context(
             insights=insights,
             documents=documents,
@@ -755,12 +767,15 @@ def generate_synthesis_questions(
         template = TemplateLibrary.select_template(
             TemplateLibrary.SYNTHESIS_TEMPLATES,
             context,
-            used_template_ids
+            loop_used
         )
 
         if template:
-            used_template_ids.add(template["id"])
+            loop_used.add(template["id"])
             question_text = TemplateLibrary.populate_template(template["template"], context)
+            if question_text in seen_questions:
+                continue
+            seen_questions.add(question_text)
             confidence = TemplateLibrary.calculate_question_confidence(context, template)
 
             questions.append({
@@ -953,13 +968,14 @@ def extract_year(document: Dict[str, Any]) -> Optional[int]:
     """Extract publication year from document metadata."""
     try:
         # Try citation_metadata first
-        citation_meta = document.get('analysis', {}).get('citation_metadata', {})
+        analysis = document.get('analysis') or {}
+        citation_meta = analysis.get('citation_metadata') or {}
         year = citation_meta.get('year')
         if year:
             return int(year)
 
         # Try metadata field
-        metadata = document.get('metadata', {})
+        metadata = document.get('metadata') or {}
         year = metadata.get('year') or metadata.get('publication_year')
         if year:
             return int(year)
@@ -1012,8 +1028,8 @@ def build_paper_methodology_map(
     # Map each document to methodology
     for doc in documents:
         title = doc.get('title', 'Untitled')
-        analysis = doc.get('analysis', {})
-        methodology = analysis.get('methodology', {})
+        analysis = doc.get('analysis') or {}
+        methodology = analysis.get('methodology') or {}
         approach = methodology.get('approach', '').strip().lower()
 
         if not approach:

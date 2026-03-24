@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import { Dialog, Transition, Tab } from '@headlessui/react'
 import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon, LightBulbIcon, MagnifyingGlassIcon, MapPinIcon, LinkIcon, HandThumbUpIcon, FlagIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
@@ -8,6 +8,7 @@ import CitationSuggestionSidebar from './CitationSuggestionSidebar'
 import { Badge, type BadgeVariant } from './ui/Badge'
 import { Button } from './ui/Button'
 import toast from 'react-hot-toast'
+import { useAnalysisStream } from '../hooks/useAnalysisStream'
 
 interface DraftAnalysisModalProps {
   isOpen: boolean
@@ -92,6 +93,7 @@ export default function DraftAnalysisModal({
   projectId,
 }: DraftAnalysisModalProps) {
   const [loading, setLoading] = useState(true)
+  const [draftStatus, setDraftStatus] = useState<string>('processing')
   const [claims, setClaims] = useState<Claim[]>([])
   const [gaps, setGaps] = useState<Gap[]>([])
   const [feedback, setFeedback] = useState<Feedback[]>([])
@@ -99,12 +101,58 @@ export default function DraftAnalysisModal({
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null)
   const [feedbackReactions, setFeedbackReactions] = useState<Record<string, 'helpful' | 'dispute'>>({})
   const [reactingTo, setReactingTo] = useState<string | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // WS stream is enabled while draft is processing, independent of the results-loading state
+  const isAnalyzing = draftStatus === 'processing' || draftStatus === 'pending'
+  const stream = useAnalysisStream(draftId ?? null, isAnalyzing)
 
   useEffect(() => {
     if (isOpen && draftId) {
-      loadAnalysisResults()
+      checkDraftStatusThenLoad()
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [isOpen, draftId])
+
+  const checkDraftStatusThenLoad = async () => {
+    try {
+      const draft = await api.drafts.get(token, draftId).catch(() => null)
+      const status = draft?.status ?? 'processing'
+      console.log('[DRAFT-ANALYSIS] Draft status:', status)
+      setDraftStatus(status)
+
+      if (status === 'analyzed') {
+        loadAnalysisResults()
+      } else if (status === 'processing' || status === 'pending') {
+        // Poll every 5s until analysis completes
+        pollRef.current = setInterval(async () => {
+          try {
+            const updated = await api.drafts.get(token, draftId)
+            const newStatus = updated?.status
+            console.log('[DRAFT-ANALYSIS] Poll — status:', newStatus)
+            setDraftStatus(newStatus)
+            if (newStatus === 'analyzed') {
+              clearInterval(pollRef.current!)
+              pollRef.current = null
+              loadAnalysisResults()
+            } else if (newStatus === 'failed') {
+              clearInterval(pollRef.current!)
+              pollRef.current = null
+              setLoading(false)
+            }
+          } catch { /* keep polling */ }
+        }, 5000)
+      } else {
+        // failed or unknown
+        setLoading(false)
+      }
+    } catch (error: any) {
+      handleError(error, 'checking draft status')
+      setLoading(false)
+    }
+  }
 
   const loadAnalysisResults = async () => {
     try {
@@ -121,20 +169,15 @@ export default function DraftAnalysisModal({
       console.log('[DRAFT-ANALYSIS] Number of claims:', claimsData.claims?.length || 0)
       console.log('[DRAFT-ANALYSIS] Sample claim:', claimsData.claims?.[0])
 
-      // Normalize claims data - ensure existing_citations is always an array and requires_citation is always a boolean
       const normalizedClaims = (claimsData.claims || []).map((claim: any) => ({
         ...claim,
-        existing_citations: Array.isArray(claim.existing_citations) 
-          ? claim.existing_citations 
+        existing_citations: Array.isArray(claim.existing_citations)
+          ? claim.existing_citations
           : (claim.existing_citations ? [claim.existing_citations] : []),
-        requires_citation: claim.requires_citation !== null && claim.requires_citation !== undefined 
-          ? Boolean(claim.requires_citation) 
-          : true, // Default to true if not set
+        requires_citation: claim.requires_citation !== null && claim.requires_citation !== undefined
+          ? Boolean(claim.requires_citation)
+          : true,
       }))
-
-      console.log('[DRAFT-ANALYSIS] Normalized claims:', normalizedClaims)
-      console.log('[DRAFT-ANALYSIS] Claims requiring citation:', normalizedClaims.filter((c: any) => c.requires_citation))
-      console.log('[DRAFT-ANALYSIS] Claims with existing citations:', normalizedClaims.filter((c: any) => c.existing_citations && c.existing_citations.length > 0))
 
       setClaims(normalizedClaims)
       setGaps(gapsData.gaps || [])
@@ -229,7 +272,7 @@ export default function DraftAnalysisModal({
       setReactingTo(feedbackId)
       await api.drafts.reactToFeedback(token, draftId, feedbackId, newAction)
       if (newAction === 'dispute') {
-        toast("Flagged as incorrect — we'll use this to improve future analyses.", { icon: '⚑', duration: 3000 })
+        toast('Flagged as incorrect — we'll use this to improve future analyses.', { icon: '⚑', duration: 3000 })
       }
     } catch {
       // Revert optimistic update
@@ -337,11 +380,27 @@ export default function DraftAnalysisModal({
 
                   {/* Right: Analysis */}
                   <div className="w-1/2 flex flex-col overflow-hidden">
-                    {loading ? (
+                    {(loading || isAnalyzing) ? (
                       <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center">
+                        <div className="text-center w-64">
                           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary"></div>
-                          <p className="mt-2 text-sm text-text-tertiary">Loading analysis...</p>
+                          <p className="mt-2 text-sm text-text-tertiary">
+                            {isAnalyzing ? 'Analyzing draft...' : 'Loading results...'}
+                          </p>
+                          <div className="mt-4">
+                            <div className="w-full bg-bg-void rounded-full h-2">
+                              <div
+                                className="bg-accent-primary h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${isAnalyzing ? Math.max(stream.progress, 5) : 100}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-text-tertiary mt-2">
+                              {isAnalyzing
+                                ? (stream.message || 'Starting analysis...')
+                                : 'Loading results...'}
+                              {isAnalyzing && stream.progress > 0 && ` (${stream.progress}%)`}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     ) : (
