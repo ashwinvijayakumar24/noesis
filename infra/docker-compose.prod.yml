@@ -38,8 +38,7 @@ services:
     platform: linux/amd64  # Run with emulation on ARM-based hosts
     restart: unless-stopped
 
-    # CRITICAL: Run with minimal resources
-    # GROBID is memory-hungry but used infrequently
+    # GROBID is memory-hungry — needs headroom for concurrent PDF processing
     deploy:
       resources:
         limits:
