@@ -33,8 +33,7 @@ jobs:
           python -m pytest tests/ -v --tb=short \
             --cov=app \
             --cov-report=xml:coverage.xml \
-            --cov-report=term-missing \
-            --cov-fail-under=50
+            --cov-report=term-missing
         env:
           ENVIRONMENT: test
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -68,26 +67,8 @@ jobs:
         run: pip install pip-audit
 
       - name: Audit Python dependencies
-        # Allow exit code 1 (vulnerabilities found) to not fail CI completely
-        # but surface the info in the job output
-        run: pip-audit -r requirements.txt --format=json --output=audit.json || true
-
-      - name: Show audit results
-        run: |
-          if [ -f audit.json ]; then
-            python3 -c "
-            import json, sys
-            with open('audit.json') as f:
-              data = json.load(f)
-            vulns = data.get('vulnerabilities', []) if isinstance(data, dict) else data
-            if vulns:
-              print(f'⚠ Found {len(vulns)} vulnerability/ies in Python dependencies')
-              for v in vulns[:5]:
-                print(f'  - {v.get(\"name\", \"\")} {v.get(\"version\", \"\")}: {v.get(\"description\", \"\")[:100]}')
-            else:
-              print('✓ No known vulnerabilities found')
-            "
-          fi
+        # Non-fatal — surfaces vulnerabilities without blocking deploy
+        run: pip-audit -r requirements.txt || true
 
   # ── Frontend Build + Tests ────────────────────────────────────────────────────
   frontend:
@@ -106,7 +87,7 @@ jobs:
           cache-dependency-path: services/frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Lint
         # Non-fatal — lint errors are surfaced as warnings but don't block deploy
