@@ -37,6 +37,7 @@ PROJECT_LIMITS = {
     'free': 3,
     'pro': 999,
     'team': 999,
+    'admin': 999,
 }
 
 @router.post("/")

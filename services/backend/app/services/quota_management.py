@@ -32,6 +32,7 @@ DAILY_CHAT_LIMITS = {
     'pro': 100,
     'team': 500,
     'enterprise': 9999,
+    'admin': 9999,
 }
 
 
@@ -108,6 +109,10 @@ async def check_quota(user_id: str, operation_type: str) -> bool:
         response = supabase.table('user_quotas').select('*').eq('user_id', user_id).execute()
 
     quota = response.data[0]
+
+    # Admin accounts bypass all quota checks
+    if quota.get('plan_tier') == 'admin':
+        return True
 
     # Check if quota needs reset
     quota_reset_date = datetime.fromisoformat(quota['quota_reset_date'].replace('Z', '+00:00'))
