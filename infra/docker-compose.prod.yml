@@ -43,10 +43,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.5'
+          memory: 1024M
+          cpus: '0.75'
         reservations:
-          memory: 256M
+          memory: 512M
 
     # Note: GROBID image doesn't include curl/wget, so we skip healthcheck
     # The backend and celery workers handle GROBID failures gracefully
@@ -131,7 +131,7 @@ services:
       ENVIRONMENT: production
       LOG_LEVEL: INFO
 
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 --queues=default,analysis,insights
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2 --queues=default,analysis,insights
 
     volumes:
       # Logs for debugging
