@@ -115,7 +115,7 @@ export default function UploadDocumentModal({
   const [bibPhase, setBibPhase] = useState<'select' | 'resolving'>('select')
   const [bibEntries, setBibEntries] = useState<BibEntryStatus[]>([])
   const [bibPollTimer, setBibPollTimer] = useState<ReturnType<typeof setInterval> | null>(null)
-  const [bibImportedCount, setBibImportedCount] = useState(0)
+  const [_bibImportedCount, setBibImportedCount] = useState(0)
 
   // Zotero state
   const [zoteroKey, setZoteroKey] = useState('')

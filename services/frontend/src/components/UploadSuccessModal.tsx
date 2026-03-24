@@ -13,7 +13,6 @@ export default function UploadSuccessModal({
   isOpen,
   onClose,
   uploadedCount,
-  documentTitles
 }: UploadSuccessModalProps) {
   return (
     <Transition appear show={isOpen} as={Fragment}>

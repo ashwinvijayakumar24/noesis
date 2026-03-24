@@ -46,7 +46,7 @@ export default function DraftHealthSummary({ draft, sectionSummary }: DraftHealt
     'no-feedback':     { label: 'No Feedback',  dotColor: 'bg-text-muted', textColor: 'text-text-muted' },
   }
 
-  const vc = verdictConfig[metrics.verdict]
+  const vc = verdictConfig[metrics.verdict as keyof typeof verdictConfig]
 
   const timeSince = useMemo(() => {
     const diffMs = Date.now() - new Date(draft.updated_at).getTime()

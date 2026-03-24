@@ -506,7 +506,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
         expanded={expandedSections.synthesis}
         onToggle={() => toggleSection('synthesis')}
       >
-        {isStale && !guidanceLoading && !guidanceError && guidance?.synthesis_questions?.length > 0 && (
+        {isStale && !guidanceLoading && !guidanceError && (guidance?.synthesis_questions?.length ?? 0) > 0 && (
           <div className="mb-4 bg-bg-surface border border-border-default border-l-2 border-l-warning rounded-xl p-3 flex items-start gap-2">
             <ExclamationTriangleIcon className="h-4 w-4 text-warning shrink-0 mt-0.5" />
             <p className="text-xs text-text-secondary">

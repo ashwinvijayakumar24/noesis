@@ -11,7 +11,7 @@ import RecurringPatterns from './draft-analysis/RecurringPatterns'
 import VersionProgressCard from './draft-analysis/VersionProgressCard'
 import { useAnalysisStream } from '../hooks/useAnalysisStream'
 
-function DraftProgressBar({ draftId, token }: { draftId: string; token: string }) {
+function DraftProgressBar({ draftId }: { draftId: string; token: string }) {
   const stream = useAnalysisStream(draftId, true)
   const pct = Math.max(stream.progress, 5) // show at least 5% so bar is visible
 

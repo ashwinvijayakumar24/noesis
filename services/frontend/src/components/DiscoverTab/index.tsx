@@ -8,7 +8,6 @@ import {
   ArrowTopRightOnSquareIcon,
   DocumentTextIcon,
   PlusIcon,
-  SparklesIcon,
   LightBulbIcon,
 } from '@heroicons/react/24/outline'
 
@@ -502,7 +501,6 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
         ? 'Refresh used today'
         : undefined
 
-  const poolPct = quota.total_held / quota.max_pool
   const poolBadgeClass =
     quota.total_held >= quota.max_pool
       ? 'bg-bg-elevated text-error border-border-default'
