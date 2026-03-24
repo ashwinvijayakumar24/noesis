@@ -116,3 +116,48 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # ── Deploy to EC2 (master only, after CI passes) ──────────────────────────
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]   # only runs if both CI jobs pass
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+
+    steps:
+      - name: SSH into EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          # Fail fast — don't silently swallow errors
+          script_stop: true
+          script: |
+            set -e
+
+            APP_PATH="${{ secrets.EC2_APP_PATH }}"
+
+            echo "==> Pulling latest code from master..."
+            cd "$APP_PATH"
+
+            # Authenticate git pull with PAT (in-memory only, not stored on disk)
+            git remote set-url origin "https://x-access-token:${{ secrets.GH_PAT }}@github.com/ashwinvijayakumar24/noesis.git"
+            git fetch origin master
+            git reset --hard origin/master
+
+            # Remove PAT from remote URL immediately after pull
+            git remote set-url origin "https://github.com/ashwinvijayakumar24/noesis.git"
+
+            echo "==> Rebuilding and restarting Docker containers..."
+            cd "$APP_PATH/infra"
+            docker compose -f docker-compose.prod.yml up --build -d --remove-orphans
+
+            echo "==> Waiting for backend health check..."
+            sleep 10
+            docker compose -f docker-compose.prod.yml ps
+
+            echo "==> Pruning unused Docker images to save disk space..."
+            docker image prune -f
+
+            echo "✓ Deploy complete"
