@@ -137,11 +137,8 @@ class PubMedAPI:
         response = requests.get(
             f"{EUTILS_BASE}/esearch.fcgi",
             params=params,
-            timeout=30
+            timeout=15
         )
-
-        # Rate limiting: 3 req/sec without key, 10 req/sec with key
-        time.sleep(0.35 if self.api_key else 1.0)
 
         response.raise_for_status()
 
@@ -180,10 +177,8 @@ class PubMedAPI:
         response = requests.get(
             f"{EUTILS_BASE}/efetch.fcgi",
             params=params,
-            timeout=30
+            timeout=15
         )
-
-        time.sleep(0.35 if self.api_key else 1.0)
 
         response.raise_for_status()
 

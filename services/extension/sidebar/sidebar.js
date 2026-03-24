@@ -14,6 +14,8 @@ let state = {
   message: '',
   wsConnected: false,
   topActions: [],
+  errorMessage: null,    // Non-blocking error to show in sidebar
+  multiFileWarning: null, // Warning for multi-file projects
 };
 
 let pollInterval = null;
@@ -22,7 +24,7 @@ let ws = null;
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function render() {
-  const { token, draft, progress, message, wsConnected, topActions } = state;
+  const { token, draft, progress, message, wsConnected, topActions, errorMessage, multiFileWarning } = state;
 
   if (!token) {
     content.innerHTML = `
@@ -32,6 +34,20 @@ function render() {
       </div>`;
     document.getElementById('btn-login').addEventListener('click', () => {
       chrome.tabs.create({ url: `${NOESIS_BASE}/login` });
+    });
+    return;
+  }
+
+  // Show non-blocking error
+  if (errorMessage) {
+    content.innerHTML = `
+      <div class="center">
+        <p class="error-label">${escHtml(errorMessage)}</p>
+        <button class="btn-secondary" id="btn-dismiss-error">Dismiss</button>
+      </div>`;
+    document.getElementById('btn-dismiss-error').addEventListener('click', () => {
+      state.errorMessage = null;
+      render();
     });
     return;
   }
@@ -47,10 +63,14 @@ function render() {
   }
 
   if (draft.status === 'processing' || draft.status === 'pending') {
+    const multiFileHtml = multiFileWarning
+      ? `<p class="polling-note" style="color:#E5A84D">⚠ ${escHtml(multiFileWarning)}</p>`
+      : '';
     content.innerHTML = `
       <p class="progress-label">Analyzing: ${escHtml(draft.title || 'Draft')}</p>
       <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:${progress}%"></div></div>
       <p class="progress-msg" id="progress-msg">${escHtml(message || 'Analyzing draft...')}${progress > 0 ? ` (${progress}%)` : ''}</p>
+      ${multiFileHtml}
       ${!wsConnected ? '<p class="polling-note">Polling for updates...</p>' : ''}`;
     return;
   }
@@ -196,6 +216,21 @@ chrome.storage.local.get(
     }
   }
 );
+
+// Listen for messages from content script (errors, multi-file warnings)
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg?.type === 'SHOW_ERROR') {
+    state.errorMessage = msg.message || 'An error occurred';
+    render();
+  } else if (msg?.type === 'MULTI_FILE_WARNING') {
+    state.multiFileWarning = msg.message || null;
+    // Don't re-render immediately — warning shows when processing state renders
+  } else if (msg?.type === 'SHOW_LOGIN_PROMPT') {
+    // Clear token so login screen shows
+    state.token = null;
+    render();
+  }
+});
 
 // Watch for storage changes (e.g., content script just triggered analysis)
 chrome.storage.onChanged.addListener((changes) => {

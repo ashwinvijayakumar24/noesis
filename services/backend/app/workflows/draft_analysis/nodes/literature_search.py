@@ -7,6 +7,7 @@ Uses the improved RAG retrieval system with adaptive chunking.
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, Claim
 from app.core.logging_config import get_logger
+from app.core.supabase_client import supabase
 from typing import List, Dict, Any
 import asyncio
 
@@ -179,7 +180,6 @@ def literature_search_node(state: DraftAnalysisState) -> DraftAnalysisState:
         }
 
     # Check if documents exist in the project
-    from app.core.supabase_client import supabase
     try:
         documents_response = supabase.table("documents").select("id").eq("project_id", project_id).limit(1).execute()
         if not documents_response.data:

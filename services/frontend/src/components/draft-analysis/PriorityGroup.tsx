@@ -14,26 +14,11 @@ interface PriorityGroupProps {
   currentStatus: 'new' | 'saved' | 'dismissed'
 }
 
-// Priority configuration for group headers
+// Plain text divider headers — no colored fills, no borders
 const PRIORITY_HEADER_CONFIG = {
-  high: {
-    bg: 'bg-error/5',
-    border: 'border-error/20',
-    text: 'text-error',
-    label: 'High Priority'
-  },
-  medium: {
-    bg: 'bg-warning/5',
-    border: 'border-warning/20',
-    text: 'text-warning',
-    label: 'Medium Priority'
-  },
-  low: {
-    bg: 'bg-bg-elevated',
-    border: 'border-border-default',
-    text: 'text-text-secondary',
-    label: 'Low Priority'
-  }
+  high:   { dot: 'bg-error',          text: 'text-error',        label: 'High Priority' },
+  medium: { dot: 'bg-warning',        text: 'text-warning',      label: 'Medium Priority' },
+  low:    { dot: 'bg-text-muted',     text: 'text-text-muted',   label: 'Low Priority' },
 }
 
 export default function PriorityGroup({
@@ -42,83 +27,49 @@ export default function PriorityGroup({
   onViewInDocument,
   currentStatus
 }: PriorityGroupProps) {
-  // Group items by priority
-  const groupedItems = useMemo(() => {
-    const groups = {
-      high: items.filter(item => item.priority === 'high'),
-      medium: items.filter(item => item.priority === 'medium'),
-      low: items.filter(item => item.priority === 'low')
-    }
-    return groups
-  }, [items])
+  const groupedItems = useMemo(() => ({
+    high:   items.filter(item => item.priority === 'high'),
+    medium: items.filter(item => item.priority === 'medium'),
+    low:    items.filter(item => item.priority === 'low'),
+  }), [items])
 
-  // Collapse state: HIGH expanded by default, MEDIUM/LOW collapsed
-  const [collapsed, setCollapsed] = useState({
-    high: false,
-    medium: true,
-    low: true
-  })
+  // All groups expanded by default
+  const [collapsed, setCollapsed] = useState({ high: false, medium: false, low: false })
 
   const toggleCollapse = (priority: 'high' | 'medium' | 'low') => {
-    setCollapsed(prev => ({
-      ...prev,
-      [priority]: !prev[priority]
-    }))
+    setCollapsed(prev => ({ ...prev, [priority]: !prev[priority] }))
   }
 
-  // Render a priority group
-  const renderPriorityGroup = (
-    priority: 'high' | 'medium' | 'low',
-    items: typeof groupedItems.high
-  ) => {
-    if (items.length === 0) return null
+  const renderPriorityGroup = (priority: 'high' | 'medium' | 'low', groupItems: typeof groupedItems.high) => {
+    if (groupItems.length === 0) return null
 
     const config = PRIORITY_HEADER_CONFIG[priority]
     const isCollapsed = collapsed[priority]
 
     return (
-      <div key={priority} className="mb-4">
-        {/* Group Header */}
+      <div key={priority} className="mb-5">
+        {/* Group header: dot + text divider, fully opaque, no colored background */}
         <button
           onClick={() => toggleCollapse(priority)}
-          className={`
-            w-full flex items-center justify-between
-            px-4 py-3 rounded-lg border ${config.border} ${config.bg}
-            hover:bg-opacity-30 transition-all duration-150
-          `}
+          className="w-full flex items-center gap-2 py-1 mb-3 group"
         >
-          <div className="flex items-center space-x-3">
-            {/* Expand/Collapse Icon */}
-            {isCollapsed ? (
-              <ChevronRightIcon className={`w-5 h-5 ${config.text}`} />
-            ) : (
-              <ChevronDownIcon className={`w-5 h-5 ${config.text}`} />
-            )}
-
-            {/* Priority Label */}
-            <span className={`text-sm font-sans font-semibold ${config.text}`}>
-              {config.label}
-            </span>
-
-            {/* Count Badge */}
-            <span className={`
-              px-2 py-0.5 rounded-full text-xs font-semibold
-              bg-bg-void ${config.text} border ${config.border}
-            `}>
-              {items.length} {items.length === 1 ? 'item' : 'items'}
-            </span>
-          </div>
-
-          {/* Collapse hint */}
-          <span className="text-xs text-text-muted">
-            {isCollapsed ? 'Expand' : 'Collapse'}
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${config.dot}`} />
+          <span className={`text-xs font-semibold uppercase tracking-wider ${config.text}`}>
+            {config.label}
           </span>
+          <span className="text-xs text-text-muted ml-1">
+            {groupItems.length}
+          </span>
+          <div className="flex-1 h-px bg-border-default ml-1" />
+          {isCollapsed
+            ? <ChevronRightIcon className="w-3.5 h-3.5 text-text-muted group-hover:text-text-secondary transition-colors" />
+            : <ChevronDownIcon className="w-3.5 h-3.5 text-text-muted group-hover:text-text-secondary transition-colors" />
+          }
         </button>
 
-        {/* Group Items */}
         {!isCollapsed && (
-          <div className="mt-3 space-y-3">
-            {items.map(item => (
+          <div className="space-y-2">
+            {groupItems.map(item => (
               <UnifiedFeedbackCard
                 key={item.id}
                 item={item}
@@ -134,20 +85,14 @@ export default function PriorityGroup({
   }
 
   return (
-    <div className="space-y-4">
-      {/* HIGH priority items (expanded by default) */}
+    <div>
       {renderPriorityGroup('high', groupedItems.high)}
-
-      {/* MEDIUM priority items (collapsed by default) */}
       {renderPriorityGroup('medium', groupedItems.medium)}
-
-      {/* LOW priority items (collapsed by default) */}
       {renderPriorityGroup('low', groupedItems.low)}
 
-      {/* Empty state */}
       {items.length === 0 && (
-        <div className="text-center py-8 text-slate-400">
-          <p className="text-sm">No feedback items to display</p>
+        <div className="text-center py-8">
+          <p className="text-sm text-text-muted">No feedback items to display</p>
         </div>
       )}
     </div>

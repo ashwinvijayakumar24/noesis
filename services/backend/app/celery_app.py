@@ -27,6 +27,7 @@ celery_app = Celery(
         "app.tasks.document_analysis",
         "app.tasks.draft_analysis",
         "app.tasks.insights_analysis",
+        "app.tasks.bibtex_resolution_task",
     ]
 )
 

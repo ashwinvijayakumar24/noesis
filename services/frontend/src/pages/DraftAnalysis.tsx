@@ -11,6 +11,7 @@ import VersionProgressCard from '../components/draft-analysis/VersionProgressCar
 import SectionNavigation from '../components/draft-analysis/SectionNavigation'
 import SectionFeedbackTabs from '../components/draft-analysis/SectionFeedbackTabs'
 import { ProgressIndicator, useEstimatedProgress } from '../components/ui/ProgressIndicator'
+import { useAnalysisStream } from '../hooks/useAnalysisStream'
 import FeedbackButton from '../components/FeedbackButton'
 import toast from 'react-hot-toast'
 
@@ -109,6 +110,10 @@ export default function DraftAnalysis() {
   // Progress tracking for initial analysis
   const checkAnalysisStatusRef = useRef<(() => Promise<void>) | null>(null)
   const { progress: estimatedProgress } = useEstimatedProgress(180) // Estimated 3 minutes for analysis
+  const stream = useAnalysisStream(
+    draftId ?? null,
+    draft?.status === 'processing' || draft?.status === 'uploaded'
+  )
 
   // Fetch draft details (metadata only, signed URL loaded separately)
   const fetchDraft = useCallback(async () => {
@@ -346,6 +351,11 @@ export default function DraftAnalysis() {
     }
   }, [draft?.status, checkAnalysisStatus])
 
+  // When WebSocket signals completion, trigger an immediate status check
+  useEffect(() => {
+    if (stream.complete) checkAnalysisStatusRef.current?.()
+  }, [stream.complete])
+
   // Loading state
   if (loading) {
     return (
@@ -381,8 +391,8 @@ export default function DraftAnalysis() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
         <div className="max-w-2xl w-full">
           <ProgressIndicator
-            progress={estimatedProgress}
-            status="Analyzing Draft"
+            progress={stream.progress > 0 ? stream.progress : estimatedProgress}
+            status={stream.message || 'Analyzing Draft'}
           />
           <p className="mt-4 text-center text-sm text-text-secondary">
             Extracting claims, identifying coverage gaps, and generating reviewer feedback...
@@ -511,12 +521,7 @@ export default function DraftAnalysis() {
             )}
             <DraftHealthSummary
               draft={draft}
-              claims={sectionFeedback.claims}
-              gaps={sectionFeedback.gaps}
-              feedback={sectionFeedback.feedback}
-              addressedItems={[]}
-              onReanalyze={() => {}} // Disabled - no re-analyze functionality
-              isReanalyzing={false}
+              sectionSummary={sectionSummary}
             />
           </div>
 

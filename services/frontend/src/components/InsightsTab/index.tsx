@@ -2,19 +2,15 @@ import { useState, useEffect, lazy, Suspense, useRef } from 'react'
 import { useAuthStore } from '../../stores/authStore'
 import { api } from '../../lib/api'
 import SectionHeader from './SectionHeader'
-import ResearchQuestions from '../ResearchQuestions'
-import PaperRecommendations from '../PaperRecommendations'
 import { Badge } from '../ui/Badge'
 import Toast from '../ui/Toast'
 import {
   LightBulbIcon,
   BeakerIcon,
   ExclamationTriangleIcon,
-  DocumentTextIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ArrowPathIcon,
-  AcademicCapIcon
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
 
 // Lazy load compass sub-components
@@ -100,6 +96,9 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
   const [isStale, setIsStale] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
+  const [toastMessage, setToastMessage] = useState('')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Use refs for things that need to be current inside interval callbacks
   // (avoids stale closure bugs that caused the infinite guidance loading loop)
@@ -112,9 +111,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     overview: true,
     gaps: true,
-    questions: true,
-    recommendations: true,
-    synthesis: false
+    synthesis: true
   })
 
   useEffect(() => {
@@ -160,6 +157,8 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
             !isInitialLoadRef.current &&
             previousTimestampRef.current &&
             previousTimestampRef.current !== newTimestamp) {
+          setToastType('success')
+          setToastMessage(`Analysis refreshed with ${data.insights?.analysis_metadata?.num_papers_analyzed || 'all'} papers.`)
           setShowToast(true)
           setIsStale(false)
         }
@@ -219,18 +218,21 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
   }
 
   const handleAnalyze = async () => {
-    if (!session?.access_token) return
+    if (!session?.access_token || isRefreshing) return
 
     try {
-      setLoading(true)
+      setIsRefreshing(true)
       await api.projects.analyzeInsights(session.access_token, projectId)
       setStatus('analyzing')
+      setIsStale(false)
       startPolling()
     } catch (err: any) {
       console.error('Failed to start insights analysis:', err)
-      setError(err.message || 'Failed to start insights analysis')
+      setToastType('error')
+      setToastMessage(err.message || 'Failed to start analysis. Please try again.')
+      setShowToast(true)
     } finally {
-      setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -254,9 +256,9 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
 
   if (status === 'not_analyzed') {
     return (
-      <div className="bg-surface rounded-lg border border-border-default p-8 text-center">
+      <div className="bg-bg-surface rounded-lg border border-border-default p-8 text-center">
         <div className="max-w-md mx-auto">
-          <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-accent-primary/10 flex items-center justify-center">
+          <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-bg-elevated flex items-center justify-center">
             <LightBulbIcon className="h-8 w-8 text-accent-primary" />
           </div>
           <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
@@ -278,7 +280,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
 
   if (status === 'analyzing') {
     return (
-      <div className="bg-surface rounded-lg border border-border-default p-8 text-center">
+      <div className="bg-bg-surface rounded-lg border border-border-default p-8 text-center">
         <div className="max-w-md mx-auto">
           <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-accent-primary border-r-transparent mb-4"></div>
           <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
@@ -294,9 +296,9 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
 
   if (status === 'failed') {
     return (
-      <div className="bg-surface rounded-lg border border-red-900/50 p-8 text-center">
+      <div className="bg-bg-surface rounded-lg border border-border-default p-8 text-center">
         <div className="max-w-md mx-auto">
-          <XCircleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <XCircleIcon className="h-16 w-16 text-error mx-auto mb-4" />
           <h3 className="text-xl font-sans font-semibold text-text-primary mb-2">
             Analysis Failed
           </h3>
@@ -321,27 +323,28 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
     <div className="space-y-4">
       {/* Stale Literature Banner */}
       {isStale && (
-        <div className="bg-surface border border-border-default rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-yellow-500">
-          <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400 shrink-0 mt-0.5" />
+        <div className="bg-bg-surface border border-border-default border-l-2 border-l-warning rounded-lg p-4 flex items-start gap-3">
+          <ExclamationTriangleIcon className="h-6 w-6 text-warning shrink-0 mt-0.5" />
           <div className="flex-1">
             <h4 className="text-text-primary font-semibold">Literature has changed</h4>
             <p className="text-text-secondary text-sm mt-1">
-              Documents have been added or removed since your last analysis. Regenerate to get up-to-date insights.
+              Documents have been added or removed since your last analysis. Refresh to get up-to-date insights.
             </p>
           </div>
           <button
             onClick={handleAnalyze}
-            className="shrink-0 px-4 py-2 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2"
+            disabled={isRefreshing}
+            className="shrink-0 px-4 py-2 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <ArrowPathIcon className="h-4 w-4" />
-            Regenerate
+            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
       )}
 
       {/* Success Banner */}
       {!isStale && (
-        <div className="bg-surface border border-border-default rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-success">
+        <div className="bg-bg-surface border border-border-default rounded-lg p-4 flex items-start gap-3 border-l-4 border-l-success">
           <CheckCircleIcon className="h-6 w-6 text-success shrink-0 mt-0.5" />
           <div className="flex-1">
             <h4 className="text-text-primary font-medium">Insights Analysis Complete</h4>
@@ -356,16 +359,16 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
       <SectionHeader
         title="Overview & Key Insights"
         icon={<LightBulbIcon className="h-5 w-5" />}
-        iconBg="bg-slate-700/50"
-        iconColor="text-yellow-400"
-        iconBorderColor="border-yellow-500/60"
+        iconBg="bg-bg-elevated"
+        iconColor="text-text-secondary"
+        iconBorderColor="border-border-default"
         expanded={expandedSections.overview}
         onToggle={() => toggleSection('overview')}
       >
         <div className="space-y-4">
           {/* Summary */}
           {insights.summary && (
-            <div className="bg-surface/50 rounded-lg p-4 border border-border-default">
+            <div className="bg-bg-surface rounded-lg p-4 border border-border-default">
               <p className="text-text-secondary leading-relaxed">{insights.summary}</p>
             </div>
           )}
@@ -391,7 +394,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
               <h4 className="text-sm font-semibold text-text-primary mb-3">Common Themes</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {insights.common_themes.slice(0, 4).map((theme, i) => (
-                  <div key={i} className="bg-surface/50 rounded-lg p-3 border border-border-default">
+                  <div key={i} className="bg-bg-surface rounded-lg p-3 border border-border-default">
                     <div className="flex items-start justify-between mb-1">
                       <h5 className="font-medium text-text-primary text-sm">{theme.theme}</h5>
                       <span className="text-xs text-text-muted font-mono">
@@ -423,19 +426,19 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
           {insights.conflicting_findings && insights.conflicting_findings.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
-                <ExclamationTriangleIcon className="h-4 w-4 text-slate-300" />
+                <ExclamationTriangleIcon className="h-4 w-4 text-text-secondary" />
                 Conflicting Findings
               </h4>
               <div className="space-y-3">
                 {insights.conflicting_findings.slice(0, 2).map((conflict, i) => (
-                  <div key={i} className="bg-surface/50 border border-border-default rounded-lg p-3">
+                  <div key={i} className="bg-bg-surface border border-border-default rounded-lg p-3">
                     <h5 className="font-medium text-text-primary text-sm mb-2">{conflict.topic}</h5>
                     <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="border-l-2 border-slate-500 pl-2">
+                      <div className="border-l-2 border-border-default pl-2">
                         <span className="text-text-muted">Position A:</span>
                         <p className="text-text-secondary mt-1">{conflict.side_a.position}</p>
                       </div>
-                      <div className="border-l-2 border-slate-600 pl-2">
+                      <div className="border-l-2 border-border-default pl-2">
                         <span className="text-text-muted">Position B:</span>
                         <p className="text-text-secondary mt-1">{conflict.side_b.position}</p>
                       </div>
@@ -452,28 +455,20 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
       <SectionHeader
         title="Research Gaps"
         icon={<ExclamationTriangleIcon className="h-5 w-5" />}
-        iconBg="bg-slate-700/50"
-        iconColor="text-orange-400"
-        iconBorderColor="border-orange-500/60"
+        iconBg="bg-bg-elevated"
+        iconColor="text-text-secondary"
+        iconBorderColor="border-border-default"
         expanded={expandedSections.gaps}
         onToggle={() => toggleSection('gaps')}
       >
         {insights.research_gaps && insights.research_gaps.length > 0 ? (
           <div className="space-y-3">
             {insights.research_gaps.map((gap, i) => {
-              const categoryColors: Record<string, string> = {
-                methodological: 'bg-[#1e40af] text-white border-[#1e40af]',
-                population: 'bg-[#166534] text-white border-[#166534]',
-                theoretical: 'bg-[#6b21a8] text-white border-[#6b21a8]',
-                temporal: 'bg-[#9a3412] text-white border-[#9a3412]',
-              }
-              const colorClass = categoryColors[gap.category] || 'bg-[#334155] text-white border-[#334155]'
-
               return (
-                <div key={i} className="bg-surface/50 border border-border-default rounded-lg p-4">
+                <div key={i} className="bg-bg-surface border border-border-default rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-medium text-text-primary">{gap.title}</h4>
-                    <span className={`text-xs px-2 py-1 rounded border font-mono ${colorClass}`}>
+                    <span className="bg-bg-elevated text-text-muted border border-border-default rounded px-2 py-0.5 text-xs font-mono">
                       {gap.category.charAt(0).toUpperCase() + gap.category.slice(1)}
                     </span>
                   </div>
@@ -501,52 +496,34 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
         )}
       </SectionHeader>
 
-      {/* Section 3: Paper Recommendations */}
-      <SectionHeader
-        title="Paper Recommendations"
-        icon={<DocumentTextIcon className="h-5 w-5" />}
-        iconBg="bg-slate-700/50"
-        iconColor="text-green-400"
-        iconBorderColor="border-green-500/60"
-        expanded={expandedSections.recommendations}
-        onToggle={() => toggleSection('recommendations')}
-      >
-        <PaperRecommendations projectId={projectId} insightsStatus={status} />
-      </SectionHeader>
-
-      {/* Section 4: Research Questions */}
-      <SectionHeader
-        title="Research Questions"
-        icon={<AcademicCapIcon className="h-5 w-5" />}
-        iconBg="bg-slate-700/50"
-        iconColor="text-purple-400"
-        iconBorderColor="border-purple-500/60"
-        expanded={expandedSections.questions}
-        onToggle={() => toggleSection('questions')}
-      >
-        <ResearchQuestions projectId={projectId} insightsStatus={status} hideMethodology={true} />
-      </SectionHeader>
-
-      {/* Section 5: Synthesis Questions (from Compass) */}
+      {/* Section 3: Synthesis Questions (from Compass) */}
       <SectionHeader
         title="Synthesis Questions"
         icon={<BeakerIcon className="h-5 w-5" />}
-        iconBg="bg-slate-700/50"
-        iconColor="text-pink-400"
-        iconBorderColor="border-pink-500/60"
+        iconBg="bg-bg-elevated"
+        iconColor="text-text-secondary"
+        iconBorderColor="border-border-default"
         expanded={expandedSections.synthesis}
         onToggle={() => toggleSection('synthesis')}
       >
+        {isStale && !guidanceLoading && !guidanceError && guidance?.synthesis_questions?.length > 0 && (
+          <div className="mb-4 bg-bg-surface border border-border-default border-l-2 border-l-warning rounded-xl p-3 flex items-start gap-2">
+            <ExclamationTriangleIcon className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+            <p className="text-xs text-text-secondary">
+              These questions are based on outdated insights. Refresh insights above to reflect your current papers.
+            </p>
+          </div>
+        )}
         {guidanceLoading ? (
           <ComponentLoader />
         ) : guidanceError === 'needs_more_docs' ? (
-          <div className="bg-surface/50 rounded-lg border border-border-default p-6 text-center">
+          <div className="bg-bg-surface rounded-lg border border-border-default p-6 text-center">
             <p className="text-text-tertiary text-sm">
               Synthesis questions require at least 2 analyzed documents in this project. Upload more papers to unlock this section.
             </p>
           </div>
         ) : guidanceError ? (
-          <div className="bg-surface/50 rounded-lg border border-border-default p-6 text-center">
+          <div className="bg-bg-surface rounded-lg border border-border-default p-6 text-center">
             <p className="text-text-tertiary text-sm">
               Could not load synthesis questions. Try refreshing or re-running insights analysis.
             </p>
@@ -556,7 +533,7 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
             <SynthesisQuestionsTab questions={guidance.synthesis_questions} />
           </Suspense>
         ) : (
-          <div className="bg-surface/50 rounded-lg border border-border-default p-6 text-center">
+          <div className="bg-bg-surface rounded-lg border border-border-default p-6 text-center">
             <p className="text-text-tertiary text-sm">
               No synthesis questions generated yet. Add more documents with conflicting findings or research gaps to generate questions.
             </p>
@@ -567,10 +544,10 @@ export default function InsightsTab({ projectId }: InsightsTabProps) {
       {/* Toast notification for insights update */}
       {showToast && (
         <Toast
-          type="success"
-          title="Insights Updated"
-          message={`Analysis has been refreshed with ${insights?.analysis_metadata?.num_papers_analyzed || 'all'} papers. New insights are now available.`}
-          onClose={() => setShowToast(false)}
+          type={toastType}
+          title={toastType === 'success' ? 'Insights Updated' : 'Refresh Failed'}
+          message={toastMessage || `Analysis has been refreshed with ${insights?.analysis_metadata?.num_papers_analyzed || 'all'} papers. New insights are now available.`}
+          onClose={() => { setShowToast(false); setToastMessage('') }}
           duration={5000}
         />
       )}

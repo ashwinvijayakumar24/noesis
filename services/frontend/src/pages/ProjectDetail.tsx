@@ -6,9 +6,8 @@ import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DocumentTextIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon, MagnifyingGlassIcon, BookOpenIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import UploadDocumentModal from '../components/UploadDocumentModal'
-import PaperDiscoveryModal from '../components/PaperDiscoveryModal'
 import DeleteDocumentModal from '../components/DeleteDocumentModal'
 import ChatMessage from '../components/ChatMessage'
 import GlobalSearch from '../components/GlobalSearch'
@@ -18,10 +17,12 @@ import EmptyStateGuide from '../components/EmptyStateGuide'
 import PageContainer from '../components/layout/PageContainer'
 import { TabNavigation } from '../components/navigation/TabNavigation'
 import { Button } from '../components/ui/Button'
-import DocumentCard from '../components/literature/DocumentCard'
+import PaperCard from '../components/literature/PaperCard'
+import type { PaperDocument } from '../components/literature/PaperCard'
 
 // Lazy load heavy components for better performance
 const InsightsTab = lazy(() => import('../components/InsightsTab'))
+const DiscoverTab = lazy(() => import('../components/DiscoverTab'))
 
 interface TabItem {
   id: string
@@ -30,6 +31,7 @@ interface TabItem {
   badgeCount?: number
   badgeVariant?: 'neutral' | 'primary' | 'warning' | 'success'
   isProcessing?: boolean
+  colorScheme?: 'crimson' | 'amber' | 'emerald' | 'violet'
 }
 
 interface Project {
@@ -44,9 +46,23 @@ interface Document {
   id: string
   title: string
   file_url: string
+  file_type?: string
+  source_type?: string
+  resolution_status?: string | null
   status: string
   created_at: string
+  metadata?: {
+    import_source?: string
+    authors?: string[]
+    year?: string
+    journal?: string
+    abstract?: string
+    doi?: string
+  }
 }
+
+type SourceFilter = 'all' | 'analyzed_pdf' | 'bibtex_import'
+type SortBy = 'newest' | 'oldest' | 'status' | 'source'
 
 interface ChatMessageType {
   id: string
@@ -56,7 +72,7 @@ interface ChatMessageType {
   created_at: string
 }
 
-type ActiveTab = 'literature' | 'insights' | 'drafts'
+type ActiveTab = 'literature' | 'discover' | 'insights' | 'drafts'
 
 // Loading component for lazy-loaded sections
 function ComponentLoader() {
@@ -78,13 +94,20 @@ export default function ProjectDetail() {
 
   // Document modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const [isPaperDiscoveryModalOpen, setIsPaperDiscoveryModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [deleteDocument, setDeleteDocument] = useState<{ id: string; title: string } | null>(null)
+
+  // Literature tab filter/sort
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
+  const [sortBy, setSortBy] = useState<SortBy>('newest')
 
   // Draft modals
   const [isUploadDraftModalOpen, setIsUploadDraftModalOpen] = useState(false)
   const [draftRefreshTrigger, setDraftRefreshTrigger] = useState(0)
   const [draftCount, setDraftCount] = useState(0)
+
+  // Status legend popover
+  const [showStatusLegend, setShowStatusLegend] = useState(false)
 
   // Banner dismissal state (persisted in localStorage)
   const [isDraftWarningDismissed, setIsDraftWarningDismissed] = useState(() => {
@@ -163,7 +186,7 @@ export default function ProjectDetail() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // Poll for status updates every 3 seconds if there are processing documents
+  // Poll for status updates every 3 seconds if there are processing or resolving documents
   useEffect(() => {
     if (!session?.access_token || !projectId) return
 
@@ -171,7 +194,8 @@ export default function ProjectDetail() {
       (doc) => doc.status.toLowerCase() === 'processing' ||
                doc.status.toLowerCase() === 'uploaded' ||
                doc.status.toLowerCase() === 'ready' ||
-               doc.status.toLowerCase() === 'analyzing'
+               doc.status.toLowerCase() === 'analyzing' ||
+               doc.resolution_status === 'resolving'
     )
 
     if (!hasProcessingDocs) return
@@ -184,7 +208,7 @@ export default function ProjectDetail() {
       }).catch(error => {
         console.error('Polling error:', error)
       })
-    }, 2000) // Poll every 2 seconds for faster UI updates
+    }, 3000) // Poll every 3 seconds
 
     return () => {
       clearInterval(pollInterval)
@@ -278,6 +302,15 @@ export default function ProjectDetail() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Silent document refresh — no loading spinner, used for background updates
+  const silentRefreshDocuments = async () => {
+    if (!session?.access_token || !projectId) return
+    try {
+      const data = await api.projects.getBundle(session.access_token, projectId)
+      setDocuments(data.documents || [])
+    } catch {}
   }
 
   const loadChatHistory = async () => {
@@ -546,30 +579,40 @@ export default function ProjectDetail() {
   }
 
   // Prepare tabs for TabNavigation component
+  // Order: Literature → Insights → Discover → Drafts
   const tabs: TabItem[] = [
     {
       id: 'literature',
       label: 'Literature',
-      icon: <DocumentTextIcon className="h-6 w-6 text-orange-400" />,
+      icon: <DocumentTextIcon className="h-5 w-5" />,
       badgeCount: documents.length > 0 ? documents.length : undefined,
       badgeVariant: 'neutral',
+      colorScheme: 'crimson',
     },
     {
       id: 'insights',
       label: 'Insights',
-      icon: <LightBulbIcon className="h-6 w-6 text-warning" />,
+      icon: <LightBulbIcon className="h-5 w-5" />,
       isProcessing: insightsStatus === 'analyzing',
+      colorScheme: 'amber',
+    },
+    {
+      id: 'discover',
+      label: 'Discover',
+      icon: <MagnifyingGlassIcon className="h-5 w-5" />,
+      colorScheme: 'emerald',
     },
     {
       id: 'drafts',
-      label: 'Your Drafts',
+      label: 'Drafts',
       icon: (
-        <svg className="h-6 w-6 text-accent-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       ),
       badgeCount: draftCount > 0 ? draftCount : undefined,
       badgeVariant: 'primary',
+      colorScheme: 'violet',
     },
   ]
 
@@ -581,7 +624,6 @@ export default function ProjectDetail() {
       ]}
       backLink="/projects"
       backLabel="Back to Projects"
-      onSearchOpen={() => setIsSearchOpen(true)}
     >
 
       {/* Loading State */}
@@ -673,6 +715,44 @@ export default function ProjectDetail() {
             className="mb-8"
           />
 
+          {/* First-use progress guide */}
+          {documents.length > 0 && insightsStatus !== 'analyzed' && (
+            <div className="mx-6 mt-4 mb-2 flex items-center gap-2 text-xs text-text-secondary">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded-full bg-accent-primary flex items-center justify-center">
+                  <CheckIcon className="h-2.5 w-2.5 text-white" />
+                </div>
+                <span className="text-text-primary font-semibold">Upload</span>
+              </div>
+              <div className="h-px flex-1 bg-border-default" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded-full bg-border-default flex items-center justify-center">
+                  <span className="text-text-muted text-xs">2</span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('insights')}
+                  className="text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Generate Insights
+                </button>
+              </div>
+              <div className="h-px flex-1 bg-border-default" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded-full bg-border-default flex items-center justify-center">
+                  <span className="text-text-muted text-xs">3</span>
+                </div>
+                <span className="text-text-muted">Discover</span>
+              </div>
+              <div className="h-px flex-1 bg-border-default" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded-full bg-border-default flex items-center justify-center">
+                  <span className="text-text-muted text-xs">4</span>
+                </div>
+                <span className="text-text-muted">Analyze Draft</span>
+              </div>
+            </div>
+          )}
+
           {/* Tab Content with Animations */}
           <AnimatePresence mode="wait">
             {/* Literature Tab - Documents + Citation Network */}
@@ -685,132 +765,281 @@ export default function ProjectDetail() {
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 className="space-y-8"
               >
-              {/* Documents Section */}
+              {/* Literature Section — unified list */}
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
                   <div>
-                    <h3 className="text-2xl font-sans font-semibold text-text-primary tracking-normal">Research Papers</h3>
-                    <p className="text-sm text-text-secondary mt-1">
-                      Upload and analyze your literature collection
+                    <h3 className="text-2xl font-sans font-semibold text-text-primary tracking-normal">Literature</h3>
+                    <p className="text-sm text-text-tertiary mt-1">
+                      {(() => {
+                        const analyzedCount = documents.filter(d => d.status === 'analyzed').length
+                        const resolvingCount = documents.filter(d => d.resolution_status === 'resolving').length
+                        const unresolvedCount = documents.filter(d => d.resolution_status === 'unresolved').length
+                        const parts = []
+                        if (analyzedCount) parts.push(`${analyzedCount} analyzed`)
+                        if (resolvingCount) parts.push(`${resolvingCount} resolving`)
+                        if (unresolvedCount) parts.push(`${unresolvedCount} metadata-only`)
+                        return parts.length > 0 ? parts.join(' · ') : `${documents.length} papers`
+                      })()}
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
-                    {/* Export BibTeX button */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Source filter pills + legend button */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-0.5 bg-bg-elevated/70 rounded-lg p-0.5 border border-border-default">
+                        {(['all', 'analyzed_pdf', 'bibtex_import'] as SourceFilter[]).map(filter => {
+                          const labels: Record<SourceFilter, string> = {
+                            all: 'All',
+                            analyzed_pdf: 'Analyzed PDFs',
+                            bibtex_import: 'BibTeX Imports',
+                          }
+                          // A paper is a BibTeX import if source_type says so, OR file_type says so
+                          // (fallback for docs inserted before migration 012 ran), OR resolution_status is set
+                          const isBib = (d: Document) =>
+                            d.source_type === 'bibtex_import' ||
+                            d.source_type === 'zotero_import' ||
+                            d.file_type === 'bibtex_import' ||
+                            (d.resolution_status != null && d.resolution_status !== '')
+                          const filterCounts: Record<SourceFilter, number> = {
+                            all: documents.length,
+                            analyzed_pdf: documents.filter(d => !isBib(d) && d.status === 'analyzed').length,
+                            bibtex_import: documents.filter(isBib).length,
+                          }
+                          const count = filterCounts[filter]
+                          const isDisabled = filter !== 'all' && count === 0
+                          const isActive = sourceFilter === filter
+                          return (
+                            <button
+                              key={filter}
+                              onClick={() => !isDisabled && setSourceFilter(filter)}
+                              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all duration-150 flex items-center gap-1.5 ${
+                                isActive
+                                  ? 'bg-accent-primary/12 text-accent-primary ring-1 ring-inset ring-accent-primary/25'
+                                  : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
+                              } ${isDisabled ? 'opacity-35 pointer-events-none' : 'cursor-pointer'}`}
+                            >
+                              {labels[filter]}
+                              {filter !== 'all' && (
+                                <span className={`text-[10px] tabular-nums ${isActive ? 'text-accent-primary/70' : 'text-text-tertiary'}`}>
+                                  {count}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Status legend toggle */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowStatusLegend(prev => !prev)}
+                          className="text-text-muted hover:text-text-secondary transition-colors duration-150 p-0.5 rounded"
+                          title="Status legend"
+                        >
+                          <InformationCircleIcon className="h-4 w-4" />
+                        </button>
+
+                        {showStatusLegend && (
+                          <div className="absolute right-0 top-7 z-20 w-80 bg-bg-elevated border border-border-default rounded-xl p-4 shadow-lg">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-xs font-semibold text-text-primary">Status Legend</p>
+                              <button
+                                onClick={() => setShowStatusLegend(false)}
+                                className="text-text-muted hover:text-text-secondary transition-colors duration-150"
+                              >
+                                <XMarkIcon className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-emerald-400 mt-0.5 shrink-0">●</span>
+                                <div>
+                                  <span className="text-xs font-semibold text-text-primary">Processed</span>
+                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">Full RAG analysis complete. This paper can be searched, cited, and used in draft analysis.</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-amber-400 mt-0.5 shrink-0">●</span>
+                                <div>
+                                  <span className="text-xs font-semibold text-text-primary">Analyzing</span>
+                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">Pipeline in progress. For PDFs: extracting text and generating embeddings. For .bib imports: searching for open-access PDF, downloading, and analyzing.</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-sky-400 mt-0.5 shrink-0">●</span>
+                                <div>
+                                  <span className="text-xs font-semibold text-text-primary">Imported</span>
+                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">.bib entry imported, but no open-access PDF was found. Metadata saved. Upload the PDF manually for full analysis.</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-red-400 mt-0.5 shrink-0">●</span>
+                                <div>
+                                  <span className="text-xs font-semibold text-text-primary">Failed</span>
+                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">Document analysis failed (PDF uploads only). Try re-uploading the file.</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sort dropdown */}
+                    {documents.length > 1 && (
+                      <select
+                        value={sortBy}
+                        onChange={e => setSortBy(e.target.value as SortBy)}
+                        className="text-xs font-semibold bg-bg-elevated border border-border-default rounded-lg px-2.5 py-1.5 text-text-secondary focus:ring-1 focus:ring-accent-primary focus:border-accent-primary transition-colors"
+                      >
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="status">By status</option>
+                        <option value="source">By source</option>
+                      </select>
+                    )}
+
+                    {/* Separator */}
+                    <div className="h-5 w-px bg-border-default hidden sm:block" />
+
+                    {/* Export BibTeX */}
                     {documents.length > 0 && (
                       <button
                         onClick={handleExportBibTeX}
-                        className="px-4 py-2 bg-bg-bg-surfaceborder-2 border-border-default text-text-primary font-semibold rounded-lg hover:bg-bg-elevated hover:border-accent-teal transition-all duration-150 flex items-center gap-2 group"
+                        className="px-3 py-1.5 border border-border-default text-text-secondary text-xs font-semibold rounded-lg hover:bg-bg-elevated hover:border-accent-teal hover:text-accent-teal transition-all duration-150 flex items-center gap-1.5"
                       >
-                        <ArrowDownTrayIcon className="h-4 w-4 group-hover:text-accent-teal transition-colors" />
-                        <span>Export BibTeX</span>
+                        <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+                        Export .bib
                       </button>
                     )}
 
-                    {/* Upload Document button */}
-                    <Button
-                      onClick={() => setIsUploadModalOpen(true)}
-                      variant="primary"
+                    {/* Import References (.bib / Zotero) */}
+                    <button
+                      onClick={() => setIsImportModalOpen(true)}
+                      className="px-3 py-1.5 border border-border-default text-text-secondary text-xs font-semibold rounded-lg hover:bg-bg-elevated hover:border-violet-400/40 hover:text-violet-400 transition-all duration-150 flex items-center gap-1.5"
                     >
-                      <PlusIcon className="h-4 w-4" />
-                      Upload Paper
-                    </Button>
+                      <BookOpenIcon className="h-3.5 w-3.5" />
+                      Import .bib
+                    </button>
 
-                    {/* Discover Papers — temporarily disabled, pending worktree implementation */}
+                    {/* Upload PDF — same height as Import .bib */}
+                    <button
+                      onClick={() => setIsUploadModalOpen(true)}
+                      className="px-3 py-1.5 bg-accent-primary text-white text-xs font-semibold rounded-lg hover:bg-accent-hover transition-all duration-150 flex items-center gap-1.5"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
+                      Upload PDF
+                    </button>
                   </div>
                 </div>
 
-                {/* Draft Warning Banner - shown when draft uploaded without documents */}
+                {/* Draft Warning Banner */}
                 {draftCount > 0 && documents.length === 0 && !isDraftWarningDismissed && (
-                  <div className="mb-6 bg-warning/10 border-2 border-warning/50 rounded-lg p-5">
+                  <div className="mb-5 bg-warning/10 border border-warning/40 rounded-xl p-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <svg className="h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                      </div>
+                      <svg className="h-5 w-5 text-warning shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
                       <div className="flex-1">
-                        <h4 className="text-sm font-sans font-semibold text-warning mb-1">
-                          Upload research papers to get citation suggestions
-                        </h4>
-                        <p className="text-sm text-text-secondary mb-3 leading-relaxed">
-                          You have {draftCount} draft{draftCount > 1 ? 's' : ''} uploaded, but no research papers yet. Citation suggestions and coverage gap analysis require papers in your library.
+                        <p className="text-sm font-semibold text-warning">Add papers for citation suggestions</p>
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          You have {draftCount} draft{draftCount > 1 ? 's' : ''} but no papers yet.
+                          Citation suggestions require papers in your library.
                         </p>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => setIsUploadModalOpen(true)}
-                            className="text-sm font-semibold text-accent-primary hover:text-accent-primary-bright underline transition-colors"
-                          >
-                            Upload Research Papers
+                        <div className="flex gap-3 mt-2">
+                          <button onClick={() => setIsUploadModalOpen(true)} className="text-xs font-semibold text-accent-primary underline">
+                            Add Papers
                           </button>
-                          <button
-                            onClick={handleDismissDraftWarning}
-                            className="text-sm text-text-tertiary hover:text-text-primary transition-colors"
-                          >
+                          <button onClick={handleDismissDraftWarning} className="text-xs text-text-muted hover:text-text-primary transition-colors">
                             Dismiss
                           </button>
                         </div>
                       </div>
-                      <button
-                        onClick={handleDismissDraftWarning}
-                        className="flex-shrink-0 text-text-tertiary hover:text-warning transition-colors"
-                        aria-label="Dismiss warning"
-                      >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                      <button onClick={handleDismissDraftWarning} className="text-text-muted hover:text-warning transition-colors">
+                        <XMarkIcon className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
                 )}
 
-              {/* Empty State */}
-              {documents.length === 0 && (
-                <EmptyStateGuide onUploadClick={() => setIsUploadModalOpen(true)} />
-              )}
+                {/* Empty state */}
+                {documents.length === 0 && (
+                  <EmptyStateGuide onUploadClick={() => setIsUploadModalOpen(true)} />
+                )}
 
-                {/* Documents List */}
-                {documents.length > 0 && (
-                  <motion.div
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, margin: "-100px" }}
-                    variants={{
-                      hidden: { opacity: 0 },
-                      visible: {
-                        opacity: 1,
-                        transition: {
-                          staggerChildren: 0.1
-                        }
-                      }
-                    }}
-                  >
-                    {documents.map((doc) => (
-                      <motion.div
-                        key={doc.id}
-                        variants={{
-                          hidden: { opacity: 0, y: 20 },
-                          visible: {
-                            opacity: 1,
-                            y: 0,
-                            transition: {
-                              duration: 0.5,
-                              ease: [0.16, 1, 0.3, 1]
-                            }
-                          }
-                        }}
-                      >
-                        <DocumentCard
-                          document={doc}
+                {/* Unified paper list */}
+                {documents.length > 0 && (() => {
+                  // Filter
+                  const isBib = (d: Document) =>
+                    d.source_type === 'bibtex_import' ||
+                    d.source_type === 'zotero_import' ||
+                    d.file_type === 'bibtex_import' ||
+                    (d.resolution_status != null && d.resolution_status !== '')
+                  let filtered = sourceFilter === 'all'
+                    ? documents
+                    : sourceFilter === 'bibtex_import'
+                    ? documents.filter(isBib)
+                    : documents.filter(d => !isBib(d) && d.status === 'analyzed')
+
+                  // Sort
+                  filtered = [...filtered].sort((a, b) => {
+                    if (sortBy === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    if (sortBy === 'status') {
+                      const order: Record<string, number> = { analyzed: 0, analyzing: 1, processing: 2, uploaded: 2, ready: 2, imported: 3, failed: 4 }
+                      return (order[a.status.toLowerCase()] ?? 9) - (order[b.status.toLowerCase()] ?? 9)
+                    }
+                    if (sortBy === 'source') {
+                      const order: Record<string, number> = { manual_upload: 0, bibtex_import: 1, zotero_import: 1, discovered: 2 }
+                      return (order[a.source_type || 'manual_upload'] ?? 9) - (order[b.source_type || 'manual_upload'] ?? 9)
+                    }
+                    // newest (default)
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                  })
+
+                  return (
+                    <div className="space-y-2">
+                      {filtered.map(doc => (
+                        <PaperCard
+                          key={doc.id}
+                          document={doc as PaperDocument}
                           projectId={projectId!}
                           onDelete={(id, title) => setDeleteDocument({ id, title })}
+                          token={session?.access_token}
+                          onResolved={silentRefreshDocuments}
                         />
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                )}
+                      ))}
+                      {filtered.length === 0 && (
+                        <p className="text-sm text-text-muted text-center py-8">
+                          No papers match this filter.
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
+            </motion.div>
+          )}
+
+          {/* Discover Tab */}
+          {activeTab === 'discover' && projectId && (
+            <motion.div
+              key="discover"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <Suspense fallback={<ComponentLoader />}>
+                <DiscoverTab
+                  projectId={projectId}
+                  documentCount={documents.length}
+                  onDocumentSaved={loadProjectDetails}
+                  insightsAnalyzed={insightsStatus === 'analyzed'}
+                  onTabChange={(tab) => setActiveTab(tab as ActiveTab)}
+                />
+              </Suspense>
             </motion.div>
           )}
 
@@ -1130,7 +1359,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {/* Upload Document Modal */}
+      {/* Upload PDF Modal */}
       {session?.access_token && projectId && (
         <UploadDocumentModal
           isOpen={isUploadModalOpen}
@@ -1138,15 +1367,19 @@ export default function ProjectDetail() {
           onSuccess={loadProjectDetails}
           token={session.access_token}
           projectId={projectId}
+          mode="pdf"
         />
       )}
 
-      {/* Paper Discovery Modal */}
+      {/* Import References Modal (.bib / Zotero) */}
       {session?.access_token && projectId && (
-        <PaperDiscoveryModal
-          isOpen={isPaperDiscoveryModalOpen}
-          onClose={() => setIsPaperDiscoveryModalOpen(false)}
+        <UploadDocumentModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={loadProjectDetails}
+          token={session.access_token}
           projectId={projectId}
+          mode="import"
         />
       )}
 

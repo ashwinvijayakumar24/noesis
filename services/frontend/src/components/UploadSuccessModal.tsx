@@ -51,23 +51,17 @@ export default function UploadSuccessModal({
                   {/* Title */}
                   <div>
                     <h3 className="text-2xl font-semibold text-text-primary mb-2 tracking-normal">
-                      Upload Successful!
+                      Uploading & analyzing
                     </h3>
-                    {uploadedCount > 1 ? (
-                      <p className="text-text-secondary tracking-normal">
-                        {uploadedCount} documents uploaded
-                      </p>
-                    ) : (
-                      <p className="text-text-secondary tracking-normal">
-                        {documentTitles[0] || 'Document uploaded'}
-                      </p>
-                    )}
+                    <p className="text-text-secondary tracking-normal">
+                      This may take a few minutes
+                    </p>
                   </div>
 
                   {/* Processing Message */}
                   <p className="text-text-muted text-sm tracking-normal">
-                    Your {uploadedCount > 1 ? 'documents are' : 'document is'} being processed automatically.
-                    This typically takes <span className="font-semibold text-text-primary">1-2 minutes</span>.
+                    {uploadedCount > 1 ? `${uploadedCount} papers are` : 'Your paper is'} being processed and analyzed automatically.
+                    You can close this window — the cards will update when done.
                   </p>
 
                   {/* Note */}

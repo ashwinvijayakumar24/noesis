@@ -79,18 +79,18 @@ async def ingest_draft_for_rag(draft_id: str, project_id: str) -> Dict[str, Any]
         file_type = draft.get("file_type", "pdf")
         draft_text = extract_text(file_bytes, file_type)
 
-        # 4. Get RAG settings from project
-        project_record = supabase.table("projects").select("rag_settings").eq("id", project_id).single().execute()
-        rag_settings = project_record.data.get("rag_settings", {}) if project_record.data else {}
+        # 4. Use adaptive chunking based on estimated page count
+        from app.services.rag_chunking import get_optimal_chunk_params
+        page_count = max(1, len(draft_text.split()) // 300)  # ~300 words/page estimate
+        chunk_params = get_optimal_chunk_params(page_count)
+        chunk_size = chunk_params["chunk_size"]
+        chunk_overlap = chunk_params["overlap"]
+        embedding_model = "text-embedding-3-large"
 
-        chunk_size = rag_settings.get("chunk_size", 500)
-        chunk_overlap = rag_settings.get("chunk_overlap", 100)
-        embedding_model = rag_settings.get("embedding_model", "text-embedding-3-large")
-
-        logger.info(f"Using RAG settings - chunk_size: {chunk_size}, overlap: {chunk_overlap}, model: {embedding_model}")
+        logger.info(f"Adaptive draft chunking — est. pages: {page_count}, chunk_size: {chunk_size}, overlap: {chunk_overlap}")
 
         # 5. Chunk the draft text
-        chunks = chunk_text(draft_text, max_completion_tokens=chunk_size, overlap_tokens=chunk_overlap)
+        chunks = chunk_text(draft_text, max_tokens=chunk_size, overlap_tokens=chunk_overlap)
 
         if not chunks:
             raise ValueError("Draft chunking produced no chunks")
@@ -130,7 +130,8 @@ async def ingest_draft_for_rag(draft_id: str, project_id: str) -> Dict[str, Any]
                 "rag_settings_used": {
                     "chunk_size": chunk_size,
                     "chunk_overlap": chunk_overlap,
-                    "embedding_model": embedding_model
+                    "embedding_model": embedding_model,
+                    "adaptive": True
                 }
             },
             "updated_at": datetime.datetime.utcnow().isoformat()
@@ -146,7 +147,8 @@ async def ingest_draft_for_rag(draft_id: str, project_id: str) -> Dict[str, Any]
             "rag_settings_used": {
                 "chunk_size": chunk_size,
                 "chunk_overlap": chunk_overlap,
-                "embedding_model": embedding_model
+                "embedding_model": embedding_model,
+                "adaptive": True
             }
         }
 
@@ -237,11 +239,8 @@ def search_project_content(
     Validates: Requirement 6.2 - Integrated search
     """
     try:
-        # Generate query embedding
-        # Fetch project RAG settings for model
-        project_record = supabase.table("projects").select("rag_settings").eq("id", project_id).single().execute()
-        rag_settings = project_record.data.get("rag_settings", {}) if project_record.data else {}
-        embedding_model = rag_settings.get("embedding_model", "text-embedding-3-large")
+        # Generate query embedding using server-controlled default model
+        embedding_model = "text-embedding-3-large"
 
         query_embedding = embed_query(query, model=embedding_model)
 

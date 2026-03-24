@@ -67,6 +67,11 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Sensitive data files — never commit
+emails.csv
+*.csv
+test_import.bib
+
 # Database
 *.db
 *.sqlite

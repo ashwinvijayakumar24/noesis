@@ -6,6 +6,7 @@ import {
   AcademicCapIcon,
   ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
+  ChevronDownIcon,
   PlusCircleIcon,
   XMarkIcon,
   TrashIcon
@@ -436,7 +437,7 @@ export default function PaperRecommendations({ projectId, insightsStatus: _insig
             const scorePercentage = Math.round(paper.relevance_score * 100)
 
             return (
-              <div key={paper.id} className="bg-surface/50 rounded-lg border border-border-base hover:border-border-subtle transition-colors">
+              <div key={paper.id} className="bg-surface/50 rounded-lg border border-border-base hover:border-cyan-900/50 transition-colors">
                 {/* Paper Header */}
                 <div className="p-4">
                   <div className="flex items-start gap-3">
@@ -459,7 +460,10 @@ export default function PaperRecommendations({ projectId, insightsStatus: _insig
                     )}
 
                     <div className="flex items-start justify-between gap-4 flex-1">
-                      <div className="flex-1 min-w-0">
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => toggleExpanded(paper.id)}
+                      >
                       {/* Title and metadata */}
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className={`text-xs px-2 py-1 rounded border font-mono ${SOURCE_COLORS[paper.source]}`}>
@@ -482,10 +486,7 @@ export default function PaperRecommendations({ projectId, insightsStatus: _insig
                         </div>
                       </div>
 
-                      <h4
-                        className="text-text-primary font-medium leading-relaxed mb-2 cursor-pointer hover:text-cyan-200 transition-colors"
-                        onClick={() => toggleExpanded(paper.id)}
-                      >
+                      <h4 className="text-text-primary font-medium leading-relaxed mb-2 hover:text-cyan-200 transition-colors">
                         {paper.title}
                       </h4>
 
@@ -499,6 +500,12 @@ export default function PaperRecommendations({ projectId, insightsStatus: _insig
 
                       {/* Relevance reason */}
                       <p className="text-xs text-text-muted">{paper.relevance_reason}</p>
+
+                      {/* Expand affordance */}
+                      <div className="flex items-center gap-1 mt-2 text-xs text-text-muted hover:text-cyan-400 transition-colors select-none">
+                        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                        <span>{isExpanded ? 'Hide details' : 'Abstract & links'}</span>
+                      </div>
                     </div>
 
                       {/* Actions */}

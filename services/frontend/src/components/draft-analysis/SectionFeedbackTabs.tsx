@@ -45,53 +45,10 @@ interface SectionFeedbackTabsProps {
   onViewInDocument?: (lineNumber: number) => void
 }
 
-// Section-specific tab configuration
-const SECTION_TAB_CONFIG: Record<string, { label: string; category: string }[]> = {
-  abstract: [
-    { label: 'Positioning', category: 'positioning' },
-    { label: 'Coverage', category: 'coverage' },
-    { label: 'Clarity', category: 'clarity' }
-  ],
-  introduction: [
-    { label: 'Positioning', category: 'positioning' },
-    { label: 'Gap Identification', category: 'gap_identification' },
-    { label: 'Motivation', category: 'motivation' }
-  ],
-  literature_review: [
-    { label: 'Coverage Gaps', category: 'coverage_gaps' },
-    { label: 'Synthesis Quality', category: 'synthesis_quality' },
-    { label: 'Missing Works', category: 'missing_works' }
-  ],
-  methodology: [
-    { label: 'Rigor', category: 'rigor' },
-    { label: 'Reproducibility', category: 'reproducibility' },
-    { label: 'Alternatives', category: 'alternatives' },
-    { label: 'Detail', category: 'detail' }
-  ],
-  results: [
-    { label: 'Evidence Strength', category: 'evidence_strength' },
-    { label: 'Analysis Depth', category: 'analysis_depth' },
-    { label: 'Limitations', category: 'limitations' }
-  ],
-  discussion: [
-    { label: 'Positioning', category: 'positioning' },
-    { label: 'Limitations', category: 'limitations' },
-    { label: 'Future Work', category: 'future_work' }
-  ],
-  conclusion: [
-    { label: 'Contribution Clarity', category: 'contribution_clarity' },
-    { label: 'Scope', category: 'scope' }
-  ],
-  references: [
-    { label: 'Completeness', category: 'completeness' },
-    { label: 'Format', category: 'format' }
-  ]
-}
-
 type StatusFilter = 'new' | 'saved' | 'dismissed'
 
 export default function SectionFeedbackTabs({
-  sectionType,
+  sectionType: _sectionType,
   claims,
   gaps,
   feedback,
@@ -99,12 +56,6 @@ export default function SectionFeedbackTabs({
   onViewInDocument
 }: SectionFeedbackTabsProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('new')
-  const [categoryFilter, setCategoryFilter] = useState<string>('all')
-
-  // Get section-specific tabs
-  const sectionTabs = SECTION_TAB_CONFIG[sectionType] || [
-    { label: 'All Feedback', category: 'all' }
-  ]
 
   // Filter feedback by status
   const filteredClaims = useMemo(() =>
@@ -122,68 +73,7 @@ export default function SectionFeedbackTabs({
     [feedback, statusFilter]
   )
 
-  // Further filter by category if not 'all'
-  // Map category to feedback_type patterns
-  const categoryMap: Record<string, string[]> = {
-    positioning: ['positioning'],
-    coverage: ['coverage'],
-    coverage_gaps: ['coverage', 'gap'],
-    gap_identification: ['gap', 'positioning'],
-    motivation: ['motivation', 'argumentation'],
-    synthesis_quality: ['synthesis', 'argumentation'],
-    missing_works: ['coverage', 'missing'],
-    rigor: ['methodology', 'rigor'],
-    reproducibility: ['methodology', 'reproducibility'],
-    alternatives: ['methodology', 'alternatives'],
-    detail: ['methodology', 'detail'],
-    evidence_strength: ['evidence', 'argumentation'],
-    analysis_depth: ['analysis', 'argumentation'],
-    limitations: ['limitation'],
-    future_work: ['future'],
-    contribution_clarity: ['contribution', 'positioning'],
-    scope: ['scope'],
-    completeness: ['completeness'],
-    format: ['format'],
-    clarity: ['clarity']
-  }
-
-  const categoryFilteredClaims = useMemo(() => {
-    if (categoryFilter === 'all') {
-      return filteredClaims
-    }
-
-    const patterns = categoryMap[categoryFilter] || []
-    return filteredClaims.filter(c => {
-      const type = c.claim_type.toLowerCase()
-      return patterns.some(pattern => type.includes(pattern))
-    })
-  }, [filteredClaims, categoryFilter])
-
-  const categoryFilteredGaps = useMemo(() => {
-    if (categoryFilter === 'all') {
-      return filteredGaps
-    }
-
-    const patterns = categoryMap[categoryFilter] || []
-    return filteredGaps.filter(g => {
-      const type = g.gap_type.toLowerCase()
-      return patterns.some(pattern => type.includes(pattern))
-    })
-  }, [filteredGaps, categoryFilter])
-
-  const categoryFilteredFeedback = useMemo(() => {
-    if (categoryFilter === 'all') {
-      return filteredFeedback
-    }
-
-    const patterns = categoryMap[categoryFilter] || []
-    return filteredFeedback.filter(f => {
-      const type = f.feedback_type.toLowerCase()
-      return patterns.some(pattern => type.includes(pattern))
-    })
-  }, [filteredFeedback, categoryFilter])
-
-  // Combine all feedback items for display
+  // Combine all items with priority
   const allFeedbackItems = useMemo(() => {
     const items: Array<{
       id: string
@@ -192,8 +82,7 @@ export default function SectionFeedbackTabs({
       content: any
     }> = []
 
-    // Add claims (priority based on importance_score)
-    categoryFilteredClaims.forEach(claim => {
+    filteredClaims.forEach(claim => {
       items.push({
         id: claim.id,
         type: 'claim',
@@ -202,8 +91,7 @@ export default function SectionFeedbackTabs({
       })
     })
 
-    // Add gaps (priority from gap.priority)
-    categoryFilteredGaps.forEach(gap => {
+    filteredGaps.forEach(gap => {
       items.push({
         id: gap.id,
         type: 'gap',
@@ -212,8 +100,7 @@ export default function SectionFeedbackTabs({
       })
     })
 
-    // Add feedback (priority from feedback.priority)
-    categoryFilteredFeedback.forEach(fb => {
+    filteredFeedback.forEach(fb => {
       items.push({
         id: fb.id,
         type: 'feedback',
@@ -223,7 +110,7 @@ export default function SectionFeedbackTabs({
     })
 
     return items
-  }, [categoryFilteredClaims, categoryFilteredGaps, categoryFilteredFeedback])
+  }, [filteredClaims, filteredGaps, filteredFeedback])
 
   // Count by status
   const statusCounts = useMemo(() => ({
@@ -240,7 +127,7 @@ export default function SectionFeedbackTabs({
 
   return (
     <div className="space-y-4">
-      {/* Status Tabs (New / Saved / Dismissed) */}
+      {/* Status Tabs */}
       <div className="flex space-x-1 border-b border-border-default">
         <button
           onClick={() => setStatusFilter('new')}
@@ -302,39 +189,7 @@ export default function SectionFeedbackTabs({
         </button>
       </div>
 
-      {/* Category Tabs (Section-specific) */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setCategoryFilter('all')}
-          className={`
-            px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all duration-fast
-            ${categoryFilter === 'all'
-              ? 'bg-bg-elevated text-text-primary border-border-subtle'
-              : 'bg-bg-surface text-text-secondary border-border-default hover:text-text-primary hover:border-border-subtle'
-            }
-          `}
-        >
-          All
-        </button>
-
-        {sectionTabs.map(tab => (
-          <button
-            key={tab.category}
-            onClick={() => setCategoryFilter(tab.category)}
-            className={`
-              px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all duration-fast
-              ${categoryFilter === tab.category
-                ? 'bg-bg-elevated text-text-primary border-border-subtle'
-                : 'bg-bg-surface text-text-secondary border-border-default hover:text-text-primary hover:border-border-subtle'
-              }
-            `}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Feedback Display with Priority Grouping */}
+      {/* Feedback items */}
       {allFeedbackItems.length > 0 ? (
         <PriorityGroup
           items={allFeedbackItems}

@@ -94,10 +94,10 @@ export default function SectionNavigation({
             <button
               key={sectionType}
               onClick={() => onSectionChange(sectionType)}
-              className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 text-left ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-150 text-left ${
                 isActive
-                  ? 'bg-accent-primary/10 border-l-4 border-l-accent-primary text-accent-primary shadow-sm'
-                  : 'hover:bg-bg-elevated border-l-4 border-l-transparent hover:border-l-accent-primary/30'
+                  ? 'bg-bg-elevated border-l-2 border-l-accent-primary'
+                  : 'hover:bg-bg-elevated border-l-2 border-l-transparent'
               }`}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -116,10 +116,10 @@ export default function SectionNavigation({
 
               {/* Badge showing NEW items count */}
               {newCount > 0 && (
-                <span className={`flex-shrink-0 ml-2 px-2 py-0.5 rounded-full text-xs font-mono font-semibold transition-all duration-200 ${
+                <span className={`flex-shrink-0 ml-2 px-2 py-0.5 rounded-full text-xs font-semibold transition-colors duration-150 ${
                   isActive
                     ? 'bg-accent-primary text-white'
-                    : 'bg-accent-primary/10 text-accent-primary border border-accent-primary/30'
+                    : 'bg-bg-void text-text-secondary'
                 }`}>
                   {newCount}
                 </span>
