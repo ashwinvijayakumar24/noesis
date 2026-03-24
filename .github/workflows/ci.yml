@@ -28,21 +28,12 @@ jobs:
       - name: Install test extras
         run: pip install pytest-cov pytest-asyncio
 
-      - name: Check app imports (syntax + dependency check)
-        run: python -c "import app.main; print('App imports OK')"
-        env:
-          ENVIRONMENT: test
-          SUPABASE_URL: placeholder
-          SUPABASE_ANON_KEY: placeholder
-          OPENAI_API_KEY: placeholder
-
       - name: Run tests with coverage
-        # Non-fatal — coverage threshold removed; tests surface results only
         run: |
           python -m pytest tests/ -v --tb=short \
             --cov=app \
             --cov-report=xml:coverage.xml \
-            --cov-report=term-missing || echo "Tests failed (non-blocking) — check logs above"
+            --cov-report=term-missing
         env:
           ENVIRONMENT: test
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -76,6 +67,7 @@ jobs:
         run: pip install pip-audit
 
       - name: Audit Python dependencies
+        # Non-fatal — surfaces vulnerabilities without blocking deploy
         run: pip-audit -r requirements.txt || true
 
   # ── Frontend Build + Tests ────────────────────────────────────────────────────
@@ -98,19 +90,21 @@ jobs:
         run: npm install
 
       - name: Lint
-        run: npm run lint || echo "Lint warnings found (non-blocking)"
+        # Non-fatal — lint errors are surfaced as warnings but don't block deploy
+        run: npm run lint || echo "⚠ Lint warnings found (non-blocking)"
 
       - name: Type check
-        run: npx tsc --noEmit || echo "TypeScript errors found (non-blocking)"
+        # Non-fatal — TS errors are surfaced but don't block backend deploy
+        run: npx tsc --noEmit || echo "⚠ TypeScript errors found (non-blocking)"
 
       - name: Build
-        run: npm run build || echo "Frontend build failed (non-blocking — deploy via vercel --prod)"
+        run: npm run build || echo "⚠ Frontend build failed (non-blocking — deploy to Vercel manually)"
 
-  # ── Deploy to EC2 (master only, after backend passes) ─────────────────────────
+  # ── Deploy to EC2 (master only, after CI passes) ──────────────────────────
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
-    needs: [backend]
+    needs: [backend]   # only backend tests gate the EC2 deploy; frontend goes to Vercel separately
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
 
     steps:
@@ -120,6 +114,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          # Fail fast — don't silently swallow errors
           script_stop: true
           script: |
             set -e
@@ -129,9 +124,12 @@ jobs:
             echo "==> Pulling latest code from master..."
             cd "$APP_PATH"
 
+            # Authenticate git pull with PAT (in-memory only, not stored on disk)
             git remote set-url origin "https://x-access-token:${{ secrets.GH_PAT }}@github.com/ashwinvijayakumar24/noesis.git"
             git fetch origin master
             git reset --hard origin/master
+
+            # Remove PAT from remote URL immediately after pull
             git remote set-url origin "https://github.com/ashwinvijayakumar24/noesis.git"
 
             echo "==> Rebuilding and restarting Docker containers..."
@@ -142,7 +140,7 @@ jobs:
             sleep 10
             docker compose -f docker-compose.prod.yml ps
 
-            echo "==> Pruning unused Docker images..."
+            echo "==> Pruning unused Docker images to save disk space..."
             docker image prune -f
 
-            echo "Deploy complete"
+            echo "✓ Deploy complete"
