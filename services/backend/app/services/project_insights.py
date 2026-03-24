@@ -12,6 +12,7 @@ Analyzes all documents in a project to identify:
 
 from typing import List, Dict, Any
 import json
+import re
 from app.core.openai_client import get_openai_client, get_completion_params
 
 # Initialize OpenAI client
@@ -239,7 +240,12 @@ Key Citations:
         **get_completion_params()  # Enable zero data retention
     )
 
-    insights_json = response.choices[0].message.content
+    insights_json = response.choices[0].message.content.strip()
+    # Strip markdown code blocks that GPT-5.2 sometimes wraps around JSON
+    if insights_json.startswith('```'):
+        insights_json = re.sub(r'^```(?:json)?\s*\n?', '', insights_json)
+        insights_json = re.sub(r'\n?```\s*$', '', insights_json)
+        insights_json = insights_json.strip()
     insights = json.loads(insights_json)
 
     # Add metadata
@@ -259,43 +265,52 @@ Key Citations:
 def validate_insights(insights: Dict[str, Any]) -> None:
     """
     Validate that insights have the expected structure.
+    Only validates fields actually used by the frontend.
 
     Raises:
         ValueError: If insights are missing required fields
     """
+    # Only require fields the frontend renders
     required_fields = [
         'research_gaps',
         'common_themes',
         'methodological_patterns',
-        'timeline',
         'conflicting_findings',
-        'citation_patterns',
         'key_insights',
-        'summary'
+        'summary',
     ]
 
     for field in required_fields:
         if field not in insights:
-            raise ValueError(f"Missing required field: {field}")
+            # Try to provide a safe default rather than crashing
+            print(f"[INSIGHTS] Warning: missing field '{field}', defaulting to empty")
+            if field == 'summary':
+                insights[field] = ''
+            else:
+                insights[field] = []
 
-    # Validate research_gaps structure
-    if insights['research_gaps']:
+    # Ensure timeline / citation_patterns exist (used by prompt but not frontend)
+    insights.setdefault('timeline', [])
+    insights.setdefault('citation_patterns', [])
+
+    # Validate research_gaps structure (warn, don't crash, on unexpected category)
+    if insights.get('research_gaps'):
+        valid_categories = {'methodological', 'population', 'theoretical', 'temporal'}
         for gap in insights['research_gaps']:
-            required_gap_fields = ['category', 'title', 'description', 'supporting_evidence', 'suggested_directions']
-            for field in required_gap_fields:
+            for field in ['category', 'title', 'description']:
                 if field not in gap:
-                    raise ValueError(f"Research gap missing field: {field}")
-
-            valid_categories = ['methodological', 'population', 'theoretical', 'temporal']
+                    gap[field] = ''
+            gap.setdefault('supporting_evidence', [])
+            gap.setdefault('suggested_directions', [])
             if gap['category'] not in valid_categories:
-                raise ValueError(f"Invalid gap category: {gap['category']}. Must be one of {valid_categories}")
+                print(f"[INSIGHTS] Warning: unknown gap category '{gap['category']}', normalising to 'methodological'")
+                gap['category'] = 'methodological'
 
     # Validate common_themes structure
-    if insights['common_themes']:
+    if insights.get('common_themes'):
         for theme in insights['common_themes']:
-            required_theme_fields = ['theme', 'frequency', 'description']
-            for field in required_theme_fields:
-                if field not in theme:
-                    raise ValueError(f"Common theme missing field: {field}")
+            theme.setdefault('theme', '')
+            theme.setdefault('frequency', 1)
+            theme.setdefault('description', '')
 
-    print(f"[INSIGHTS] Validation passed. Found {len(insights['research_gaps'])} gaps, {len(insights['common_themes'])} themes")
+    print(f"[INSIGHTS] Validation passed. Found {len(insights.get('research_gaps', []))} gaps, {len(insights.get('common_themes', []))} themes")

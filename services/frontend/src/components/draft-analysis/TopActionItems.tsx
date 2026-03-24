@@ -10,16 +10,16 @@ export default function TopActionItems({ actions }: TopActionItemsProps) {
   const top3 = actions.slice(0, 3)
 
   return (
-    <div className="bg-accent-primary/8 border border-accent-primary/30 rounded-xl p-4 mb-3">
+    <div className="bg-bg-surface border border-border-default rounded-xl p-4 mb-3">
       <div className="flex items-center gap-2 mb-3">
         <ExclamationCircleIcon className="h-4 w-4 text-accent-primary shrink-0" />
-        <h3 className="text-sm font-semibold text-accent-primary">Top Action Items</h3>
+        <h3 className="text-sm font-semibold text-text-primary">Top Action Items</h3>
       </div>
-      <ol className="space-y-2">
+      <ol className="space-y-2.5">
         {top3.map((action, i) => (
-          <li key={i} className="flex items-start gap-2.5">
-            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-accent-primary/20 text-accent-primary text-xs font-semibold flex items-center justify-center mt-0.5">
-              {i + 1}
+          <li key={i} className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-4 h-4 text-xs font-semibold text-accent-primary mt-0.5">
+              {i + 1}.
             </span>
             <span className="text-sm text-text-secondary leading-snug">{action}</span>
           </li>

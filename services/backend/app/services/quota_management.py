@@ -88,7 +88,7 @@ async def check_quota(user_id: str, operation_type: str) -> bool:
 
     Args:
         user_id: User UUID
-        operation_type: One of "document", "draft", "chat"
+        operation_type: One of "document", "draft", "chat", "bib_import"
 
     Returns:
         True if quota available
@@ -123,8 +123,20 @@ async def check_quota(user_id: str, operation_type: str) -> bool:
 
         if current >= limit:
             raise QuotaExceededError(
-                f"Monthly document limit exceeded ({limit} documents/month)",
+                f"Monthly document limit exceeded ({limit} PDFs/month)",
                 quota_type="documents",
+                limit=limit,
+                current=current
+            )
+
+    elif operation_type == "bib_import":
+        current = quota.get('current_month_bib_refs', 0)
+        limit = quota.get('monthly_bib_refs_limit', 10)
+
+        if current >= limit:
+            raise QuotaExceededError(
+                f"Monthly BibTeX reference limit exceeded ({limit} refs/month)",
+                quota_type="bib_refs",
                 limit=limit,
                 current=current
             )
@@ -159,7 +171,7 @@ async def check_quota(user_id: str, operation_type: str) -> bool:
     return True
 
 
-async def increment_quota_usage(user_id: str, operation_type: str) -> None:
+async def increment_quota_usage(user_id: str, operation_type: str, count: int = 1) -> None:
     """
     Increment quota counter after successful operation.
 
@@ -167,7 +179,8 @@ async def increment_quota_usage(user_id: str, operation_type: str) -> None:
 
     Args:
         user_id: User UUID
-        operation_type: One of "document", "draft", "chat"
+        operation_type: One of "document", "draft", "chat", "bib_import"
+        count: Number to increment by (default 1, use for bib_import batches)
     """
     if not supabase:
         raise Exception("Supabase client not configured")
@@ -175,18 +188,20 @@ async def increment_quota_usage(user_id: str, operation_type: str) -> None:
     field_map = {
         "document": "current_month_documents",
         "draft": "current_month_drafts",
-        "chat": "current_month_chat_messages"
+        "chat": "current_month_chat_messages",
+        "bib_import": "current_month_bib_refs",
     }
 
     field_name = field_map.get(operation_type)
     if not field_name:
         return
 
-    # Call database function for atomic increment
-    supabase.rpc('increment_quota_field', {
-        'user_id_param': user_id,
-        'field_name': field_name
-    }).execute()
+    # Call database function for atomic increment (once per count)
+    for _ in range(count):
+        supabase.rpc('increment_quota_field', {
+            'user_id_param': user_id,
+            'field_name': field_name
+        }).execute()
 
 
 async def track_openai_usage(
@@ -255,8 +270,9 @@ async def track_openai_usage(
 async def create_default_quota(user_id: str) -> None:
     """Create default free tier quota for user.
 
-    Free tier limits (beta-generous to reduce activation friction):
-    - 50 documents/month
+    Free tier limits:
+    - 10 PDFs/month
+    - 10 BibTeX refs/month (separate pool)
     - 10 draft analyses/month
     - 500 chat messages/month
     """
@@ -266,9 +282,11 @@ async def create_default_quota(user_id: str) -> None:
     supabase.table('user_quotas').insert({
         'user_id': user_id,
         'plan_tier': 'free',
-        'monthly_document_limit': 50,
-        'monthly_draft_limit': 10,
+        'monthly_document_limit': 10,
+        'monthly_draft_limit': 3,
         'monthly_chat_messages_limit': 500,
+        'monthly_bib_refs_limit': 10,
+        'current_month_bib_refs': 0,
     }).execute()
 
 
@@ -281,6 +299,36 @@ async def reset_quota(user_id: str) -> None:
     supabase.rpc('reset_quota_if_needed', {
         'user_id_param': user_id
     }).execute()
+
+
+async def get_quota_summary(user_id: str) -> Dict[str, Any]:
+    """
+    Get a concise quota summary for display in the upload modal.
+
+    Returns both PDF and BibTeX pools.
+    """
+    if not supabase:
+        raise Exception("Supabase client not configured")
+
+    response = supabase.table('user_quotas').select('*').eq('user_id', user_id).execute()
+
+    if not response.data:
+        await create_default_quota(user_id)
+        response = supabase.table('user_quotas').select('*').eq('user_id', user_id).execute()
+
+    quota = response.data[0]
+    return {
+        'pdfs': {
+            'used': quota.get('current_month_documents', 0),
+            'limit': quota.get('monthly_document_limit', 10),
+        },
+        'bib_refs': {
+            'used': quota.get('current_month_bib_refs', 0),
+            'limit': quota.get('monthly_bib_refs_limit', 10),
+        },
+        'plan_tier': quota.get('plan_tier', 'free'),
+        'reset_date': quota.get('quota_reset_date'),
+    }
 
 
 async def get_user_quota_info(user_id: str) -> Dict[str, Any]:
@@ -308,6 +356,11 @@ async def get_user_quota_info(user_id: str) -> Dict[str, Any]:
             'current': quota['current_month_documents'],
             'limit': quota['monthly_document_limit'],
             'remaining': quota['monthly_document_limit'] - quota['current_month_documents']
+        },
+        'bib_refs': {
+            'current': quota.get('current_month_bib_refs', 0),
+            'limit': quota.get('monthly_bib_refs_limit', 10),
+            'remaining': quota.get('monthly_bib_refs_limit', 10) - quota.get('current_month_bib_refs', 0),
         },
         'drafts': {
             'current': quota['current_month_drafts'],

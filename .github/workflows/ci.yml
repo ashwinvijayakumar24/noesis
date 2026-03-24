@@ -7,11 +7,13 @@ on:
     branches: [master, develop]
 
 jobs:
+  # ── Backend Tests ────────────────────────────────────────────────────────────
   backend:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: services/backend
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,19 +25,77 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run tests
-        run: python -m pytest tests/ -v --tb=short
+      - name: Install test extras
+        run: pip install pytest-cov pytest-asyncio
+
+      - name: Run tests with coverage
+        run: |
+          python -m pytest tests/ -v --tb=short \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=50
         env:
           ENVIRONMENT: test
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: services/backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+
+  # ── Security Scan ─────────────────────────────────────────────────────────────
+  security:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Audit Python dependencies
+        # Allow exit code 1 (vulnerabilities found) to not fail CI completely
+        # but surface the info in the job output
+        run: pip-audit -r requirements.txt --format=json --output=audit.json || true
+
+      - name: Show audit results
+        run: |
+          if [ -f audit.json ]; then
+            python3 -c "
+            import json, sys
+            with open('audit.json') as f:
+              data = json.load(f)
+            vulns = data.get('vulnerabilities', []) if isinstance(data, dict) else data
+            if vulns:
+              print(f'⚠ Found {len(vulns)} vulnerability/ies in Python dependencies')
+              for v in vulns[:5]:
+                print(f'  - {v.get(\"name\", \"\")} {v.get(\"version\", \"\")}: {v.get(\"description\", \"\")[:100]}')
+            else:
+              print('✓ No known vulnerabilities found')
+            "
+          fi
+
+  # ── Frontend Build + Tests ────────────────────────────────────────────────────
   frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: services/frontend
+
     steps:
       - uses: actions/checkout@v4
 
