@@ -182,9 +182,20 @@ export default function UnifiedFeedbackCard({
                     <span className="text-xs text-text-secondary">{suggestion}</span>
                   ) : (
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs text-text-primary font-medium leading-snug">
-                        {suggestion.title || suggestion.citation_string || 'Untitled'}
-                      </span>
+                      <div className="flex items-start gap-1.5 flex-wrap">
+                        <span className="text-xs text-text-primary font-medium leading-snug">
+                          {suggestion.title || suggestion.citation_string || 'Untitled'}
+                        </span>
+                        {suggestion.external && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                            suggestion.source === 'semantic_scholar'
+                              ? 'bg-indigo-500/15 text-indigo-400'
+                              : 'bg-teal-500/15 text-teal-400'
+                          }`}>
+                            {suggestion.source === 'semantic_scholar' ? 'Semantic Scholar' : 'OpenAlex'}
+                          </span>
+                        )}
+                      </div>
                       {(suggestion.authors || suggestion.year) && (
                         <span className="text-xs text-text-muted">
                           {suggestion.authors
@@ -194,14 +205,14 @@ export default function UnifiedFeedbackCard({
                           {suggestion.year}
                         </span>
                       )}
-                      {suggestion.open_access_url && (
+                      {(suggestion.open_access_url || suggestion.url) && (
                         <a
-                          href={suggestion.open_access_url}
+                          href={suggestion.open_access_url || suggestion.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-accent-primary hover:underline flex items-center gap-1 mt-0.5 w-fit"
                         >
-                          <span>View PDF</span>
+                          <span>{suggestion.open_access_url ? 'View PDF' : 'View paper'}</span>
                           <ArrowTopRightOnSquareIcon className="w-3 h-3" />
                         </a>
                       )}
