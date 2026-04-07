@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   DocumentTextIcon as _DocumentTextIcon,
-  ChatBubbleLeftRightIcon,
+  ChatBubbleLeftRightIcon as _ChatBubbleLeftRightIcon,
   LightBulbIcon,
   BeakerIcon,
   ArrowRightIcon,
@@ -11,7 +11,7 @@ import {
   UserIcon,
   AcademicCapIcon,
   CheckBadgeIcon,
-  DocumentArrowDownIcon,
+  DocumentArrowDownIcon as _DocumentArrowDownIcon,
   BookOpenIcon,
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
