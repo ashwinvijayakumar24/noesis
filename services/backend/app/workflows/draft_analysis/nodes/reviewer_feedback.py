@@ -68,6 +68,57 @@ Severity levels:
 """
 
 
+def _build_literature_context(search_results: list) -> str:
+    """
+    Build a retrieved-literature context string from literature search results.
+
+    Deduplicates papers by title (same paper may appear in multiple claim searches)
+    and caps at 5 papers to keep context focused.
+
+    Args:
+        search_results: List of {claim_id, results: [{document_title, content, ...}]}
+
+    Returns:
+        Formatted string listing retrieved papers, or "" if none.
+    """
+    if not search_results:
+        return ""
+
+    seen_titles: set = set()
+    papers: list = []
+
+    for result in search_results:
+        for paper in result.get("results", []):
+            title = paper.get("document_title") or paper.get("title") or ""
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                papers.append(paper)
+                if len(papers) >= 5:
+                    break
+        if len(papers) >= 5:
+            break
+
+    if not papers:
+        return ""
+
+    lines = ["RETRIEVED LITERATURE:"]
+    for paper in papers:
+        title = paper.get("document_title") or paper.get("title") or "Unknown"
+        authors = paper.get("authors", "")
+        year = paper.get("year", "")
+        content = (paper.get("content") or "")[:200]
+
+        line = f"- {title}"
+        if authors or year:
+            meta = ", ".join(filter(None, [authors, str(year) if year else ""]))
+            line += f" ({meta})"
+        if content:
+            line += f": {content}"
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
 def _build_per_claim_context(
     claims_with_citations: list,
     coverage_gaps: list,
@@ -224,9 +275,14 @@ def generate_reviewer_feedback_node(state: DraftAnalysisState) -> DraftAnalysisS
         structure = state.get("structure", {})
         claims_with_citations = state.get("claims_with_citations", [])
         gaps = state.get("coverage_gaps", [])
+        literature_search_results = state.get("literature_search_results", [])
 
         # B1: Build per-claim context instead of aggregate counts
         per_claim_context = _build_per_claim_context(claims_with_citations, gaps, structure)
+
+        # Also build a retrieved-literature context from raw search results
+        # (used when claims_with_citations is empty, e.g. no documents uploaded)
+        literature_context = _build_literature_context(literature_search_results)
 
         if per_claim_context:
             logger.info(
@@ -268,6 +324,10 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
 - Weak/no support: {quality_counts['weak'] + quality_counts['none']} claims
 - Total claims: {len(claims)}
 """
+
+        # Append retrieved literature context when available
+        if literature_context:
+            context += f"\n{literature_context}\n"
 
         # Add top coverage gaps for additional context
         critical_gaps = [g for g in gaps if g.get('severity') == 'critical']

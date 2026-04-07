@@ -6,6 +6,7 @@ without making real API calls or database writes.
 """
 
 import pytest
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
@@ -253,7 +254,7 @@ class TestLiteratureSearchNode:
             "claims": [],  # No claims
         }
 
-        result = literature_search_node(state)
+        result = asyncio.run(literature_search_node(state))
 
         assert result["literature_search_results"] == []
         assert "No Claims" in result["current_step"]
