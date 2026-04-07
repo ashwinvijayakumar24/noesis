@@ -17,6 +17,7 @@ from app.workflows.draft_analysis.nodes.claim_categorization import categorize_c
 from app.workflows.draft_analysis.nodes.literature_search import literature_search_node
 from app.workflows.draft_analysis.nodes.citation_mapping import citation_mapping_node
 from app.workflows.draft_analysis.nodes.gap_detection import detect_gaps_node
+from app.workflows.draft_analysis.nodes.structural_checks import structural_checks_node
 from app.workflows.draft_analysis.nodes.reviewer_feedback import generate_reviewer_feedback_node
 from app.workflows.draft_analysis.nodes.report_synthesis import synthesize_report_node
 
@@ -61,7 +62,7 @@ async def _literature_search_node_with_progress(state: DraftAnalysisState) -> Dr
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "search_literature_start", 37, "Searching literature...")
-    result = literature_search_node(state)
+    result = await literature_search_node(state)
     if draft_id:
         await publish_progress(draft_id, "search_literature", 50, "Literature search complete")
     return result
@@ -71,7 +72,7 @@ async def _citation_mapping_node_with_progress(state: DraftAnalysisState) -> Dra
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "map_citations_start", 52, "Mapping citations to claims...")
-    result = citation_mapping_node(state)
+    result = await citation_mapping_node(state)
     if draft_id:
         await publish_progress(draft_id, "map_citations", 65, "Citations mapped")
     return result
@@ -87,10 +88,20 @@ async def _detect_gaps_node_with_progress(state: DraftAnalysisState) -> DraftAna
     return result
 
 
+async def _structural_checks_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "structural_checks_start", 76, "Running structural checks...")
+    result = await structural_checks_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "structural_checks", 78, "Structural checks complete")
+    return result
+
+
 async def _generate_feedback_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
     draft_id = state.get("draft_id")
     if draft_id:
-        await publish_progress(draft_id, "generate_feedback_start", 77, "Generating reviewer feedback...")
+        await publish_progress(draft_id, "generate_feedback_start", 79, "Generating reviewer feedback...")
     result = generate_reviewer_feedback_node(state)
     if draft_id:
         await publish_progress(draft_id, "generate_feedback", 88, "Reviewer feedback generated")
@@ -205,6 +216,7 @@ def create_draft_analysis_workflow() -> StateGraph:
     workflow.add_node("search_literature", _literature_search_node_with_progress)
     workflow.add_node("map_citations", _citation_mapping_node_with_progress)
     workflow.add_node("detect_gaps", _detect_gaps_node_with_progress)
+    workflow.add_node("structural_checks", _structural_checks_node_with_progress)
     workflow.add_node("generate_feedback", _generate_feedback_node_with_progress)
     workflow.add_node("synthesize_report", _synthesize_report_node_with_progress)
 
@@ -241,9 +253,10 @@ def create_draft_analysis_workflow() -> StateGraph:
         }
     )
 
-    # Continue with citation mapping → gap detection → feedback → synthesis
+    # Continue with citation mapping → gap detection → structural checks → feedback → synthesis
     workflow.add_edge("map_citations", "detect_gaps")
-    workflow.add_edge("detect_gaps", "generate_feedback")
+    workflow.add_edge("detect_gaps", "structural_checks")
+    workflow.add_edge("structural_checks", "generate_feedback")
     workflow.add_edge("generate_feedback", "synthesize_report")
 
     # End after synthesis
@@ -335,8 +348,11 @@ async def run_draft_analysis_workflow(
         final_state = await workflow.ainvoke(initial_state)
         logger.info(f"[Workflow] Workflow invocation completed!")
 
-        # Publish 100% completion event so WebSocket subscribers know we're done
-        await publish_progress(draft_id, "complete", 100, "Analysis complete")
+        # Publish 98% — workflow done, post-processing (DB writes, scoring) still in progress.
+        # The final 100% "complete" event is published by analyze_draft_with_langgraph()
+        # AFTER draft.status='analyzed' is written to the DB, so the frontend re-fetch
+        # immediately finds the draft ready to open.
+        await publish_progress(draft_id, "workflow_complete", 98, "Finalizing analysis...")
 
         # Save final checkpoint
         if checkpoint_enabled:

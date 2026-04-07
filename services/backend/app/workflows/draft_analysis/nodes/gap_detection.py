@@ -85,9 +85,16 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             claim_gaps = claim_citation.get('gaps', [])
 
             if quality == 'none':
+                # B3: Specific description with section, claim fragment, and gap detail
+                claim_text_short = claim['claim_text'][:80]
+                section = claim.get('section_location', 'Unknown section')
+                gap_detail = claim_gaps[0] if claim_gaps else 'no matching evidence in library or online'
                 gap: Gap = {
                     'gap_type': 'missing_evidence',
-                    'description': f"No supporting literature found for: {claim['claim_text'][:100]}...",
+                    'description': (
+                        f"Claim in {section}: '{claim_text_short}...' — "
+                        f"no supporting citations found. {gap_detail}."
+                    ),
                     'severity': 'critical' if claim['importance_score'] >= 0.7 else 'major',
                     'affected_claims': [claim['id']]
                 }
@@ -95,9 +102,15 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
             # 2. Detect weak support gaps
             elif quality == 'weak':
+                claim_text_short = claim['claim_text'][:80]
+                section = claim.get('section_location', 'Unknown section')
+                gap_detail = claim_gaps[0] if claim_gaps else 'current support is insufficient'
                 gap: Gap = {
                     'gap_type': 'weak_support',
-                    'description': f"Only weak citations for: {claim['claim_text'][:100]}...",
+                    'description': (
+                        f"Claim in {section}: '{claim_text_short}...' — "
+                        f"only weak citation support found. {gap_detail}."
+                    ),
                     'severity': 'major' if claim['importance_score'] >= 0.7 else 'minor',
                     'affected_claims': [claim['id']]
                 }

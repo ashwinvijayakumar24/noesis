@@ -135,7 +135,7 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
                 {"role": "system", "content": CLAIM_EXTRACTION_PROMPT},
                 {"role": "user", "content": f"Extract claims from this draft:\n\n{draft_content}"}
             ],
-            max_completion_tokens=4000,
+            max_completion_tokens=8000,
             **get_completion_params()  # Enable zero data retention
         )
 

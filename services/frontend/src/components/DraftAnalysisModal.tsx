@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { handleError } from '../lib/errorHandler'
 import DocumentViewer from './DocumentViewer'
 import CitationSuggestionSidebar from './CitationSuggestionSidebar'
+import TopActionItems from './draft-analysis/TopActionItems'
 import { Badge, type BadgeVariant } from './ui/Badge'
 import { Button } from './ui/Button'
 import toast from 'react-hot-toast'
@@ -97,6 +98,9 @@ export default function DraftAnalysisModal({
   const [claims, setClaims] = useState<Claim[]>([])
   const [gaps, setGaps] = useState<Gap[]>([])
   const [feedback, setFeedback] = useState<Feedback[]>([])
+  const [readinessScore, setReadinessScore] = useState<number | null>(null)
+  const [verdict, setVerdict] = useState<string | null>(null)
+  const [actionItems, setActionItems] = useState<string[]>([])
   const [generatingSuggestions, setGeneratingSuggestions] = useState<string | null>(null)
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null)
   const [feedbackReactions, setFeedbackReactions] = useState<Record<string, 'helpful' | 'dispute'>>({})
@@ -158,16 +162,13 @@ export default function DraftAnalysisModal({
     try {
       setLoading(true)
 
-      // Load all analysis results in parallel
-      const [claimsData, gapsData, feedbackData] = await Promise.all([
+      // Load all analysis results in parallel (including analysis metadata)
+      const [claimsData, gapsData, feedbackData, analysisData] = await Promise.all([
         api.drafts.getClaims(token, draftId).catch(() => ({ claims: [] })),
         api.drafts.getGaps(token, draftId).catch(() => ({ gaps: [] })),
         api.drafts.getFeedback(token, draftId).catch(() => ({ feedback: [] })),
+        api.drafts.getAnalysis(token, draftId).catch(() => null),
       ])
-
-      console.log('[DRAFT-ANALYSIS] Claims data received:', claimsData)
-      console.log('[DRAFT-ANALYSIS] Number of claims:', claimsData.claims?.length || 0)
-      console.log('[DRAFT-ANALYSIS] Sample claim:', claimsData.claims?.[0])
 
       const normalizedClaims = (claimsData.claims || []).map((claim: any) => ({
         ...claim,
@@ -182,6 +183,13 @@ export default function DraftAnalysisModal({
       setClaims(normalizedClaims)
       setGaps(gapsData.gaps || [])
       setFeedback(feedbackData.feedback || [])
+
+      // Wire readiness score + action items from analysis metadata
+      if (analysisData) {
+        if (analysisData.readiness_score != null) setReadinessScore(analysisData.readiness_score)
+        if (analysisData.verdict) setVerdict(analysisData.verdict)
+        if (Array.isArray(analysisData.action_items)) setActionItems(analysisData.action_items)
+      }
     } catch (error: any) {
       handleError(error, 'loading analysis results')
     } finally {
@@ -446,6 +454,29 @@ export default function DraftAnalysisModal({
                       </Tab.List>
 
                       <Tab.Panels className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
+
+                        {/* Readiness Score Card — shown above all tabs */}
+                        {readinessScore != null && (
+                          <div className="mb-4 bg-bg-void border border-border-default rounded-xl p-4 flex items-center gap-4">
+                            {/* Score ring */}
+                            <div className="shrink-0 flex flex-col items-center">
+                              <span className={`text-3xl font-semibold leading-none ${
+                                readinessScore >= 85 ? 'text-success' :
+                                readinessScore >= 70 ? 'text-warning' :
+                                readinessScore >= 50 ? 'text-accent-primary' : 'text-error'
+                              }`}>{readinessScore}</span>
+                              <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider mt-0.5">/100</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-text-primary">{verdict}</p>
+                              <p className="text-xs text-text-muted mt-0.5">Submission readiness score</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Top Action Items — shown above all tabs */}
+                        <TopActionItems actions={actionItems} />
+
                         {/* Feedback Panel */}
                         <Tab.Panel>
                           {feedback.length === 0 ? (
@@ -480,6 +511,9 @@ export default function DraftAnalysisModal({
                                           <Badge variant={getSeverityVariant(item.severity)}>
                                             {item.severity.toUpperCase()}
                                           </Badge>
+                                          {item.feedback_type === 'structural' && (
+                                            <Badge variant="info">STRUCTURAL</Badge>
+                                          )}
                                         </div>
                                         <p className="text-sm text-text-secondary mb-3">{item.feedback_text}</p>
                                         {item.suggestions && item.suggestions.length > 0 && (
@@ -594,15 +628,28 @@ export default function DraftAnalysisModal({
                                     {gap.suggested_papers && gap.suggested_papers.length > 0 && (
                                       <div className="mt-3 border-t border-border-default pt-3">
                                         <p className="text-xs font-medium text-text-tertiary mb-2 font-mono">
-                                          Suggested papers from your literature:
+                                          Suggested:
                                         </p>
                                         <ul className="space-y-1">
-                                          {gap.suggested_papers.slice(0, 3).map((paper, idx) => (
-                                            <li key={idx} className="text-sm text-text-tertiary flex gap-2">
-                                              <span className="text-text-muted">•</span>
-                                              <span>{paper.title} ({paper.year})</span>
-                                            </li>
-                                          ))}
+                                          {gap.suggested_papers.slice(0, 3).map((paper: any, idx: number) => {
+                                            // Format as "Author et al. (Year)" citation style
+                                            const authors: string[] = paper.authors || []
+                                            const year = paper.year || paper.publication_year || ''
+                                            let authorDisplay = ''
+                                            if (authors.length > 0) {
+                                              const lastName = (authors[0].includes(',') ? authors[0].split(',')[0] : authors[0]).trim()
+                                              authorDisplay = authors.length > 1 ? `${lastName} et al.` : lastName
+                                            }
+                                            const citation = authorDisplay && year
+                                              ? `${authorDisplay} (${year})`
+                                              : authorDisplay || paper.title || 'Unknown'
+                                            return (
+                                              <li key={idx} className="text-sm text-text-tertiary flex gap-2">
+                                                <span className="text-text-muted">•</span>
+                                                <span className="font-mono text-xs">{citation}</span>
+                                              </li>
+                                            )
+                                          })}
                                         </ul>
                                       </div>
                                     )}
@@ -743,24 +790,37 @@ export default function DraftAnalysisModal({
                                         </Button>
                                       </div>
                                     ) : requiresCitation ? (
-                                      <div className="flex items-center justify-between gap-2 mt-2">
-                                        <Badge variant="error">
-                                          MISSING CITATIONS
-                                        </Badge>
-                                        <Button
-                                          variant="primary"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleFindSuggestions(claim)
-                                          }}
-                                          disabled={generatingSuggestions === claim.id}
-                                          className="shadow-lg"
-                                          style={{ minWidth: '160px' }}
-                                        >
-                                          <MagnifyingGlassIcon className="h-4 w-4" />
-                                          {generatingSuggestions === claim.id ? 'Finding...' : 'Find Suggestions'}
-                                        </Button>
+                                      <div className="flex flex-col gap-2 mt-2">
+                                        {/* Citation display chip — "Author et al. (Year) · X% match" */}
+                                        {(() => {
+                                          const topLit = Array.isArray((claim as any).supporting_literature)
+                                            ? (claim as any).supporting_literature[0]
+                                            : null
+                                          return topLit?.display ? (
+                                            <span className="inline-flex items-center gap-1 text-xs font-mono text-teal-400 bg-teal-400/10 border border-teal-400/20 rounded px-2 py-0.5 w-fit">
+                                              {topLit.display}
+                                            </span>
+                                          ) : null
+                                        })()}
+                                        <div className="flex items-center justify-between gap-2">
+                                          <Badge variant="error">
+                                            MISSING CITATIONS
+                                          </Badge>
+                                          <Button
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleFindSuggestions(claim)
+                                            }}
+                                            disabled={generatingSuggestions === claim.id}
+                                            className="shadow-lg"
+                                            style={{ minWidth: '160px' }}
+                                          >
+                                            <MagnifyingGlassIcon className="h-4 w-4" />
+                                            {generatingSuggestions === claim.id ? 'Finding...' : 'Find Suggestions'}
+                                          </Button>
+                                        </div>
                                       </div>
                                     ) : (
                                       <Badge variant="neutral" className="mt-2">

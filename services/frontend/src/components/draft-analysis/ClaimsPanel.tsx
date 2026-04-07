@@ -2,6 +2,13 @@ import { DocumentTextIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 
+interface SupportingLitEntry {
+  document_id?: string
+  document_title?: string
+  similarity?: number
+  display?: string  // "Author et al. (Year) · X% match"
+}
+
 interface Claim {
   id: string
   claim_text: string
@@ -10,6 +17,7 @@ interface Claim {
   importance_score: number
   requires_citation: boolean
   existing_citations: string[]
+  supporting_literature?: SupportingLitEntry[]
 }
 
 interface ClaimsPanelProps {
@@ -103,9 +111,16 @@ export default function ClaimsPanel({
                     <span className="font-mono">{claim.existing_citations.join(', ')}</span>
                   </div>
                 ) : requiresCitation ? (
-                  <Badge variant="error" className="mt-2">
-                    MISSING CITATIONS
-                  </Badge>
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    {claim.supporting_literature?.[0]?.display && (
+                      <span className="inline-flex items-center gap-1 text-xs font-mono text-teal-400 bg-teal-400/10 border border-teal-400/20 rounded px-2 py-0.5 w-fit">
+                        {claim.supporting_literature[0].display}
+                      </span>
+                    )}
+                    <Badge variant="error">
+                      MISSING CITATIONS
+                    </Badge>
+                  </div>
                 ) : (
                   <Badge variant="neutral" className="mt-2">
                     ORIGINAL CONTRIBUTION

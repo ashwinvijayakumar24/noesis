@@ -131,7 +131,7 @@ async def check_quota(user_id: str, operation_type: str) -> bool:
 
     elif operation_type == "bib_import":
         current = quota.get('current_month_bib_refs', 0)
-        limit = quota.get('monthly_bib_refs_limit', 10)
+        limit = quota.get('monthly_bib_refs_limit', 100)
 
         if current >= limit:
             raise QuotaExceededError(
@@ -271,9 +271,9 @@ async def create_default_quota(user_id: str) -> None:
     """Create default free tier quota for user.
 
     Free tier limits:
-    - 10 PDFs/month
-    - 10 BibTeX refs/month (separate pool)
-    - 10 draft analyses/month
+    - 30 PDFs/month
+    - 100 BibTeX refs/month (separate pool)
+    - 5 draft analyses/month
     - 500 chat messages/month
     """
     if not supabase:
@@ -282,10 +282,10 @@ async def create_default_quota(user_id: str) -> None:
     supabase.table('user_quotas').insert({
         'user_id': user_id,
         'plan_tier': 'free',
-        'monthly_document_limit': 10,
-        'monthly_draft_limit': 3,
+        'monthly_document_limit': 30,
+        'monthly_draft_limit': 5,
         'monthly_chat_messages_limit': 500,
-        'monthly_bib_refs_limit': 10,
+        'monthly_bib_refs_limit': 100,
         'current_month_bib_refs': 0,
     }).execute()
 
@@ -320,11 +320,11 @@ async def get_quota_summary(user_id: str) -> Dict[str, Any]:
     return {
         'pdfs': {
             'used': quota.get('current_month_documents', 0),
-            'limit': quota.get('monthly_document_limit', 10),
+            'limit': quota.get('monthly_document_limit', 30),
         },
         'bib_refs': {
             'used': quota.get('current_month_bib_refs', 0),
-            'limit': quota.get('monthly_bib_refs_limit', 10),
+            'limit': quota.get('monthly_bib_refs_limit', 100),
         },
         'plan_tier': quota.get('plan_tier', 'free'),
         'reset_date': quota.get('quota_reset_date'),
@@ -359,8 +359,8 @@ async def get_user_quota_info(user_id: str) -> Dict[str, Any]:
         },
         'bib_refs': {
             'current': quota.get('current_month_bib_refs', 0),
-            'limit': quota.get('monthly_bib_refs_limit', 10),
-            'remaining': quota.get('monthly_bib_refs_limit', 10) - quota.get('current_month_bib_refs', 0),
+            'limit': quota.get('monthly_bib_refs_limit', 100),
+            'remaining': quota.get('monthly_bib_refs_limit', 100) - quota.get('current_month_bib_refs', 0),
         },
         'drafts': {
             'current': quota['current_month_drafts'],

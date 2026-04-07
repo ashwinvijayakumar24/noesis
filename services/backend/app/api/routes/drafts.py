@@ -957,15 +957,20 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
         # Fetch analysis if it exists
         analysis_response = supabase.table("draft_analysis").select("*").eq("draft_id", draft_id).execute()
 
-        if status == "analyzed" and analysis_response.data:
+        if status in ("analyzed", "failed") and analysis_response.data:
             analysis_data = analysis_response.data[0]
             analysis_metadata = analysis_data.get("analysis_metadata") or {}
             return {
-                "status": "analyzed",
+                "status": status,
                 "draft_id": draft_id,
                 "draft_title": draft.get("title"),
                 "analysis": analysis_data,
-                "priority_actions": analysis_metadata.get("priority_actions", [])
+                "priority_actions": analysis_metadata.get("priority_actions", []),
+                # Enriched output fields
+                "readiness_score": analysis_metadata.get("readiness_score"),
+                "verdict": analysis_metadata.get("verdict"),
+                "score_breakdown": analysis_metadata.get("score_breakdown", {}),
+                "action_items": analysis_metadata.get("action_items", []),
             }
         elif status == "processing":
             return {
@@ -1410,8 +1415,9 @@ async def get_section_summary(
             .eq("draft_id", draft_id)\
             .execute()
 
+        # A2: Fetch feedback_type to exclude strengths from actionable badge count
         feedback_res = supabase.table("reviewer_feedback")\
-            .select("section_type, status")\
+            .select("section_type, status, feedback_type")\
             .eq("draft_id", draft_id)\
             .execute()
 
@@ -1419,7 +1425,16 @@ async def get_section_summary(
         from collections import defaultdict
         counts: dict = defaultdict(lambda: {"new": 0, "saved": 0, "dismissed": 0})
 
-        for row in (claims_res.data or []) + (gaps_res.data or []) + (feedback_res.data or []):
+        for row in (claims_res.data or []) + (gaps_res.data or []):
+            section = row.get("section_type") or "introduction"
+            status = row.get("status") or "new"
+            if status in ("new", "saved", "dismissed"):
+                counts[section][status] += 1
+
+        # A2: Strengths are shown in a read-only accordion — exclude from badge count
+        for row in (feedback_res.data or []):
+            if row.get("feedback_type") == "strength":
+                continue  # strengths don't count toward actionable badge
             section = row.get("section_type") or "introduction"
             status = row.get("status") or "new"
             if status in ("new", "saved", "dismissed"):
@@ -1627,7 +1642,7 @@ async def draft_analysis_stream(
         logger.warning(f"WebSocket error for draft {draft_id}: {e}")
     finally:
         await pubsub.unsubscribe(f"progress:{draft_id}")
-        await r.aclose()
+        await r.close()
         try:
             await websocket.close()
         except Exception:

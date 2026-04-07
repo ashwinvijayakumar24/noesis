@@ -252,7 +252,8 @@ def extract_claims_from_section(
 def extract_claims_from_draft(
     draft_text: str,
     structure: Dict[str, Any],
-    model: str = "gpt-5.2-chat-latest"
+    model: str = "gpt-5.2-chat-latest",
+    sections_with_content: Optional[List[Dict[str, Any]]] = None
 ) -> List[Dict[str, Any]]:
     """
     Extract claims from entire draft using document structure.
@@ -282,6 +283,15 @@ def extract_claims_from_draft(
         all_claims.extend(claims)
         return all_claims
 
+    # Build content lookup from sections_with_content (GROBID sections have full text)
+    content_by_title: Dict[str, str] = {}
+    if sections_with_content:
+        for s in sections_with_content:
+            title = s.get("title", "")
+            content = s.get("content", "")
+            if title and content:
+                content_by_title[title] = content
+
     # Process each section
     for section in sections:
         section_title = section.get("title", "Unknown Section")
@@ -291,9 +301,8 @@ def extract_claims_from_draft(
         if section_type == "abstract":
             continue
 
-        # Extract section text (simple approach: split by section titles)
-        # In production, would use more sophisticated section extraction
-        section_text = draft_text  # Simplified - would extract specific section
+        # Use actual section content when available; fall back to full draft text
+        section_text = content_by_title.get(section_title) or draft_text
 
         try:
             claims = extract_claims_from_section(section_text, section_title, model)
@@ -564,7 +573,7 @@ async def analyze_draft_claims(draft_id: str) -> Dict[str, Any]:
 
         # 2. Extract claims
         logger.info("Extracting claims from draft")
-        claims = extract_claims_from_draft(draft_text, structure, model="gpt-5.2-chat-latest")
+        claims = extract_claims_from_draft(draft_text, structure, model="gpt-5.2-chat-latest", sections_with_content=sections)
 
         # 3. Map citations to claims with sections for location tracking
         logger.info("Mapping citations to claims with section-based location tracking")

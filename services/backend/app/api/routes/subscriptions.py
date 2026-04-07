@@ -81,7 +81,7 @@ async def create_checkout(
     For Team plans:
     - Minimum 3 seats required
     - Users can adjust quantity at checkout (3-100 seats)
-    - Priced at $20/user/month
+    - Priced at $30/user/month
     """
     try:
         if not user_id:

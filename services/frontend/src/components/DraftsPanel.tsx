@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DocumentTextIcon, TrashIcon, CalendarIcon, ArrowsRightLeftIcon, ClockIcon, ExclamationTriangleIcon, XMarkIcon, UserGroupIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
@@ -11,9 +11,20 @@ import RecurringPatterns from './draft-analysis/RecurringPatterns'
 import VersionProgressCard from './draft-analysis/VersionProgressCard'
 import { useAnalysisStream } from '../hooks/useAnalysisStream'
 
-function DraftProgressBar({ draftId }: { draftId: string; token: string }) {
+function DraftProgressBar({ draftId, onComplete }: { draftId: string; token: string; onComplete?: () => void }) {
   const stream = useAnalysisStream(draftId, true)
   const pct = Math.max(stream.progress, 5) // show at least 5% so bar is visible
+  const firedRef = useRef(false)
+
+  // When WebSocket fires 100%, notify parent to re-fetch draft status from DB.
+  // Because 100% is published AFTER status='analyzed' is written, the re-fetch
+  // will find the draft ready to open.
+  useEffect(() => {
+    if (stream.complete && !firedRef.current && onComplete) {
+      firedRef.current = true
+      onComplete()
+    }
+  }, [stream.complete, onComplete])
 
   return (
     <div className="mt-3 px-1">
@@ -103,6 +114,13 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     }
   }
 
+  // Silent reload — does not trigger loading spinner, used for polling and onComplete callbacks
+  const silentReloadDrafts = () => {
+    api.drafts.list(token, projectId).then(data => {
+      setDrafts(data.drafts || [])
+    }).catch(err => console.error('[DRAFTS-PANEL] Silent reload error:', err))
+  }
+
   useEffect(() => {
     loadDrafts()
   }, [token, projectId, refreshTrigger])
@@ -162,12 +180,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
 
     const pollInterval = setInterval(() => {
       console.log('[DRAFTS-PANEL] Polling for status updates...')
-      // Silent reload - update state without triggering loading state
-      api.drafts.list(token, projectId).then(data => {
-        setDrafts(data.drafts || [])
-      }).catch(error => {
-        console.error('[DRAFTS-PANEL] Polling error:', error)
-      })
+      silentReloadDrafts()
     }, 5000) // Poll every 5 seconds
 
     return () => {
@@ -411,7 +424,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
 
               {/* Progress bar — only shown while processing */}
               {draft.status === 'processing' && (
-                <DraftProgressBar draftId={draft.id} token={token} />
+                <DraftProgressBar draftId={draft.id} token={token} onComplete={silentReloadDrafts} />
               )}
             </div>
           )

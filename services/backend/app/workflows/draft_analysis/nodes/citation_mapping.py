@@ -3,6 +3,9 @@ Citation Mapping Node
 
 Maps found literature to specific claims and assesses citation quality.
 Uses parallel processing for significant speedup (30-60s → 5-10s).
+
+B2: After citation quality assessment, discovers papers (library + Semantic Scholar)
+for top weak/none claims and stores them as suggested_citations.
 """
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, ClaimWithCitation
@@ -59,7 +62,7 @@ async def assess_citation_quality(
     literature_results: list
 ) -> dict:
     """
-    Assess the quality of citations for a claim using GPT-4o.
+    Assess the quality of citations for a claim using GPT.
 
     Args:
         claim: The claim dictionary
@@ -69,7 +72,6 @@ async def assess_citation_quality(
         Citation quality assessment
     """
     try:
-        # Prepare context for GPT
         context = f"""
 Claim: {claim['claim_text']}
 Claim Type: {claim['claim_type']}
@@ -84,7 +86,6 @@ Found Literature:
    Similarity: {result.get('similarity', 'N/A')}
 """
 
-        # Note: Removing temperature to use model defaults
         response = client.chat.completions.create(
             model="gpt-5.2-chat-latest",
             messages=[
@@ -92,7 +93,7 @@ Found Literature:
                 {"role": "user", "content": context}
             ],
             max_completion_tokens=800,
-            **get_completion_params()  # Enable zero data retention
+            **get_completion_params()
         )
 
         return json.loads(response.choices[0].message.content)
@@ -113,37 +114,129 @@ async def _process_single_claim_citation(search_result: dict) -> ClaimWithCitati
     results = search_result.get('results', [])
 
     if not results:
-        # No citations found for this claim - important gap!
         return {
             'claim': claim,
             'citations': [],
             'citation_quality': 'none',
-            'gaps': ['No supporting literature found in your library']
+            'gaps': ['No supporting literature found in your library'],
+            'suggested_citations': []
         }
 
-    # Assess citation quality using AI
     quality_assessment = await assess_citation_quality(claim, results)
 
     return {
         'claim': claim,
         'citations': results,
         'citation_quality': quality_assessment.get('overall_quality', 'unknown'),
-        'gaps': quality_assessment.get('gaps', [])
+        'gaps': quality_assessment.get('gaps', []),
+        'suggested_citations': []
     }
 
 
-def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState:
+def _format_paper_chip(p: dict, source_label: str) -> dict:
+    """Convert a paper dict to citation chip format."""
+    _bad_year = {"Unknown", "unknown", "n.d.", "", None}
+    authors = p.get("authors", [])
+    year = p.get("year")
+
+    first_author = ""
+    if authors:
+        a = str(authors[0])
+        first_author = (a.split(",")[0] if "," in a else a).strip()
+
+    year_clean = str(year) if year and str(year) not in _bad_year else None
+    title_str = (p.get("title") or "")[:50]
+
+    if first_author:
+        author_str = f"{first_author} et al." if len(authors) > 1 else first_author
+        display = f"{author_str} ({year_clean}) · {source_label}" if year_clean else f"{author_str} · {source_label}"
+    else:
+        display = f"{title_str} · {source_label}" if title_str else f"[Untitled] · {source_label}"
+
+    return {
+        "title": p.get("title", ""),
+        "authors": authors,
+        "year": year,
+        "display": display,
+        "url": p.get("url") or p.get("pdf_url") or p.get("open_access_url"),
+    }
+
+
+async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
+    """
+    B2: Discover papers from project library and Semantic Scholar for a weak/unsupported claim.
+
+    Flow:
+    1. Check shared_papers global DB (semantic search — no external API call)
+    2. Fall back to suggest_papers_for_gaps() (library + Semantic Scholar)
+    3. Store any new external results back into shared_papers for future reuse
+
+    Args:
+        claim_text: The claim text to search for
+        project_id: Project ID for library search
+
+    Returns:
+        List of suggested_citation dicts with display, source, title, authors, year
+    """
+    try:
+        # 1. Check shared_papers global cache first
+        from app.services.shared_paper_cache import find_similar_papers, store_paper
+        cached = await find_similar_papers(claim_text, limit=3, similarity_threshold=0.55)
+        if cached:
+            logger.info(f"[Citation Mapping] Using shared_papers cache ({len(cached)} hits) for claim")
+            return [
+                {**_format_paper_chip(p, "Global library"), "source": "global_library"}
+                for p in cached
+            ]
+
+        # 2. External fallback via project library + Semantic Scholar
+        from app.services.coverage_analysis import suggest_papers_for_gaps
+        mock_gap = {"description": claim_text, "suggested_papers": []}
+        enriched = await suggest_papers_for_gaps([mock_gap], project_id, max_suggestions_per_gap=3)
+        papers = enriched[0].get("suggested_papers", []) if enriched else []
+
+        result = []
+        for p in papers[:3]:
+            source = "library" if p.get("document_id") else "semantic_scholar"
+            source_label = "In your library" if source == "library" else "Semantic Scholar"
+            chip = _format_paper_chip(p, source_label)
+            chip["source"] = source
+            chip["document_id"] = p.get("document_id")
+            result.append(chip)
+
+        # 3. Store external (non-library) results in shared_papers (fire-and-forget)
+        for p in papers:
+            if not p.get("document_id") and (p.get("title") or p.get("doi") or p.get("arxiv_id")):
+                asyncio.create_task(store_paper({
+                    "title": p.get("title", ""),
+                    "authors": p.get("authors", []),
+                    "year": p.get("year"),
+                    "abstract": p.get("abstract", ""),
+                    "arxiv_id": p.get("arxiv_id"),
+                    "doi": p.get("doi"),
+                    "pdf_url": p.get("url") or p.get("open_access_url"),
+                    "source": p.get("source", "semantic_scholar"),
+                }))
+
+        return result
+
+    except Exception as e:
+        logger.warning(f"[Citation Mapping] Paper discovery failed for claim: {e}")
+        return []
+
+
+async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState:
     """
     Map literature to claims and assess citation quality.
 
-    This node uses PARALLEL processing to assess all claims simultaneously,
-    providing ~5-10x speedup compared to sequential processing.
+    Phase 1: Parallel citation quality assessment for all claims.
+    Phase 2 (B2): Discover papers for top weak/none high-importance claims.
 
     Args:
         state: Current workflow state
 
     Returns:
-        Updated state with citation mappings and quality assessments
+        Updated state with citation mappings, quality assessments, and suggested_citations
     """
     logger.info(f"[Citation Mapping] Starting for draft_id={state['draft_id']}")
 
@@ -158,33 +251,27 @@ def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState:
         }
 
     try:
-        logger.info(f"[Citation Mapping] Starting PARALLEL assessment of {len(search_results)} claims...")
+        # ── Phase 1: Parallel citation quality assessment ──
+        logger.info(f"[Citation Mapping] Phase 1: PARALLEL assessment of {len(search_results)} claims...")
 
-        # Create async tasks for all claims
-        async def run_parallel_assessments():
-            tasks = [_process_single_claim_citation(sr) for sr in search_results]
-            return await asyncio.gather(*tasks, return_exceptions=True)
+        tasks = [_process_single_claim_citation(sr) for sr in search_results]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Run all assessments in parallel
-        results = asyncio.run(run_parallel_assessments())
-
-        # Process results
         claims_with_citations: list[ClaimWithCitation] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.warning(f"[Citation Mapping] Assessment {i} failed: {result}")
-                # Create fallback entry for failed assessment
                 claim = search_results[i]['claim']
                 claims_with_citations.append({
                     'claim': claim,
                     'citations': search_results[i].get('results', []),
                     'citation_quality': 'unknown',
-                    'gaps': [f'Assessment failed: {str(result)}']
+                    'gaps': [f'Assessment failed: {str(result)}'],
+                    'suggested_citations': []
                 })
             else:
                 claims_with_citations.append(result)
 
-        # Count quality distribution
         quality_counts = {
             'strong': sum(1 for c in claims_with_citations if c.get('citation_quality') == 'strong'),
             'moderate': sum(1 for c in claims_with_citations if c.get('citation_quality') == 'moderate'),
@@ -193,12 +280,54 @@ def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState:
         }
 
         logger.info(
-            f"[Citation Mapping] Mapped {len(claims_with_citations)} claims (PARALLEL): "
-            f"strong={quality_counts['strong']}, "
-            f"moderate={quality_counts['moderate']}, "
-            f"weak={quality_counts['weak']}, "
-            f"none={quality_counts['none']}"
+            f"[Citation Mapping] Phase 1 complete: "
+            f"strong={quality_counts['strong']}, moderate={quality_counts['moderate']}, "
+            f"weak={quality_counts['weak']}, none={quality_counts['none']}"
         )
+
+        # ── Phase 2 (B2): Discover papers for top weak/none high-importance claims ──
+        project_id = state.get("project_id", "")
+        if project_id:
+            # Select top 5 weak/none claims by importance score
+            discovery_candidates = [
+                cwc for cwc in claims_with_citations
+                if cwc.get('citation_quality') in ['none', 'weak']
+                and cwc.get('claim', {}).get('importance_score', 0) >= 0.6
+            ]
+            discovery_candidates.sort(
+                key=lambda c: c.get('claim', {}).get('importance_score', 0),
+                reverse=True
+            )
+            top_candidates = discovery_candidates[:5]
+
+            if top_candidates:
+                logger.info(
+                    f"[Citation Mapping] Phase 2: Discovering papers for "
+                    f"{len(top_candidates)} weak/none high-importance claims..."
+                )
+
+                try:
+                    disc_tasks = [
+                        _discover_papers_for_claim(
+                            cwc['claim']['claim_text'],
+                            project_id
+                        )
+                        for cwc in top_candidates
+                    ]
+                    discovery_results = await asyncio.gather(*disc_tasks, return_exceptions=True)
+                    discovered_count = 0
+                    for cwc, disc_result in zip(top_candidates, discovery_results):
+                        if not isinstance(disc_result, Exception) and disc_result:
+                            cwc['suggested_citations'] = disc_result
+                            discovered_count += 1
+                    logger.info(
+                        f"[Citation Mapping] Phase 2 complete: "
+                        f"discovered papers for {discovered_count}/{len(top_candidates)} claims"
+                    )
+                except Exception as e:
+                    logger.warning(f"[Citation Mapping] Phase 2 discovery failed (non-fatal): {e}")
+            else:
+                logger.info("[Citation Mapping] Phase 2: No weak/none high-importance claims to discover for")
 
         return {
             'claims_with_citations': claims_with_citations,
