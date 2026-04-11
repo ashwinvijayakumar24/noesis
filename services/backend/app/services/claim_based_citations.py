@@ -12,10 +12,10 @@ This dramatically improves citation quality compared to RAG chunk matching:
 from typing import List, Dict, Any, Optional
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
-from app.core.openai_client import get_openai_client, get_completion_params
+from app.core.openai_client import get_async_openai_client, get_completion_params
 
 logger = get_logger(__name__)
-client = get_openai_client()
+client = get_async_openai_client()
 
 
 async def find_supporting_claims(
@@ -56,7 +56,7 @@ async def find_supporting_claims(
         logger.info(f"[CLAIM-CITATION] Finding supporting claims for: '{draft_claim_text[:100]}...'")
 
         # Generate embedding for the draft claim
-        embedding_response = client.embeddings.create(
+        embedding_response = await client.embeddings.create(
             model="text-embedding-3-large",
             input=[draft_claim_text],
             dimensions=1536

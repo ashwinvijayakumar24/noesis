@@ -40,6 +40,7 @@ export default function Pricing() {
 
     try {
       setLoading(true)
+      const origin = window.location.origin
       const response = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: {
@@ -47,7 +48,9 @@ export default function Pricing() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          plan: tierName.toLowerCase(),
+          plan_tier: tierName.toLowerCase(),
+          success_url: `${origin}/projects?subscribed=true`,
+          cancel_url: `${origin}/pricing`,
         }),
       })
 

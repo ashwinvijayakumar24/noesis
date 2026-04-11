@@ -1,217 +1,371 @@
-# Next Steps — Post-Launch Priorities
+# Noesis Next Steps — Strategic Plan
 
-**Date**: March 2026
-**Context**: Pre-launch implementation complete (Tracks 1-4). These are the highest-leverage improvements after the launch stabilizes.
+## Context
 
----
+The product is technically complete: draft analysis, paper discovery, citation management, BibTeX import/export, Stripe payments, referral system, and quota management are all built and deployed. The problem is zero market contact — no paying customers, no validated users, and Sprint 01 changes not yet deployed to production.
 
-## ✅ Priority 1: WebSocket Streaming for Real-Time Progress — COMPLETED (March 17, 2026)
-
-**What was built**: `useAnalysisStream` hook connects via WebSocket to `/drafts/{id}/analysis-stream`. `DraftAnalysis.tsx` now reads real progress + step message from the stream instead of the fake `useEstimatedProgress` fallback. The 3s polling loop is retained as a completion safety net.
-
-**Files changed**: `services/frontend/src/pages/DraftAnalysis.tsx` (import + hook call + ProgressIndicator props + stream.complete effect)
+The founder has correctly identified outreach as the #1 priority. This plan addresses the full stack of next steps across 6 areas, sequenced by dependency and impact, with explicit go/kill conditions at each stage.
 
 ---
 
-## ✅ Priority 2: Server-Controlled RAG Chunking (ex-Priority 3) — COMPLETED (March 17, 2026)
+## Phase 1: Deploy & Unblock (Days 1-3, ~4 hours)
 
-**What was done**:
-- `rag_retrieval.py`: Removed `rag_settings` DB fetch per retrieval call; hardcoded server defaults (`text-embedding-3-large`, 5 chunks, 0.0 threshold)
-- `draft_rag_integration.py`: Removed `rag_settings` DB fetch; replaced with `get_optimal_chunk_params()` adaptive chunking based on estimated page count
+**Do this before any outreach. Sending users to a broken product is harmful.**
 
-**Files changed**: `services/backend/app/services/rag_retrieval.py`, `services/backend/app/services/draft_rag_integration.py`
+### Actions
+1. Deploy all Sprint 01-03 changes to Vercel + AWS
+2. Run DB migrations on Supabase:
+   - `infra/db-migrations/009_sprint_week1_features.sql`
+   - `infra/db-migrations/010_week2_features.sql`
+   - `infra/db-migrations/012_literature_tab_redesign.sql`
+3. Verify GPT-5.2 model ID in production container (`docker exec noesis-backend python -c "import openai; ..."`)
+4. Add Stripe Lab price ID to production `.env`
+5. Remove ALL "Used by researchers at [Georgia Tech/Rice/UT Austin]" claims from `Landing.tsx` (legal liability — university names were never verified)
+6. Verify pricing page matches actual Stripe product IDs
 
----
-
-## ✅ Imported References: Abstract Embedding + Literature Tab Split — COMPLETED (March 2026)
-
-**What was built**:
-- `embed_imported_document()` in `rag_ingest.py`: embeds title + abstract for BibTeX/Zotero imports into `document_chunks` (one chunk per document, `text-embedding-3-large`)
-- Called from `projects.py` (BibTeX import route) and `zotero_service.py` (`import_collection`) after each successful document insert — non-fatal if embedding fails
-- Literature tab split into two sections: "Uploaded Papers" (full analysis, `DocumentCard`) and "Imported References" (abstract search only, `ImportedRefCard`)
-- New `ImportedRefCard` component: source badge (Zotero/BibTeX), title, authors/year/journal, collapsible abstract snippet, DOI link, "Metadata only" + "Abstract indexed" badges
-- Imported references now contribute to RAG search, gap detection, and citation suggestions via abstract embeddings
-
-**Files changed**: `services/backend/app/services/rag_ingest.py`, `services/backend/app/api/routes/projects.py`, `services/backend/app/services/zotero_service.py`, `services/frontend/src/pages/ProjectDetail.tsx`, `services/frontend/src/components/literature/ImportedRefCard.tsx` (new)
-
----
-
-## Priority 3: Remove User-Adjustable RAG Settings (UI Layer)
-
-**Why**: Users can currently change chunk sizes and overlap in the UI (RAGSettingsModal.tsx). This causes support tickets and is technically unnecessary — users don't know the right values, and our defaults are already optimized.
-
-**What to remove** (backend service layer already done — see ✅ Priority 2 above):
-- `services/frontend/src/components/RAGSettingsModal.tsx` — delete entirely
-- `services/backend/app/api/routes/rag.py` — remove or lock settings endpoints
-- `services/backend/app/api/routes/projects.py` — remove `rag_settings` from project update
-
-**Effort**: 0.5 day (backend already done)
+**Files:**
+- `services/frontend/src/pages/Landing.tsx` — remove unverified university claims
+- `infra/docker-compose.prod.yml` — verify environment vars
+- `infra/db-migrations/` — run 009, 010, 012
 
 ---
 
-## Priority 4: More Paper Sources
+## Phase 2: Outreach (Days 1-90, ongoing)
 
-**Current**: PubMed, arXiv, Semantic Scholar (paper_discovery_agent.py) + OpenAlex (new)
+**This is the only thing that matters for the next 30 days. Do not build anything new.**
 
-**Add next**:
+### Target Audience
+- Primary: Principal Investigators (PIs) with active NSF/NIH grants at R1 universities
+- Tier 1 targets: Georgia Tech, Rice, UT Austin (founder network + proximity)
+- Tier 2: arXiv authors in CS/ML/Biology who published in the last 6 months
+- Secondary: Postdocs submitting to high-impact journals (Nature, Science, NeurIPS, ICML)
 
-### CrossRef (free, comprehensive)
-```python
-# services/backend/app/services/external_apis/crossref.py
-# GET https://api.crossref.org/works?query={query}&rows=10&mailto=contact@noesis.is
-# Best for: recent publications, exact DOI lookup, citation counts
+### Outreach Playbook
+
+**Email template (cold PI outreach):**
+```
+Subject: Tool that shows what Reviewer 2 will flag before you submit
+
+Hi [Name],
+
+I saw your recent paper on [topic] — specifically the [specific claim/method].
+I built Noesis, a tool that reads your draft and literature, then tells you
+exactly what a hostile reviewer would flag: unsupported claims, citation gaps,
+methodology blind spots.
+
+It's free to try. Would you be willing to run one of your drafts through it
+and tell me if the feedback is worth anything? Takes 5 minutes.
+
+[link]
+
+— Ashwin
 ```
 
-### IEEE Xplore (engineering/CS focus)
-- Requires free API key registration at developer.ieee.org
-- Best for: conference papers, IEEE transactions
-- Rate limit: 200 req/day (free tier)
+**Volume targets:**
+- Week 1-2: 20 emails/week to GT/Rice/UT Austin faculty directories
+- Week 3-4: 20 emails/week to arXiv authors (CS/ML, Biology, Medicine)
+- Week 5+: Expand to r/GradSchool, academic Twitter/X, LinkedIn researcher communities
 
-### CORE (open access repository aggregator)
-- `api.core.ac.uk/v3/search/works?q={query}`
-- Requires free API key
-- Best for: preprints and OA versions of paywalled papers
+**Demo call script:**
+1. "Show me a draft you're worried about" (use their real work, not demo data)
+2. Upload it live in the call
+3. Show reviewer feedback + citation gaps
+4. Ask: "Did this catch something you were actually worried about?"
+5. If yes: "Would you pay $12/mo for this for yourself? $49/mo for your lab?"
 
-### Europe PMC (life sciences)
-- `europepmc.org/backend/eupmc/findArticleIds.cgi`
-- No auth needed
-- Best for: biomedical research (complements PubMed)
+### Viral Channels (post-activation)
+- arXiv author DMs (direct link to paper in message)
+- Reddit: r/GradSchool, r/PhD, r/MachineLearning, r/academia
+- Academic Twitter: share "Noesis caught this real reviewer comment on my draft" posts
+- Lab invite loop: activated PIs → invite PhD students via `POST /referrals/lab-invite`
 
-**Integration approach**: Add each as a separate module in `app/services/external_apis/` following the OpenAlex pattern. Route through paper_discovery_agent.py which already handles source aggregation and deduplication.
-
----
-
-## Priority 5: Overleaf Partnership Program
-
-**Background**: See `OVERLEAF_INTEGRATION.md` for full analysis.
-
-**Action items**:
-1. Apply to Overleaf's integration partner program: overleaf.com/for/partners
-2. Reference Writefull as comparable integration (they got special embed access via partnership)
-3. In the interim, the current content script approach works for personal use
-
-**What partnership unlocks**:
-- Official Overleaf OAuth: users auth once, extension reads files via API (no DOM parsing)
-- Multi-file project access via Overleaf API (vs. current DOM scraping)
-- Overleaf marketplace listing → organic discovery from their user base (~10M users)
-
-**Timeline**: Apply now, expect 2-4 week response. Partnership likely requires paid revenue/users.
+### Go/Kill Conditions
+- **Kill (Week 4):** <5 email responses from 80+ sent → messaging is broken, rewrite copy
+- **Kill (Week 8):** 0 activated users after 20+ demo calls → do in-person demos at Georgia Tech, something is wrong with the core loop
+- **Go (any point):** 3 PIs say "this caught something I missed" → collect testimonials, double outreach
+- **Go (Week 6):** 1 PI pays → don't change anything, just send more emails
 
 ---
 
-## Priority 6: GPT-5.2-mini for Cheap Tasks
+## Phase 3: Collaborative Features (Days 31-60)
 
-**Why**: Not all analysis steps need full GPT-5.2. Using a smaller model for simple tasks reduces cost by 60-80%.
+**Trigger: 5+ solo activated users exist. Do not build before this.**
 
-**Candidates for gpt-5.2-mini**:
-- `literature_search_node.py` — query expansion (simple text transformation)
-- `claim_analysis.py` — claim categorization (classification, not generation)
-- `citation_quality.py` — confidence scoring
-- `gap_detection.py` — gap type classification
+### Why Collaboration Is the Primary Market
+Research labs are the buyer. PIs have budgets ($500K NSF grants; $49/mo is noise). PhD students don't. But a PI will only invite their lab to a tool they've personally found valuable. The viral loop is: PI uses alone → gets "this caught something" moment → invites lab.
 
-**Keep on GPT-5.2**:
-- `reviewer_feedback.py` — the flagship feature, quality matters most here
-- `document_analysis.py` — deep paper analysis needs the full model
-- `coverage_analysis.py` — nuanced academic judgment
+### What to Build (Minimum Viable Collaboration)
 
-**Estimated savings**: ~40% cost reduction per draft analysis
-
-**Implementation**: Change `model="gpt-5.2"` → `model="gpt-5.2-mini"` in the appropriate service files. No other API changes needed (same endpoint, same `max_completion_tokens` parameter).
-
----
-
-## Priority 7: Overleaf Real-Time Suggestions
-
-**Background**: Currently the extension does a single synchronous POST when the user clicks "Analyze Draft". Real-time suggestions (feedback as you type) would be more useful but require:
-
-1. **Cost control**: At $0.01-0.05 per analysis, real-time triggering on every keystroke is not viable. Need a debounced "paragraph-complete" trigger.
-2. **GPT-5.2-mini**: Even debounced, use the cheaper model for incremental suggestions.
-3. **WebSocket streaming from backend**: The analysis result streams in via WebSocket (Priority 1 prerequisite).
-4. **Selective analysis**: Only re-analyze the changed section, not the full draft.
-
-**Effort**: 1-2 weeks after WebSocket streaming is implemented.
-
----
-
-## Priority 8: Embedding Cache for Shared Papers
-
-**Why**: When multiple users analyze drafts with similar claims, we re-embed the same query text repeatedly. Adding a Redis embedding cache for shared paper lookups would reduce OpenAI embedding API calls.
-
-**Pattern already exists**: `services/embedding_cache.py` (Redis-backed, 7-day TTL) is already in use for document analysis. Extend it to `shared_paper_cache.py` queries.
+**Backend (2-3 days):**
+The `team_members` table already exists (`infra/db-migrations/008_subscriptions.sql`). Zero API routes exist. Need:
 
 ```python
-# In shared_paper_cache.py → find_similar_papers()
-cached = await embedding_cache.get(f"query:{query_hash}")
-if cached:
-    return cached
-# ... embed, search, return, cache
+# New routes in: services/backend/app/api/routes/projects.py or new routes/teams.py
+
+POST   /projects/{project_id}/members           # Invite member by email
+GET    /projects/{project_id}/members           # List members + roles
+DELETE /projects/{project_id}/members/{user_id} # Remove member
+GET    /projects/shared                          # List projects shared with me
+PUT    /projects/{project_id}/members/{user_id} # Update role (owner/member)
 ```
 
-**Effort**: 1-2 hours (just wire existing cache service into shared_paper_cache.py)
+**Data model (already in DB):**
+```sql
+team_members: team_owner_id, member_user_id, role (owner/admin/member), status (pending/active/removed)
+```
+
+**Frontend (1 day):**
+- Add "Invite" button in `ProjectDetail.tsx` header
+- New `InviteMemberModal.tsx`: email input + role selector + copy invite link
+- Members list in project settings (owner-only view)
+- Indicator in `Projects.tsx` for shared projects (e.g., avatar stack)
+
+**Files to modify:**
+- `services/backend/app/api/routes/projects.py` — add 5 team routes
+- `services/backend/app/main.py` — register router if separate file
+- `services/frontend/src/pages/ProjectDetail.tsx` — add Invite button
+- New: `services/frontend/src/components/InviteMemberModal.tsx`
+- New: `services/frontend/src/components/ProjectMembersList.tsx`
+
+**Role permissions:**
+- Owner: full access, can invite/remove, can delete project
+- Member: view all content, upload documents, upload drafts, run analyses
+- Members cannot: delete project, remove other members, change billing
+
+### Go/Kill Conditions
+- **Go:** 5+ solo activated users, at least 1 PI explicitly asks about lab sharing
+- **Kill:** After building, no PI invites a single person → collaboration is not the unlock, individual features are
 
 ---
 
-## Priority 9: Analytics for Launch Metrics
+## Phase 4: Stripe/Pricing Finalization (Days 15-30)
 
-**Current**: Analytics dashboard tracks MAU, DAU, activation, retention (Feb 2026 implementation).
+**Current state:** Stripe fully implemented for single users. Team billing routes exist. Lab tier backend missing (checkout works, member provisioning doesn't).
 
-**Add for launch tracking**:
-- **Feature adoption**: % of users who use Zotero import (vs. BibTeX vs. PDF upload)
-- **Feedback quality signal**: Track if users click "thumbs up/down" on reviewer feedback items
-- **Gap engagement**: Track if users click external paper suggestion links (OpenAlex OA links)
-- **Overleaf extension installs**: Track extension install count via Chrome Web Store Developer API
+### What's Needed
 
-**Implement as new analytics events** in `services/analytics_service.py`:
-```python
-EVENT_ZOTERO_IMPORT = "zotero_import"
-EVENT_FEEDBACK_REACTION = "feedback_reaction"  # thumbs up/down
-EVENT_EXTERNAL_PAPER_CLICK = "external_paper_click"
+1. **Lock canonical pricing** (one source of truth before outreach):
+   - Free: $0, 30 PDFs/mo, 5 draft analyses/mo, 10 discovery searches/day
+   - Pro: $12/mo, unlimited
+   - Lab: $49/mo, 5 seats flat
+   - Team: $20/user/mo, min 2 seats
+   - Enterprise: Custom
+
+2. **Complete Lab tier member provisioning:**
+   ```python
+   # services/backend/app/services/stripe_service.py
+   # After checkout.session.completed webhook fires for Lab plan:
+   # → Create team_members record for owner
+   # → Set max_seats = 5 on subscription record
+   # → Provision quota for all seats
+   ```
+
+3. **Pricing page audit:**
+   - `services/frontend/src/pages/Pricing.tsx` — verify all prices match Stripe product IDs in `.env`
+   - Add "Most Popular" badge to Pro tier (conversion optimization)
+   - Add "For PIs and Labs" label to Lab tier
+
+4. **Upgrade path from Pro → Lab:**
+   - When Pro user tries to invite a member → trigger UpgradeModal showing Lab tier benefits
+   - `services/frontend/src/components/UpgradeModal.tsx` — add "invite_member" trigger
+
+**Files:**
+- `services/backend/app/services/stripe_service.py` — Lab member provisioning on webhook
+- `services/backend/app/api/routes/subscriptions.py` — team seat management
+- `services/frontend/src/pages/Pricing.tsx` — pricing audit + conversion copy
+
+---
+
+## Phase 5: Frontend UI Improvements (Days 31-90)
+
+**Prioritized by conversion/activation impact:**
+
+### Priority 1: Browser Extension (Days 61-90, ~10-12 hours)
+**Trigger: 10+ activated users confirm core web app is valuable.**
+
+Highest single conversion ROI. Removes workflow silo (researchers currently must leave Overleaf/Google Docs to upload draft). Without this, activation is structurally capped.
+
+**Scope:**
+- Chrome Manifest V3 extension
+- Service worker for auth token storage (reads from `localStorage` where Supabase stores tokens)
+- Sidebar injection into Overleaf (`overleaf.com` URL match)
+- "Analyze in Noesis" button → sends current document to `POST /drafts/analyze`
+- Display top 3 feedback items in sidebar with severity badges
+- "Open in Noesis" deep link to full analysis
+
+**Files to create:**
+- `services/browser-extension/manifest.json`
+- `services/browser-extension/background.js`
+- `services/browser-extension/sidebar.html + sidebar.js`
+- `services/backend/app/core/config.py` — add `chrome-extension://` to CORS origins
+
+### Priority 2: WebSocket Progress Streaming (Days 31-45, ~6-8 hours)
+**Trigger: Users complain about not knowing if analysis is running.**
+
+Backend is complete (`GET /drafts/{draft_id}/analysis-stream`, Redis pub/sub via `progress_publisher.py`). Only frontend missing.
+
+**Files to create:**
+- `services/frontend/src/hooks/useAnalysisStream.ts` — WebSocket hook with reconnect logic
+- **Modify:** `services/frontend/src/components/DraftAnalysisModal.tsx` — show step-by-step progress bar
+
+```typescript
+// useAnalysisStream.ts
+const useAnalysisStream = (draftId: string) => {
+  // Connect to ws://backend/drafts/{draftId}/analysis-stream
+  // Emit: { step: "claim_extraction", progress: 30, message: "Extracting claims..." }
+  // Update DraftAnalysisModal progress bar in real-time
+}
+```
+
+### Priority 3: OnboardingTour Design Token Fix (Days 15-20, ~2 hours)
+`OnboardingTour.tsx` uses old design tokens (`bg-surface`, linear gradients). Looks jarring vs. rest of app.
+
+**File:** `services/frontend/src/components/OnboardingTour.tsx`
+- Replace all `bg-surface` → `bg-bg-surface`
+- Remove gradient backgrounds, use flat `bg-bg-surface` cards
+- Replace any `rounded-2xl`/`rounded-3xl` → `rounded-xl`
+
+### Priority 4: Empty State & Post-Signup UX (Days 15-20, ~3 hours)
+New users land on Projects page with no context. Need warm welcome.
+
+**Files:**
+- `services/frontend/src/pages/Projects.tsx` — add "Getting started" checklist in empty state
+- `services/frontend/src/components/EmptyStateGuide.tsx` — already exists, enhance with 3-step quick-start
+
+### Priority 5: Remove User-Adjustable RAG Settings (Days 15-20, ~2 hours)
+Flagged as CRITICAL in CLAUDE.md. User-adjustable chunking settings cause confusion and produce worse results.
+
+**Files to remove/modify:**
+- Delete: `services/frontend/src/components/RAGSettingsModal.tsx` (or find actual filename)
+- `services/backend/app/api/routes/rag.py` — remove user-facing settings endpoints
+- Keep backend adaptive chunking logic, just make it server-controlled
+
+---
+
+## Phase 6: Scaling Architecture (Month 3-4)
+
+**Trigger: >50 concurrent users OR a documented production incident. Do not touch before this.**
+
+### Current bottlenecks (prioritized by when they'll actually be hit)
+
+**Month 3 (~100 users):**
+1. **GROBID single instance** — memory-limited to 2 concurrent PDF processing jobs. Fix: Add second GROBID container with round-robin load balancing in `docker-compose.prod.yml`
+2. **Celery concurrency** — currently 2 workers in prod. Fix: Add second Celery worker replica (`celery-worker-2` in compose)
+
+**Month 4 (~500 users):**
+3. **Backend single instance** — FastAPI behind Nginx. Fix: Add `backend-2` replica + Nginx upstream load balancing
+4. **Redis memory** — currently 128MB limit. Fix: Upgrade to 512MB or separate Redis instances for task queue vs. cache
+
+**Month 5+ ($5K MRR):**
+5. **Database connection pooling** — add pgBouncer between backend and Supabase
+6. **CDN for static assets** — move PDFs/analysis results to CloudFront
+7. **Separate read replicas** — Supabase supports read replicas on Pro plan
+
+**Files:**
+- `infra/docker-compose.prod.yml` — GROBID + Celery scaling
+- `infra/nginx.conf` — upstream load balancing when backend replicas added
+
+---
+
+## Future: Overleaf Integration (Month 4+)
+
+**Sequencing:** Browser extension first (simpler, proves workflow demand) → then native Overleaf plugin.
+
+### Phase A: Browser Extension (Month 2-3)
+See Phase 5 above. This is the first step toward Overleaf integration.
+
+### Phase B: Overleaf API Integration (Month 4+)
+Overleaf has a Git-based export feature (Overleaf → GitHub sync). Possible integration path:
+1. User connects Overleaf project via OAuth or Git sync
+2. Noesis pulls `.tex` files directly
+3. Auto-analysis triggered on each commit/save
+4. Feedback surfaced in Overleaf sidebar (via extension) or email digest
+
+**Technical approach:**
+- `POST /integrations/overleaf/connect` — OAuth flow with Overleaf
+- Webhook or polling on Overleaf Git repository changes
+- Parse `.tex` files for draft content (simpler than PDF for structured data)
+
+**Trigger:** Only build after browser extension has 50+ active users and Overleaf is the #1 requested integration.
+
+---
+
+## 90-Day Milestone Map
+
+```
+DAYS 1-3:    Deploy production + legal cleanup (unblock outreach)
+DAYS 4-30:   100% outreach. No new features. 80+ cold emails sent.
+             Fix bugs only as real users surface them.
+
+MILESTONE 1 (Day 30): 10 email responses, 5 demo calls scheduled
+
+DAYS 31-45:  Build if triggered:
+             - Collaborative features (IF 5+ activated users)
+             - WebSocket streaming frontend (IF users complain)
+             - OnboardingTour + empty state fixes (low effort, always do)
+             - Remove RAGSettingsModal
+
+MILESTONE 2 (Day 45): 10 activated users (analyzed ≥1 draft, returned Day 7)
+
+DAYS 46-60:  Complete Lab tier billing (member provisioning)
+             Continue outreach + demo calls
+
+MILESTONE 3 (Day 60): First paying customer
+
+DAYS 61-90:  Browser extension MVP (IF 10+ activated, core loop validated)
+             Overleaf sidebar injection
+
+MILESTONE 4 (Day 90): $1K MRR, 3 authentic PI testimonials
+
+MONTH 4+:    Scaling architecture (GROBID + Celery replicas)
+             Overleaf API integration
+             Seed fundraising conversations ($5K MRR target)
 ```
 
 ---
 
-## Priority 10: GROBID Full-Text for Shared Papers
+## Kill Conditions (When to Stop and Reassess)
 
-**Why**: Currently, shared_paper_cache.py stores metadata + abstract only. Full-text extraction would enable much richer evidence quotes in reviewer feedback.
-
-**Flow**:
-1. When a paper has an `open_access_url` (PDF link), download it
-2. Run through GROBID (already deployed in infra): `http://grobid:8070/api/processFulltextDocument`
-3. Parse TEI XML → extract structured sections
-4. Store `full_text` in `shared_papers.full_text` column
-5. Use full-text passages (not just abstract) in `_build_literature_context()`
-
-**Effort**: 2-3 days (download + GROBID processing pipeline for shared papers)
-
-**Impact**: Highest potential quality improvement. Reviewer feedback quotes could include actual methodology details, not just abstract sentences.
+| Checkpoint | Condition | Action |
+|---|---|---|
+| Week 4 | <5 responses from 80+ cold emails | Rewrite messaging entirely. Run 5 user interviews. Do not send more emails with the same copy. |
+| Week 8 | 0 activated users after 20+ demo calls | Stop all development. Do in-person demos at Georgia Tech. The core loop is broken. |
+| Week 12 | 0 paying customers from 50+ demo calls | Pricing or positioning rethink. Consider freemium-only pivot. Talk to 3 PIs who said no. |
+| Month 4 | 0 lab adoptions despite 10+ solo users | Collaboration is not the unlock. Individual productivity features are. Pivot pricing to Pro-only. |
 
 ---
 
-## Quick Wins (< 2 hours each)
+## What NOT to Build (Next 90 Days)
 
-| Task | File | What |
-|------|------|------|
-| Cache OpenAlex responses | `external_apis/openalex.py` | Add 1-hour Redis cache for `search_works()` results |
-| Add Zotero to analytics | `analytics_service.py` | Track `zotero_import` events |
-| Extension version badge | `extension/manifest.json` | Bump version to 1.1.0 after multi-file support |
-| Shared papers count endpoint | `api/routes/projects.py` | `GET /projects/{id}/library-stats` (total papers cached) |
-| OpenAlex in paper discovery | `paper_discovery_agent.py` | Add OpenAlex as 4th source alongside PubMed/arXiv/Semantic Scholar |
-
----
-
-## Technical Debt to Address
-
-1. **Remove `max_tokens` fallback** in any older files that might still use it — run `grep -r "max_tokens" services/backend/` to audit
-2. **pytest-asyncio mode**: Tests using `async def` without `@pytest.mark.asyncio` will start raising warnings in newer pytest-asyncio versions → add `asyncio_mode = "auto"` to `pytest.ini`
-3. **Zotero rate limiting**: The `/api/zotero/import` endpoint uses `slowapi` at 5/minute but `zotero_service.py` itself has no internal rate limiting for the Zotero API — add `asyncio.sleep(0.2)` between item fetches in `fetch_collection_items()`
-4. **`shared_papers` index tuning**: The IVFFlat index uses default `lists=100`. Once the table has > 10K rows, re-run `SET ivfflat.probes = 10` for better recall.
+- Real-time collaborative editing (Google Docs-style presence/cursors)
+- Mobile app
+- Slack/email integrations
+- Grant proposal mode
+- Argument structure visualization
+- Word document export
+- Video tutorials
+- Any new AI analysis features (the analysis is good enough — validate it first)
+- Human-in-the-loop claim validation UI (backend supports it; build when users ask)
+- Any infrastructure for hypothetical scale
 
 ---
 
-## Database Migrations Queue
+## Files to Create/Modify (Summary)
 
-| Migration | File | When |
-|-----------|------|------|
-| ✅ Shared papers table | `011_shared_paper_cache.sql` | BEFORE deploy |
-| Pending: Feedback reactions table | `012_feedback_reactions.sql` | After Priority 9 |
-| Pending: Full-text column index | `013_shared_papers_fts.sql` | After Priority 10 |
+| Track | File | Action |
+|---|---|---|
+| Deploy | `services/frontend/src/pages/Landing.tsx` | Remove unverified university claims |
+| Deploy | `infra/db-migrations/009, 010, 012` | Run on Supabase |
+| Collaboration | `services/backend/app/api/routes/projects.py` | Add 5 team member routes |
+| Collaboration | `services/frontend/src/pages/ProjectDetail.tsx` | Add Invite button |
+| Collaboration | New: `components/InviteMemberModal.tsx` | Invite flow |
+| Stripe | `services/backend/app/services/stripe_service.py` | Lab member provisioning on webhook |
+| Stripe | `services/frontend/src/pages/Pricing.tsx` | Price audit + conversion copy |
+| UI | `services/frontend/src/components/OnboardingTour.tsx` | Fix design tokens |
+| UI | `services/frontend/src/pages/Projects.tsx` | Empty state checklist |
+| UI | Remove: `RAGSettingsModal.tsx` | Delete or disable |
+| WebSocket | New: `src/hooks/useAnalysisStream.ts` | WebSocket hook |
+| WebSocket | `src/components/DraftAnalysisModal.tsx` | Wire progress bar |
+| Extension | New: `services/browser-extension/` | Chrome extension directory |
+| Extension | `services/backend/app/core/config.py` | Add extension CORS origin |
+| Scaling | `infra/docker-compose.prod.yml` | GROBID + Celery replicas (Month 3+) |

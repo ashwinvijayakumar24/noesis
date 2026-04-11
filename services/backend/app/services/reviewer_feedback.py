@@ -14,6 +14,7 @@ This service provides critique and suggestions WITHOUT modifying the user's draf
 Requirements: 5.1, 5.2, 5.3, 5.4
 """
 
+import re
 import json
 import time
 from typing import Dict, Any, List, Optional
