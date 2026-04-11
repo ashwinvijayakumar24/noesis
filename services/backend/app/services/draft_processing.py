@@ -695,16 +695,8 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Draft ingestion failed: {str(e)}")
-
-        # Update draft status to failed
-        try:
-            supabase.table("drafts").update({
-                "status": "failed",
-                "updated_at": datetime.datetime.utcnow().isoformat()
-            }).eq("id", draft_id).execute()
-        except:
-            pass  # If we can't update status, at least raise the original error
-
+        # Status is managed by the Celery task (only set 'failed' after all retries exhausted).
+        # Just raise so the caller can handle retries and status updates.
         raise
 
 

@@ -75,24 +75,29 @@ def analyze_draft_task(self, draft_id: str, project_id: str):
         print(f"[CELERY-DRAFT] ========== DRAFT ANALYSIS TASK FAILED ==========")
         print(f"[CELERY-DRAFT] ERROR: {type(e).__name__}: {str(e)}")
         print(f"[CELERY-DRAFT] Traceback:\n{traceback.format_exc()}")
-        print(f"[CELERY-DRAFT] Retry {self.request.retries + 1}/{self.max_retries}")
+        print(f"[CELERY-DRAFT] Attempt {self.request.retries + 1}/{self.max_retries + 1}")
 
-        # Update draft status to failed (will be retried automatically)
-        try:
-            from app.core.supabase_client import supabase
-            import datetime
-            supabase.table("drafts").update({
-                "status": "failed",
-                "updated_at": datetime.datetime.utcnow().isoformat(),
-                "metadata": {
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                    "task_id": self.request.id,
-                    "retries": self.request.retries,
-                }
-            }).eq("id", draft_id).execute()
-        except Exception as update_error:
-            print(f"[CELERY-DRAFT] WARNING: Failed to update draft status: {update_error}")
+        is_last_attempt = self.request.retries >= self.max_retries
+        if is_last_attempt:
+            # Only mark as failed after all retries are exhausted
+            print(f"[CELERY-DRAFT] All retries exhausted — marking draft as 'failed'")
+            try:
+                from app.core.supabase_client import supabase
+                import datetime
+                supabase.table("drafts").update({
+                    "status": "failed",
+                    "updated_at": datetime.datetime.utcnow().isoformat(),
+                    "metadata": {
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "task_id": self.request.id,
+                        "retries": self.request.retries,
+                    }
+                }).eq("id", draft_id).execute()
+            except Exception as update_error:
+                print(f"[CELERY-DRAFT] WARNING: Failed to update draft status: {update_error}")
+        else:
+            print(f"[CELERY-DRAFT] Transient failure — keeping status 'processing', will retry in 60s")
 
         # Re-raise to trigger retry
         raise

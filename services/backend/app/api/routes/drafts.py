@@ -826,17 +826,9 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         print(f"[DRAFT-ANALYZE-BG-LG] Full stack trace:")
         print(traceback.format_exc())
 
-        # Make sure draft status is set to 'failed' if not already done
-        try:
-            print(f"[DRAFT-ANALYZE-BG-LG] Ensuring draft status is 'failed'...")
-            print(f"[DRAFT-ANALYZE-BG-LG] Error was: {type(e).__name__}: {str(e)}")
-            supabase.table("drafts").update({
-                "status": "failed",
-                "updated_at": datetime.datetime.utcnow().isoformat()
-            }).eq("id", draft_id).execute()
-            print(f"[DRAFT-ANALYZE-BG-LG] ✓ Draft status updated to 'failed'")
-        except Exception as update_error:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ Failed to update draft status: {update_error}")
+        # Status lifecycle is owned by the Celery task (draft_analysis.py).
+        # It sets 'failed' only after all retries are exhausted, so we just log here.
+        print(f"[DRAFT-ANALYZE-BG-LG] Re-raising to Celery retry handler (status managed there)")
 
 
 @router.post("/{draft_id}/analyze")
