@@ -8,6 +8,8 @@ from typing import Optional
 import stripe
 
 from app.core.config import settings
+from app.core.supabase_client import supabase
+from app.core.security_middleware import SecureAuthValidator
 from app.services.stripe_service import (
     create_checkout_session,
     cancel_subscription,
@@ -17,6 +19,17 @@ from app.services.stripe_service import (
     handle_subscription_deleted,
     PLAN_CONFIGS
 )
+
+
+def get_current_user(authorization: str = Header(None)):
+    if supabase is None:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+    try:
+        user = supabase.auth.get_user(token)
+        return user.user.id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 router = APIRouter()
@@ -71,7 +84,7 @@ async def get_available_plans():
 @router.post("/subscriptions/checkout", response_model=CheckoutResponse)
 async def create_checkout(
     request: CheckoutRequest,
-    user_id: str = Depends(lambda: None)  # TODO: Replace with actual auth
+    user_id: str = Depends(get_current_user)
 ):
     """
     Create a Stripe Checkout session
@@ -79,15 +92,12 @@ async def create_checkout(
     Redirects user to Stripe payment page
 
     For Team plans:
-    - Minimum 3 seats required
-    - Users can adjust quantity at checkout (3-100 seats)
+    - Minimum 2 seats required
+    - Users can adjust quantity at checkout (2-3 seats)
     - Priced at $20/user/month
     """
     try:
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User authentication required")
-
-        if request.plan_tier not in ["pro", "lab", "team"]:
+        if request.plan_tier not in ["pro", "team"]:
             raise HTTPException(status_code=400, detail="Invalid plan tier")
 
         # Validate team_seats for team plan
@@ -118,7 +128,7 @@ async def create_checkout(
 @router.post("/subscriptions/cancel")
 async def cancel_user_subscription(
     request: CancelRequest,
-    user_id: str = Depends(lambda: None)  # TODO: Replace with actual auth
+    user_id: str = Depends(get_current_user)
 ):
     """
     Cancel user's subscription
@@ -144,7 +154,7 @@ async def cancel_user_subscription(
 
 @router.get("/subscriptions/usage")
 async def get_usage(
-    user_id: str = Depends(lambda: None)  # TODO: Replace with actual auth
+    user_id: str = Depends(get_current_user)
 ):
     """
     Get user's current usage and limits
@@ -221,7 +231,7 @@ async def stripe_webhook(
 
 @router.get("/subscriptions/portal-session")
 async def create_customer_portal_session(
-    user_id: str = Depends(lambda: None),  # TODO: Replace with actual auth
+    user_id: str = Depends(get_current_user),
     return_url: HttpUrl = None
 ):
     """

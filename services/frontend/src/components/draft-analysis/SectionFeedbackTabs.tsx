@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import PriorityGroup from './PriorityGroup'
+import UnifiedFeedbackCard from './UnifiedFeedbackCard'
 
 interface Claim {
   id: string
@@ -9,6 +11,7 @@ interface Claim {
   confidence_score?: number
   requires_citation: boolean
   existing_citations: string[]
+  supporting_literature?: any  // JSONB: array (old) or { top_match, suggested_citations } (new)
   line_number?: number
   status: 'new' | 'saved' | 'dismissed'
 }
@@ -47,6 +50,17 @@ interface SectionFeedbackTabsProps {
 
 type StatusFilter = 'new' | 'saved' | 'dismissed'
 
+type FeedbackItem = {
+  id: string
+  type: 'claim' | 'gap' | 'feedback'
+  priority: 'high' | 'medium' | 'low'
+  content: any
+}
+
+function claimToPriority(claim: Claim): 'high' | 'medium' | 'low' {
+  return claim.importance_score >= 0.8 ? 'high' : claim.importance_score >= 0.5 ? 'medium' : 'low'
+}
+
 export default function SectionFeedbackTabs({
   sectionType: _sectionType,
   claims,
@@ -56,8 +70,10 @@ export default function SectionFeedbackTabs({
   onViewInDocument
 }: SectionFeedbackTabsProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('new')
+  const [strengthsExpanded, setStrengthsExpanded] = useState(false)
+  const [allClaimsExpanded, setAllClaimsExpanded] = useState(false)
 
-  // Filter feedback by status
+  // Filter by status
   const filteredClaims = useMemo(() =>
     claims.filter(c => c.status === statusFilter),
     [claims, statusFilter]
@@ -73,57 +89,80 @@ export default function SectionFeedbackTabs({
     [feedback, statusFilter]
   )
 
-  // Combine all items with priority
-  const allFeedbackItems = useMemo(() => {
-    const items: Array<{
-      id: string
-      type: 'claim' | 'gap' | 'feedback'
-      priority: 'high' | 'medium' | 'low'
-      content: any
-    }> = []
+  // A3: Split claims — actionable (needs citation or high importance) vs informational
+  const actionableClaims = useMemo(() =>
+    filteredClaims.filter(c => c.requires_citation === true || c.importance_score >= 0.65),
+    [filteredClaims]
+  )
 
-    filteredClaims.forEach(claim => {
-      items.push({
-        id: claim.id,
-        type: 'claim',
-        priority: claim.importance_score >= 0.8 ? 'high' : claim.importance_score >= 0.5 ? 'medium' : 'low',
-        content: claim
-      })
+  const informationalClaims = useMemo(() =>
+    filteredClaims.filter(c => c.requires_citation !== true && c.importance_score < 0.65),
+    [filteredClaims]
+  )
+
+  // A2: Separate strengths (read-only accordion) from actionable feedback
+  const strengthItems = useMemo(() =>
+    filteredFeedback.filter(f => f.feedback_type === 'strength'),
+    [filteredFeedback]
+  )
+
+  const actionableFeedback = useMemo(() =>
+    filteredFeedback.filter(f => f.feedback_type !== 'strength'),
+    [filteredFeedback]
+  )
+
+  // Main actionable list: actionable claims + gaps + non-strength feedback
+  const allFeedbackItems = useMemo((): FeedbackItem[] => {
+    const items: FeedbackItem[] = []
+
+    actionableClaims.forEach(claim => {
+      items.push({ id: claim.id, type: 'claim', priority: claimToPriority(claim), content: claim })
     })
 
     filteredGaps.forEach(gap => {
-      items.push({
-        id: gap.id,
-        type: 'gap',
-        priority: gap.priority,
-        content: gap
-      })
+      items.push({ id: gap.id, type: 'gap', priority: gap.priority, content: gap })
     })
 
-    filteredFeedback.forEach(fb => {
-      items.push({
-        id: fb.id,
-        type: 'feedback',
-        priority: fb.priority,
-        content: fb
-      })
+    actionableFeedback.forEach(fb => {
+      items.push({ id: fb.id, type: 'feedback', priority: fb.priority, content: fb })
     })
 
     return items
-  }, [filteredClaims, filteredGaps, filteredFeedback])
+  }, [actionableClaims, filteredGaps, actionableFeedback])
 
-  // Count by status
-  const statusCounts = useMemo(() => ({
-    new: claims.filter(c => c.status === 'new').length +
-         gaps.filter(g => g.status === 'new').length +
-         feedback.filter(f => f.status === 'new').length,
-    saved: claims.filter(c => c.status === 'saved').length +
-           gaps.filter(g => g.status === 'saved').length +
-           feedback.filter(f => f.status === 'saved').length,
-    dismissed: claims.filter(c => c.status === 'dismissed').length +
-               gaps.filter(g => g.status === 'dismissed').length +
-               feedback.filter(f => f.status === 'dismissed').length
-  }), [claims, gaps, feedback])
+  // A2+A3: Status counts — exclude strengths and informational claims from 'new'
+  const statusCounts = useMemo(() => {
+    const actionableNew =
+      claims.filter(c => c.status === 'new' && (c.requires_citation === true || c.importance_score >= 0.65)).length +
+      gaps.filter(g => g.status === 'new').length +
+      feedback.filter(f => f.status === 'new' && f.feedback_type !== 'strength').length
+
+    return {
+      new: actionableNew,
+      saved: claims.filter(c => c.status === 'saved').length +
+             gaps.filter(g => g.status === 'saved').length +
+             feedback.filter(f => f.status === 'saved').length,
+      dismissed: claims.filter(c => c.status === 'dismissed').length +
+                 gaps.filter(g => g.status === 'dismissed').length +
+                 feedback.filter(f => f.status === 'dismissed').length,
+    }
+  }, [claims, gaps, feedback])
+
+  // Collapsed accordion items
+  const strengthCardItems = useMemo((): FeedbackItem[] =>
+    strengthItems.map(fb => ({ id: fb.id, type: 'feedback' as const, priority: fb.priority, content: fb })),
+    [strengthItems]
+  )
+
+  const informationalCardItems = useMemo((): FeedbackItem[] =>
+    informationalClaims.map(claim => ({
+      id: claim.id,
+      type: 'claim' as const,
+      priority: claimToPriority(claim),
+      content: claim,
+    })),
+    [informationalClaims]
+  )
 
   return (
     <div className="space-y-4">
@@ -189,7 +228,7 @@ export default function SectionFeedbackTabs({
         </button>
       </div>
 
-      {/* Feedback items */}
+      {/* Main actionable feedback items */}
       {allFeedbackItems.length > 0 ? (
         <PriorityGroup
           items={allFeedbackItems}
@@ -198,17 +237,79 @@ export default function SectionFeedbackTabs({
           currentStatus={statusFilter}
         />
       ) : (
-        <div className="text-center py-12">
+        <div className="text-center py-8">
           <p className="text-sm text-text-secondary">
-            {statusFilter === 'new' && 'No new feedback items'}
+            {statusFilter === 'new' && 'No new items requiring action'}
             {statusFilter === 'saved' && 'No saved feedback items'}
             {statusFilter === 'dismissed' && 'No dismissed feedback items'}
           </p>
           <p className="text-xs mt-1 text-text-muted">
-            {statusFilter === 'new' && 'Great work! All items have been reviewed.'}
+            {statusFilter === 'new' && informationalClaims.length > 0 && 'All claims are well-supported — see below.'}
             {statusFilter === 'saved' && 'Save useful feedback to review later.'}
             {statusFilter === 'dismissed' && "Dismissed items won't appear in the New tab."}
           </p>
+        </div>
+      )}
+
+      {/* A3: Well-supported / informational claims accordion */}
+      {statusFilter === 'new' && informationalCardItems.length > 0 && (
+        <div className="border border-border-default rounded-lg overflow-hidden">
+          <button
+            onClick={() => setAllClaimsExpanded(!allClaimsExpanded)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-bg-elevated hover:bg-bg-surface transition-colors duration-150"
+          >
+            <span className="text-xs font-semibold text-text-secondary">
+              {informationalCardItems.length} well-supported claim{informationalCardItems.length !== 1 ? 's' : ''} — no action needed
+            </span>
+            {allClaimsExpanded
+              ? <ChevronUpIcon className="w-4 h-4 text-text-muted" />
+              : <ChevronDownIcon className="w-4 h-4 text-text-muted" />
+            }
+          </button>
+          {allClaimsExpanded && (
+            <div className="p-3 space-y-2">
+              {informationalCardItems.map(item => (
+                <UnifiedFeedbackCard
+                  key={item.id}
+                  item={item}
+                  onStatusChange={onStatusChange}
+                  onViewInDocument={onViewInDocument}
+                  currentStatus={statusFilter}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* A2: Strengths accordion — read-only, no action buttons */}
+      {statusFilter === 'new' && strengthCardItems.length > 0 && (
+        <div className="border border-success/20 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setStrengthsExpanded(!strengthsExpanded)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-success/5 hover:bg-success/10 transition-colors duration-150"
+          >
+            <span className="text-xs font-semibold text-success">
+              ✓ {strengthCardItems.length} strength{strengthCardItems.length !== 1 ? 's' : ''} — what's working
+            </span>
+            {strengthsExpanded
+              ? <ChevronUpIcon className="w-4 h-4 text-success/70" />
+              : <ChevronDownIcon className="w-4 h-4 text-success/70" />
+            }
+          </button>
+          {strengthsExpanded && (
+            <div className="p-3 space-y-2">
+              {strengthCardItems.map(item => (
+                <UnifiedFeedbackCard
+                  key={item.id}
+                  item={item}
+                  onStatusChange={onStatusChange}
+                  onViewInDocument={onViewInDocument}
+                  currentStatus={statusFilter}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -22,18 +22,72 @@ interface UnifiedFeedbackCardProps {
   currentStatus: 'new' | 'saved' | 'dismissed'
 }
 
-// Left border accent — the card border communicates priority, no colored box needed
+// Left border accent — the card border communicates priority
 const PRIORITY_CONFIG = {
   high:   { accentBorder: 'border-l-2 border-l-error',         label: 'High',   labelColor: 'text-error' },
   medium: { accentBorder: 'border-l-2 border-l-warning',       label: 'Medium', labelColor: 'text-warning' },
   low:    { accentBorder: 'border-l-2 border-l-border-subtle', label: 'Low',    labelColor: 'text-text-muted' },
 }
 
-// Type indicator — icon + plain text label, no colored background
 const TYPE_CONFIG = {
   claim:    { icon: InformationCircleIcon, label: 'Claim',    color: 'text-text-secondary' },
   gap:      { icon: ExclamationTriangleIcon, label: 'Gap',    color: 'text-text-secondary' },
   feedback: { icon: BeakerIcon,            label: 'Feedback', color: 'text-text-secondary' },
+}
+
+// A1: Human-readable labels for feedback_type (strength → null = don't show type chip)
+const FEEDBACK_TYPE_LABEL: Record<string, string | null> = {
+  strength:   null,
+  weakness:   'Needs Work',
+  question:   'Question from Reviewer',
+  suggestion: 'Suggestion',
+  structural: 'Structural Issue',
+  general:    'Feedback',
+}
+
+// A1: Human-readable labels for severity
+const SEVERITY_CONFIG: Record<string, { label: string; className: string } | null> = {
+  critical:   { label: 'Critical', className: 'text-error font-semibold' },
+  major:      { label: 'Major',    className: 'text-warning font-semibold' },
+  minor:      { label: 'Minor',    className: 'text-info' },
+  suggestion: null,  // omit — already conveyed by type label
+}
+
+// A4: Parse suggested citations from supporting_literature JSONB
+// Handles both old array format and new { top_match, suggested_citations } object format
+function parseSuggestedCitations(content: any): Array<{ display: string; source: string }> {
+  const supLit = content?.supporting_literature
+  console.log('[CitationChips] supporting_literature raw:', supLit)
+
+  if (!supLit) {
+    console.log('[CitationChips] No supporting_literature field — claim_id:', content?.id)
+    return []
+  }
+
+  if (Array.isArray(supLit)) {
+    // Old format: array of library citation matches
+    const results = supLit
+      .filter((s: any) => s.similarity >= 0.5 && (s.display || s.document_title))
+      .map((s: any) => ({
+        display: s.display || s.document_title,
+        source: 'library',
+      }))
+    console.log('[CitationChips] Old array format, parsed:', results.length, 'citations')
+    return results
+  }
+
+  // New format (after B2): { top_match: {...}, suggested_citations: [...] }
+  const suggestedCits = (supLit.suggested_citations || []).map((s: any) => ({
+    display: s.display || `${s.title} (${s.year || ''})`.trim(),
+    source: s.source || 'library',
+  }))
+  // Fallback: if no suggested_citations but top_match has a display, show it as a library chip
+  if (suggestedCits.length === 0 && supLit.top_match?.display) {
+    console.log('[CitationChips] New format, using top_match fallback:', supLit.top_match.display)
+    return [{ display: supLit.top_match.display, source: 'library' }]
+  }
+  console.log('[CitationChips] New format, suggested_citations:', suggestedCits.length)
+  return suggestedCits
 }
 
 export default function UnifiedFeedbackCard({
@@ -47,6 +101,14 @@ export default function UnifiedFeedbackCard({
   const priorityConfig = PRIORITY_CONFIG[item.priority]
   const typeConfig = TYPE_CONFIG[item.type]
   const TypeIcon = typeConfig.icon
+
+  // A2: Detect strength items — they get special treatment
+  const isStrength = item.type === 'feedback' && item.content.feedback_type === 'strength'
+
+  // A2: Strengths get green left border instead of priority-based border
+  const borderAccentClass = isStrength
+    ? 'border-l-2 border-l-success'
+    : priorityConfig.accentBorder
 
   const getContentText = () => {
     if (item.type === 'claim') return item.content.claim_text
@@ -62,17 +124,17 @@ export default function UnifiedFeedbackCard({
 
   const getMetadata = () => {
     if (item.type === 'claim') return {
-      type: item.content.claim_type,
-      requiresCitation: item.content.requires_citation,
-      importance: item.content.importance_score,
+      type: item.content.claim_type as string,
+      requiresCitation: item.content.requires_citation as boolean,
+      importance: item.content.importance_score as number,
     }
     if (item.type === 'gap') return {
-      gapType: item.content.gap_type,
-      hasLiterature: item.content.has_relevant_literature,
+      gapType: item.content.gap_type as string,
+      hasLiterature: item.content.has_relevant_literature as boolean,
     }
     return {
-      feedbackType: item.content.feedback_type,
-      severity: item.content.severity,
+      feedbackType: item.content.feedback_type as string,
+      severity: item.content.severity as string,
     }
   }
 
@@ -81,16 +143,23 @@ export default function UnifiedFeedbackCard({
   const metadata = getMetadata()
   const hasLongContent = contentText.length > 200 || suggestions.length > 3
 
-  return (
-    <div className={`bg-bg-surface rounded-lg border border-border-default ${priorityConfig.accentBorder} p-4 transition-colors duration-150 hover:border-border-subtle`}>
+  // A4: Get citation chips from supporting_literature
+  const suggestedCitations = item.type === 'claim' ? parseSuggestedCitations(item.content) : []
 
-      {/* Header: type + priority as plain text, no colored boxes */}
+  return (
+    <div className={`bg-bg-surface rounded-lg border border-border-default ${borderAccentClass} p-4 transition-colors duration-150 hover:border-border-subtle`}>
+
+      {/* Header: type + priority */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <TypeIcon className={`w-3.5 h-3.5 ${typeConfig.color} shrink-0`} />
           <span className="text-xs font-semibold text-text-secondary">{typeConfig.label}</span>
-          <span className="text-text-muted text-xs">·</span>
-          <span className={`text-xs font-medium ${priorityConfig.labelColor}`}>{priorityConfig.label}</span>
+          {!isStrength && (
+            <>
+              <span className="text-text-muted text-xs">·</span>
+              <span className={`text-xs font-medium ${priorityConfig.labelColor}`}>{priorityConfig.label}</span>
+            </>
+          )}
         </div>
 
         {item.content.line_number && (
@@ -111,11 +180,11 @@ export default function UnifiedFeedbackCard({
         </p>
       </div>
 
-      {/* Metadata — inline plain text, no chip boxes */}
+      {/* Metadata — plain text, no debug enum labels */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3 text-xs text-text-muted">
         {item.type === 'claim' && (
           <>
-            <span>Type: <span className="text-text-secondary">{metadata.type}</span></span>
+            <span className="capitalize text-text-secondary">{metadata.type}</span>
             <span className="text-border-subtle">·</span>
             <span>Importance: <span className="text-text-secondary">{((metadata.importance ?? 0) * 100).toFixed(0)}%</span></span>
             {metadata.requiresCitation && (
@@ -139,20 +208,45 @@ export default function UnifiedFeedbackCard({
           </>
         )}
 
-        {item.type === 'feedback' && (
-          <>
-            <span>Type: <span className="text-text-secondary">{metadata.feedbackType}</span></span>
-            <span className="text-border-subtle">·</span>
-            <span>Severity: <span className="text-text-secondary">{metadata.severity}</span></span>
-          </>
-        )}
+        {/* A1: Feedback type/severity shown as human-readable labels, not raw enums */}
+        {item.type === 'feedback' && (() => {
+          const typeLabel = FEEDBACK_TYPE_LABEL[metadata.feedbackType as string] ?? metadata.feedbackType
+          const severityInfo = metadata.severity ? SEVERITY_CONFIG[metadata.severity as string] : null
+          if (!typeLabel && !severityInfo) return null
+          return (
+            <>
+              {typeLabel && <span className="text-text-secondary">{typeLabel}</span>}
+              {typeLabel && severityInfo && <span className="text-border-subtle">·</span>}
+              {severityInfo && <span className={severityInfo.className}>{severityInfo.label}</span>}
+            </>
+          )
+        })()}
       </div>
 
-      {/* Citation needed hint — shown when claim requires citation but has none */}
+      {/* A4: Citation needed — show specific paper chips instead of generic text */}
       {item.type === 'claim' && metadata.requiresCitation && suggestions.length === 0 && (
-        <div className="mb-3 pl-3 border-l border-warning text-xs text-text-muted">
-          <span className="text-warning font-medium">Citation needed</span>
-          {' '}— Search your library or use Paper Discovery to find supporting references for this claim.
+        <div className="mb-3 pl-3 border-l border-warning">
+          <span className="text-xs text-warning font-medium block mb-1.5">Citation needed</span>
+          {suggestedCitations.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {suggestedCitations.slice(0, 4).map((cit, i) => (
+                <span
+                  key={i}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    cit.source === 'library'
+                      ? 'bg-teal-500/15 text-teal-400'
+                      : 'bg-indigo-500/15 text-indigo-400'
+                  }`}
+                >
+                  {cit.display}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="text-xs text-text-muted italic">
+              No citation match found in your library.
+            </span>
+          )}
         </div>
       )}
 
@@ -182,9 +276,20 @@ export default function UnifiedFeedbackCard({
                     <span className="text-xs text-text-secondary">{suggestion}</span>
                   ) : (
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs text-text-primary font-medium leading-snug">
-                        {suggestion.title || suggestion.citation_string || 'Untitled'}
-                      </span>
+                      <div className="flex items-start gap-1.5 flex-wrap">
+                        <span className="text-xs text-text-primary font-medium leading-snug">
+                          {suggestion.title || suggestion.citation_string || 'Untitled'}
+                        </span>
+                        {suggestion.external && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                            suggestion.source === 'semantic_scholar'
+                              ? 'bg-indigo-500/15 text-indigo-400'
+                              : 'bg-teal-500/15 text-teal-400'
+                          }`}>
+                            {suggestion.source === 'semantic_scholar' ? 'Semantic Scholar' : 'OpenAlex'}
+                          </span>
+                        )}
+                      </div>
                       {(suggestion.authors || suggestion.year) && (
                         <span className="text-xs text-text-muted">
                           {suggestion.authors
@@ -194,14 +299,14 @@ export default function UnifiedFeedbackCard({
                           {suggestion.year}
                         </span>
                       )}
-                      {suggestion.open_access_url && (
+                      {(suggestion.open_access_url || suggestion.url) && (
                         <a
-                          href={suggestion.open_access_url}
+                          href={suggestion.open_access_url || suggestion.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-accent-primary hover:underline flex items-center gap-1 mt-0.5 w-fit"
                         >
-                          <span>View PDF</span>
+                          <span>{suggestion.open_access_url ? 'View PDF' : 'View paper'}</span>
                           <ArrowTopRightOnSquareIcon className="w-3 h-3" />
                         </a>
                       )}
@@ -228,8 +333,8 @@ export default function UnifiedFeedbackCard({
         </button>
       )}
 
-      {/* Action buttons — solid, opaque, no translucent fills */}
-      {currentStatus === 'new' && (
+      {/* A2: Action buttons — not shown for strength items (they're informational, not actionable) */}
+      {currentStatus === 'new' && !isStrength && (
         <div className="flex items-center gap-2 pt-3 border-t border-border-default">
           <button
             onClick={() => onStatusChange(item.id, item.type, 'saved')}

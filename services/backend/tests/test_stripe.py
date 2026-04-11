@@ -26,10 +26,10 @@ def test_plan_configs():
     # Validate Team plan pricing
     assert "price_per_user_monthly" in PLAN_CONFIGS["team"], "Team plan missing price_per_user_monthly"
     assert PLAN_CONFIGS["team"]["price_per_user_monthly"] == 20.0, f"Team plan price should be 20.0, got {PLAN_CONFIGS['team']['price_per_user_monthly']}"
-    assert PLAN_CONFIGS["team"]["minimum_seats"] == 3, "Team plan minimum seats should be 3"
-    assert PLAN_CONFIGS["team"]["maximum_seats"] == 100, "Team plan maximum seats should be 100"
+    assert PLAN_CONFIGS["team"]["minimum_seats"] == 2, "Team plan minimum seats should be 2"
+    assert PLAN_CONFIGS["team"]["maximum_seats"] == 3, "Team plan maximum seats should be 3"
 
-    print("\n✅ Team plan pricing validated: $20/user/month (min 3, max 100 seats)")
+    print("\n✅ Team plan pricing validated: $20/user/month (min 2, max 3 seats)")
 
 
 def test_stripe_keys():

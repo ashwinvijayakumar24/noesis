@@ -25,6 +25,7 @@ interface Claim {
   confidence_score?: number
   requires_citation: boolean
   existing_citations: string[]
+  supporting_literature?: any  // JSONB: array (old) or { top_match, suggested_citations } (new)
   line_number?: number
   status: 'new' | 'saved' | 'dismissed'
 }

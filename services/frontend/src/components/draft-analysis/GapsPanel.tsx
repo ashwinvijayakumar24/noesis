@@ -68,15 +68,27 @@ export default function GapsPanel({ gaps, onGapClick }: GapsPanelProps) {
             {gap.suggested_papers && gap.suggested_papers.length > 0 && (
               <div className="mt-3 border-t border-border-default pt-3">
                 <p className="text-xs font-medium text-text-tertiary mb-2 font-mono">
-                  Suggested papers from your literature:
+                  Suggested:
                 </p>
                 <ul className="space-y-1">
-                  {gap.suggested_papers.slice(0, 3).map((paper, idx) => (
-                    <li key={idx} className="text-sm text-text-tertiary flex gap-2">
-                      <span className="text-text-muted">•</span>
-                      <span>{paper.title} ({paper.year})</span>
-                    </li>
-                  ))}
+                  {gap.suggested_papers.slice(0, 3).map((paper: any, idx) => {
+                    const authors: string[] = paper.authors || []
+                    const year = paper.year || paper.publication_year || ''
+                    let authorDisplay = ''
+                    if (authors.length > 0) {
+                      const lastName = (authors[0].includes(',') ? authors[0].split(',')[0] : authors[0]).trim()
+                      authorDisplay = authors.length > 1 ? `${lastName} et al.` : lastName
+                    }
+                    const citation = authorDisplay && year
+                      ? `${authorDisplay} (${year})`
+                      : authorDisplay || paper.title || 'Unknown'
+                    return (
+                      <li key={idx} className="text-sm text-text-tertiary flex gap-2">
+                        <span className="text-text-muted">•</span>
+                        <span className="font-mono text-xs">{citation}</span>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             )}

@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   DocumentTextIcon as _DocumentTextIcon,
-  ChatBubbleLeftRightIcon,
+  ChatBubbleLeftRightIcon as _ChatBubbleLeftRightIcon,
   LightBulbIcon,
   BeakerIcon,
   ArrowRightIcon,
@@ -11,7 +11,7 @@ import {
   UserIcon,
   AcademicCapIcon,
   CheckBadgeIcon,
-  DocumentArrowDownIcon,
+  DocumentArrowDownIcon as _DocumentArrowDownIcon,
   BookOpenIcon,
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
@@ -31,10 +31,10 @@ type TabId = typeof TABS[number]['id']
 function AnalysisTab() {
   return (
     <div className="space-y-3">
-      <div className="bg-accent-light border border-accent-primary/30 rounded-lg p-4">
+      <div className="bg-bg-elevated border-l-4 border-l-accent-primary border border-border-default rounded-lg p-4">
         <div className="flex items-center gap-2 mb-3">
           <ExclamationCircleIcon className="h-4 w-4 text-accent-primary shrink-0" />
-          <h3 className="text-sm font-semibold text-accent-primary">Top Action Items</h3>
+          <h3 className="text-sm font-semibold text-text-primary">Top Action Items</h3>
         </div>
         <ol className="space-y-2">
           {[
@@ -99,7 +99,7 @@ function FeedbackTab() {
       <div className="flex space-x-1 border-b border-border-default">
         <button className="px-4 py-2 text-sm font-semibold border-b-2 border-accent-primary text-text-primary">
           New
-          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-accent-light text-accent-primary border border-accent-primary/30">7</span>
+          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-accent-primary text-white font-semibold">7</span>
         </button>
         <button className="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-text-secondary">
           Saved
@@ -113,10 +113,10 @@ function FeedbackTab() {
       <div className="bg-bg-surface rounded-lg border border-border-default border-l-4 border-l-accent-primary p-4 transition-all duration-150">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-accent-light text-accent-primary border border-accent-primary/30">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-accent-primary text-white">
               Unsupported Claim
             </span>
-            <span className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-error-light text-error border border-error/30">
+            <span className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-error text-white">
               HIGH
             </span>
           </div>
@@ -142,7 +142,7 @@ function GapsTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-semibold text-text-secondary">Coverage Analysis</h3>
-        <span className="text-xs font-mono text-error bg-error-light border border-error/30 px-2 py-0.5 rounded-md">3 Critical Gaps</span>
+        <span className="text-xs font-mono text-white bg-error px-2 py-0.5 rounded-md font-semibold">3 Critical Gaps</span>
       </div>
       {[
         { type: 'Missing Methodology', priority: 'CRITICAL', color: 'error',
@@ -159,9 +159,8 @@ function GapsTab() {
           gap.color === 'error' ? 'border-l-error' : 'border-l-warning'
         } border border-border-default p-3`}>
           <div className="flex items-center gap-2 mb-1.5">
-            <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-md ${
-              gap.color === 'error' ? 'bg-error-light text-error border border-error/30'
-              : 'bg-warning-light text-warning border border-warning/30'}`}>{gap.priority}</span>
+            <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-md text-white ${
+              gap.color === 'error' ? 'bg-error' : 'bg-warning'}`}>{gap.priority}</span>
             <span className="text-xs text-text-muted">{gap.type}</span>
           </div>
           <p className="text-sm text-text-primary mb-2">{gap.title}</p>
@@ -265,19 +264,9 @@ export default function Landing() {
       description: 'Not just your uploads. Noesis searches PubMed, arXiv, and Semantic Scholar to surface papers relevant to your coverage gaps — then adds them to your project automatically.'
     },
     {
-      icon: ChatBubbleLeftRightIcon,
-      title: 'Citation-Grounded Research Chat',
-      description: 'Ask questions in natural language and receive answers grounded in your literature, never hallucinating citations. Every answer cites the exact passage it came from.'
-    },
-    {
       icon: LightBulbIcon,
       title: 'Grounded in Your Literature',
       description: 'Every piece of feedback shows the exact passage from your uploaded literature that informed it. Not a black box — see the AI\'s reasoning and evaluate it yourself.'
-    },
-    {
-      icon: DocumentArrowDownIcon,
-      title: 'BibTeX Export + PDF Reports',
-      description: 'Export your literature as .bib files for LaTeX and Zotero. Download comprehensive PDF reports with claims, gaps, feedback, and citations for submission preparation.'
     }
   ]
 
@@ -770,30 +759,26 @@ export default function Landing() {
                     <span className="text-text-tertiary">/month</span>
                   </div>
                   <p className="text-sm text-text-tertiary mt-2">
-                    Perfect for trying Noesis and small research projects
+                    For researchers working on their first paper
                   </p>
                 </div>
 
                 <ul className="space-y-3 mb-6 flex-1">
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">3 projects</span>
+                    <span className="text-text-secondary">5 draft analyses per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">3 draft analyses per month</span>
+                    <span className="text-text-secondary">30 PDF uploads per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">10 PDF uploads per month</span>
+                    <span className="text-text-secondary">100 BibTeX imports per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">10 BibTeX imports per month</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-sm">
-                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">3 paper discovery searches per day</span>
+                    <span className="text-text-secondary">10 paper discovery searches per day</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />

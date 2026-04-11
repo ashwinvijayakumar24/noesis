@@ -26,6 +26,7 @@ class ClaimWithCitation(TypedDict):
     citations: List[Dict[str, Any]]
     citation_quality: NotRequired[str]  # strong, moderate, weak
     gaps: NotRequired[List[str]]
+    suggested_citations: NotRequired[List[Dict[str, Any]]]  # B2: discovered papers for weak/none claims
 
 
 class Gap(TypedDict):
@@ -102,6 +103,9 @@ class DraftAnalysisState(TypedDict):
 
     # Reviewer feedback
     reviewer_feedback: NotRequired[List[Feedback]]
+
+    # Structural checks feedback (merged into reviewer_feedback table with feedback_type='structural')
+    structural_feedback: NotRequired[List[Dict[str, Any]]]
 
     # Final report
     synthesis_report: NotRequired[Dict[str, Any]]

@@ -151,7 +151,7 @@ async def search_all_claims_parallel(
     return successful_results
 
 
-def literature_search_node(state: DraftAnalysisState) -> DraftAnalysisState:
+async def literature_search_node(state: DraftAnalysisState) -> DraftAnalysisState:
     """
     Search for literature supporting each claim (in parallel).
 
@@ -218,9 +218,7 @@ def literature_search_node(state: DraftAnalysisState) -> DraftAnalysisState:
         logger.info(f"[Literature Search] Searching for {len(primary_claims)} claims in parallel")
 
         # Run parallel search (this is the key optimization!)
-        search_results = asyncio.run(
-            search_all_claims_parallel(primary_claims, project_id, max_results=5)
-        )
+        search_results = await search_all_claims_parallel(primary_claims, project_id, max_results=5)
 
         # Count successful searches
         successful_searches = sum(1 for r in search_results if r['result_count'] > 0)

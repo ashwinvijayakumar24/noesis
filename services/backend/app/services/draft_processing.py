@@ -671,13 +671,16 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
             # Don't fail the entire ingestion if advanced analysis fails
             # The structural analysis is already complete
 
-        # 7. Update draft status to analyzed
-        logger.info(f"[INGEST] Step 9: Updating status to 'analyzed'...")
+        # 7. Update draft status to 'processing' (NOT 'analyzed') —
+        # LangGraph runs AFTER this function and writes supporting_literature.
+        # Status is set to 'analyzed' only after LangGraph completes (in draft_analysis_langgraph.py).
+        # Keeping status='processing' here ensures the frontend keeps polling until everything is ready.
+        logger.info(f"[INGEST] Step 9: Updating status to 'processing' (LangGraph will set 'analyzed')...")
         supabase.table("drafts").update({
-            "status": "analyzed",
+            "status": "processing",
             "updated_at": datetime.datetime.utcnow().isoformat()
         }).eq("id", draft_id).execute()
-        logger.info(f"[INGEST] ✓ Status updated to 'analyzed'")
+        logger.info(f"[INGEST] ✓ Status updated to 'processing'")
 
         logger.info(f"[INGEST] ========== DRAFT INGESTION COMPLETED SUCCESSFULLY ==========")
         logger.info(f"[INGEST] draft_id={draft_id}, word_count={word_count}")

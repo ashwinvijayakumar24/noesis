@@ -5,26 +5,13 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import {
   CheckBadgeIcon,
-  XMarkIcon,
   SparklesIcon,
   UserGroupIcon,
   AcademicCapIcon,
+  BuildingOffice2Icon,
 } from '@heroicons/react/24/outline'
 import { Button } from '../components/ui/Button'
 import toast from 'react-hot-toast'
-
-interface PricingTier {
-  name: string
-  price: number
-  interval: string
-  description: string
-  features: string[]
-  limitations: string[]
-  cta: string
-  highlighted?: boolean
-  badge?: string
-  icon: any
-}
 
 export default function Pricing() {
   const navigate = useNavigate()
@@ -36,13 +23,24 @@ export default function Pricing() {
   }, [])
 
   const handleSubscribe = async (tierName: string) => {
+    if (tierName === 'Enterprise') {
+      window.location.href = 'mailto:team@noesis.is?subject=Enterprise%20Plan%20Inquiry'
+      return
+    }
+
     if (!session?.access_token) {
       navigate('/login')
       return
     }
 
+    if (tierName === 'Free') {
+      navigate('/signup')
+      return
+    }
+
     try {
       setLoading(true)
+      const origin = window.location.origin
       const response = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: {
@@ -50,7 +48,9 @@ export default function Pricing() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          plan: tierName.toLowerCase(),
+          plan_tier: tierName.toLowerCase(),
+          success_url: `${origin}/projects?subscribed=true`,
+          cancel_url: `${origin}/pricing`,
         }),
       })
 
@@ -60,7 +60,6 @@ export default function Pricing() {
 
       const data = await response.json()
 
-      // Redirect to checkout URL (Stripe or similar)
       if (data.checkout_url) {
         window.location.href = data.checkout_url
       } else {
@@ -75,36 +74,43 @@ export default function Pricing() {
     }
   }
 
-  const pricingTiers: PricingTier[] = [
+  const tiers = [
     {
       name: 'Free',
-      price: 0,
-      interval: 'month',
-      description: 'Perfect for exploring Noesis — generous limits for beta users',
+      price: '$0',
+      interval: '/month',
+      description: 'For researchers working on their first paper',
+      icon: AcademicCapIcon,
+      highlighted: false,
+      badge: null,
+      cta: 'Get Started Free',
+      subtext: 'No credit card required',
       features: [
-        '3 projects',
-        '3 draft analyses per month',
-        '10 PDF uploads per month',
-        '10 BibTeX imports per month',
-        'Paper discovery (3 searches/day)',
+        '5 draft analyses per month',
+        '30 PDF uploads per month',
+        '100 BibTeX imports per month',
+        '10 paper discovery searches per day',
         'Citation gap detection',
         'Reviewer-style feedback with source grounding',
         'BibTeX export',
         'All core features',
       ],
-      limitations: [],
-      cta: 'Get Started Free',
-      icon: AcademicCapIcon,
     },
     {
       name: 'Pro',
-      price: 12,
-      interval: 'month',
+      price: '$12',
+      interval: '/month',
       description: 'For active researchers with ongoing projects',
+      icon: SparklesIcon,
+      highlighted: true,
+      badge: 'Most Popular',
+      cta: 'Subscribe to Pro',
+      subtext: null,
       features: [
         'Unlimited draft analyses',
         'Unlimited document uploads',
-        'Unlimited recommendation refreshes',
+        'Unlimited BibTeX imports',
+        'Unlimited paper discovery',
         'Priority processing',
         'Larger draft size limits (50+ pages)',
         'Advanced citation suggestions',
@@ -112,29 +118,46 @@ export default function Pricing() {
         'Email support',
         'Everything in Free',
       ],
-      limitations: [],
-      cta: 'Subscribe to Pro',
-      highlighted: true,
-      badge: 'Most Popular',
-      icon: SparklesIcon,
     },
     {
-      name: 'Lab',
-      price: 49,
-      interval: 'month',
-      description: 'Flat rate for PI + up to 4 lab members — no per-seat counting',
+      name: 'Team',
+      price: '$20',
+      interval: '/user/month',
+      description: 'For research groups (2–3 researchers)',
+      icon: UserGroupIcon,
+      highlighted: false,
+      badge: null,
+      cta: 'Subscribe to Team',
+      subtext: '$40–$60/mo for a full group',
       features: [
-        'Up to 5 users included',
+        '2–3 users (PI + lab members)',
+        'All Pro features for every member',
         'Shared project workspaces',
-        'Everything in Pro — unlimited analyses',
         'Team collaboration features',
         'Lab member invite link',
         'Dedicated support',
         'Priority feature requests',
       ],
-      limitations: [],
-      cta: 'Subscribe to Lab',
-      icon: UserGroupIcon,
+    },
+    {
+      name: 'Enterprise',
+      price: 'Custom',
+      interval: '',
+      description: 'For departments and large labs (4+ users)',
+      icon: BuildingOffice2Icon,
+      highlighted: false,
+      badge: null,
+      cta: 'Contact Us',
+      subtext: null,
+      features: [
+        '4+ users, custom seat count',
+        'Everything in Team',
+        'Custom integrations',
+        'Admin dashboard & SSO',
+        'Dedicated customer success manager',
+        'Institution purchase orders accepted',
+        'Custom onboarding',
+      ],
     },
   ]
 
@@ -186,7 +209,7 @@ export default function Pricing() {
               Transparent, <span className="text-accent-primary">Research-Friendly</span> Pricing
             </h1>
             <p className="text-xl sm:text-2xl text-text-secondary leading-body-large tracking-normal max-w-3xl mx-auto">
-              Choose the plan that fits your research workflow. All plans include core features.
+              Build your full library for free. Pay only when you need more AI analyses.
             </p>
           </motion.div>
         </div>
@@ -195,15 +218,15 @@ export default function Pricing() {
       {/* Pricing Cards */}
       <section className="pb-32 px-6 sm:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-8">
-            {pricingTiers.map((tier, index) => (
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+            {tiers.map((tier, index) => (
               <motion.div
                 key={tier.name}
                 id={`plan-${tier.name.toLowerCase()}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
-                className={`relative bg-bg-surface rounded-lg p-8 ${
+                className={`relative bg-bg-surface rounded-xl p-8 flex flex-col ${
                   tier.highlighted
                     ? 'border-2 border-accent-primary shadow-lg'
                     : 'border border-border-default'
@@ -218,11 +241,11 @@ export default function Pricing() {
                   </div>
                 )}
 
-                <div className="space-y-6 mt-2">
+                <div className="flex flex-col gap-6 flex-1 mt-2">
                   {/* Icon & Title */}
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
                         tier.highlighted
                           ? 'bg-accent-light border border-accent-primary/30'
                           : 'bg-bg-hover border border-border-default'
@@ -241,11 +264,13 @@ export default function Pricing() {
 
                   {/* Price */}
                   <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-5xl font-semibold text-text-primary">
-                        ${tier.price}
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-semibold text-text-primary">
+                        {tier.price}
                       </span>
-                      <span className="text-text-tertiary">/{tier.interval}</span>
+                      {tier.interval && (
+                        <span className="text-text-tertiary text-sm">{tier.interval}</span>
+                      )}
                     </div>
                     <p className="text-sm text-text-tertiary mt-2 tracking-normal">
                       {tier.description}
@@ -253,37 +278,34 @@ export default function Pricing() {
                   </div>
 
                   {/* Features */}
-                  <ul className="space-y-3">
+                  <ul className="space-y-3 flex-1">
                     {tier.features.map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-3 text-sm">
                         <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
                         <span className="text-text-secondary tracking-normal">{feature}</span>
                       </li>
                     ))}
-                    {tier.limitations.map((limitation, idx) => (
-                      <li key={idx} className="flex items-start gap-3 text-sm">
-                        <XMarkIcon className="h-5 w-5 text-text-muted shrink-0 mt-0.5" />
-                        <span className="text-text-muted tracking-normal">{limitation}</span>
-                      </li>
-                    ))}
                   </ul>
 
-                  {/* CTA Button */}
-                  <Button
-                    onClick={() => handleSubscribe(tier.name)}
-                    variant={tier.highlighted ? 'primary' : 'secondary'}
-                    size="lg"
-                    className="w-full"
-                    disabled={loading}
-                  >
-                    {loading ? 'Processing...' : tier.cta}
-                  </Button>
-
-                  {tier.name === 'Free' && (
-                    <p className="text-xs text-text-muted text-center font-mono tracking-normal">
-                      No credit card required
-                    </p>
-                  )}
+                  {/* CTA */}
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => handleSubscribe(tier.name)}
+                      variant={tier.highlighted ? 'primary' : 'secondary'}
+                      size="lg"
+                      className="w-full"
+                      disabled={loading && tier.name !== 'Free' && tier.name !== 'Enterprise'}
+                    >
+                      {loading && tier.name !== 'Free' && tier.name !== 'Enterprise'
+                        ? 'Processing...'
+                        : tier.cta}
+                    </Button>
+                    {tier.subtext && (
+                      <p className="text-xs text-text-muted text-center font-mono tracking-normal">
+                        {tier.subtext}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -293,8 +315,8 @@ export default function Pricing() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-16 bg-bg-surface border border-border-default rounded-lg p-8"
+            transition={{ delay: 0.5 }}
+            className="mt-16 bg-bg-surface border border-border-default rounded-xl p-8"
           >
             <h3 className="text-2xl font-sans font-semibold text-text-primary mb-6 tracking-normal">
               Frequently Asked Questions
@@ -311,11 +333,21 @@ export default function Pricing() {
               </div>
               <div>
                 <h4 className="font-sans font-semibold text-text-primary mb-2 tracking-normal">
+                  What counts as a "draft analysis"?
+                </h4>
+                <p className="text-sm text-text-secondary leading-relaxed tracking-normal">
+                  Each time you submit a draft for AI-powered reviewer feedback, claim extraction,
+                  and gap detection, that counts as one analysis. Re-running an existing draft's
+                  analysis also counts. PDF uploads and BibTeX imports do not count against this limit.
+                </p>
+              </div>
+              <div>
+                <h4 className="font-sans font-semibold text-text-primary mb-2 tracking-normal">
                   What payment methods do you accept?
                 </h4>
                 <p className="text-sm text-text-secondary leading-relaxed tracking-normal">
                   We accept all major credit cards (Visa, MasterCard, American Express) and
-                  institutional purchase orders for Team plans.
+                  institutional purchase orders for Enterprise plans.
                 </p>
               </div>
               <div>
@@ -339,7 +371,9 @@ export default function Pricing() {
                 </h4>
                 <p className="text-sm text-text-secondary leading-relaxed tracking-normal">
                   You'll receive a notification when approaching your limits. You can upgrade to
-                  Pro anytime to continue using Noesis without interruption.
+                  Pro anytime to continue using Noesis without interruption. Library building
+                  (PDF uploads and BibTeX imports) has generous free limits so you can build a
+                  real project before committing.
                 </p>
               </div>
             </div>

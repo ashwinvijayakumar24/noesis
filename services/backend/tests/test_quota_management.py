@@ -243,7 +243,7 @@ class TestCreateDefaultQuota:
     @pytest.mark.unit
     @patch("app.services.quota_management.supabase")
     async def test_creates_with_correct_limits(self, mock_supabase):
-        """New free-tier quotas use 10 PDF limit and 10 bib ref limit."""
+        """New free-tier quotas use 30 PDF limit and 100 bib ref limit."""
         from app.services.quota_management import create_default_quota
 
         insert_mock = MagicMock()
@@ -253,8 +253,8 @@ class TestCreateDefaultQuota:
         await create_default_quota("user-uuid")
 
         call_args = mock_supabase.table.return_value.insert.call_args[0][0]
-        assert call_args["monthly_document_limit"] == 10
-        assert call_args["monthly_bib_refs_limit"] == 10
+        assert call_args["monthly_document_limit"] == 30
+        assert call_args["monthly_bib_refs_limit"] == 100
         assert call_args["current_month_bib_refs"] == 0
         assert call_args["plan_tier"] == "free"
 

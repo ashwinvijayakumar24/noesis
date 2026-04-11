@@ -35,11 +35,12 @@ interface PaperCardProps {
 
 // ─── Source badge ────────────────────────────────────────────────────────────
 
-function SourceBadge({ sourceType, resolutionStatus }: { sourceType?: string; resolutionStatus?: string | null }) {
-  // Papers imported via BibTeX may have source_type=null in the DB — use resolution_status as fallback signal
+function SourceBadge({ sourceType, resolutionStatus, status }: { sourceType?: string; resolutionStatus?: string | null; status?: string }) {
+  // Papers imported via BibTeX may have source_type=null in the DB — use status/resolution_status as fallback signals
   const isBibTeX =
     sourceType === 'bibtex_import' ||
     sourceType === 'zotero_import' ||
+    status === 'imported' ||
     (resolutionStatus != null && resolutionStatus !== '')
 
   if (sourceType === 'zotero_import') {
@@ -291,7 +292,7 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
                 className="inline-flex items-center gap-1.5 text-xs text-text-secondary border border-border-default rounded-lg px-2.5 py-1 hover:text-text-primary hover:border-border-subtle transition-colors duration-150"
               >
                 <DocumentTextIcon className="h-3.5 w-3.5" />
-                PDF
+                Access PDF
               </button>
             )}
           </div>
@@ -301,7 +302,7 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
       {/* Right: badges + delete */}
       <div className="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
-          <SourceBadge sourceType={document.source_type} resolutionStatus={document.resolution_status} />
+          <SourceBadge sourceType={document.source_type} resolutionStatus={document.resolution_status} status={document.status} />
           <StatusBadge
             status={document.status}
             resolutionStatus={document.resolution_status}

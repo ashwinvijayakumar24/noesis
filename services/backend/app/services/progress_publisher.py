@@ -23,6 +23,6 @@ async def publish_progress(draft_id: str, step: str, percent: int, message: str)
         await r.publish(f"progress:{draft_id}", event)
         # Key-value for late subscribers (30 min TTL)
         await r.set(f"progress:{draft_id}:latest", event, ex=1800)
-        await r.aclose()
+        await r.close()
     except Exception as e:
         logger.warning(f"Failed to publish progress for draft {draft_id}: {e}")

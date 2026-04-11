@@ -14,6 +14,7 @@ This service provides critique and suggestions WITHOUT modifying the user's draf
 Requirements: 5.1, 5.2, 5.3, 5.4
 """
 
+import re
 import json
 import time
 from typing import Dict, Any, List, Optional
@@ -1047,3 +1048,195 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Reviewer feedback generation failed: {str(e)}")
         raise
+
+
+# ============================================
+# Readiness Score + Action Items
+# ============================================
+
+def calculate_readiness_score(
+    claims: List[Dict[str, Any]],
+    gaps: List[Dict[str, Any]],
+    feedback: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Compute a 0–100 submission readiness score from analysis results.
+
+    Formula (deduction-based):
+      100
+      - (critical non-structural feedback × 12)
+      - (major non-structural feedback × 6)
+      - (unsupported claims with importance > 0.7 × 10)
+      - (critical-priority gaps × 10)
+      - (high-priority gaps × 5)
+      - (critical/major structural check failures × 4)
+    Clamped to [0, 100].
+
+    Verdict bands:
+      85–100 → "Strong Submission"
+      70–84  → "Minor Revisions"
+      50–69  → "Needs Work"
+      0–49   → "Major Revisions"
+    """
+    structural_fb = [f for f in feedback if f.get("feedback_type") == "structural"]
+    standard_fb = [f for f in feedback if f.get("feedback_type") != "structural"]
+
+    critical_feedback = sum(1 for f in standard_fb if f.get("severity") == "critical")
+    major_feedback = sum(1 for f in standard_fb if f.get("severity") == "major")
+    structural_failures = sum(
+        1 for f in structural_fb if f.get("severity") in ("critical", "major")
+    )
+
+    unsupported_important = sum(
+        1 for c in claims
+        if c.get("requires_citation", True)
+        and not (c.get("existing_citations") or [])
+        and float(c.get("importance_score", 0)) > 0.7
+    )
+
+    critical_gaps = sum(1 for g in gaps if g.get("priority") == "critical")
+    high_gaps = sum(1 for g in gaps if g.get("priority") == "high")
+
+    deductions = (
+        critical_feedback * 12
+        + major_feedback * 6
+        + unsupported_important * 10
+        + critical_gaps * 10
+        + high_gaps * 5
+        + structural_failures * 4
+    )
+
+    score = max(0, min(100, 100 - deductions))
+
+    if score >= 85:
+        verdict = "Strong Submission"
+    elif score >= 70:
+        verdict = "Minor Revisions"
+    elif score >= 50:
+        verdict = "Needs Work"
+    else:
+        verdict = "Major Revisions"
+
+    return {
+        "readiness_score": score,
+        "verdict": verdict,
+        "score_breakdown": {
+            "critical_feedback": critical_feedback,
+            "major_feedback": major_feedback,
+            "unsupported_important_claims": unsupported_important,
+            "critical_gaps": critical_gaps,
+            "high_gaps": high_gaps,
+            "structural_failures": structural_failures,
+            "total_deductions": deductions,
+        },
+    }
+
+
+def synthesize_action_items(
+    claims: List[Dict[str, Any]],
+    gaps: List[Dict[str, Any]],
+    feedback: List[Dict[str, Any]],
+) -> List[str]:
+    """
+    Use GPT-5.2 to synthesize 3–5 top-priority action items from analysis results.
+
+    Returns a list of concrete, actionable strings like:
+      "Add empirical evidence for efficiency claims in §2.3 — include baseline comparisons"
+    """
+    try:
+        top_claims = sorted(claims, key=lambda c: float(c.get("importance_score", 0)), reverse=True)[:5]
+        priority_gaps = [g for g in gaps if g.get("priority") in ("critical", "high")][:5]
+        critical_fb = [f for f in feedback if f.get("severity") in ("critical", "major")][:5]
+
+        context_parts = []
+
+        if top_claims:
+            lines = ["HIGH-IMPORTANCE CLAIMS:"]
+            for c in top_claims:
+                citation_status = "requires citation" if c.get("requires_citation") else "original contribution"
+                lines.append(
+                    f"- [{citation_status}] \"{c.get('claim_text', '')[:200]}\" "
+                    f"(section: {c.get('section_location', 'unknown')})"
+                )
+            context_parts.append("\n".join(lines))
+
+        if priority_gaps:
+            lines = ["CRITICAL/HIGH COVERAGE GAPS:"]
+            for g in priority_gaps:
+                lines.append(f"- {g.get('description', '')[:200]}")
+            context_parts.append("\n".join(lines))
+
+        if critical_fb:
+            lines = ["CRITICAL/MAJOR REVIEWER FEEDBACK:"]
+            for f in critical_fb:
+                lines.append(
+                    f"- [{f.get('feedback_type', '')}] {f.get('feedback_text', '')[:200]}"
+                )
+            context_parts.append("\n".join(lines))
+
+        context = "\n\n".join(context_parts)
+
+        synthesis_prompt = """You are an expert academic reviewer. Based on the analysis results below, write 3–5 top-priority action items the author should address before submission.
+
+Each action item must be:
+- Specific and grounded in the analysis (not generic advice)
+- Include a section reference where applicable (e.g., "§2.3", "Methods", "Discussion")
+- Written as a single imperative sentence starting with a verb
+
+Return ONLY valid JSON:
+{
+  "action_items": [
+    "Add primary citations for the efficiency claims in §2.3 — include confidence intervals and baseline comparisons",
+    "Address the missing SOTA comparison in Related Work — cite at least 3 competing methods from 2022–2024",
+    "Strengthen the Limitations section with at least 2 substantive constraints on generalizability"
+  ]
+}"""
+
+        response = client.chat.completions.create(
+            model="gpt-5.2-chat-latest",
+            messages=[
+                {"role": "system", "content": synthesis_prompt},
+                {"role": "user", "content": context}
+            ],
+            max_completion_tokens=600,
+            **get_completion_params()
+        )
+
+        raw = response.choices[0].message.content.strip()
+        if raw.startswith("```"):
+            parts = raw.split("```")
+            raw = parts[1] if len(parts) > 1 else raw
+            if raw.startswith("json"):
+                raw = raw[4:].strip()
+
+        result = json.loads(raw)
+        items = result.get("action_items", [])
+        logger.info(f"[Action Items] Synthesized {len(items)} action items")
+        return items
+
+    except Exception as e:
+        logger.error(f"[Action Items] Synthesis failed: {e}")
+        # Fallback: generate items directly from top issues without GPT
+        fallback = []
+
+        unsupported = [
+            c for c in claims
+            if c.get("requires_citation") and not (c.get("existing_citations") or [])
+            and float(c.get("importance_score", 0)) > 0.6
+        ]
+        if unsupported:
+            top = sorted(unsupported, key=lambda c: float(c.get("importance_score", 0)), reverse=True)[0]
+            fallback.append(
+                f"Add citations for: \"{top.get('claim_text', '')[:100]}\" "
+                f"in {top.get('section_location', 'draft')}"
+            )
+
+        high_prio_gaps = [g for g in gaps if g.get("priority") in ("critical", "high")]
+        if high_prio_gaps:
+            fallback.append(f"Address coverage gap: {high_prio_gaps[0].get('description', '')[:120]}")
+
+        critical_feedback = [f for f in feedback if f.get("severity") == "critical"]
+        if critical_feedback:
+            fallback.append(f"Fix critical issue: {critical_feedback[0].get('feedback_text', '')[:120]}")
+
+        return fallback[:5]

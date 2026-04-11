@@ -375,9 +375,9 @@ async def update_claims_section_types(
         if not section_type:
             section_type = detect_section_type_from_location(section_location)
 
-        # Update claim
+        # Update claim — only section_type, preserve user's saved/dismissed status
         supabase.table("draft_claims").update(
-            {"section_type": section_type, "status": "new"}
+            {"section_type": section_type}
         ).eq("id", claim["id"]).execute()
         updated_count += 1
 
@@ -413,7 +413,7 @@ async def update_gaps_section_types(
 
     for gap in gaps_response.data:
         gap_type = gap.get("gap_type", "").lower()
-        description = gap.get("description", "").lower()
+        description = gap.get("description", "") or ""
 
         # Heuristic: methodology gaps -> methodology section
         if "method" in gap_type:
@@ -421,13 +421,20 @@ async def update_gaps_section_types(
         # Theoretical/literature gaps -> literature review
         elif "theoretical" in gap_type or "literature" in gap_type or "seminal" in gap_type:
             section_type = 'literature_review'
-        # Try to detect from description
         else:
-            section_type = detect_section_type_from_location(description)
+            # Try to parse embedded section from B3-format descriptions:
+            # "Claim in {section}: '...' — ..." or "Claim '{...}' in {section} ..."
+            section_match = re.match(r"claim in (.+?):", description, re.IGNORECASE)
+            if section_match:
+                extracted_section = section_match.group(1).strip()
+                section_type = detect_section_type_from_location(extracted_section)
+            else:
+                # Fall back to keyword detection on description (old behavior)
+                section_type = detect_section_type_from_location(description)
 
-        # Update gap
+        # Update gap — only section_type, preserve user's saved/dismissed status
         supabase.table("coverage_gaps").update(
-            {"section_type": section_type, "status": "new"}
+            {"section_type": section_type}
         ).eq("id", gap["id"]).execute()
         updated_count += 1
 
@@ -485,9 +492,9 @@ async def update_feedback_section_types(
             else:
                 section_type = detect_section_type_from_location(section_reference)
 
-        # Update feedback
+        # Update feedback — only section_type, preserve user's saved/dismissed status
         supabase.table("reviewer_feedback").update(
-            {"section_type": section_type, "status": "new"}
+            {"section_type": section_type}
         ).eq("id", feedback["id"]).execute()
         updated_count += 1
 

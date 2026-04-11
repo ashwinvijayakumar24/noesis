@@ -12,6 +12,7 @@ Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
 
 import json
 import time
+import asyncio
 from typing import Dict, Any, List, Optional
 from app.core.config import settings
 from app.core.supabase_client import supabase
@@ -638,6 +639,68 @@ async def compare_with_literature_database(
 
 
 # ============================================
+# External Paper Fallback
+# ============================================
+
+_EXTERNAL_FALLBACK_THRESHOLD = 3   # trigger fallback if fewer local papers
+_MAX_EXTERNAL_PAPERS = 5           # cap external results per gap
+
+
+def _normalize_external_paper(raw: dict, source: str) -> dict:
+    """Normalize SS/OA paper dict to match suggested_papers schema."""
+    return {
+        "title": raw.get("title", ""),
+        "authors": raw.get("authors", []),
+        "year": raw.get("year") or raw.get("publication_year"),
+        "abstract": raw.get("abstract", ""),
+        "relevance_score": raw.get("relevance_score", 0.5),
+        "source": source,           # "semantic_scholar" | "open_access"
+        "url": raw.get("url") or raw.get("paper_url") or raw.get("open_access_url", ""),
+        "open_access_url": raw.get("open_access_url") or raw.get("pdf_url", ""),
+        "citation_count": raw.get("citation_count") or raw.get("cited_by_count", 0),
+        "external": True,           # flag to distinguish from local papers
+    }
+
+
+async def _fetch_external_papers_for_gap(
+    gap_description: str,
+    needed: int,
+    max_external: int = _MAX_EXTERNAL_PAPERS,
+) -> list:
+    """Semantic Scholar first, OpenAlex cascade, deduplicate by title."""
+    results: list = []
+    seen_titles: set = set()
+
+    # 1. Try Semantic Scholar (sync client — wrap in thread)
+    try:
+        from app.services.external_apis.semantic_scholar import SemanticScholarAPI
+        ss = SemanticScholarAPI()
+        raw = await asyncio.to_thread(ss.search_papers, gap_description, limit=max_external)
+        for p in (raw or []):
+            t = (p.get("title") or "").lower().strip()
+            if t and t not in seen_titles:
+                seen_titles.add(t)
+                results.append(_normalize_external_paper(p, "semantic_scholar"))
+    except Exception as e:
+        logger.warning(f"[EXTERNAL FALLBACK] Semantic Scholar failed: {e}")
+
+    # 2. Backfill with OpenAlex if still short
+    if len(results) < needed:
+        try:
+            from app.services.external_apis.openalex import find_open_access_papers_for_gap
+            oa_raw = await find_open_access_papers_for_gap(gap_description, max_external)
+            for p in (oa_raw or []):
+                t = (p.get("title") or "").lower().strip()
+                if t and t not in seen_titles:
+                    seen_titles.add(t)
+                    results.append(_normalize_external_paper(p, "open_access"))
+        except Exception as e:
+            logger.warning(f"[EXTERNAL FALLBACK] OpenAlex failed: {e}")
+
+    return results[:max_external]
+
+
+# ============================================
 # Gap Remediation Suggestions
 # ============================================
 
@@ -690,7 +753,10 @@ async def suggest_papers_for_gaps(
             ).execute()
 
             if not search_results.data:
-                gap["suggested_papers"] = []
+                external = await _fetch_external_papers_for_gap(
+                    gap_description, _EXTERNAL_FALLBACK_THRESHOLD
+                )
+                gap["suggested_papers"] = external
                 continue
 
             # Get unique documents
@@ -724,6 +790,15 @@ async def suggest_papers_for_gaps(
                     }
 
                     suggested_papers.append(paper)
+
+            # External fallback: if local library is sparse, search SS + OpenAlex
+            if len(suggested_papers) < _EXTERNAL_FALLBACK_THRESHOLD:
+                try:
+                    needed = _EXTERNAL_FALLBACK_THRESHOLD - len(suggested_papers)
+                    external = await _fetch_external_papers_for_gap(gap_description, needed)
+                    suggested_papers.extend(external)
+                except Exception as ext_err:
+                    logger.warning(f"[EXTERNAL FALLBACK] Failed for gap, using local only: {ext_err}")
 
             gap["suggested_papers"] = suggested_papers
 
@@ -1003,7 +1078,7 @@ async def generate_coverage_gap_report(
 
         # 4b. Enrich with external papers from OpenAlex via embedding-based gap detection
         try:
-            embedding_gaps = await detect_embedding_based_gaps(draft_id, project_id)
+            embedding_gaps = await analyze_coverage_with_embeddings(draft_id, project_id)
             for eg in embedding_gaps:
                 external_papers = eg.get("external_paper_suggestions", [])
                 if external_papers:
