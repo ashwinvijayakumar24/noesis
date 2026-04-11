@@ -21,7 +21,10 @@ import uuid
 import logging
 import json
 import asyncio
+import os
 import redis.asyncio as aioredis
+
+_DEV = os.environ.get("ENVIRONMENT", "development") != "production"
 
 router = APIRouter()
 
@@ -639,12 +642,12 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         print(f"[DRAFT-ANALYZE-BG-LG] ========== STEP 1: INGESTING DRAFT ==========")
         try:
             ingest_result = loop.run_until_complete(ingest_draft(draft_id, project_id))
-            print(f"[DRAFT-ANALYZE-BG-LG] ✓ Draft ingested successfully: {ingest_result.get('message', 'Success')}")
+            print(f"[DRAFT-ANALYZE-BG-LG] ✓ Draft ingested successfully")
         except Exception as ingest_error:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ INGEST FAILED: {type(ingest_error).__name__}: {str(ingest_error)}")
-            print(f"[DRAFT-ANALYZE-BG-LG] Stack trace:")
-            print(traceback.format_exc())
-            # ingest_draft already updates status to 'failed', so we can re-raise
+            print(f"[DRAFT-ANALYZE-BG-LG] ✗ INGEST FAILED: {type(ingest_error).__name__}")
+            if _DEV:
+                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(ingest_error)}")
+                print(traceback.format_exc())
             raise
 
         # Get the extracted content
@@ -658,12 +661,10 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
             path_parts = file_url.split("/drafts/")
             if len(path_parts) >= 2:
                 storage_path = path_parts[1]
-                print(f"[DRAFT-ANALYZE-BG-LG] Extracted storage path: {storage_path}")
 
         if not storage_path:
-            error_msg = f"Could not extract storage path from file_url: {file_url}"
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ ERROR: {error_msg}")
-            raise ValueError(error_msg)
+            print(f"[DRAFT-ANALYZE-BG-LG] ✗ ERROR: Could not extract storage path from file_url")
+            raise ValueError(f"Could not extract storage path from file_url: {file_url}")
 
         # Download file bytes
         print(f"[DRAFT-ANALYZE-BG-LG] Downloading file from storage...")
@@ -673,7 +674,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
                 raise ValueError("Downloaded file is empty")
             print(f"[DRAFT-ANALYZE-BG-LG] ✓ Downloaded {len(file_bytes)} bytes")
         except Exception as download_error:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ DOWNLOAD FAILED: {type(download_error).__name__}: {str(download_error)}")
+            print(f"[DRAFT-ANALYZE-BG-LG] ✗ DOWNLOAD FAILED: {type(download_error).__name__}")
             raise ValueError(f"Failed to download draft file: {str(download_error)}")
 
         # Extract text based on file type
@@ -695,9 +696,10 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
 
             print(f"[DRAFT-ANALYZE-BG-LG] ✓ Extracted {len(draft_content)} characters of text")
         except Exception as extract_error:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ TEXT EXTRACTION FAILED: {type(extract_error).__name__}: {str(extract_error)}")
-            print(f"[DRAFT-ANALYZE-BG-LG] Stack trace:")
-            print(traceback.format_exc())
+            print(f"[DRAFT-ANALYZE-BG-LG] ✗ TEXT EXTRACTION FAILED: {type(extract_error).__name__}")
+            if _DEV:
+                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(extract_error)}")
+                print(traceback.format_exc())
             raise
 
         # Run the LangGraph workflow
@@ -712,14 +714,11 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
                 )
             )
             print(f"[DRAFT-ANALYZE-BG-LG] ✓ LangGraph workflow completed successfully!")
-            print(f"[DRAFT-ANALYZE-BG-LG] Results: {result.get('message', 'Success')}")
-            print(f"[DRAFT-ANALYZE-BG-LG] Summary: {result.get('results', {})}")
         except Exception as langgraph_error:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ LANGGRAPH WORKFLOW FAILED!")
-            print(f"[DRAFT-ANALYZE-BG-LG] Error type: {type(langgraph_error).__name__}")
-            print(f"[DRAFT-ANALYZE-BG-LG] Error message: {str(langgraph_error)}")
-            print(f"[DRAFT-ANALYZE-BG-LG] Full stack trace:")
-            print(traceback.format_exc())
+            print(f"[DRAFT-ANALYZE-BG-LG] ✗ LANGGRAPH WORKFLOW FAILED: {type(langgraph_error).__name__}")
+            if _DEV:
+                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(langgraph_error)}")
+                print(traceback.format_exc())
 
             # CRITICAL: Update draft status to 'failed' since LangGraph workflow failed
             # ingest_draft succeeded (status='analyzed'), but LangGraph failed
@@ -820,11 +819,10 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         print(f"[DRAFT-ANALYZE-BG-LG] ========== BACKGROUND TASK COMPLETED SUCCESSFULLY ==========")
 
     except Exception as e:
-        print(f"[DRAFT-ANALYZE-BG-LG] ========== BACKGROUND TASK FAILED ==========")
-        print(f"[DRAFT-ANALYZE-BG-LG] Error type: {type(e).__name__}")
-        print(f"[DRAFT-ANALYZE-BG-LG] Error message: {str(e)}")
-        print(f"[DRAFT-ANALYZE-BG-LG] Full stack trace:")
-        print(traceback.format_exc())
+        print(f"[DRAFT-ANALYZE-BG-LG] ========== BACKGROUND TASK FAILED: {type(e).__name__} ==========")
+        if _DEV:
+            print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(e)}")
+            print(traceback.format_exc())
 
         # Status lifecycle is owned by the Celery task (draft_analysis.py).
         # It sets 'failed' only after all retries are exhausted, so we just log here.
@@ -1010,11 +1008,8 @@ def get_draft_claims(draft_id: str, user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Draft not found")
 
     # Fetch claims
-    print(f"[DRAFT-CLAIMS] Querying draft_claims table for draft_id={draft_id}")
     claims_response = supabase.table("draft_claims").select("*").eq("draft_id", draft_id).execute()
-    print(f"[DRAFT-CLAIMS] Claims response: {claims_response}")
-    print(f"[DRAFT-CLAIMS] Claims data: {claims_response.data}")
-    print(f"[DRAFT-CLAIMS] Number of claims: {len(claims_response.data) if claims_response.data else 0}")
+    print(f"[DRAFT-CLAIMS] Found {len(claims_response.data) if claims_response.data else 0} claims")
 
     return {
         "draft_id": draft_id,

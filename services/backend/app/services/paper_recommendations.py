@@ -329,7 +329,7 @@ def search_papers_by_query(query: str, limit: int = 5) -> List[Dict[str, Any]]:
     Returns:
         List of papers with relevance scoring
     """
-    print(f"[PAPER-REC] Searching for query: '{query}'")
+    print(f"[PAPER-REC] Starting paper search...")
 
     all_papers = []
 

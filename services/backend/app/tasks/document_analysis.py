@@ -7,6 +7,9 @@ Phase 3.2: Production-ready document analysis task with retry logic and error ha
 from celery import Task
 from app.celery_app import celery_app
 import traceback
+import os
+
+_DEV = os.environ.get("ENVIRONMENT", "development") != "production"
 
 
 class DocumentAnalysisTask(Task):
@@ -67,7 +70,7 @@ def analyze_document_task(self, document_id: str, user_id: str, project_id: str 
         if not file_url:
             raise ValueError(f"Document {document_id} has no file_url")
 
-        print(f"[CELERY-DOC] Fetched file_url: {file_url}")
+        print(f"[CELERY-DOC] File URL retrieved")
 
         # Import the existing analysis function
         from app.api.routes.documents import _run_analysis_task
@@ -87,9 +90,11 @@ def analyze_document_task(self, document_id: str, user_id: str, project_id: str 
 
     except Exception as e:
         print(f"[CELERY-DOC] ========== DOCUMENT ANALYSIS TASK FAILED ==========")
-        print(f"[CELERY-DOC] ERROR: {type(e).__name__}: {str(e)}")
-        print(f"[CELERY-DOC] Traceback:\n{traceback.format_exc()}")
+        print(f"[CELERY-DOC] ERROR: {type(e).__name__}")
         print(f"[CELERY-DOC] Retry {self.request.retries + 1}/{self.max_retries}")
+        if _DEV:
+            print(f"[CELERY-DOC] Detail: {str(e)}")
+            print(f"[CELERY-DOC] Traceback:\n{traceback.format_exc()}")
 
         # Update document status to failed (will be retried automatically)
         try:

@@ -41,7 +41,7 @@ async def search_literature_for_claim(
         # Use the claim text as the search query
         query = claim['claim_text']
 
-        logger.info(f"[Literature Search] Searching for claim: {query[:100]}...")
+        logger.info(f"[Literature Search] Searching for claim...")
 
         # TIER 1: Try claim-to-claim matching first (PRECISE)
         logger.info(f"[Literature Search] Attempting claim-to-claim matching...")

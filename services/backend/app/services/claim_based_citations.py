@@ -53,7 +53,7 @@ async def find_supporting_claims(
         }]
     """
     try:
-        logger.info(f"[CLAIM-CITATION] Finding supporting claims for: '{draft_claim_text[:100]}...'")
+        logger.info(f"[CLAIM-CITATION] Finding supporting claims...")
 
         # Generate embedding for the draft claim
         embedding_response = await client.embeddings.create(
@@ -109,15 +109,6 @@ async def find_supporting_claims(
 
         logger.info(f"[CLAIM-CITATION] Found {len(matching_claims)} supporting claims (threshold={similarity_threshold})")
 
-        # Log top matches
-        for i, claim in enumerate(matching_claims[:3]):
-            logger.info(
-                f"[CLAIM-CITATION] Match {i+1}: "
-                f"similarity={claim['similarity_score']}, "
-                f"type={claim.get('claim_type')}, "
-                f"text='{claim['claim_text'][:80]}...'"
-            )
-
         return matching_claims
 
     except Exception as e:
@@ -156,7 +147,7 @@ async def suggest_citations_for_draft_claim(
         if not claim_text:
             return []
 
-        logger.info(f"[CLAIM-CITATION] Generating citations for draft claim: '{claim_text[:100]}...'")
+        logger.info(f"[CLAIM-CITATION] Generating citations for draft claim...")
 
         # Find supporting claims
         supporting_claims = await find_supporting_claims(

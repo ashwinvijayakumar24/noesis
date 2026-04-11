@@ -208,7 +208,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
 
         file_url = record.data["file_url"]
         user_id = record.data["user_id"]
-        logger.info(f"[RAG-INGEST] file_url={file_url}, user_id={user_id}")
+        logger.info(f"[RAG-INGEST] File record retrieved")
 
         # 2. Download file bytes from Supabase Storage
         logger.info(f"[RAG-INGEST] Step 2: Downloading file from Supabase Storage...")
@@ -219,16 +219,15 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             # Extract the path after "/documents/"
             path_parts = file_url.split("/documents/")
             if len(path_parts) < 2:
-                logger.error(f"[RAG-INGEST] ✗ Invalid file URL format: {file_url}")
+                logger.error(f"[RAG-INGEST] ✗ Invalid file URL format")
                 raise ValueError(f"Invalid file URL format: {file_url}")
 
             storage_path = path_parts[1]  # This will be "{user_id}/{actual_filename}"
-            logger.info(f"[RAG-INGEST] Extracted storage path: {storage_path}")
 
             file_bytes = supabase.storage.from_("documents").download(storage_path)
             logger.info(f"[RAG-INGEST] ✓ Downloaded {len(file_bytes)} bytes")
         except Exception as e:
-            logger.error(f"[RAG-INGEST] ✗ Failed to download file: {type(e).__name__}: {str(e)}")
+            logger.error(f"[RAG-INGEST] ✗ Failed to download file: {type(e).__name__}")
             raise ValueError(f"Failed to download file from storage: {str(e)}")
 
         # 3. Get page count from PDF for adaptive chunking

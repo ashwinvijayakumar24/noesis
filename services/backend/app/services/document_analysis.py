@@ -361,9 +361,8 @@ def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-
         # Extract and parse the JSON response
         analysis_json = response.choices[0].message.content
 
-        # Debug logging to see what GPT-5.2 actually returned
-        logger.info(f"Response content (first 500 chars): {str(analysis_json)[:500] if analysis_json else 'NONE/EMPTY'}")
-        logger.info(f"Response object: refusal={response.choices[0].message.refusal if hasattr(response.choices[0].message, 'refusal') else 'N/A'}")
+        if not analysis_json:
+            logger.warning("GPT response returned empty content")
 
         if not analysis_json or analysis_json.strip() == "":
             raise ValueError("GPT-5.2 returned empty response. Check prompt engineering - ensure explicit JSON instructions are clear.")
@@ -390,11 +389,11 @@ def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-
         return analysis
 
     except json.JSONDecodeError as e:
-        logger.info(f"ERROR: Failed to parse JSON response: {e}")
+        logger.error("Failed to parse JSON response from model")
         raise Exception(f"Failed to parse analysis response as JSON: {e}")
 
     except Exception as e:
-        logger.info(f"ERROR: {type(e).__name__}: {str(e)}")
+        logger.error(f"Analysis failed: {type(e).__name__}")
         raise Exception(f"Analysis failed: {str(e)}")
 
 
