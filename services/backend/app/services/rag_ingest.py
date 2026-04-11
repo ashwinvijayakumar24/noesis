@@ -319,7 +319,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             logger.info(f"[RAG-INGEST] ✓ Created {len(chunks)} section-aware chunks")
         else:
             # Use basic chunking
-            chunks = chunk_text(full_text, max_completion_tokens=chunk_size, overlap_tokens=chunk_overlap)
+            chunks = chunk_text(full_text, max_tokens=chunk_size, overlap_tokens=chunk_overlap)
             logger.info(f"[RAG-INGEST] ✓ Created {len(chunks)} basic chunks")
 
         if not chunks:
