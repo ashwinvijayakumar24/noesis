@@ -170,13 +170,20 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     }
   }, [drafts, token, projectId])
 
-  // Poll for status updates if there are processing drafts
+  // Poll for status updates if there are processing or recently-failed drafts
   useEffect(() => {
-    const hasProcessingDrafts = drafts.some(
-      (draft) => draft.status === 'processing' || draft.status === 'uploaded'
-    )
+    const now = Date.now()
+    const hasActiveDrafts = drafts.some((draft) => {
+      if (draft.status === 'processing' || draft.status === 'uploaded') return true
+      // Also poll 'failed' drafts updated within the last 15 minutes — Celery may retry
+      if (draft.status === 'failed') {
+        const updatedAt = new Date(draft.updated_at).getTime()
+        return now - updatedAt < 15 * 60 * 1000
+      }
+      return false
+    })
 
-    if (!hasProcessingDrafts) return
+    if (!hasActiveDrafts) return
 
     const pollInterval = setInterval(() => {
       console.log('[DRAFTS-PANEL] Polling for status updates...')
@@ -216,8 +223,11 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
       await api.drafts.analyze(token, draftId)
       toast.dismiss()
       toast.success('Analysis started! This may take 1-2 minutes.')
-      // Reload drafts to update status
-      setTimeout(() => loadDrafts(), 2000)
+      // Optimistically set to 'processing' immediately so polling starts right away
+      // (Celery task may not have updated the DB yet when we reload)
+      setDrafts(prev => prev.map(d =>
+        d.id === draftId ? { ...d, status: 'processing', updated_at: new Date().toISOString() } : d
+      ))
     } catch (error: any) {
       toast.dismiss()
       handleError(error, 'analyzing draft')
@@ -240,8 +250,21 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
       case 'failed':
         return 'error'
       default:
-        return 'neutral'
+        return 'warning'
     }
+  }
+
+  const getStatusLabel = (draft: Draft): string => {
+    if (draft.status === 'analyzed') return 'Processed'
+    if (draft.status === 'processing') return 'Processing...'
+    if (draft.status === 'uploaded') return 'Uploaded'
+    if (draft.status === 'failed') {
+      // If updated recently, Celery may retry — show as processing
+      const updatedAt = new Date(draft.updated_at).getTime()
+      if (Date.now() - updatedAt < 15 * 60 * 1000) return 'Processing...'
+      return 'Failed'
+    }
+    return 'Processing...'
   }
 
   const handleOpenCompareModal = (draftId: string) => {
@@ -390,7 +413,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                 <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                   {/* Status Badge */}
                   <Badge variant={getStatusBadge(draft.status)}>
-                    {draft.status === 'analyzed' ? 'Processed' : draft.status.charAt(0).toUpperCase() + draft.status.slice(1).toLowerCase()}
+                    {getStatusLabel(draft)}
                   </Badge>
 
                   {/* Action Buttons */}
@@ -402,7 +425,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                       Analyze
                     </button>
                   )}
-                  {draft.status === 'failed' && (
+                  {draft.status === 'failed' && (Date.now() - new Date(draft.updated_at).getTime() >= 15 * 60 * 1000) && (
                     <button
                       onClick={() => handleAnalyze(draft.id)}
                       className="px-3 py-1 text-xs font-medium text-slate-200 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors"
