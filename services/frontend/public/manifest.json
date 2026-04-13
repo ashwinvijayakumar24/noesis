@@ -1,0 +1,12 @@
+{
+  "name": "Noesis",
+  "short_name": "Noesis",
+  "description": "AI pre-submission peer review for researchers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F0F14",
+  "theme_color": "#E5484D",
+  "icons": [
+    { "src": "/noesis.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

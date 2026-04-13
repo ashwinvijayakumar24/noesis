@@ -6,31 +6,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>Noesis - AI-Powered Research Intelligence Platform</title>
-    <meta name="title" content="Noesis - AI-Powered Research Intelligence Platform" />
-    <meta name="description" content="Transform how you analyze academic literature. Auto-generate literature reviews, identify research gaps, and accelerate research with AI-powered insights. Built for PhD students and researchers." />
-    <meta name="keywords" content="literature review, research assistant, AI research, academic papers, PhD tools, research gaps, citation analysis, GPT-4 research" />
+    <title>Noesis – Know What Reviewer 2 Will Say Before You Submit</title>
+    <meta name="title" content="Noesis – Know What Reviewer 2 Will Say Before You Submit" />
+    <meta name="description" content="Upload your draft and get expert AI reviewer feedback before you submit. Noesis finds unsupported claims, citation gaps, and blind spots grounded in your literature and 200M+ papers." />
+    <meta name="keywords" content="AI peer review, research draft feedback, citation gap analysis, reviewer feedback AI, manuscript review tool, PhD research tools, pre-submission review, academic paper analysis" />
     <meta name="author" content="Noesis" />
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://noesis.is" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Noesis - AI-Powered Research Intelligence Platform" />
-    <meta property="og:description" content="Save 80% of your literature review time with AI-powered paper analysis, research gap identification, and automated literature review generation." />
-    <meta property="og:image" content="/noesis.png" />
+    <meta property="og:url" content="https://noesis.is" />
+    <meta property="og:title" content="Noesis – Know What Reviewer 2 Will Say Before You Submit" />
+    <meta property="og:description" content="Upload your draft and get expert AI reviewer feedback before you submit. Noesis finds unsupported claims, citation gaps, and blind spots grounded in your literature and 200M+ papers." />
+    <meta property="og:image" content="https://noesis.is/noesis.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:title" content="Noesis - AI-Powered Research Intelligence Platform" />
-    <meta property="twitter:description" content="Save 80% of your literature review time with AI-powered paper analysis, research gap identification, and automated literature review generation." />
-    <meta property="twitter:image" content="/noesis.png" />
+    <meta property="twitter:url" content="https://noesis.is" />
+    <meta property="twitter:title" content="Noesis – Know What Reviewer 2 Will Say Before You Submit" />
+    <meta property="twitter:description" content="Upload your draft and get expert AI reviewer feedback before you submit. Noesis finds unsupported claims, citation gaps, and blind spots grounded in your literature and 200M+ papers." />
+    <meta property="twitter:image" content="https://noesis.is/noesis.png" />
 
     <!-- Theme Color -->
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#E5484D" />
 
-    <!-- Google Fonts - Editorial typography system -->
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Google Fonts - Inter only (design system font) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Figtree:wght@400;500;600;700;800&family=Bricolage+Grotesque:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Schema.org JSON-LD: WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Noesis",
+      "url": "https://noesis.is",
+      "description": "AI pre-submission peer review tool for researchers. Finds unsupported claims, citation gaps, and blind spots in your draft.",
+      "applicationCategory": "ResearchApplication",
+      "operatingSystem": "Web",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "12",
+          "priceCurrency": "USD",
+          "billingIncrement": "P1M"
+        }
+      ],
+      "featureList": [
+        "AI reviewer feedback on research drafts",
+        "Citation gap detection",
+        "Unsupported claim identification",
+        "200M+ paper discovery"
+      ]
+    }
+    </script>
+
+    <!-- Schema.org JSON-LD: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Noesis",
+      "url": "https://noesis.is",
+      "logo": "https://noesis.is/noesis.png",
+      "description": "Pre-submission peer review AI for researchers and PhD students.",
+      "sameAs": []
+    }
+    </script>
+
+    <!-- Schema.org JSON-LD: FAQPage -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is Noesis?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Noesis is an AI pre-submission peer review tool. Upload your research draft and Noesis finds unsupported claims, citation gaps, and methodology blind spots — grounded in your literature and 200M+ papers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is Noesis different from other AI writing tools?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Noesis does not write or rewrite your paper. It acts like an expert academic reviewer: identifying what a hostile reviewer would flag before you submit. Every piece of feedback is grounded in your uploaded literature."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Noesis free to use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Noesis has a free tier that includes 5 draft analyses per month and access to 200M+ papers. Pro plan is $12/month for unlimited use."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What file types does Noesis support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Noesis supports PDF, DOCX, and TXT file formats for draft uploads, and BibTeX (.bib) files for importing your reference library."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Noesis write my paper for me?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Noesis does not write, rewrite, or auto-generate any part of your paper. It critiques your existing draft — finding weaknesses, unsupported claims, and citation gaps — so you can strengthen your own arguments."
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

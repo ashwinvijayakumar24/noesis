@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /dashboard/
+Disallow: /auth/
+
+Sitemap: https://noesis.is/sitemap.xml

@@ -217,6 +217,96 @@ function ProductShowcase() {
   )
 }
 
+const FAQ_ITEMS = [
+  {
+    question: 'What is Noesis?',
+    answer: 'Noesis is an AI pre-submission peer review tool. Upload your research draft and Noesis finds unsupported claims, citation gaps, and methodology blind spots — grounded in your literature and 200M+ papers.',
+  },
+  {
+    question: 'How is Noesis different from ChatGPT or other AI writing tools?',
+    answer: 'Noesis does not write or rewrite your paper. It acts like an expert academic reviewer: identifying what a hostile reviewer would flag before you submit. Every piece of feedback is grounded in your uploaded literature — no hallucinated references.',
+  },
+  {
+    question: 'Does Noesis write my paper for me?',
+    answer: 'No. Noesis critiques your existing draft — finding weaknesses, unsupported claims, and citation gaps — so you can strengthen your own arguments. Your thinking, your paper.',
+  },
+  {
+    question: 'Is Noesis free to use?',
+    answer: 'Yes. The free tier includes 5 draft analyses per month, 30 PDF uploads, and access to 200M+ papers. Pro plan is $12/month for heavier use.',
+  },
+  {
+    question: 'What file types are supported?',
+    answer: 'Noesis supports PDF, DOCX, and TXT for draft uploads, and BibTeX (.bib) files for importing your reference library from Zotero, Mendeley, or Endnote.',
+  },
+]
+
+function FAQ() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+
+  return (
+    <section className="py-24 px-6 sm:px-8 bg-bg-surface" aria-label="Frequently asked questions about Noesis pre-submission peer review">
+      <div className="max-w-3xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false }}
+          transition={{ duration: 0.3 }}
+          className="text-center mb-12"
+        >
+          <h2 className="text-4xl sm:text-5xl font-heading font-semibold tracking-tight text-text-primary mb-4">
+            Common Questions
+          </h2>
+          <p className="text-lg text-text-secondary tracking-normal">
+            Everything you need to know about Noesis
+          </p>
+        </motion.div>
+
+        <div className="space-y-3">
+          {FAQ_ITEMS.map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 8 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false }}
+              transition={{ delay: index * 0.06, duration: 0.3 }}
+              className="bg-bg-void border border-border-default rounded-xl overflow-hidden"
+            >
+              <button
+                onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-bg-surface/50 transition-colors duration-150"
+                aria-expanded={openIndex === index}
+              >
+                <span className="text-base font-semibold text-text-primary pr-4">{item.question}</span>
+                <span className={`shrink-0 w-5 h-5 flex items-center justify-center text-accent-primary transition-transform duration-150 ${openIndex === index ? 'rotate-45' : ''}`}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </span>
+              </button>
+              <AnimatePresence initial={false}>
+                {openIndex === index && (
+                  <motion.div
+                    key="content"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <p className="px-6 pb-5 text-text-secondary leading-relaxed text-sm">
+                      {item.answer}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 interface Testimonial {
   id: string
   name: string
@@ -996,6 +1086,9 @@ export default function Landing() {
 
         </div>
       </section>
+
+      {/* FAQ Section */}
+      <FAQ />
 
       {/* CTA Section - Professional Dark */}
       <section className="py-32 px-6 sm:px-8 relative overflow-hidden bg-bg-void">
