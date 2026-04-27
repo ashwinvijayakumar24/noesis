@@ -3,13 +3,13 @@ Tests for quota_management.py covering:
 - check_quota() for 'document' and 'bib_import' operation types
 - Separate pools: hitting PDF quota doesn't affect BibTeX pool (and vice versa)
 - increment_quota_usage() with count parameter
-- create_default_quota() sets correct default limits (10 PDFs, 10 bib refs)
+- create_default_quota() sets correct plan-aware limits
 - get_quota_summary() returns both pools correctly
 - QuotaExceededError is raised with proper attributes
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from datetime import datetime, timezone, timedelta
 
 
@@ -22,8 +22,6 @@ def _make_quota(
     current_month_bib_refs=0,
     monthly_draft_limit=10,
     current_month_drafts=0,
-    monthly_chat_messages_limit=500,
-    current_month_chat_messages=0,
 ):
     """Factory for quota dicts with sensible defaults."""
     future_reset = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
@@ -36,8 +34,6 @@ def _make_quota(
         "current_month_bib_refs": current_month_bib_refs,
         "monthly_draft_limit": monthly_draft_limit,
         "current_month_drafts": current_month_drafts,
-        "monthly_chat_messages_limit": monthly_chat_messages_limit,
-        "current_month_chat_messages": current_month_chat_messages,
         "quota_reset_date": future_reset,
     }
 
@@ -54,6 +50,28 @@ class TestQuotaExceededError:
         assert err.limit == 10
         assert err.current == 10
         assert "exceeded" in str(err)
+
+
+class TestPlanLimits:
+    @pytest.mark.unit
+    def test_get_plan_limits_aligns_task_08_values(self):
+        from app.services.quota_management import get_plan_limits
+
+        assert get_plan_limits("free") == {
+            "monthly_document_limit": 30,
+            "monthly_draft_limit": 2,
+            "monthly_bib_refs_limit": 30,
+        }
+        assert get_plan_limits("pro") == {
+            "monthly_document_limit": 100,
+            "monthly_draft_limit": 20,
+            "monthly_bib_refs_limit": 100,
+        }
+        assert get_plan_limits("team") == {
+            "monthly_document_limit": 9999,
+            "monthly_draft_limit": 9999,
+            "monthly_bib_refs_limit": 9999,
+        }
 
 
 # ── check_quota — document ────────────────────────────────────────────────────
@@ -242,21 +260,71 @@ class TestIncrementQuotaUsage:
 class TestCreateDefaultQuota:
     @pytest.mark.unit
     @patch("app.services.quota_management.supabase")
-    async def test_creates_with_correct_limits(self, mock_supabase):
-        """New free-tier quotas use 30 PDF limit and 100 bib ref limit."""
+    @patch("app.services.quota_management._get_user_plan_tier", return_value="free")
+    @patch("app.services.quota_management.sync_user_quota_plan")
+    async def test_creates_with_correct_free_limits(self, mock_sync, mock_plan_tier, mock_supabase):
         from app.services.quota_management import create_default_quota
-
-        insert_mock = MagicMock()
-        insert_mock.execute.return_value = MagicMock()
-        mock_supabase.table.return_value.insert.return_value = insert_mock
 
         await create_default_quota("user-uuid")
 
-        call_args = mock_supabase.table.return_value.insert.call_args[0][0]
-        assert call_args["monthly_document_limit"] == 30
-        assert call_args["monthly_bib_refs_limit"] == 100
-        assert call_args["current_month_bib_refs"] == 0
-        assert call_args["plan_tier"] == "free"
+        mock_sync.assert_called_once_with("user-uuid", "free")
+
+    @pytest.mark.unit
+    @patch("app.services.quota_management.supabase")
+    @patch("app.services.quota_management._get_user_plan_tier", return_value="pro")
+    @patch("app.services.quota_management.sync_user_quota_plan")
+    async def test_creates_with_correct_paid_limits(self, mock_sync, mock_plan_tier, mock_supabase):
+        from app.services.quota_management import create_default_quota
+
+        await create_default_quota("user-uuid")
+
+        mock_sync.assert_called_once_with("user-uuid", "pro")
+
+
+class TestSyncUserQuotaPlan:
+    @pytest.mark.unit
+    @patch("app.services.quota_management.supabase")
+    @patch("app.services.quota_management._get_user_quota_row")
+    def test_updates_existing_quota_without_resetting_usage(self, mock_get_quota_row, mock_supabase):
+        from app.services.quota_management import sync_user_quota_plan
+
+        mock_get_quota_row.side_effect = [
+            _make_quota(plan_tier="free", current_month_documents=12, current_month_bib_refs=5),
+            _make_quota(plan_tier="pro", monthly_document_limit=100, monthly_bib_refs_limit=100, monthly_draft_limit=20),
+        ]
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        result = sync_user_quota_plan("user-uuid", "pro")
+
+        update_payload = mock_supabase.table.return_value.update.call_args[0][0]
+        assert update_payload["plan_tier"] == "pro"
+        assert update_payload["monthly_document_limit"] == 100
+        assert update_payload["monthly_draft_limit"] == 20
+        assert update_payload["monthly_bib_refs_limit"] == 100
+        assert result["plan_tier"] == "pro"
+
+    @pytest.mark.unit
+    @patch("app.services.quota_management.supabase")
+    @patch("app.services.quota_management._get_user_quota_row")
+    def test_inserts_missing_quota_using_plan_limits(self, mock_get_quota_row, mock_supabase):
+        from app.services.quota_management import sync_user_quota_plan
+
+        mock_get_quota_row.side_effect = [
+            None,
+            _make_quota(plan_tier="team", monthly_document_limit=9999, monthly_bib_refs_limit=9999, monthly_draft_limit=9999),
+        ]
+        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        result = sync_user_quota_plan("user-uuid", "team")
+
+        insert_payload = mock_supabase.table.return_value.insert.call_args[0][0]
+        assert insert_payload["user_id"] == "user-uuid"
+        assert insert_payload["plan_tier"] == "team"
+        assert insert_payload["monthly_document_limit"] == 9999
+        assert insert_payload["monthly_draft_limit"] == 9999
+        assert insert_payload["monthly_bib_refs_limit"] == 9999
+        assert insert_payload["current_month_bib_refs"] == 0
+        assert result["plan_tier"] == "team"
 
 
 # ── get_quota_summary ─────────────────────────────────────────────────────────
@@ -264,19 +332,18 @@ class TestCreateDefaultQuota:
 class TestGetQuotaSummary:
     @pytest.mark.unit
     @patch("app.services.quota_management.supabase")
-    async def test_returns_both_pools(self, mock_supabase):
+    @patch("app.services.quota_management.ensure_user_quota")
+    async def test_returns_both_pools(self, mock_ensure_quota, mock_supabase):
         from app.services.quota_management import get_quota_summary
 
-        mock_supabase.table.return_value.select.return_value.eq.return_value \
-            .execute.return_value.data = [
-                _make_quota(
-                    current_month_documents=3,
-                    monthly_document_limit=10,
-                    current_month_bib_refs=7,
-                    monthly_bib_refs_limit=10,
-                    plan_tier="free",
-                )
-            ]
+        mock_ensure_quota.return_value = _make_quota(
+            current_month_documents=3,
+            monthly_document_limit=10,
+            current_month_bib_refs=7,
+            monthly_bib_refs_limit=10,
+            plan_tier="free",
+        )
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(count=2)
 
         result = await get_quota_summary("user-uuid")
 
@@ -288,21 +355,17 @@ class TestGetQuotaSummary:
 
     @pytest.mark.unit
     @patch("app.services.quota_management.supabase")
-    @patch("app.services.quota_management.create_default_quota")
-    async def test_creates_quota_if_missing(self, mock_create, mock_supabase):
-        """If no quota row exists, creates one and returns summary."""
+    @patch("app.services.quota_management.ensure_user_quota")
+    async def test_creates_quota_if_missing(self, mock_ensure_quota, mock_supabase):
+        """If no quota row exists, ensure_user_quota creates one and returns summary."""
         from app.services.quota_management import get_quota_summary
 
-        # First call returns empty, second returns defaults after create
-        mock_supabase.table.return_value.select.return_value.eq.return_value \
-            .execute.side_effect = [
-                MagicMock(data=[]),
-                MagicMock(data=[_make_quota()]),
-            ]
-        mock_create.return_value = None
+        mock_ensure_quota.return_value = _make_quota()
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(count=0)
 
         result = await get_quota_summary("user-uuid")
 
-        mock_create.assert_awaited_once_with("user-uuid")
+        mock_ensure_quota.assert_called_once_with("user-uuid")
         assert "pdfs" in result
         assert "bib_refs" in result
+        assert "projects" in result

@@ -3,8 +3,27 @@ import { Dialog, Transition } from '@headlessui/react'
 import { XMarkIcon, DocumentArrowUpIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
+import { getApiErrorDetail, getApiErrorDetailsList } from '../lib/apiErrors'
 import { trackEvent } from '../lib/analytics'
 import { validateFileSize, validateFileType, handleError, handleQuotaError } from '../lib/errorHandler'
+import InlineAlert from './ui/InlineAlert'
+
+const PAPER_TYPES = [
+  { value: 'journal_article', label: 'Journal article' },
+  { value: 'conference_paper', label: 'Conference paper' },
+  { value: 'thesis', label: 'Thesis' },
+  { value: 'dissertation', label: 'Dissertation' },
+  { value: 'preprint', label: 'Preprint' },
+]
+
+const CITATION_STYLES = [
+  { value: 'apa', label: 'APA' },
+  { value: 'mla', label: 'MLA' },
+  { value: 'chicago', label: 'Chicago' },
+  { value: 'ieee', label: 'IEEE' },
+  { value: 'vancouver', label: 'Vancouver' },
+  { value: 'other', label: 'Other / mixed' },
+]
 
 interface UploadDraftModalProps {
   isOpen: boolean
@@ -23,13 +42,29 @@ export default function UploadDraftModal({
 }: UploadDraftModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
+  const [paperType, setPaperType] = useState('journal_article')
+  const [citationStyle, setCitationStyle] = useState('apa')
   const [loading, setLoading] = useState(false)
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false)
+  const [inlineError, setInlineError] = useState<{ title: string; message: string; details: string[] } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const resetForm = () => {
+    setSelectedFile(null)
+    setTitle('')
+    setPaperType('journal_article')
+    setCitationStyle('apa')
+    setShowPrivacyInfo(false)
+    setInlineError(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setInlineError(null)
       // Validate file type (PDF, DOCX, TXT)
       if (!validateFileType(file, ['pdf', 'docx', 'txt'])) {
         toast.error('Please select a PDF, DOCX, or TXT file')
@@ -64,11 +99,14 @@ export default function UploadDraftModal({
     }
 
     try {
+      setInlineError(null)
       setLoading(true)
 
       const uploadResult = await api.drafts.upload(token, selectedFile, {
         project_id: projectId,
         title: title.trim(),
+        paper_type: paperType,
+        citation_style: citationStyle,
       })
 
       const draftId = uploadResult.draft.id
@@ -83,16 +121,18 @@ export default function UploadDraftModal({
       )
 
       // Reset form
-      setSelectedFile(null)
-      setTitle('')
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      resetForm()
 
       onClose()
       onSuccess()
     } catch (error: any) {
       if (!handleQuotaError(error)) {
+        const detail = getApiErrorDetail(error)
+        setInlineError({
+          title: detail?.title || 'Draft upload failed',
+          message: detail?.message || 'We could not upload this draft.',
+          details: getApiErrorDetailsList(detail),
+        })
         handleError(error, 'uploading draft')
       }
     } finally {
@@ -102,11 +142,7 @@ export default function UploadDraftModal({
 
   const handleClose = () => {
     if (!loading) {
-      setSelectedFile(null)
-      setTitle('')
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      resetForm()
       onClose()
     }
   }
@@ -156,6 +192,13 @@ export default function UploadDraftModal({
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                  {inlineError && (
+                    <InlineAlert
+                      title={inlineError.title}
+                      message={inlineError.message}
+                      details={inlineError.details}
+                    />
+                  )}
                   {/* Privacy Notice */}
                   <div className="mb-4 rounded-md bg-bg-elevated p-4 border border-border-default">
                     <div className="flex">
@@ -169,7 +212,7 @@ export default function UploadDraftModal({
                         <div className="mt-2 text-sm text-text-secondary tracking-normal">
                           <ul className="list-disc space-y-1 pl-5">
                             <li>Your drafts are never shared with other users</li>
-                            <li>AI analysis uses zero data retention (OpenAI does not store your content)</li>
+                            <li>Your files stay inside your workspace by default</li>
                             <li>Your work is isolated to your account only</li>
                             <li>No data is used for model training or indexing</li>
                           </ul>
@@ -183,7 +226,7 @@ export default function UploadDraftModal({
                           {showPrivacyInfo && (
                             <div className="mt-3 text-xs text-text-tertiary tracking-normal space-y-2 border-t border-border-default pt-2">
                               <p><strong>Database Security:</strong> Row-Level Security ensures your data is isolated by user ID.</p>
-                              <p><strong>AI Processing:</strong> We use OpenAI's API with zero data retention enabled. Your content is processed but never stored by OpenAI.</p>
+                              <p><strong>AI Processing:</strong> Your content is sent only to the providers needed to run analysis, and it is not used to train models.</p>
                               <p><strong>Storage:</strong> Files are stored in private buckets with user-specific access controls.</p>
                               <p><strong>No Internal Reuse:</strong> Noesis does not cross-reference your work with other projects or users.</p>
                             </div>
@@ -193,7 +236,61 @@ export default function UploadDraftModal({
                     </div>
                   </div>
 
+                  <p className="text-xs text-text-muted">
+                    Private by default. Your files stay in your workspace and are not used to train models.
+                  </p>
+
                   {/* File Picker */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="draft-paper-type"
+                        className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
+                      >
+                        Paper Type
+                      </label>
+                      <select
+                        id="draft-paper-type"
+                        value={paperType}
+                        onChange={(e) => setPaperType(e.target.value)}
+                        disabled={loading}
+                        className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
+                      >
+                        {PAPER_TYPES.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="draft-citation-style"
+                        className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
+                      >
+                        Citation Style
+                      </label>
+                      <select
+                        id="draft-citation-style"
+                        value={citationStyle}
+                        onChange={(e) => setCitationStyle(e.target.value)}
+                        disabled={loading}
+                        className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
+                      >
+                        {CITATION_STYLES.map((style) => (
+                          <option key={style.value} value={style.value}>
+                            {style.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-text-muted -mt-2">
+                    These answers tune the editing pass and reviewer expectations before analysis starts.
+                  </p>
+
                   <div>
                     <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
                       Draft File

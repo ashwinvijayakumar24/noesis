@@ -53,7 +53,6 @@ async def get_my_quota(user_id: str = Depends(get_current_user)):
         - plan_tier: Current subscription tier
         - documents: Usage and limits for document uploads
         - drafts: Usage and limits for draft uploads
-        - chat_messages: Usage and limits for chat messages
         - quota_reset_date: When quota resets
     """
     try:

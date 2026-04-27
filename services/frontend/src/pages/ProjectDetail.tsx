@@ -1,15 +1,13 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
 import type { ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { NoesisLogo } from '../components/ui/NoesisLogo'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DocumentTextIcon, PaperAirplaneIcon, TrashIcon as ClearIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon, MagnifyingGlassIcon, BookOpenIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon, MagnifyingGlassIcon, BookOpenIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import UploadDocumentModal from '../components/UploadDocumentModal'
 import DeleteDocumentModal from '../components/DeleteDocumentModal'
-import ChatMessage from '../components/ChatMessage'
 import GlobalSearch from '../components/GlobalSearch'
 import DraftsPanel from '../components/DraftsPanel'
 import UploadDraftModal from '../components/UploadDraftModal'
@@ -64,14 +62,6 @@ interface Document {
 type SourceFilter = 'all' | 'analyzed_pdf' | 'bibtex_import'
 type SortBy = 'newest' | 'oldest' | 'status' | 'source'
 
-interface ChatMessageType {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  sources?: any[]
-  created_at: string
-}
-
 type ActiveTab = 'literature' | 'discover' | 'insights' | 'drafts'
 
 // Loading component for lazy-loaded sections
@@ -115,19 +105,11 @@ export default function ProjectDetail() {
     return localStorage.getItem(`noesis_draft_warning_dismissed_${projectId}`) === 'true'
   })
 
-  // Chat state
-  const [messages, setMessages] = useState<ChatMessageType[]>([])
-  const [input, setInput] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [streamingMessage, setStreamingMessage] = useState('')
-  const [streamingSources, setStreamingSources] = useState<any[]>([])
-  const [isFullScreen, setIsFullScreen] = useState(false)
-  const [includeDrafts, setIncludeDrafts] = useState(true)  // draft-aware chat always on by default
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const chatContainerRef = useRef<HTMLDivElement>(null)
-
   // Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+
+  // Track when each document first entered a stuck/analyzing state (for timeout)
+  const analyzingStartTimes = useRef<Map<string, number>>(new Map())
 
   // Insights state (used by Compass and Insights tabs)
   const [_insights, setInsights] = useState<any | null>(null)
@@ -143,7 +125,6 @@ export default function ProjectDetail() {
   useEffect(() => {
     if (session?.access_token && projectId) {
       loadProjectDetails()
-      loadChatHistory()
       loadDraftCount()
     }
   }, [projectId])
@@ -155,19 +136,6 @@ export default function ProjectDetail() {
     }
   }, [draftRefreshTrigger])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false)
-        return
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFullScreen])
-
   // Update document title when project loads
   useEffect(() => {
     if (project?.title) {
@@ -176,15 +144,6 @@ export default function ProjectDetail() {
       document.title = 'Project | Noesis'
     }
   }, [project])
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, streamingMessage])
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
 
   // Poll for status updates every 3 seconds if there are processing or resolving documents
   useEffect(() => {
@@ -200,11 +159,32 @@ export default function ProjectDetail() {
 
     if (!hasProcessingDocs) return
 
+    const STUCK_TIMEOUT_MS = 3 * 60 * 1000 // 3 minutes
+
     const pollInterval = setInterval(() => {
-      // Silent reload - fetch updated documents without loading state
       api.projects.getBundle(session.access_token, projectId).then(data => {
-        const { documents: updatedDocs } = data
-        setDocuments(updatedDocs || [])
+        const { documents: updatedDocs } = data as { documents: any[] }
+        const now = Date.now()
+
+        const processedDocs = (updatedDocs || []).map((doc: any) => {
+          const s = doc.status?.toLowerCase()
+          const isStuck = s === 'analyzing' || s === 'processing' || s === 'uploaded' || s === 'ready' || doc.resolution_status === 'resolving'
+
+          if (isStuck) {
+            if (!analyzingStartTimes.current.has(doc.id)) {
+              analyzingStartTimes.current.set(doc.id, now)
+            } else if (now - analyzingStartTimes.current.get(doc.id)! > STUCK_TIMEOUT_MS) {
+              analyzingStartTimes.current.delete(doc.id)
+              api.documents.markFailed(session.access_token, doc.id).catch(() => {})
+              return { ...doc, status: 'failed' }
+            }
+          } else {
+            analyzingStartTimes.current.delete(doc.id)
+          }
+          return doc
+        })
+
+        setDocuments(processedDocs)
       }).catch(error => {
         console.error('Polling error:', error)
       })
@@ -229,7 +209,7 @@ export default function ProjectDetail() {
 
         // Phase 4.4: Show toast when auto-regeneration completes
         if (previousStatus === 'analyzing' && newStatus === 'analyzed') {
-          toast.success('✓ Insights updated with latest documents', { duration: 4000 })
+          toast.success('✓ Literature Map updated with latest documents', { duration: 4000 })
         }
 
         // Start polling if analyzing
@@ -313,22 +293,6 @@ export default function ProjectDetail() {
     } catch {}
   }
 
-  const loadChatHistory = async () => {
-    if (!session?.access_token || !projectId) return
-
-    try {
-      const response = await api.chat.getHistory(session.access_token, projectId)
-      // Backend returns {data: [...], pagination: {...}}
-      // Extract the messages array from the data property
-      const messagesArray = Array.isArray(response) ? response : (response?.data || [])
-      setMessages(messagesArray)
-    } catch (error: any) {
-      console.error('Failed to load chat history:', error)
-      // Set empty array on error to prevent map errors
-      setMessages([])
-    }
-  }
-
   const loadDraftCount = async () => {
     if (!session?.access_token || !projectId) return
 
@@ -338,131 +302,6 @@ export default function ProjectDetail() {
     } catch (error: any) {
       console.error('Failed to load draft count:', error)
       // Silent fail - draft count not critical for page load
-    }
-  }
-
-  const handleSendMessage = async () => {
-    if (!input.trim() || !session?.access_token || !projectId || isStreaming) return
-
-    const userMessage = input.trim()
-    setInput('')
-
-    const tempUserMessage: ChatMessageType = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: userMessage,
-      created_at: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, tempUserMessage])
-
-    setIsStreaming(true)
-    setStreamingMessage('')
-    setStreamingSources([])
-
-    try {
-      const params = new URLSearchParams({
-        query: userMessage,
-        model: 'gpt-5.2-chat-latest',
-        max_chunks: '5',
-        include_drafts: includeDrafts.toString(),  // NEW: include drafts in search
-      })
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/chat/projects/${projectId}/query-stream?${params}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      )
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          const parsed = await response.json().catch(() => null)
-          const detail = parsed?.detail
-          if (detail?.error === 'quota_exceeded') {
-            const isDaily = detail.quota_type === 'daily_chat'
-            toast.error(isDaily
-              ? `Daily chat limit reached (${detail.limit} messages/day). Resets tomorrow.`
-              : `Monthly chat limit reached. Upgrade to Pro for more.`
-            )
-            setIsStreaming(false)
-            return
-          }
-        }
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) {
-        throw new Error('No reader available')
-      }
-
-      let buffer = ''
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-
-          try {
-            const data = JSON.parse(line)
-
-            if (data.type === 'sources') {
-              setStreamingSources(data.data)
-            } else if (data.type === 'token') {
-              setStreamingMessage((prev) => prev + data.data)
-            } else if (data.type === 'done') {
-              const assistantMessage: ChatMessageType = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: data.data,
-                sources: data.sources || streamingSources,
-                created_at: new Date().toISOString(),
-              }
-              setMessages((prev) => [...prev, assistantMessage])
-              setStreamingMessage('')
-              setStreamingSources([])
-              setIsStreaming(false)
-            } else if (data.type === 'error') {
-              toast.error(data.data || 'Failed to get response')
-              setIsStreaming(false)
-              setStreamingMessage('')
-            }
-          } catch (e) {
-            console.error('Failed to parse line:', line, e)
-          }
-        }
-      }
-    } catch (error: any) {
-      console.error('Streaming error:', error)
-      toast.error('Failed to get response')
-      setIsStreaming(false)
-      setStreamingMessage('')
-    }
-  }
-
-  const handleClearChat = async () => {
-    if (!session?.access_token || !projectId) return
-
-    if (!confirm('Are you sure you want to clear all chat messages?')) return
-
-    try {
-      await api.chat.clearHistory(session.access_token, projectId)
-      setMessages([])
-      toast.success('Chat history cleared')
-    } catch (error: any) {
-      console.error('Failed to clear chat:', error)
-      toast.error('Failed to clear chat history')
     }
   }
 
@@ -578,8 +417,10 @@ export default function ProjectDetail() {
     return null
   }
 
+  const analyzedDocCount = documents.filter(doc => doc.status === 'analyzed').length
+
   // Prepare tabs for TabNavigation component
-  // Order: Literature → Insights → Discover → Drafts
+  // Order: Literature → Literature Map → Discover → Drafts
   const tabs: TabItem[] = [
     {
       id: 'literature',
@@ -591,7 +432,7 @@ export default function ProjectDetail() {
     },
     {
       id: 'insights',
-      label: 'Insights',
+      label: 'Literature Map',
       icon: <LightBulbIcon className="h-5 w-5" />,
       isProcessing: insightsStatus === 'analyzing',
       colorScheme: 'amber',
@@ -715,44 +556,6 @@ export default function ProjectDetail() {
             className="mb-8"
           />
 
-          {/* First-use progress guide */}
-          {documents.length > 0 && insightsStatus !== 'analyzed' && (
-            <div className="mx-6 mt-4 mb-2 flex items-center gap-2 text-xs text-text-secondary">
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-full bg-accent-primary flex items-center justify-center">
-                  <CheckIcon className="h-2.5 w-2.5 text-white" />
-                </div>
-                <span className="text-text-primary font-semibold">Upload</span>
-              </div>
-              <div className="h-px flex-1 bg-border-default" />
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-full bg-border-default flex items-center justify-center">
-                  <span className="text-text-muted text-xs">2</span>
-                </div>
-                <button
-                  onClick={() => setActiveTab('insights')}
-                  className="text-text-secondary hover:text-text-primary transition-colors"
-                >
-                  Generate Insights
-                </button>
-              </div>
-              <div className="h-px flex-1 bg-border-default" />
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-full bg-border-default flex items-center justify-center">
-                  <span className="text-text-muted text-xs">3</span>
-                </div>
-                <span className="text-text-muted">Discover</span>
-              </div>
-              <div className="h-px flex-1 bg-border-default" />
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-full bg-border-default flex items-center justify-center">
-                  <span className="text-text-muted text-xs">4</span>
-                </div>
-                <span className="text-text-muted">Analyze Draft</span>
-              </div>
-            </div>
-          )}
-
           {/* Tab Content with Animations */}
           <AnimatePresence mode="wait">
             {/* Literature Tab - Documents + Citation Network */}
@@ -800,6 +603,7 @@ export default function ProjectDetail() {
                           const isBib = (d: Document) =>
                             d.source_type === 'bibtex_import' ||
                             d.source_type === 'zotero_import' ||
+                            d.source_type === 'discovered' ||
                             d.file_type === 'bibtex_import' ||
                             (d.resolution_status != null && d.resolution_status !== '')
                           const filterCounts: Record<SourceFilter, number> = {
@@ -1035,6 +839,7 @@ export default function ProjectDetail() {
                 <DiscoverTab
                   projectId={projectId}
                   documentCount={documents.length}
+                  analyzedDocCount={analyzedDocCount}
                   onDocumentSaved={loadProjectDetails}
                   insightsAnalyzed={insightsStatus === 'analyzed'}
                   onTabChange={(tab) => setActiveTab(tab as ActiveTab)}
@@ -1077,135 +882,7 @@ export default function ProjectDetail() {
             </motion.div>
           )}
 
-        {/* Chat Tab - Disabled (use Research Assistant Panel instead) */}
-        {/* {activeTab === 'chat' && !isFullScreen && (*/}
-        {false && (
-          <div className="flex flex-col h-[calc(100vh-280px)] min-h-125">
-          {/* Chat Header */}
-          <div className="bg-bg-surfaceborder border-border-default rounded-t-lg px-4 py-3 flex justify-between items-center">
-            <div className="flex items-center gap-4 text-sm font-mono text-text-secondary">
-              <div className="flex items-center gap-2">
-                <DocumentTextIcon className="h-4 w-4" />
-                <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
-              </div>
-              {/* Draft-aware toggle */}
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeDrafts}
-                  onChange={(e) => setIncludeDrafts(e.target.checked)}
-                  className="w-4 h-4 rounded border-border-default bg-bg-surface text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
-                />
-                <span className="text-xs">Include drafts 📄</span>
-              </label>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsFullScreen(true)}
-                className="text-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-2"
-                title="Full screen mode"
-              >
-                <ArrowsPointingOutIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Expand</span>
-              </button>
-              {messages.length > 0 && (
-                <button
-                  onClick={handleClearChat}
-                  className="text-sm text-text-secondary hover:text-red-400 transition-colors flex items-center gap-2"
-                >
-                  <ClearIcon className="h-4 w-4" />
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Messages Container */}
-          <div
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto bg-bg-surface border-x border-border-default"
-          >
-            <div className="max-w-3xl mx-auto px-4 py-8">
-              {messages.length === 0 && !isStreaming && (
-                <div className="flex items-center justify-center min-h-100">
-                  <div className="text-center max-w-md">
-                    <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-accent-primary/10 flex items-center justify-center">
-                      <svg className="h-8 w-8 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-xl font-sans font-semibold text-text-primary mb-2">
-                      How can I help you today?
-                    </h4>
-                    <p className="text-text-secondary text-sm">
-                      Ask questions about your documents and get AI-powered answers with citations
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-8">
-                {Array.isArray(messages) && messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    role={message.role}
-                    content={message.content}
-                    sources={message.sources}
-                  />
-                ))}
-
-                {isStreaming && streamingMessage && (
-                  <ChatMessage
-                    role="assistant"
-                    content={streamingMessage}
-                    sources={streamingSources}
-                    isStreaming={true}
-                  />
-                )}
-              </div>
-
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-
-          {/* Input Container */}
-          <div className="bg-bg-surfaceborder border-border-default rounded-b-lg">
-            <div className="max-w-3xl mx-auto px-4 py-4">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  handleSendMessage()
-                }}
-                className="relative"
-              >
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask anything about your documents..."
-                  disabled={isStreaming}
-                  className="w-full px-4 py-4 pr-24 bg-bg-surface border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={!input.trim() || isStreaming}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {isStreaming ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                    </>
-                  ) : (
-                    <PaperAirplaneIcon className="h-5 w-5" />
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-          </div>
-        )}
-
-          {/* Insights Tab - Unified view with all insights + compass features */}
+          {/* Literature Map Tab */}
           {activeTab === 'insights' && projectId && (
             <motion.div
               key="insights"
@@ -1215,148 +892,12 @@ export default function ProjectDetail() {
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
               <Suspense fallback={<ComponentLoader />}>
-                <InsightsTab projectId={projectId} />
+                <InsightsTab projectId={projectId} onDocumentSaved={loadProjectDetails} />
               </Suspense>
             </motion.div>
           )}
           </AnimatePresence>
         </>
-      )}
-
-      {/* Full Screen Chat Mode */}
-      {isFullScreen && (
-        <div className="fixed inset-0 z-50 bg-bg-surface flex flex-col">
-          {/* Full Screen Header */}
-          <div className="bg-bg-surfaceborder-b border-border-default">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                <div className="flex items-center gap-3">
-                  <NoesisLogo size="sm" />
-                  <div className="h-6 w-px bg-border-subtle"></div>
-                  <div className="flex items-center gap-4 text-sm font-mono text-text-secondary">
-                    <div className="flex items-center gap-2">
-                      <DocumentTextIcon className="h-4 w-4" />
-                      <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
-                    </div>
-                    {/* Draft-aware toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includeDrafts}
-                        onChange={(e) => setIncludeDrafts(e.target.checked)}
-                        className="w-4 h-4 rounded border-border-default bg-bg-surface text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
-                      />
-                      <span className="text-xs">Include drafts 📄</span>
-                    </label>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {messages.length > 0 && (
-                    <button
-                      onClick={handleClearChat}
-                      className="text-sm text-text-secondary hover:text-red-400 transition-colors flex items-center gap-2"
-                    >
-                      <ClearIcon className="h-4 w-4" />
-                      <span className="hidden sm:inline">Clear</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setIsFullScreen(false)}
-                    className="text-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-2 px-3 py-1.5 border border-border-default rounded-lg hover:bg-bg-hover"
-                    title="Exit full screen"
-                  >
-                    <ArrowsPointingInIcon className="h-4 w-4" />
-                    <span className="hidden sm:inline">Exit Full Screen</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Messages Container */}
-          <div
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto bg-bg-surface"
-          >
-            <div className="max-w-4xl mx-auto px-4 py-8">
-              {messages.length === 0 && !isStreaming && (
-                <div className="flex items-center justify-center min-h-125">
-                  <div className="text-center max-w-md">
-                    <div className="h-20 w-20 mx-auto mb-6 rounded-full bg-accent-primary/10 flex items-center justify-center">
-                      <svg className="h-10 w-10 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-2xl font-sans font-semibold text-text-primary mb-3">
-                      How can I help you today?
-                    </h4>
-                    <p className="text-text-secondary">
-                      Ask questions about your documents and get AI-powered answers with citations
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-8">
-                {Array.isArray(messages) && messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    role={message.role}
-                    content={message.content}
-                    sources={message.sources}
-                  />
-                ))}
-
-                {isStreaming && streamingMessage && (
-                  <ChatMessage
-                    role="assistant"
-                    content={streamingMessage}
-                    sources={streamingSources}
-                    isStreaming={true}
-                  />
-                )}
-              </div>
-
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-
-          {/* Input Container */}
-          <div className="bg-bg-surfaceborder-t border-border-default">
-            <div className="max-w-4xl mx-auto px-4 py-6">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  handleSendMessage()
-                }}
-                className="relative"
-              >
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask anything about your documents..."
-                  disabled={isStreaming}
-                  className="w-full px-5 py-4 pr-28 bg-bg-surface border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-colors disabled:opacity-50 text-base"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  disabled={!input.trim() || isStreaming}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {isStreaming ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                    </>
-                  ) : (
-                    <PaperAirplaneIcon className="h-5 w-5" />
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Upload PDF Modal */}
@@ -1415,20 +956,6 @@ export default function ProjectDetail() {
         onClose={() => setIsSearchOpen(false)}
       />
 
-      {/* Research Assistant Panel — temporarily hidden until chat is production-ready */}
-      {/* {session?.access_token && projectId && !isFullScreen && (
-        <ResearchAssistantPanel
-          projectId={projectId}
-          token={session.access_token}
-          currentTab={activeTab}
-          chatMessages={messages}
-          chatInput={input}
-          setChatInput={setInput}
-          sendMessage={handleSendMessage}
-          isLoading={isStreaming}
-          clearChat={handleClearChat}
-        />
-      )} */}
     </PageContainer>
   )
 }

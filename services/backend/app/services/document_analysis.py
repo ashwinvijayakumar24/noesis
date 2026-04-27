@@ -8,11 +8,17 @@ import time
 from typing import Dict, Any, Optional
 from app.core.openai_client import get_openai_client, get_completion_params
 from app.core.logging_config import get_logger
+from app.services.retry_utils import retry_openai
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client with privacy-first configuration
 client = get_openai_client()
+
+
+@retry_openai
+def _create_chat_completion(**kwargs):
+    return client.chat.completions.create(**kwargs)
 
 
 # Analysis tiers based on page count
@@ -348,7 +354,7 @@ def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-
 
         # Call OpenAI API - GPT-5.2 relies on explicit JSON instructions in prompts
         # Note: GPT-5.2-chat-latest only supports temperature=1.0 (default)
-        response = client.chat.completions.create(
+        response = _create_chat_completion(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -422,7 +428,7 @@ def extract_citation_metadata(paper_text: str) -> Dict[str, Any]:
 
         # Use GPT-5-mini to extract citation info - relies on explicit JSON instructions
         # Note: Removing temperature parameter to use model defaults
-        response = client.chat.completions.create(
+        response = _create_chat_completion(
             model="gpt-5-mini",  # Use mini for speed/cost
             messages=[
                 {

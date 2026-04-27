@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { MagnifyingGlassIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, ChevronRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { Menu } from '@headlessui/react'
 import { NoesisLogo } from '../ui/NoesisLogo'
 
@@ -81,6 +81,14 @@ export default function AuthenticatedHeader({ breadcrumbs = [], onSearchOpen }: 
                 </kbd>
               </button>
             )}
+
+            <Link
+              to="/privacy"
+              className="inline-flex min-h-[48px] items-center gap-2 rounded-md border border-border-default px-3 py-2 text-sm text-text-tertiary transition-all duration-150 hover:border-accent-primary/30 hover:text-accent-primary md:hidden"
+            >
+              <ShieldCheckIcon className="h-5 w-5" />
+              <span className="font-medium">Private</span>
+            </Link>
 
             {/* User Menu Dropdown - Touch-friendly */}
             <Menu as="div" className="relative">

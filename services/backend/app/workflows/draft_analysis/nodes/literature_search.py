@@ -35,7 +35,7 @@ async def search_literature_for_claim(
         Dictionary with claim and found literature, including match metadata
     """
     from app.services.rag_retrieval import retrieve_relevant_chunks
-    from app.services.claim_based_citations import find_supporting_claims
+    from app.services.claim_analysis import find_supporting_claims
 
     try:
         # Use the claim text as the search query

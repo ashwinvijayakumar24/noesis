@@ -86,10 +86,11 @@ export default function Pricing() {
       cta: 'Get Started Free',
       subtext: 'No credit card required',
       features: [
-        '5 draft analyses per month',
-        '30 PDF uploads per month',
-        '100 BibTeX imports per month',
-        '10 paper discovery searches per day',
+        '2 draft analyses per month',
+        '30 PDF uploads per month total',
+        '30 BibTeX references per month total',
+        '5 Discover searches per day',
+        '5 Literature Map refreshes per day',
         'Citation gap detection',
         'Reviewer-style feedback with source grounding',
         'BibTeX export',
@@ -107,10 +108,11 @@ export default function Pricing() {
       cta: 'Subscribe to Pro',
       subtext: null,
       features: [
-        'Unlimited draft analyses',
-        'Unlimited document uploads',
-        'Unlimited BibTeX imports',
-        'Unlimited paper discovery',
+        '20 draft analyses per month',
+        '100 PDF uploads per month total',
+        '100 BibTeX references per month total',
+        '50 Discover searches per day',
+        'Unlimited Literature Map refreshes',
         'Priority processing',
         'Larger draft size limits (50+ pages)',
         'Advanced citation suggestions',
@@ -130,11 +132,12 @@ export default function Pricing() {
       cta: 'Subscribe to Team',
       subtext: '$40–$60/mo for a full group',
       features: [
-        '2–3 users (PI + lab members)',
+        '2–3 users billed per seat',
+        'Effectively unlimited usage across PDFs, BibTeX, draft analyses, Discover, and Literature Map refreshes',
         'All Pro features for every member',
         'Shared project workspaces',
         'Team collaboration features',
-        'Lab member invite link',
+        'Shared literature libraries',
         'Dedicated support',
         'Priority feature requests',
       ],
@@ -209,7 +212,7 @@ export default function Pricing() {
               Transparent, <span className="text-accent-primary">Research-Friendly</span> Pricing
             </h1>
             <p className="text-xl sm:text-2xl text-text-secondary leading-body-large tracking-normal max-w-3xl mx-auto">
-              Build your full library for free. Pay only when you need more AI analyses.
+              Start free with clear per-user quotas. Upgrade when you need higher limits or multi-user access.
             </p>
           </motion.div>
         </div>
@@ -338,7 +341,8 @@ export default function Pricing() {
                 <p className="text-sm text-text-secondary leading-relaxed tracking-normal">
                   Each time you submit a draft for AI-powered reviewer feedback, claim extraction,
                   and gap detection, that counts as one analysis. Re-running an existing draft's
-                  analysis also counts. PDF uploads and BibTeX imports do not count against this limit.
+                  analysis also counts. PDF uploads, BibTeX imports, Discover searches, and
+                  Literature Map refreshes each have their own separate quotas.
                 </p>
               </div>
               <div>
@@ -371,9 +375,10 @@ export default function Pricing() {
                 </h4>
                 <p className="text-sm text-text-secondary leading-relaxed tracking-normal">
                   You'll receive a notification when approaching your limits. You can upgrade to
-                  Pro anytime to continue using Noesis without interruption. Library building
-                  (PDF uploads and BibTeX imports) has generous free limits so you can build a
-                  real project before committing.
+                  Pro or Team anytime to continue without interruption. Free includes 30 PDFs,
+                  30 BibTeX references, 2 draft analyses, 5 Discover searches per day, and
+                  5 Literature Map refreshes per day so you can evaluate a real project before
+                  committing.
                 </p>
               </div>
             </div>

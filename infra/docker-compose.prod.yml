@@ -130,7 +130,7 @@ services:
       ENVIRONMENT: production
       LOG_LEVEL: INFO
 
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=1 --queues=default,analysis,insights
+    command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=30,4 --queues=default,analysis,insights
 
     volumes:
       # Logs for debugging
@@ -139,7 +139,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 768M
           cpus: '1.0'
         reservations:
           memory: 384M

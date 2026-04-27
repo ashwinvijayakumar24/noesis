@@ -10,11 +10,9 @@ Uses project insights, research questions, and themes to find relevant papers.
 """
 
 from typing import List, Dict, Any, Optional
-from app.core.openai_client import get_openai_client, get_completion_params
+from app.core.openai_client import get_completion_params
 from app.services.external_apis import SemanticScholarAPI, ArXivAPI, PubMedAPI
 from datetime import datetime
-
-client = get_openai_client()
 
 # Initialize API clients
 semantic_scholar = SemanticScholarAPI()
@@ -26,7 +24,7 @@ def generate_paper_recommendations(
     project_data: Dict[str, Any],
     insights: Optional[Dict[str, Any]] = None,
     research_questions: Optional[List[Dict[str, Any]]] = None,
-    limit: int = 20
+    limit: int = 30
 ) -> List[Dict[str, Any]]:
     """
     Generate paper recommendations from multiple sources.
@@ -223,6 +221,57 @@ def _deduplicate_papers(papers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return unique_papers
 
 
+def _tokenize_text(text: str) -> List[str]:
+    return [
+        token
+        for token in (
+            word.lower().strip('.,;:?!()[]{}"\'')
+            for word in (text or "").split()
+        )
+        if len(token) > 3
+    ]
+
+
+def _match_recommendation_context(
+    paper: Dict[str, Any],
+    insights: Optional[Dict[str, Any]],
+) -> Dict[str, List[str]]:
+    if not insights:
+        return {"gap_titles": [], "conflict_topics": []}
+
+    paper_tokens = set(_tokenize_text(f"{paper.get('title', '')} {paper.get('abstract', '')}"))
+    gap_titles: List[str] = []
+    conflict_topics: List[str] = []
+
+    for gap in insights.get("research_gaps", []) or []:
+        title = (gap.get("title") or "").strip()
+        candidate_tokens = set(_tokenize_text(f"{title} {gap.get('description', '')}"))
+        if title and paper_tokens.intersection(candidate_tokens):
+            gap_titles.append(title)
+
+    for conflict in insights.get("conflicting_findings", []) or []:
+        topic = (conflict.get("topic") or "").strip()
+        candidate_tokens = set(
+            _tokenize_text(
+                " ".join(
+                    [
+                        topic,
+                        conflict.get("resolution", "") or "",
+                        conflict.get("side_a", {}).get("position", "") or "",
+                        conflict.get("side_b", {}).get("position", "") or "",
+                    ]
+                )
+            )
+        )
+        if topic and paper_tokens.intersection(candidate_tokens):
+            conflict_topics.append(topic)
+
+    return {
+        "gap_titles": gap_titles[:3],
+        "conflict_topics": conflict_topics[:3],
+    }
+
+
 def _score_papers(
     papers: List[Dict[str, Any]],
     keywords: List[str],
@@ -259,11 +308,14 @@ def _score_papers(
                 if len(matched_keywords) < 5:
                     matched_keywords.append(keyword)
 
+        # Hard requirement: skip papers with zero keyword overlap
+        if keyword_matches == 0:
+            continue
+
         keyword_score = min(40, keyword_matches * 4)
         score += keyword_score
 
-        if keyword_matches > 0:
-            reasons.append(f"Matches {keyword_matches} project keywords")
+        reasons.append(f"Matches {keyword_matches} project keywords")
 
         # Factor 2: Citation count (0-30 points)
         citation_count = paper.get("citation_count") or 0
@@ -302,6 +354,7 @@ def _score_papers(
         paper["relevance_score"] = round(normalized_score, 3)
         paper["relevance_reason"] = " • ".join(reasons) if reasons else "Relevant to project"
         paper["matched_keywords"] = matched_keywords[:5]
+        paper["recommendation_context"] = _match_recommendation_context(paper, insights)
 
         # Identify which gaps this addresses (if insights available)
         if insights and insights.get("research_gaps"):

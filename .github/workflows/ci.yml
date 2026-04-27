@@ -28,12 +28,23 @@ jobs:
       - name: Install test extras
         run: pip install pytest-cov pytest-asyncio
 
-      - name: Run tests with coverage
+      - name: Run unit + integration tests with coverage
         run: |
           python -m pytest tests/ -v --tb=short \
+            -m "not slow" \
             --cov=app \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing
+        env:
+          ENVIRONMENT: test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: E2E API Tests (security + quota logic only in CI)
+        run: |
+          python -m pytest tests/e2e/test_security.py tests/e2e/test_quota_enforcement.py \
+            -v --tb=short -m "unit or not integration" --timeout=30
         env:
           ENVIRONMENT: test
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

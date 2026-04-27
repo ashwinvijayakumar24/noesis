@@ -55,6 +55,7 @@ pandas==2.2.3
 
 # Celery and task queue
 celery[redis]==5.3.4
+gevent>=23.9.0
 redis==4.6.0
 
 # Rate limiting

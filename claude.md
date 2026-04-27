@@ -1,13 +1,13 @@
 # Claude.md: Noesis Draft-Aware Research Intelligence Platform
 
-> **Quick Context (March 2026):** Production-ready research intelligence platform deployed on Vercel + AWS + Supabase. Core features complete: LangGraph workflow orchestration, draft analysis with parallel processing, citation management, RAG chat, BibTeX/PDF export, Celery background tasks, Stripe monetization, paper discovery, referral system, analytics dashboard, draft comparison. **Current priority: end-to-end testing and document upload validation after switching from GPT-4o to GPT-5.2.** Tech: React + FastAPI + LangGraph + **GPT-5.2** + pgvector + Celery/Redis. Cost: $10-50/mo infrastructure.
+> **Quick Context (April 2026):** Noesis is a project-centered research workspace for academics. The live product loop is `Literature -> Literature Map -> Discover -> Draft Analysis -> Revision`. Current priority is end-to-end verification and production hardening after the mini-plan implementation pass. Tech: React + FastAPI + Supabase + Celery/Redis + **GPT-5.2**.
 
-## ⚠️ CRITICAL: Current Session Context (March 2026)
+## ⚠️ CRITICAL: Current Session Context (April 2026)
 
 ### What We Are Working On RIGHT NOW
-1. **End-to-end testing** — validating the full upload → analysis pipeline works correctly
-2. **Document upload fixes** — race condition fixed, multi-select upload implemented, success modal simplified
-3. **GPT-5.2 migration** — switched from GPT-4o to GPT-5.2; API uses `max_completion_tokens` NOT `max_tokens`
+1. **End-to-end verification** — validating the project workspace flow across literature, Literature Map, Discover, and drafts
+2. **Production hardening** — confirm quota behavior, progress states, retry behavior, and deploy wiring
+3. **GPT-5.2 discipline** — API uses `max_completion_tokens`, never `max_tokens`
 
 ### GPT-5.2 API Breaking Change (IMPORTANT)
 All OpenAI calls now use `gpt-5.2` model. GPT-5.2 requires `max_completion_tokens` instead of `max_tokens`:
@@ -29,19 +29,21 @@ This was fixed in 15 files (see `GPT52_API_FIX.md`). Do NOT revert to `max_token
 - ✅ Success modal simplified: clean UX, no technical jargon
 - ✅ Celery configured for 4 concurrent tasks
 - ⚠️ OpenAI rate limits: free tier is 3 req/min — need to upgrade to Tier 1 for batch uploads
-- ⚠️ Still testing: verify documents flow uploaded → processing → analyzing → analyzed
+- ⚠️ Still testing: verify full project loop and remote CI/CD access end to end
 
 ### Design System Reference
-**ALWAYS read `DESIGN_SYSTEM.md` before making any frontend changes.** The design uses:
+Design tokens live in `services/frontend/tailwind.config.js` (source of truth). Key rules:
 - Dark charcoal theme (`bg-bg-void: #0F0F14`, `bg-bg-surface: #18181F`)
 - Rose-crimson accent (`accent-primary: #E5484D`)
 - `border-border-default: rgba(255,255,255,0.08)` for all borders
 - Max `rounded-xl` (12px), no `rounded-2xl` or `rounded-3xl`
 - 150ms transitions, Inter font, font-semibold (NOT font-bold)
-- See `DESIGN_SYSTEM.md` and `services/frontend/tailwind.config.js` for full token system
 
 ### Dual Tool Workflow
-This project is worked on with both **Claude Code** and **Cursor Pro**. See `WORKING_STATE.md` for current state. Always commit before switching tools.
+This project is worked on with both **Claude Code** and **Cursor Pro**. See `mini-plans/00_INDEX.md` and the active mini-plan for current state. Always commit before switching tools.
+
+### Current Product Architecture
+The current-state product architecture and user flow live in `docs/current-architecture.md`.
 
 ## Project Overview
 
@@ -82,7 +84,7 @@ services:
 
 # External cloud services (not containerized)
 - Supabase: Database (PostgreSQL 15 + pgvector) + Auth + Storage
-- OpenAI: GPT-4o (analysis) + text-embedding-3-small (embeddings)
+- OpenAI: GPT-5.2 (analysis) + text-embedding-3-small (embeddings)
 ```
 
 ### Database Schema
@@ -579,10 +581,10 @@ noesis/
 
 ### 📋 Important Notes for Development
 - **GPT-5.2**: Use `max_completion_tokens` NOT `max_tokens` for all OpenAI calls
-- **Design**: Always read `DESIGN_SYSTEM.md` before any frontend work
-- **Tool workflow**: See `WORKING_STATE.md` for current state and which files are in progress
-- **Plan**: Full growth strategy in `plan/` directory (30-day, 6-month roadmaps)
-- **Goal**: 100-500 users in 30 days (see `plan/00_OVERVIEW.md`)
+- **Design**: Check `services/frontend/tailwind.config.js` for design tokens before any frontend work
+- **Tool workflow**: See `mini-plans/00_INDEX.md` and the relevant active mini-plan for current work state
+- **Plan**: Active implementation plans live in `mini-plans/`; historical strategy docs are archived in `docs/historical/final_plan/`
+- **Goal**: 100-500 users in 30 days
 - **Startup stage**: Seed-stage, targeting Georgia Tech researchers first, then university expansion
 
 This project represents a significant evolution from a basic literature review tool to a comprehensive research intelligence platform. The 30-day goal is 100-500 signups with 50+ activated users (uploaded ≥1 paper + analyzed ≥1 draft). Monetization launches in Month 3 ($5K MRR target). Seed fundraising by Month 6 ($50K MRR, 30K users).

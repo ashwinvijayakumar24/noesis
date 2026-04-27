@@ -11,14 +11,32 @@ import RecurringPatterns from './draft-analysis/RecurringPatterns'
 import VersionProgressCard from './draft-analysis/VersionProgressCard'
 import { useAnalysisStream } from '../hooks/useAnalysisStream'
 
+function AnimatedDots() {
+  const [dots, setDots] = useState('.')
+  useEffect(() => {
+    const id = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 500)
+    return () => clearInterval(id)
+  }, [])
+  return <span className="inline-block w-4 text-left">{dots}</span>
+}
+
+function ElapsedTimer({ startedAt }: { startedAt: number }) {
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [startedAt])
+  const m = Math.floor(elapsed / 60)
+  const s = elapsed % 60
+  return <span>{m > 0 ? `${m}m ` : ''}{s}s</span>
+}
+
 function DraftProgressBar({ draftId, onComplete }: { draftId: string; token: string; onComplete?: () => void }) {
   const stream = useAnalysisStream(draftId, true)
-  const pct = Math.max(stream.progress, 5) // show at least 5% so bar is visible
+  const pct = Math.max(stream.progress, 5)
   const firedRef = useRef(false)
+  const startedAt = useRef(Date.now())
 
-  // When WebSocket fires 100%, notify parent to re-fetch draft status from DB.
-  // Because 100% is published AFTER status='analyzed' is written, the re-fetch
-  // will find the draft ready to open.
   useEffect(() => {
     if (stream.complete && !firedRef.current && onComplete) {
       firedRef.current = true
@@ -28,19 +46,28 @@ function DraftProgressBar({ draftId, onComplete }: { draftId: string; token: str
 
   return (
     <div className="mt-3 px-1">
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-xs text-slate-400">
-          {stream.message || 'Starting analysis...'}
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="text-xs text-slate-400 flex items-center gap-1">
+          {/* spinning ring */}
+          <svg className="animate-spin h-3 w-3 text-accent-primary flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+          </svg>
+          <span>{stream.message || 'Starting analysis'}<AnimatedDots /></span>
         </span>
-        {stream.progress > 0 && (
-          <span className="text-xs text-slate-500">{stream.progress}%</span>
-        )}
+        <span className="text-xs text-slate-500 flex items-center gap-1.5">
+          {stream.progress > 0 && <span>{stream.progress}%</span>}
+          <span className="text-slate-600">· <ElapsedTimer startedAt={startedAt.current} /></span>
+        </span>
       </div>
       <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
         <div
-          className="h-full bg-accent-primary rounded-full transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
+          className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+          style={{ width: `${pct}%`, background: 'var(--color-accent-primary, #E5484D)' }}
+        >
+          {/* shimmer sweep — signals activity even when % is static */}
+          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer-sweep" />
+        </div>
       </div>
     </div>
   )

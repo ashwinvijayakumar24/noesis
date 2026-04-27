@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
   DocumentTextIcon,
   PlusIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  PencilSquareIcon
+  PencilSquareIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { Badge, type BadgeVariant as _BadgeVariant } from '../ui/Badge'
 import DocumentListItem from './DocumentListItem'
-import ChatBox from './ChatBox'
 import { useAuthStore } from '../../stores/authStore'
 import { api } from '../../lib/api'
 
@@ -36,16 +37,6 @@ interface SidebarProps {
   onUploadDraft: () => void
   onDocumentClick?: (documentId: string) => void
   onDraftClick?: (draftId: string) => void
-  // Chat props
-  messages: any[]
-  input: string
-  setInput: (value: string) => void
-  onSendMessage: () => void
-  isStreaming: boolean
-  streamingMessage: string
-  includeDrafts: boolean
-  setIncludeDrafts: (value: boolean) => void
-  messagesEndRef: React.RefObject<HTMLDivElement>
   // Quick actions
   insightsStatus?: 'not_analyzed' | 'analyzing' | 'analyzed'
   onAnalyzeInsights?: () => void
@@ -59,15 +50,6 @@ export default function Sidebar({
   onUploadDraft,
   onDocumentClick,
   onDraftClick,
-  messages,
-  input,
-  setInput,
-  onSendMessage,
-  isStreaming,
-  streamingMessage,
-  includeDrafts,
-  setIncludeDrafts,
-  messagesEndRef,
   insightsStatus = 'not_analyzed',
   onAnalyzeInsights,
   draftRefreshTrigger = 0
@@ -256,19 +238,14 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Chat Box (Always at bottom, fills remaining space) */}
-      <div className="flex-1 min-h-0">
-        <ChatBox
-          messages={messages}
-          input={input}
-          setInput={setInput}
-          onSendMessage={onSendMessage}
-          isStreaming={isStreaming}
-          streamingMessage={streamingMessage}
-          includeDrafts={includeDrafts}
-          setIncludeDrafts={setIncludeDrafts}
-          messagesEndRef={messagesEndRef}
-        />
+      <div className="border-t border-border-subtle p-4">
+        <Link
+          to="/privacy"
+          className="flex items-center gap-2 rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-xs text-text-secondary transition-colors hover:text-text-primary"
+        >
+          <ShieldCheckIcon className="h-4 w-4 text-accent-primary" />
+          Private by default
+        </Link>
       </div>
     </div>
   )

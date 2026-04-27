@@ -103,6 +103,19 @@ async def _generate_feedback_node_with_progress(state: DraftAnalysisState) -> Dr
     if draft_id:
         await publish_progress(draft_id, "generate_feedback_start", 79, "Generating reviewer feedback...")
     result = generate_reviewer_feedback_node(state)
+    try:
+        from app.services.reviewer1_feedback import generate_reviewer1_feedback
+
+        r1_items = await generate_reviewer1_feedback(
+            draft_id=state["draft_id"],
+            draft_content=state.get("draft_content", ""),
+            structure=state.get("structure", {}),
+        )
+        if r1_items:
+            existing = result.get("reviewer_feedback", [])
+            result["reviewer_feedback"] = existing + r1_items
+    except Exception as exc:
+        logger.warning(f"[Workflow] Reviewer 1 generation failed (non-fatal): {exc}")
     if draft_id:
         await publish_progress(draft_id, "generate_feedback", 88, "Reviewer feedback generated")
     return result

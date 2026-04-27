@@ -219,6 +219,10 @@ export default function SignUp() {
                   <span className="px-3 bg-bg-surface text-text-muted font-mono">Or sign up with email</span>
                 </div>
               </div>
+
+              <p className="mt-4 text-center text-xs text-text-muted">
+                Private by default. Your files stay in your workspace and are not used to train models.
+              </p>
             </div>
           )}
 

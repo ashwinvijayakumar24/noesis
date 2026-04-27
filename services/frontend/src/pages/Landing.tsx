@@ -232,7 +232,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'Is Noesis free to use?',
-    answer: 'Yes. The free tier includes 5 draft analyses per month, 30 PDF uploads, and access to 200M+ papers. Pro plan is $12/month for heavier use.',
+    answer: 'Yes. The free tier includes 2 draft analyses per month, 30 PDF uploads, 30 BibTeX references, 5 Discover searches per day, and 5 Literature Map refreshes per day. Pro is $12/month for higher per-user quotas.',
   },
   {
     question: 'What file types are supported?',
@@ -826,12 +826,12 @@ export default function Landing() {
               <span className="text-accent-primary">Transparent</span>, Research-Friendly Pricing
             </h2>
             <p className="text-lg sm:text-xl text-text-secondary max-w-3xl mx-auto tracking-normal">
-              Choose the plan that fits your research needs. Start free, upgrade anytime.
+              Choose the plan that fits your research needs. Start free with clear per-user quotas, then upgrade when you need more volume or team access.
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-4 gap-8 max-w-7xl mx-auto pt-8 overflow-visible">
-            {/* Free Beta Plan - Current */}
+            {/* Free Plan */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -856,19 +856,23 @@ export default function Landing() {
                 <ul className="space-y-3 mb-6 flex-1">
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">5 draft analyses per month</span>
+                    <span className="text-text-secondary">2 draft analyses per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">30 PDF uploads per month</span>
+                    <span className="text-text-secondary">30 PDF uploads per month total</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">100 BibTeX imports per month</span>
+                    <span className="text-text-secondary">30 BibTeX references per month total</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">10 paper discovery searches per day</span>
+                    <span className="text-text-secondary">5 Discover searches per day</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">5 Literature Map refreshes per day</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
@@ -910,18 +914,30 @@ export default function Landing() {
                     <span className="text-text-tertiary">/month</span>
                   </div>
                   <p className="text-sm text-text-tertiary mt-2">
-                    For active researchers with heavier usage needs
+                    For active researchers with higher per-user quotas
                   </p>
                 </div>
 
                 <ul className="space-y-3 mb-6 flex-1">
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Unlimited draft analyses</span>
+                    <span className="text-text-secondary">20 draft analyses per month</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Unlimited document uploads</span>
+                    <span className="text-text-secondary">100 PDF uploads per month total</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">100 BibTeX references per month total</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">50 Discover searches per day</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Unlimited Literature Map refreshes</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
@@ -974,7 +990,7 @@ export default function Landing() {
                     <span className="text-text-tertiary">/user/month</span>
                   </div>
                   <p className="text-sm text-text-tertiary mt-2">
-                    For research groups (minimum 3 users)
+                    For research groups with 2-3 users
                   </p>
                 </div>
 
@@ -982,6 +998,14 @@ export default function Landing() {
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
                     <span className="text-text-secondary">Everything in Pro</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">2-3 users billed per seat</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
+                    <span className="text-text-secondary">Effectively unlimited usage</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
@@ -997,15 +1021,7 @@ export default function Landing() {
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Add or remove seats anytime</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-sm">
-                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
                     <span className="text-text-secondary">Priority support</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-sm">
-                    <CheckBadgeIcon className="h-5 w-5 text-accent-primary shrink-0 mt-0.5" />
-                    <span className="text-text-secondary">Usage analytics dashboard</span>
                   </li>
                 </ul>
 

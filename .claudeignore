@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+*.egg-info/
+
+# Lock files (rarely useful for Claude)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+poetry.lock
+Pipfile.lock
+
+# Environment and secrets
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+
+# Logs
+*.log
+logs/
+
+# Docker
+infra/docker-compose*.yml
+
+# Version control
+.git/
+
+# Editor artifacts
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Test coverage
+htmlcov/
+.coverage
+coverage/
+.pytest_cache/
+
+# Compiled assets
+*.min.js
+*.min.css
+
+# Large data files
+*.csv
+*.parquet
+*.sqlite
+*.db

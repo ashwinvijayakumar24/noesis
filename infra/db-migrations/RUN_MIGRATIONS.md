@@ -24,7 +24,7 @@ These migrations add features for Week 2-4 of the growth plan:
    - 005_testimonials.sql
    - 006_subscriptions.sql
    - 007_analytics.sql
-   - 008_draft_comparisons.sql
+   - 017_draft_comparisons.sql
 6. Click "Run" for each migration
 
 ### Option 2: Supabase CLI

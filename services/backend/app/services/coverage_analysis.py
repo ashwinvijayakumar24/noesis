@@ -544,6 +544,7 @@ async def compare_with_literature_database(
             .select("id, title, analysis")\
             .eq("project_id", project_id)\
             .eq("status", "analyzed")\
+            .neq("resolution_status", "unresolved")\
             .execute()
 
         documents = docs_response.data or []
@@ -737,7 +738,13 @@ async def suggest_papers_for_gaps(
             embeddings = embed_chunks([gap_description])
 
             if not embeddings:
-                logger.warning(f"Failed to embed gap description")
+                logger.warning(f"Failed to embed gap description, trying external fallback")
+                try:
+                    gap["suggested_papers"] = await _fetch_external_papers_for_gap(
+                        gap_description, _EXTERNAL_FALLBACK_THRESHOLD
+                    )
+                except Exception:
+                    gap["suggested_papers"] = []
                 continue
 
             gap_embedding = embeddings[0].embedding
@@ -765,7 +772,7 @@ async def suggest_papers_for_gaps(
             # Fetch document details
             suggested_papers = []
             for doc_id in document_ids[:max_suggestions_per_gap]:
-                doc_response = supabase.table("documents").select("*").eq("id", doc_id).single().execute()
+                doc_response = supabase.table("documents").select("*").eq("id", doc_id).neq("resolution_status", "unresolved").single().execute()
 
                 if doc_response.data:
                     document = doc_response.data

@@ -138,7 +138,7 @@ export default function CompassPage({ projectId, insights }: CompassPageProps) {
             Please analyze project insights first before using the Literature Review Compass.
           </p>
           <p className="text-sm text-text-muted">
-            Go to the <strong>Insights</strong> tab and click "Analyze Project Insights"
+            Go to the <strong>Literature Map</strong> tab and click "Generate Literature Map"
           </p>
         </div>
       </div>

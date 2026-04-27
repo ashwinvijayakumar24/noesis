@@ -11,6 +11,21 @@ Noesis is a draft-aware research intelligence platform that transforms how PhD s
 **Live Demo:** https://noesis.is
 **API Docs:** https://api.noesis.is/docs
 
+## Current Product Shape
+
+The current product architecture and user flow are documented in `docs/current-architecture.md`.
+For implementation truth, prefer that file plus `AGENTS.md` over older roadmap or market sections below.
+
+The live product loop is:
+
+1. create a project
+2. build literature with PDFs, BibTeX, Zotero, and saved recommendations
+3. generate a Literature Map
+4. discover missing papers
+5. upload a draft
+6. analyze the draft against the project literature
+7. revise and repeat
+
 ---
 
 ## 📊 Problem & Market Opportunity
@@ -1202,6 +1217,4 @@ Cost per User:            $X/month
 - [ ] Publication venue recommendations
 - [ ] Automated systematic reviews
 - [ ] Research collaboration network
-
-
 

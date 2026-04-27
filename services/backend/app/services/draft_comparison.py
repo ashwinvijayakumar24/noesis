@@ -151,6 +151,19 @@ Feedback with Resolution Status:
         }
 
 
+def _normalize_reviewer_persona(value: Optional[str]) -> str:
+    return value if value in {"reviewer_1", "reviewer_2"} else "reviewer_2"
+
+
+def _is_trackable_feedback(feedback_row: Dict[str, Any]) -> bool:
+    persona = _normalize_reviewer_persona(feedback_row.get("reviewer_persona"))
+    if persona == "reviewer_1":
+        return False
+    if feedback_row.get("feedback_type") == "strength":
+        return False
+    return True
+
+
 async def compare_drafts(
     draft_v1_id: str,
     draft_v2_id: str,
@@ -258,7 +271,9 @@ async def analyze_changes(
     """
     claims_v1_texts = [c.get("claim_text", "") for c in claims_v1]
     claims_v2_texts = [c.get("claim_text", "") for c in claims_v2]
-    feedback_v2_texts = [f.get("feedback_text", "") for f in feedback_v2]
+    actionable_feedback_v1 = [fb for fb in feedback_v1 if _is_trackable_feedback(fb)]
+    actionable_feedback_v2 = [fb for fb in feedback_v2 if _is_trackable_feedback(fb)]
+    feedback_v2_texts = [f.get("feedback_text", "") for f in actionable_feedback_v2]
     gaps_v2_descriptions = [g.get("description", "") for g in gaps_v2]
 
     claims_added = []
@@ -299,7 +314,7 @@ async def analyze_changes(
     feedback_addressed = []
     feedback_tracked = []
 
-    for fb in feedback_v1:
+    for fb in actionable_feedback_v1:
         fb_text = fb.get("feedback_text", "")
         severity = fb.get("severity", "")
 
@@ -321,11 +336,35 @@ async def analyze_changes(
                 })
 
         feedback_tracked.append({
+            "feedback_id": fb.get("id"),
             "feedback_text": fb_text,
             "severity": severity,
             "section_reference": fb.get("section_reference", ""),
+            "reviewer_persona": _normalize_reviewer_persona(fb.get("reviewer_persona")),
             "resolution_status": resolution_status
         })
+
+    feedback_carryover = []
+    for fb in actionable_feedback_v2:
+        fb_text = fb.get("feedback_text", "")
+        matched_previous = None
+        for prev in actionable_feedback_v1:
+            prev_text = prev.get("feedback_text", "")
+            if await _are_semantically_similar(fb_text, prev_text, threshold=0.70):
+                matched_previous = prev
+                break
+
+        if matched_previous:
+            feedback_carryover.append({
+                "feedback_id": fb.get("id"),
+                "feedback_text": fb_text,
+                "severity": fb.get("severity", ""),
+                "section_reference": fb.get("section_reference", ""),
+                "reviewer_persona": _normalize_reviewer_persona(fb.get("reviewer_persona")),
+                "previous_feedback_id": matched_previous.get("id"),
+                "previous_feedback_text": matched_previous.get("feedback_text", ""),
+                "carryover_status": "carried_over",
+            })
 
     # Check resolved gaps
     gaps_resolved = []
@@ -350,12 +389,14 @@ async def analyze_changes(
         "claims_worsened": claims_worsened,
         "feedback_addressed": feedback_addressed,
         "feedback_tracked": feedback_tracked,
+        "feedback_carryover": feedback_carryover,
         "gaps_resolved": gaps_resolved,
         "metadata": {
             "claims_v1_count": len(claims_v1),
             "claims_v2_count": len(claims_v2),
-            "feedback_v1_count": len(feedback_v1),
-            "feedback_v2_count": len(feedback_v2),
+            "feedback_v1_count": len(actionable_feedback_v1),
+            "feedback_v2_count": len(actionable_feedback_v2),
+            "feedback_carryover_count": len(feedback_carryover),
             "gaps_v1_count": len(gaps_v1),
             "gaps_v2_count": len(gaps_v2)
         }

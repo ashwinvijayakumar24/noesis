@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.api.routes import (
-    auth, projects, documents, drafts, rag, chat, search, tags, compass,
+    auth, projects, documents, drafts, rag, search, tags, compass,
     research_questions, methodology_recommendations, paper_recommendations,
     analytics, analytics_tracking, citations, tasks, quota,
     # New routes (Week 2-4 implementation)
@@ -134,7 +134,6 @@ app.include_router(projects.router, prefix="/projects", tags=["Projects"])
 app.include_router(documents.router, prefix="/documents", tags=["Documents"])
 app.include_router(drafts.router, prefix="/drafts", tags=["Drafts"])
 app.include_router(rag.router, prefix="/rag", tags=["RAG"])
-app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(search.router, prefix="/search", tags=["Search"])
 app.include_router(tags.router, prefix="/tags", tags=["Tags"])
 app.include_router(compass.router, prefix="/compass", tags=["Compass"])

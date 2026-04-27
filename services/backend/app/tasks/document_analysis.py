@@ -8,8 +8,38 @@ from celery import Task
 from app.celery_app import celery_app
 import traceback
 import os
+from openai import APIConnectionError, APIError, RateLimitError
+
+from app.core.api_errors import build_error_detail
+from app.services.progress_tracking import store_progress_snapshot
 
 _DEV = os.environ.get("ENVIRONMENT", "development") != "production"
+
+
+def _is_transient_provider_error(error: Exception) -> bool:
+    if isinstance(error, (RateLimitError, APIError, APIConnectionError)):
+        return True
+
+    message = str(error).lower()
+    return any(
+        token in message
+        for token in (
+            "ratelimiterror",
+            "rate limit",
+            "too many requests",
+            "apiconnectionerror",
+            "temporary service issue",
+            "connection reset",
+        )
+    )
+
+
+def _merge_metadata(existing: dict | None, **updates) -> dict:
+    merged = dict(existing or {})
+    for key, value in updates.items():
+        if value is not None:
+            merged[key] = value
+    return merged
 
 
 class DocumentAnalysisTask(Task):
@@ -96,19 +126,55 @@ def analyze_document_task(self, document_id: str, user_id: str, project_id: str 
             print(f"[CELERY-DOC] Detail: {str(e)}")
             print(f"[CELERY-DOC] Traceback:\n{traceback.format_exc()}")
 
-        # Update document status to failed (will be retried automatically)
+        is_retryable = self.request.retries < self.max_retries
+        transient_provider_error = _is_transient_provider_error(e)
+        error_detail = build_error_detail(
+            code="transient_provider_error" if transient_provider_error else "document_analysis_failed",
+            title="Service under load" if transient_provider_error else "Analysis failed",
+            message=(
+                "The analysis service is under load. We're retrying automatically."
+                if is_retryable
+                else "We couldn't analyze this PDF."
+            ),
+            details=[str(e)] if str(e) else None,
+            next_action="retry",
+            retryable=True,
+        )
+
+        stage = "retrying_provider" if transient_provider_error else "retrying"
+        label = "Retrying after provider rate limit" if transient_provider_error else "Retrying analysis"
+        store_progress_snapshot(
+            "document",
+            document_id,
+            stage,
+            65,
+            label,
+            retrying=is_retryable,
+            attempt=self.request.retries + 1,
+            max_attempts=self.max_retries,
+        )
+
+        # Update document status. Keep it active while retries remain.
         try:
             from app.core.supabase_client import supabase
             import datetime
+            metadata_response = supabase.table("documents").select("metadata").eq("id", document_id).execute()
+            existing_metadata = (
+                metadata_response.data[0].get("metadata") or {}
+                if metadata_response.data
+                else {}
+            )
             supabase.table("documents").update({
-                "status": "failed",
+                "status": "failed" if not is_retryable else "analyzing",
                 "updated_at": datetime.datetime.utcnow().isoformat(),
-                "metadata": {
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                    "task_id": self.request.id,
-                    "retries": self.request.retries,
-                }
+                "metadata": _merge_metadata(
+                    existing_metadata,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    error_detail=error_detail,
+                    task_id=self.request.id,
+                    retries=self.request.retries,
+                ),
             }).eq("id", document_id).execute()
         except Exception as update_error:
             print(f"[CELERY-DOC] WARNING: Failed to update document status: {update_error}")

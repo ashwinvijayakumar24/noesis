@@ -1,316 +1,503 @@
 """
-Project Insights Analysis Service
+Project insights analysis service.
 
-Analyzes all documents in a project to identify:
-- Research gaps (methodological, population, theoretical, temporal)
-- Common themes across papers
-- Methodological patterns
-- Timeline and evolution of ideas
-- Conflicting findings
-- Citation patterns
+Builds a cross-paper literature map from analyzed project documents.
 """
 
-from typing import List, Dict, Any
+from collections import Counter
 import json
 import re
-from app.core.openai_client import get_openai_client, get_completion_params
+from typing import Any, Dict, List, Optional
 
-# Initialize OpenAI client
-client = get_openai_client()
+from app.core.openai_client import get_completion_params, get_openai_client
+from app.services.retry_utils import retry_openai
 
-INSIGHTS_SYSTEM_PROMPT = """You are an expert research analyst. Analyze a collection of research paper summaries to identify cross-paper patterns, gaps, and insights.
+VALID_GAP_CATEGORIES = {"methodological", "population", "theoretical", "temporal"}
 
-Your task is to produce a comprehensive analysis in JSON format with the following structure:
 
+@retry_openai
+def _create_chat_completion(**kwargs):
+    client = get_openai_client()
+    return client.chat.completions.create(**kwargs)
+
+INSIGHTS_SYSTEM_PROMPT = """You are an expert research analyst producing a literature map for a research project.
+
+Return ONLY valid JSON with this structure:
 {
+  "summary": "2-3 sentence synthesis of the evidence base",
+  "key_insight_details": [
+    {
+      "statement": "A concrete, evidence-grounded takeaway",
+      "source_papers": ["Exact Paper Title 1", "Exact Paper Title 2"],
+      "rationale": "Why the cited papers support this statement"
+    }
+  ],
+  "key_insights": [
+    "Same insight statements as plain strings for backwards compatibility"
+  ],
   "research_gaps": [
     {
       "category": "methodological" | "population" | "theoretical" | "temporal",
-      "title": "Brief title of the gap",
-      "description": "Detailed description of what hasn't been studied",
-      "supporting_evidence": ["Evidence from the papers that this is indeed a gap"],
-      "suggested_directions": ["Specific research directions to address this gap"]
+      "title": "Short gap title",
+      "description": "Specific description of the missing evidence",
+      "supporting_evidence": ["Evidence drawn from the papers"],
+      "suggested_directions": ["Actionable next research step"],
+      "source_papers": ["Exact Paper Title 1", "Exact Paper Title 2"]
     }
   ],
   "common_themes": [
     {
-      "theme": "Name of the theme",
-      "frequency": <number of papers with this theme>,
-      "description": "Description of how this theme appears across papers",
-      "paper_titles": ["List of paper titles that include this theme"]
+      "theme": "Theme name",
+      "frequency": 2,
+      "description": "How this theme appears across papers",
+      "paper_titles": ["Exact Paper Title 1", "Exact Paper Title 2"],
+      "source_papers": ["Exact Paper Title 1", "Exact Paper Title 2"]
     }
   ],
   "methodological_patterns": [
     {
-      "methodology": "Name of methodology",
-      "usage_count": <number of papers using this>,
-      "description": "How this methodology is applied",
-      "variations": ["Different variations or approaches"]
-    }
-  ],
-  "timeline": [
-    {
-      "period": "Description of time period or progression",
-      "development": "What changed or developed",
-      "papers": ["Papers representing this period/development"]
+      "methodology": "Method name",
+      "usage_count": 2,
+      "description": "How the method is used across papers",
+      "variations": ["Variation A"],
+      "source_papers": ["Exact Paper Title 1", "Exact Paper Title 2"]
     }
   ],
   "conflicting_findings": [
     {
-      "topic": "What the conflict is about",
+      "topic": "Conflict topic",
       "side_a": {
         "position": "First position",
-        "papers": ["Papers supporting this"],
-        "evidence": "Summary of evidence"
+        "papers": ["Exact Paper Title 1"],
+        "evidence": "Why these papers support side A"
       },
       "side_b": {
-        "position": "Opposing position",
-        "papers": ["Papers supporting this"],
-        "evidence": "Summary of evidence"
+        "position": "Second position",
+        "papers": ["Exact Paper Title 2"],
+        "evidence": "Why these papers support side B"
       },
-      "resolution": "Possible explanation for the conflict or which side has stronger evidence"
+      "resolution": "Most plausible explanation for the disagreement",
+      "source_papers": ["Exact Paper Title 1", "Exact Paper Title 2"]
+    }
+  ],
+  "timeline": [
+    {
+      "period": "Time period",
+      "development": "What changed",
+      "papers": ["Exact Paper Title 1"]
     }
   ],
   "citation_patterns": [
     {
-      "cited_work": "Author/title of frequently cited work",
-      "frequency": <how many papers cite it>,
-      "context": "Why this work is important/frequently cited",
-      "papers_citing": ["Papers that cite this work"]
+      "cited_work": "Frequently cited work",
+      "frequency": 2,
+      "context": "Why it matters",
+      "papers_citing": ["Exact Paper Title 1"]
     }
-  ],
-  "key_insights": [
-    "High-level insight 1",
-    "High-level insight 2",
-    "High-level insight 3"
-  ],
-  "summary": "Overall summary of the body of literature (2-3 sentences)"
+  ]
 }
 
-IMPORTANT GUIDELINES:
-1. For research_gaps, be specific and actionable. Look for:
-   - Methodological gaps: Missing research methods, data types, analytical approaches
-   - Population gaps: Understudied demographics, regions, contexts
-   - Theoretical gaps: Missing theoretical frameworks or perspectives
-   - Temporal gaps: Missing time periods, lack of longitudinal studies
-2. Only include gaps that are clearly evident from the papers
-3. For common_themes, identify patterns that appear in 2+ papers
-4. For conflicting_findings, only include if there are genuine disagreements
-5. Be precise with paper titles when referencing them
-6. Provide evidence-based analysis, not speculation
-7. If a section has no relevant findings, return an empty array []
+Rules:
+1. Every key insight, gap, theme, methodology pattern, and conflict must cite supporting papers using exact titles from the provided context.
+2. Only identify claims that are clearly grounded in the evidence provided.
+3. Common themes and methodological patterns should appear in at least 2 papers when possible.
+4. If a section has no grounded items, return [].
+5. Do not invent papers, methods, venues, or findings.
+"""
 
-Return ONLY valid JSON, no other text."""
+
+def _safe_list(value: Any) -> List[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _normalize_text_list(items: Any) -> List[str]:
+    normalized: List[str] = []
+    for item in _safe_list(items):
+        if item is None:
+            continue
+        text = str(item).strip()
+        if text:
+            normalized.append(text)
+    return normalized
+
+
+def _extract_year(*candidates: Any) -> Optional[int]:
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        if isinstance(candidate, int):
+            if 1900 <= candidate <= 2100:
+                return candidate
+            continue
+        match = re.search(r"\b(19|20)\d{2}\b", str(candidate))
+        if match:
+            return int(match.group(0))
+    return None
+
+
+def _join_bullets(title: str, items: List[str]) -> str:
+    if not items:
+        return ""
+    return f"{title}:\n" + "\n".join(f"- {item}" for item in items)
+
+
+def _top_counter_items(counter: Counter, limit: int = 4) -> List[Dict[str, Any]]:
+    return [{"label": label, "count": count} for label, count in counter.most_common(limit)]
+
+
+def _build_coverage_snapshot(document_analyses: List[Dict[str, Any]]) -> Dict[str, Any]:
+    years: List[int] = []
+    method_counter: Counter = Counter()
+    venue_counter: Counter = Counter()
+    context_counter: Counter = Counter()
+
+    for doc in document_analyses:
+        analysis = doc.get("analysis") or {}
+        metadata = doc.get("metadata") or {}
+        citation_metadata = analysis.get("citation_metadata") or {}
+        year = _extract_year(
+            citation_metadata.get("year"),
+            metadata.get("year"),
+            analysis.get("publication_year"),
+        )
+        if year:
+            years.append(year)
+
+        for method in _safe_list(doc.get("structured_methods")):
+            method_name = (method.get("method_name") or "").strip()
+            method_type = (method.get("method_type") or "").strip()
+            label = method_name or method_type
+            if label:
+                method_counter[label] += 1
+
+        venue = (
+            citation_metadata.get("venue")
+            or citation_metadata.get("journal")
+            or citation_metadata.get("booktitle")
+            or metadata.get("journal")
+            or metadata.get("venue")
+        )
+        if venue:
+            venue_counter[str(venue).strip()] += 1
+
+        contexts = []
+        contexts.extend(_safe_list(metadata.get("fields_of_study")))
+        contexts.extend(_safe_list(analysis.get("domains")))
+        contexts.extend(_safe_list(analysis.get("study_contexts")))
+        for context in contexts:
+            label = str(context).strip()
+            if label:
+                context_counter[label] += 1
+
+    return {
+        "paper_count": len(document_analyses),
+        "year_range": {
+            "min": min(years) if years else None,
+            "max": max(years) if years else None,
+        },
+        "top_methods": _top_counter_items(method_counter),
+        "top_venues": _top_counter_items(venue_counter),
+        "top_contexts": _top_counter_items(context_counter),
+    }
+
+
+def _fetch_structured_support(document_id: str) -> Dict[str, Any]:
+    from app.core.supabase_client import supabase
+
+    claims: List[str] = []
+    methods: List[Dict[str, Any]] = []
+    findings: List[str] = []
+    chunk_excerpts: List[str] = []
+
+    try:
+        claims_res = (
+            supabase.table("document_claims")
+            .select("claim_text, claim_type, importance_score")
+            .eq("document_id", document_id)
+            .order("importance_score", desc=True)
+            .limit(8)
+            .execute()
+        )
+        claims = [
+            f"{row['claim_text']} [{row.get('claim_type', 'claim')}]"
+            for row in (claims_res.data or [])
+            if row.get("claim_text")
+        ]
+
+        methods_res = (
+            supabase.table("document_methods")
+            .select("method_name, method_type, description, datasets_used, evaluation_metrics")
+            .eq("document_id", document_id)
+            .limit(8)
+            .execute()
+        )
+        methods = methods_res.data or []
+
+        findings_res = (
+            supabase.table("document_findings")
+            .select("finding_text, finding_type, metrics, comparison_baseline, confidence_score")
+            .eq("document_id", document_id)
+            .order("confidence_score", desc=True)
+            .limit(8)
+            .execute()
+        )
+        for row in findings_res.data or []:
+            if not row.get("finding_text"):
+                continue
+            finding = row["finding_text"]
+            if row.get("metrics"):
+                finding += f" (Metrics: {row['metrics']})"
+            if row.get("comparison_baseline"):
+                finding += f" vs. {row['comparison_baseline']}"
+            findings.append(finding)
+
+        chunks_res = (
+            supabase.table("document_chunks")
+            .select("content, chunk_index")
+            .eq("document_id", document_id)
+            .order("chunk_index")
+            .limit(5)
+            .execute()
+        )
+        for row in chunks_res.data or []:
+            content = (row.get("content") or "").strip()
+            if content:
+                chunk_excerpts.append(content[:800])
+    except Exception as exc:
+        print(f"[INSIGHTS] Warning: failed to fetch structured support for {document_id}: {exc}")
+
+    return {
+        "claims": claims,
+        "methods": methods,
+        "findings": findings,
+        "chunk_excerpts": chunk_excerpts,
+    }
+
+
+def _format_method(method: Dict[str, Any]) -> str:
+    method_name = (method.get("method_name") or "").strip()
+    method_type = (method.get("method_type") or "").strip()
+    description = (method.get("description") or "").strip()
+    datasets = _normalize_text_list(method.get("datasets_used"))
+    metrics = _normalize_text_list(method.get("evaluation_metrics"))
+
+    parts = [part for part in [method_name or method_type, f"Type: {method_type}" if method_name and method_type else None] if part]
+    if description:
+        parts.append(description)
+    if datasets:
+        parts.append(f"Datasets: {', '.join(datasets[:3])}")
+    if metrics:
+        parts.append(f"Metrics: {', '.join(metrics[:3])}")
+    return " | ".join(parts)
+
+
+def _build_paper_context(index: int, doc: Dict[str, Any]) -> str:
+    title = doc.get("title", f"Document {index}")
+    analysis = doc.get("analysis") or {}
+    citation_metadata = analysis.get("citation_metadata") or {}
+    metadata = doc.get("metadata") or {}
+
+    structured_claims = _normalize_text_list(doc.get("structured_claims"))
+    structured_findings = _normalize_text_list(doc.get("structured_findings"))
+    structured_methods = [_format_method(method) for method in _safe_list(doc.get("structured_methods")) if _format_method(method)]
+    chunk_excerpts = _normalize_text_list(doc.get("chunk_excerpts"))
+
+    fallback_methods = []
+    methodology = analysis.get("methodology") or {}
+    if methodology.get("approach"):
+        fallback_methods.append(f"Approach: {methodology['approach']}")
+    if methodology.get("techniques"):
+        fallback_methods.append(f"Techniques: {', '.join(_normalize_text_list(methodology.get('techniques'))[:5])}")
+    if methodology.get("dataset"):
+        fallback_methods.append(f"Dataset: {methodology['dataset']}")
+
+    fallback_findings = _normalize_text_list(analysis.get("key_findings"))
+    fallback_claims = _normalize_text_list(analysis.get("future_work"))[:3]
+
+    sections = [
+        f"Paper {index}: {title}",
+        f"Publication Year: {_extract_year(citation_metadata.get('year'), metadata.get('year')) or 'Unknown'}",
+        f"Venue/Context: {citation_metadata.get('venue') or citation_metadata.get('journal') or metadata.get('journal') or 'Unknown'}",
+        _join_bullets("Structured Claims", structured_claims),
+        _join_bullets("Structured Methods", structured_methods),
+        _join_bullets("Structured Findings", structured_findings),
+        _join_bullets("Supporting Excerpts", chunk_excerpts),
+    ]
+
+    if not structured_claims:
+        sections.append(_join_bullets("Fallback Narrative Claims", fallback_claims))
+    if not structured_methods:
+        sections.append(_join_bullets("Fallback Method Summary", fallback_methods))
+    if not structured_findings:
+        sections.append(_join_bullets("Fallback Narrative Findings", fallback_findings))
+
+    executive_summary = (analysis.get("executive_summary") or "").strip()
+    if executive_summary and not (structured_claims or structured_findings):
+        sections.append(f"Fallback Executive Summary:\n{executive_summary}")
+
+    limitations = _normalize_text_list(analysis.get("limitations"))
+    if limitations:
+        sections.append(_join_bullets("Limitations", limitations[:4]))
+
+    citations = []
+    for citation in _safe_list(analysis.get("key_citations"))[:3]:
+        title_part = citation.get("title") or "Unknown Title"
+        author_part = citation.get("authors") or "Unknown"
+        year_part = citation.get("year") or "N/A"
+        citations.append(f"{author_part} ({year_part}): {title_part}")
+    if citations:
+        sections.append(_join_bullets("Frequently Referenced Works", citations))
+
+    return "\n\n".join(section for section in sections if section)
 
 
 def analyze_project_insights(document_analyses: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Analyze multiple document analyses to extract cross-paper insights.
-
-    Now enhanced with LangGraph-extracted structured data for richer context!
-
-    Args:
-        document_analyses: List of document analysis objects, each containing:
-            - title: Document title
-            - analysis: The GPT-5.2 analysis with executive_summary, methodology, etc.
-            - document_id: UUID to fetch structured claims/methods/findings
-
-    Returns:
-        Dictionary containing insights across all papers
-    """
-    from app.core.supabase_client import supabase
-
-    if not document_analyses or len(document_analyses) == 0:
+    if not document_analyses:
         raise ValueError("No document analyses provided")
 
-    # Build context from all document analyses
-    papers_context = []
-    for i, doc in enumerate(document_analyses, 1):
-        title = doc.get('title', f'Document {i}')
-        document_id = doc.get('id')  # Need document ID to fetch structured data
-        analysis = doc.get('analysis', {})
+    enriched_docs: List[Dict[str, Any]] = []
+    for doc in document_analyses:
+        enriched_doc = dict(doc)
+        support = _fetch_structured_support(doc["id"]) if doc.get("id") else {
+            "claims": [],
+            "methods": [],
+            "findings": [],
+            "chunk_excerpts": [],
+        }
+        enriched_doc["structured_claims"] = support["claims"]
+        enriched_doc["structured_methods"] = support["methods"]
+        enriched_doc["structured_findings"] = support["findings"]
+        enriched_doc["chunk_excerpts"] = support["chunk_excerpts"]
+        enriched_docs.append(enriched_doc)
 
-        # Fetch LangGraph-extracted structured data for richer context
-        structured_claims = []
-        structured_methods = []
-        structured_findings = []
+    papers_context = [_build_paper_context(index, doc) for index, doc in enumerate(enriched_docs, start=1)]
+    full_context = "\n\n" + ("\n\n" + ("=" * 80) + "\n\n").join(papers_context)
 
-        if document_id:
-            try:
-                # Fetch claims (top 10 most important)
-                claims_res = supabase.table("document_claims").select("claim_text, claim_type, importance_score").eq("document_id", document_id).order("importance_score", desc=True).limit(10).execute()
-                structured_claims = [f"{c['claim_text']} [{c['claim_type']}]" for c in claims_res.data] if claims_res.data else []
-
-                # Fetch methods (top 8)
-                methods_res = supabase.table("document_methods").select("method_name, method_type, description, datasets_used, evaluation_metrics").eq("document_id", document_id).limit(8).execute()
-                structured_methods = []
-                for m in (methods_res.data if methods_res.data else []):
-                    method_str = f"{m['method_name']}"
-                    if m.get('method_type'):
-                        method_str += f" ({m['method_type']})"
-                    if m.get('datasets_used'):
-                        method_str += f" - Datasets: {', '.join(m['datasets_used'][:3])}"
-                    if m.get('evaluation_metrics'):
-                        method_str += f" - Metrics: {', '.join(m['evaluation_metrics'][:3])}"
-                    structured_methods.append(method_str)
-
-                # Fetch findings (top 10 with metrics)
-                findings_res = supabase.table("document_findings").select("finding_text, finding_type, metrics, comparison_baseline").eq("document_id", document_id).order("confidence_score", desc=True).limit(10).execute()
-                structured_findings = []
-                for f in (findings_res.data if findings_res.data else []):
-                    finding_str = f['finding_text']
-                    if f.get('metrics'):
-                        finding_str += f" (Metrics: {f['metrics']})"
-                    if f.get('comparison_baseline'):
-                        finding_str += f" vs. {f['comparison_baseline']}"
-                    structured_findings.append(finding_str)
-            except Exception as e:
-                print(f"[INSIGHTS] Warning: Could not fetch structured data for {title}: {e}")
-                # Continue without structured data if fetch fails
-
-        # Build comprehensive paper summary with both traditional and structured data
-        paper_summary = f"""
-Paper {i}: {title}
-
-Executive Summary:
-{analysis.get('executive_summary', 'N/A')}
-
-Research Problem:
-{analysis.get('research_problem', 'N/A')}
-
-Methodology:
-- Approach: {analysis.get('methodology', {}).get('approach', 'N/A')}
-- Techniques: {', '.join(analysis.get('methodology', {}).get('techniques', []))}
-- Dataset: {analysis.get('methodology', {}).get('dataset', 'N/A')}
-"""
-
-        # Add structured methods if available (LangGraph data)
-        if structured_methods:
-            paper_summary += f"""
-Structured Methods Extracted (LangGraph):
-{chr(10).join('- ' + m for m in structured_methods)}
-"""
-
-        paper_summary += f"""
-Key Findings:
-{chr(10).join('- ' + f for f in analysis.get('key_findings', []))}
-"""
-
-        # Add structured findings if available (LangGraph data)
-        if structured_findings:
-            paper_summary += f"""
-Structured Quantitative Findings (LangGraph):
-{chr(10).join('- ' + f for f in structured_findings)}
-"""
-
-        # Add structured claims if available (LangGraph data)
-        if structured_claims:
-            paper_summary += f"""
-Key Claims Extracted (LangGraph):
-{chr(10).join('- ' + c for c in structured_claims[:8])}
-"""
-
-        paper_summary += f"""
-Results Summary:
-{analysis.get('results', {}).get('summary', 'N/A')}
-
-Limitations:
-{chr(10).join('- ' + l for l in analysis.get('limitations', []))}
-
-Future Work:
-{chr(10).join('- ' + fw for fw in analysis.get('future_work', []))}
-
-Key Citations:
-{chr(10).join(f"- {c.get('authors', 'Unknown')} ({c.get('year', 'N/A')}): {c.get('title', 'N/A')}" for c in analysis.get('key_citations', [])[:3])}
-"""
-        papers_context.append(paper_summary)
-
-    # Combine all papers
-    full_context = "\n\n" + "="*80 + "\n\n".join(papers_context)
-
-    # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
-    # Call OpenAI to analyze
-    response = client.chat.completions.create(
+    response = _create_chat_completion(
         model="gpt-5.2-chat-latest",
         messages=[
             {"role": "system", "content": INSIGHTS_SYSTEM_PROMPT},
-            {"role": "user", "content": f"Analyze these {len(document_analyses)} research papers and identify cross-paper insights:\n{full_context}"}
+            {
+                "role": "user",
+                "content": f"Analyze these {len(enriched_docs)} research papers and identify cross-paper insights:\n{full_context}",
+            },
         ],
         max_completion_tokens=3000,
-        **get_completion_params()  # Enable zero data retention
+        **get_completion_params(),
     )
 
-    insights_json = response.choices[0].message.content.strip()
-    # Strip markdown code blocks that GPT-5.2 sometimes wraps around JSON
-    if insights_json.startswith('```'):
-        insights_json = re.sub(r'^```(?:json)?\s*\n?', '', insights_json)
-        insights_json = re.sub(r'\n?```\s*$', '', insights_json)
-        insights_json = insights_json.strip()
-    insights = json.loads(insights_json)
+    insights_json = (response.choices[0].message.content or "").strip()
+    if insights_json.startswith("```"):
+        insights_json = re.sub(r"^```(?:json)?\s*\n?", "", insights_json)
+        insights_json = re.sub(r"\n?```\s*$", "", insights_json).strip()
 
-    # Add metadata
-    insights['analysis_metadata'] = {
-        'num_papers_analyzed': len(document_analyses),
-        'model': 'gpt-5.2-chat-latest',
-        'enhanced_with_langgraph': True,  # Using structured claims/methods/findings
-        'timestamp': None  # Will be set by caller
+    insights = json.loads(insights_json)
+    insights["coverage_snapshot"] = _build_coverage_snapshot(enriched_docs)
+    insights["analysis_metadata"] = {
+        "num_papers_analyzed": len(enriched_docs),
+        "model": "gpt-5.2-chat-latest",
+        "enhanced_with_langgraph": True,
+        "timestamp": None,
     }
 
-    # Validate structure
     validate_insights(insights)
-
     return insights
 
 
-def validate_insights(insights: Dict[str, Any]) -> None:
-    """
-    Validate that insights have the expected structure.
-    Only validates fields actually used by the frontend.
+def _normalize_source_papers(item: Dict[str, Any]) -> None:
+    item["source_papers"] = _normalize_text_list(item.get("source_papers"))
 
-    Raises:
-        ValueError: If insights are missing required fields
-    """
-    # Only require fields the frontend renders
+
+def validate_insights(insights: Dict[str, Any]) -> None:
     required_fields = [
-        'research_gaps',
-        'common_themes',
-        'methodological_patterns',
-        'conflicting_findings',
-        'key_insights',
-        'summary',
+        "research_gaps",
+        "common_themes",
+        "methodological_patterns",
+        "conflicting_findings",
+        "key_insights",
+        "summary",
     ]
 
     for field in required_fields:
         if field not in insights:
-            # Try to provide a safe default rather than crashing
             print(f"[INSIGHTS] Warning: missing field '{field}', defaulting to empty")
-            if field == 'summary':
-                insights[field] = ''
-            else:
-                insights[field] = []
+            insights[field] = "" if field == "summary" else []
 
-    # Ensure timeline / citation_patterns exist (used by prompt but not frontend)
-    insights.setdefault('timeline', [])
-    insights.setdefault('citation_patterns', [])
+    insights.setdefault("timeline", [])
+    insights.setdefault("citation_patterns", [])
+    insights.setdefault("coverage_snapshot", {
+        "paper_count": 0,
+        "year_range": {"min": None, "max": None},
+        "top_methods": [],
+        "top_venues": [],
+        "top_contexts": [],
+    })
+    insights.setdefault("key_insight_details", [])
 
-    # Validate research_gaps structure (warn, don't crash, on unexpected category)
-    if insights.get('research_gaps'):
-        valid_categories = {'methodological', 'population', 'theoretical', 'temporal'}
-        for gap in insights['research_gaps']:
-            for field in ['category', 'title', 'description']:
-                if field not in gap:
-                    gap[field] = ''
-            gap.setdefault('supporting_evidence', [])
-            gap.setdefault('suggested_directions', [])
-            if gap['category'] not in valid_categories:
+    if insights.get("research_gaps"):
+        for gap in insights["research_gaps"]:
+            gap.setdefault("category", "methodological")
+            gap.setdefault("title", "")
+            gap.setdefault("description", "")
+            gap["supporting_evidence"] = _normalize_text_list(gap.get("supporting_evidence"))
+            gap["suggested_directions"] = _normalize_text_list(gap.get("suggested_directions"))
+            _normalize_source_papers(gap)
+            if gap["category"] not in VALID_GAP_CATEGORIES:
                 print(f"[INSIGHTS] Warning: unknown gap category '{gap['category']}', normalising to 'methodological'")
-                gap['category'] = 'methodological'
+                gap["category"] = "methodological"
 
-    # Validate common_themes structure
-    if insights.get('common_themes'):
-        for theme in insights['common_themes']:
-            theme.setdefault('theme', '')
-            theme.setdefault('frequency', 1)
-            theme.setdefault('description', '')
+    if insights.get("common_themes"):
+        for theme in insights["common_themes"]:
+            theme.setdefault("theme", "")
+            theme.setdefault("frequency", 1)
+            theme.setdefault("description", "")
+            theme["paper_titles"] = _normalize_text_list(theme.get("paper_titles"))
+            _normalize_source_papers(theme)
 
-    print(f"[INSIGHTS] Validation passed. Found {len(insights.get('research_gaps', []))} gaps, {len(insights.get('common_themes', []))} themes")
+    if insights.get("methodological_patterns"):
+        for pattern in insights["methodological_patterns"]:
+            pattern.setdefault("methodology", "")
+            pattern.setdefault("usage_count", 1)
+            pattern.setdefault("description", "")
+            pattern["variations"] = _normalize_text_list(pattern.get("variations"))
+            _normalize_source_papers(pattern)
+
+    if insights.get("conflicting_findings"):
+        for conflict in insights["conflicting_findings"]:
+            conflict.setdefault("topic", "")
+            conflict.setdefault("resolution", "")
+            _normalize_source_papers(conflict)
+            for side_key in ("side_a", "side_b"):
+                side = conflict.setdefault(side_key, {})
+                side.setdefault("position", "")
+                side.setdefault("evidence", "")
+                side["papers"] = _normalize_text_list(side.get("papers"))
+
+    normalized_details = []
+    for detail in _safe_list(insights.get("key_insight_details")):
+        normalized_detail = {
+            "statement": str(detail.get("statement") or "").strip(),
+            "source_papers": _normalize_text_list(detail.get("source_papers")),
+            "rationale": str(detail.get("rationale") or "").strip(),
+        }
+        if normalized_detail["statement"]:
+            normalized_details.append(normalized_detail)
+    insights["key_insight_details"] = normalized_details
+
+    if not _safe_list(insights.get("key_insights")) and normalized_details:
+        insights["key_insights"] = [detail["statement"] for detail in normalized_details]
+    else:
+        insights["key_insights"] = _normalize_text_list(insights.get("key_insights"))
+
+    coverage_snapshot = insights.get("coverage_snapshot") or {}
+    coverage_snapshot.setdefault("paper_count", 0)
+    coverage_snapshot.setdefault("year_range", {"min": None, "max": None})
+    coverage_snapshot["top_methods"] = _safe_list(coverage_snapshot.get("top_methods"))
+    coverage_snapshot["top_venues"] = _safe_list(coverage_snapshot.get("top_venues"))
+    coverage_snapshot["top_contexts"] = _safe_list(coverage_snapshot.get("top_contexts"))
+    insights["coverage_snapshot"] = coverage_snapshot
+
+    print(
+        f"[INSIGHTS] Validation passed. Found {len(insights.get('research_gaps', []))} gaps, "
+        f"{len(insights.get('common_themes', []))} themes"
+    )

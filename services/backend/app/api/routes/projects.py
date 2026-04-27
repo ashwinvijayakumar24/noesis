@@ -1,15 +1,42 @@
-from fastapi import APIRouter, HTTPException, Depends, Header, Response, UploadFile, File, Request
-from app.core.supabase_client import supabase
-from app.services.citation_management import format_citation_bibtex, parse_bibtex_file
-from app.core.security_middleware import SecureAuthValidator, limiter
-from app.schemas.projects import ProjectBundle, Dataset, Document
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
 import datetime
 import logging
+import os
+from datetime import date
+from typing import Optional, List, Dict, Any
+
+from fastapi import APIRouter, HTTPException, Depends, Header, Response, UploadFile, File, Request
+from pydantic import BaseModel, Field
+
+from app.core.api_errors import build_error_detail, raise_api_error
+from app.core.security_middleware import SecureAuthValidator, limiter
+from app.core.supabase_client import supabase
+from app.schemas.projects import ProjectBundle, Dataset, Document
+from app.services.citation_management import format_citation_bibtex, parse_bibtex_file
+from app.services.progress_tracking import (
+    clear_progress_snapshot,
+    get_progress_snapshot,
+    store_progress_snapshot,
+)
+from app.services.quota_management import get_project_limit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+ACTIVE_INSIGHTS_STATUSES = {"analyzing"}
+INSIGHTS_DAILY_LIMITS = {
+    "free": 5,
+    "pro": None,
+    "team": None,
+    "enterprise": None,
+    "admin": None,
+}
+
+
+def _merge_project_metadata(existing: Optional[dict], **updates) -> dict:
+    merged = dict(existing or {})
+    for key, value in updates.items():
+        if value is not None:
+            merged[key] = value
+    return merged
 
 # Helper to extract user info from token
 def get_current_user(authorization: str = Header(None)):
@@ -32,29 +59,166 @@ def get_current_user(authorization: str = Header(None)):
             detail="Invalid or expired token"  # Don't expose error details
         )
 
-# CREATE
-PROJECT_LIMITS = {
-    'free': 3,
-    'pro': 999,
-    'team': 999,
-    'admin': 999,
-}
 
+def _validate_bibtex_entry(entry: dict) -> list:
+    issues = []
+    if not entry.get("title") or entry.get("title") == "Untitled":
+        issues.append("missing title")
+    if not entry.get("authors"):
+        issues.append("missing authors")
+    if not entry.get("year"):
+        issues.append("missing year")
+    return issues
+
+
+def _get_redis_client():
+    import redis as redis_lib
+
+    return redis_lib.Redis(
+        host=os.getenv("REDIS_HOST", "redis"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        db=int(os.getenv("REDIS_DB", 0)),
+        decode_responses=True,
+    )
+
+
+def _get_insights_quota(user_id: str, plan_tier: str) -> Dict[str, Any]:
+    normalized_plan = (plan_tier or "free").lower()
+    limit = INSIGHTS_DAILY_LIMITS.get(normalized_plan, 5)
+
+    if limit is None:
+        return {
+            "used": 0,
+            "limit": None,
+            "remaining": None,
+            "is_unlimited": True,
+        }
+
+    key = f"daily_insights:{user_id}:{date.today().isoformat()}"
+    try:
+        used = int(_get_redis_client().get(key) or 0)
+    except Exception as exc:
+        logger.warning(f"[INSIGHTS] Redis quota read failed (fail open): {exc}")
+        used = 0
+
+    return {
+        "used": used,
+        "limit": limit,
+        "remaining": max(limit - used, 0),
+        "is_unlimited": False,
+    }
+
+
+def _enforce_insights_refresh_quota(user_id: str, plan_tier: str) -> Dict[str, Any]:
+    quota = _get_insights_quota(user_id, plan_tier)
+    if quota["is_unlimited"]:
+        return quota
+
+    if quota["used"] >= quota["limit"]:
+        raise_api_error(
+            429,
+            code="quota_exceeded",
+            title="Literature Map refresh limit reached",
+            message=f"Free plan includes {quota['limit']} Literature Map refreshes per day.",
+            next_action="upgrade",
+            retryable=False,
+            quota_type="literature_map_refreshes",
+            used=quota["used"],
+            limit=quota["limit"],
+            remaining=quota["remaining"],
+        )
+
+    key = f"daily_insights:{user_id}:{date.today().isoformat()}"
+    try:
+        pipe = _get_redis_client().pipeline()
+        pipe.incr(key)
+        pipe.expire(key, 90000)
+        pipe.execute()
+        quota["used"] += 1
+        quota["remaining"] = max(quota["limit"] - quota["used"], 0)
+    except Exception as exc:
+        logger.warning(f"[INSIGHTS] Redis quota increment failed (fail open): {exc}")
+
+    return quota
+
+
+def _build_insights_staleness(
+    *,
+    insights_updated_at: Optional[str],
+    insights_doc_count: int,
+    current_analyzed_count: int,
+    latest_document_updated_at: Optional[str],
+) -> Dict[str, Any]:
+    count_changed = current_analyzed_count != (insights_doc_count or 0)
+
+    document_changed = False
+    if insights_updated_at and latest_document_updated_at:
+        try:
+            document_changed = latest_document_updated_at > insights_updated_at
+        except Exception:
+            document_changed = False
+
+    is_stale = count_changed or document_changed
+    if count_changed and document_changed:
+        stale_reason = "documents_changed_and_count_changed"
+    elif count_changed:
+        stale_reason = "document_count_changed"
+    elif document_changed:
+        stale_reason = "documents_changed"
+    else:
+        stale_reason = None
+
+    return {
+        "is_stale": is_stale,
+        "stale_reason": stale_reason,
+    }
+
+
+def _group_recommendations_by_context(recommendations: List[Dict[str, Any]]) -> Dict[str, Any]:
+    summary_recommendations: List[Dict[str, Any]] = []
+    gap_recommendations_by_title: Dict[str, List[Dict[str, Any]]] = {}
+    conflict_recommendations_by_topic: Dict[str, List[Dict[str, Any]]] = {}
+
+    for recommendation in recommendations:
+        if recommendation.get("status") == "dismissed":
+            continue
+
+        summary_recommendations.append(recommendation)
+
+        context = recommendation.get("recommendation_context") or {}
+        for gap_title in context.get("gap_titles", []) or []:
+            gap_recommendations_by_title.setdefault(gap_title, []).append(recommendation)
+        for topic in context.get("conflict_topics", []) or []:
+            conflict_recommendations_by_topic.setdefault(topic, []).append(recommendation)
+
+    return {
+        "summary_recommendations": summary_recommendations[:5],
+        "gap_recommendations_by_title": {
+            title: grouped[:3] for title, grouped in gap_recommendations_by_title.items()
+        },
+        "conflict_recommendations_by_topic": {
+            topic: grouped[:3] for topic, grouped in conflict_recommendations_by_topic.items()
+        },
+    }
+
+
+# CREATE
 @router.post("/")
 def create_project(title: str, description: Optional[str] = None, user_id: str = Depends(get_current_user)):
     # Enforce per-plan project limit
     quota_res = supabase.table('user_quotas').select('plan_tier').eq('user_id', user_id).execute()
     plan_tier = quota_res.data[0]['plan_tier'] if quota_res.data else 'free'
-    project_limit = PROJECT_LIMITS.get(plan_tier, PROJECT_LIMITS['free'])
+    project_limit = get_project_limit(plan_tier)
 
     count_res = supabase.table('projects').select('id', count='exact').eq('user_id', user_id).execute()
     project_count = count_res.count or 0
 
     if project_count >= project_limit:
+        upgrade_hint = " Upgrade to Pro for more projects." if plan_tier == 'free' else ""
         raise HTTPException(
             status_code=403,
             detail={
-                "message": f"Free plan is limited to {project_limit} projects. Upgrade to Pro for unlimited projects.",
+                "message": f"{plan_tier.title()} plan is limited to {project_limit} projects.{upgrade_hint}",
                 "quota_type": "projects",
                 "limit": project_limit,
                 "current": project_count,
@@ -232,7 +396,11 @@ async def import_bibtex(
         parsed_entries = parse_bibtex_file(bibtex_content)
     except Exception as e:
         logger.error(f"BibTeX parse error: {e}")
-        raise HTTPException(status_code=400, detail=f"Failed to parse BibTeX file: {str(e)}")
+        raise HTTPException(status_code=400, detail={
+            "error": "parse_failed",
+            "message": "Could not parse BibTeX file. Ensure it is a valid .bib exported from Zotero, Mendeley, or similar.",
+            "raw_error": str(e)[:200],
+        })
 
     if not parsed_entries:
         raise HTTPException(status_code=400, detail="No valid BibTeX entries found in file")
@@ -262,13 +430,24 @@ async def import_bibtex(
     now = datetime.datetime.utcnow().isoformat()
     imported = 0
     skipped = 0
-    errors = []
+    entry_errors: List[Dict[str, Any]] = []
     created_ids: List[str] = []
 
-    for entry in parsed_entries:
+    for i, entry in enumerate(parsed_entries, start=1):
         title = entry.get('title', 'Untitled').strip() or 'Untitled'
         authors = entry.get('authors', [])
         year = entry.get('year', '')
+        issues = _validate_bibtex_entry(entry)
+
+        if issues:
+            skipped += 1
+            entry_errors.append({
+                "index": i,
+                "title": entry.get("title", "Unknown"),
+                "warnings": issues,
+                "status": "skipped",
+            })
+            continue
 
         try:
             doc_record = {
@@ -309,10 +488,21 @@ async def import_bibtex(
                 created_ids.append(doc_id)
             else:
                 skipped += 1
+                entry_errors.append({
+                    "index": i,
+                    "title": title,
+                    "warnings": ["insert failed"],
+                    "status": "skipped",
+                })
         except Exception as e:
             logger.warning(f"Failed to import BibTeX entry '{title}': {e}")
-            errors.append(title)
             skipped += 1
+            entry_errors.append({
+                "index": i,
+                "title": title,
+                "warnings": [str(e)[:200] or "import failed"],
+                "status": "skipped",
+            })
 
     # Increment bib quota by actual number of records created
     if imported > 0:
@@ -336,7 +526,7 @@ async def import_bibtex(
         "imported": imported,
         "skipped": skipped,
         "total_in_file": len(parsed_entries),
-        "errors": errors[:10],
+        "entry_errors": entry_errors[:50],
         "document_ids": created_ids,
         "resolution_started": len(created_ids) > 0,
     }
@@ -441,8 +631,10 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
 
     try:
         print(f"[INSIGHTS-BG] Starting insights analysis for project_id={project_id}")
+        store_progress_snapshot("insights", project_id, "queued", 5, "Queued for Literature Map analysis")
 
         # 1. Fetch all documents for this project
+        store_progress_snapshot("insights", project_id, "collecting_papers", 20, "Collecting analyzed papers")
         documents_res = supabase.table("documents").select("*")\
             .eq("project_id", project_id)\
             .eq("user_id", user_id)\
@@ -461,7 +653,9 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
                 analyzed_docs.append({
                     'id': doc['id'],
                     'title': doc['title'],
-                    'analysis': doc['analysis']
+                    'analysis': doc['analysis'],
+                    'metadata': doc.get('metadata') or {},
+                    'updated_at': doc.get('updated_at'),
                 })
 
         if len(analyzed_docs) == 0:
@@ -470,7 +664,8 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
         print(f"[INSIGHTS-BG] Found {len(analyzed_docs)} analyzed documents")
 
         # 3. Run insights analysis
-        print(f"[INSIGHTS-BG] Running GPT-4o insights analysis")
+        print(f"[INSIGHTS-BG] Running Literature Map analysis")
+        store_progress_snapshot("insights", project_id, "building_snapshot", 40, "Building coverage snapshot")
         insights = analyze_project_insights(analyzed_docs)
 
         # Add timestamp
@@ -479,8 +674,10 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
         # 4. Validate insights
         validate_insights(insights)
         print(f"[INSIGHTS-BG] Insights analysis completed and validated")
+        store_progress_snapshot("insights", project_id, "synthesizing_overview", 70, "Synthesizing field overview")
 
         # 5. Store insights in database (with document count tracking)
+        store_progress_snapshot("insights", project_id, "finalizing", 90, "Finalizing Literature Map")
         update_response = supabase.table("projects").update({
             "insights": insights,
             "insights_status": "analyzed",
@@ -517,39 +714,57 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
         except Exception as rq_err:
             print(f"[INSIGHTS-BG] Auto-RQ generation failed (non-fatal): {rq_err}")
 
-        print(f"[INSIGHTS-BG] Refreshing paper recommendations — deleting existing and re-generating")
+        print(f"[INSIGHTS-BG] Checking whether Discover should be auto-seeded")
         try:
-            supabase.table("paper_recommendations").delete()\
+            existing_recs_res = supabase.table("paper_recommendations")\
+                .select("id", count="exact")\
                 .eq("project_id", project_id)\
                 .eq("user_id", user_id)\
+                .eq("status", "new")\
                 .execute()
-            from app.services.paper_recommendations import generate_paper_recommendations
-            proj_res = supabase.table("projects").select("title, description").eq("id", project_id).execute()
-            project_data = {"title": proj_res.data[0].get("title", "") if proj_res.data else "", "description": proj_res.data[0].get("description", "") if proj_res.data else ""}
-            papers = generate_paper_recommendations(
-                project_data=project_data,
-                insights=insights,
-                research_questions=[],
-                limit=5
-            )
-            for paper in papers[:5]:
-                supabase.table("paper_recommendations").insert({
-                    "project_id": project_id,
-                    "user_id": user_id,
-                    **paper,
-                    "status": "new"
-                }).execute()
-            print(f"[INSIGHTS-BG] Re-generated {min(len(papers), 5)} paper recommendations")
+
+            if (existing_recs_res.count or 0) == 0:
+                from app.tasks.paper_recommendation_tasks import generate_paper_recommendations_task
+
+                generate_paper_recommendations_task.delay(project_id, user_id)
+                print(f"[INSIGHTS-BG] Queued Discover auto-seed task for project_id={project_id}")
+            else:
+                print(f"[INSIGHTS-BG] Existing Discover recommendations found; skipping auto-seed")
         except Exception as pr_err:
             print(f"[INSIGHTS-BG] Auto-PR generation failed (non-fatal): {pr_err}")
 
+        store_progress_snapshot("insights", project_id, "finalizing", 100, "Literature Map ready")
+        clear_progress_snapshot("insights", project_id)
+
     except Exception as e:
         print(f"[INSIGHTS-BG] ERROR for project_id={project_id}: {type(e).__name__}: {str(e)}")
+        metadata_res = supabase.table("projects").select("insights_metadata").eq("id", project_id).eq("user_id", user_id).execute()
+        existing_metadata = (
+            metadata_res.data[0].get("insights_metadata") or {}
+            if metadata_res.data
+            else {}
+        )
+        error_detail = build_error_detail(
+            code="transient_provider_error",
+            title="Service under load",
+            message="The Literature Map service is under load. We can retry automatically.",
+            next_action="retry",
+            retryable=True,
+            details=[str(e)] if str(e) else None,
+        )
+        clear_progress_snapshot("insights", project_id)
         # Update status to failed
         supabase.table("projects").update({
-            "insights_status": "failed",
-            "updated_at": datetime.datetime.utcnow().isoformat()
+            "insights_status": "analyzing",
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+            "insights_metadata": _merge_project_metadata(
+                existing_metadata,
+                error=str(e),
+                error_type=type(e).__name__,
+                error_detail=error_detail,
+            ),
         }).eq("id", project_id).eq("user_id", user_id).execute()
+        raise
 
 
 @router.post("/{project_id}/insights/analyze")
@@ -571,11 +786,18 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
     - Citation patterns
     """
     print(f"[INSIGHTS] Triggering insights analysis for project_id={project_id}")
+    from app.tasks.insights_analysis import generate_insights_task
 
     # 1. Verify project belongs to user
     project_res = supabase.table("projects").select("*").eq("id", project_id).eq("user_id", user_id).execute()
     if not project_res.data:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise_api_error(
+            404,
+            code="project_not_found",
+            title="Project not found",
+            message="We couldn't find that project.",
+            next_action="refresh",
+        )
 
     project = project_res.data[0]
 
@@ -593,7 +815,13 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
         .execute()
 
     if not documents_res.data or len(documents_res.data) == 0:
-        raise HTTPException(status_code=400, detail="No documents in project. Add documents first.")
+        raise_api_error(
+            400,
+            code="project_not_ready",
+            title="Project not ready",
+            message="Add documents before generating a Literature Map.",
+            next_action="refresh",
+        )
 
     # Only manually-uploaded PDFs require full analysis to gate insights.
     # BibTeX imports, Zotero imports, and discovered papers are metadata-only and never block.
@@ -615,98 +843,129 @@ def analyze_project_insights_endpoint(project_id: str, user_id: str = Depends(ge
             unanalyzed_docs.append(doc['title'])
 
     if unanalyzed_docs:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "All documents must be analyzed before generating insights",
-                "unanalyzed_documents": unanalyzed_docs
-            }
+        raise_api_error(
+            400,
+            code="project_not_ready",
+            title="Documents still processing",
+            message="All PDFs must be analyzed before generating a Literature Map.",
+            details={"unanalyzed_documents": unanalyzed_docs},
+            next_action="refresh",
         )
 
     print(f"[INSIGHTS] All {len(pdf_docs)} PDF documents are analyzed ({len(documents_res.data)} total)")
 
+    quota_res = supabase.table("user_quotas").select("plan_tier").eq("user_id", user_id).execute()
+    plan_tier = quota_res.data[0].get("plan_tier", "free") if quota_res.data else "free"
+    quota = _enforce_insights_refresh_quota(user_id, plan_tier)
+
     # 5. Update status to 'analyzing'
+    task_result = generate_insights_task.delay(project_id, user_id)
+    queued_progress = store_progress_snapshot("insights", project_id, "queued", 5, "Queued for Literature Map analysis")
     supabase.table("projects").update({
         "insights_status": "analyzing",
-        "updated_at": datetime.datetime.utcnow().isoformat()
+        "updated_at": datetime.datetime.utcnow().isoformat(),
+        "insights_metadata": _merge_project_metadata(project.get("insights_metadata"), task_id=task_result.id, error_detail=None),
     }).eq("id", project_id).eq("user_id", user_id).execute()
-
-    # 6. Submit Celery task (Phase 3.3)
-    from app.tasks.insights_analysis import generate_insights_task
-    task_result = generate_insights_task.delay(project_id, user_id)
 
     print(f"[INSIGHTS] Celery insights analysis task submitted for project_id={project_id} (task_id={task_result.id})")
 
     return {
-        "message": "Insights analysis started",
+        "message": "Literature Map analysis started",
         "status": "analyzing",
-        "num_documents": len(documents_res.data)
+        "num_documents": len(documents_res.data),
+        "quota": quota,
+        "task_id": task_result.id,
+        "progress": queued_progress,
     }
 
 
 @router.get("/{project_id}/insights")
 def get_project_insights(project_id: str, user_id: str = Depends(get_current_user)):
-    """
-    Get insights for a project.
-
-    Returns the insights data if available, or the current status.
-
-    Possible statuses:
-    - not_analyzed: Insights have not been generated yet
-    - analyzing: Insights analysis is in progress
-    - analyzed: Insights are ready
-    - failed: Insights analysis failed
-    """
     print(f"[GET-INSIGHTS] Fetching insights for project_id={project_id}")
 
-    # Verify project belongs to user
-    project_res = supabase.table("projects").select("insights, insights_status, insights_updated_at, insights_doc_count")\
+    project_res = supabase.table("projects").select("insights, insights_status, insights_updated_at, insights_doc_count, insights_metadata")\
         .eq("id", project_id)\
         .eq("user_id", user_id)\
         .execute()
 
     if not project_res.data:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise_api_error(
+            404,
+            code="project_not_found",
+            title="Project not found",
+            message="We couldn't find that project.",
+            next_action="refresh",
+        )
 
     project = project_res.data[0]
     status = project.get("insights_status", "not_analyzed")
     insights = project.get("insights")
-    updated_at = project.get("insights_updated_at")
-    insights_doc_count = project.get("insights_doc_count", 0)
+    if insights:
+        from app.services.project_insights import validate_insights
 
-    # Get current count of analyzed documents
+        validate_insights(insights)
+    insights_updated_at = project.get("insights_updated_at")
+    insights_doc_count = project.get("insights_doc_count", 0) or 0
+
+    quota_res = supabase.table("user_quotas").select("plan_tier").eq("user_id", user_id).execute()
+    plan_tier = quota_res.data[0].get("plan_tier", "free") if quota_res.data else "free"
+    quota = _get_insights_quota(user_id, plan_tier)
+
     current_docs_res = supabase.table("documents").select("id", count="exact")\
         .eq("project_id", project_id)\
         .eq("user_id", user_id)\
         .eq("status", "analyzed")\
         .execute()
-
     current_analyzed_count = current_docs_res.count if current_docs_res.count is not None else 0
+    latest_doc_res = supabase.table("documents").select("updated_at")\
+        .eq("project_id", project_id)\
+        .eq("user_id", user_id)\
+        .order("updated_at", desc=True)\
+        .limit(1)\
+        .execute()
+    latest_document_updated_at = (
+        latest_doc_res.data[0].get("updated_at") if latest_doc_res.data else None
+    )
 
-    if status == "analyzed" and insights:
-        return {
-            "status": "analyzed",
-            "insights": insights,
-            "updated_at": updated_at,
-            "insights_doc_count": insights_doc_count,
-            "current_analyzed_count": current_analyzed_count,
-            "is_stale": current_analyzed_count != insights_doc_count
-        }
-    elif status == "analyzing":
-        return {
-            "status": "analyzing",
-            "message": "Insights analysis in progress"
-        }
+    stale_state = _build_insights_staleness(
+        insights_updated_at=insights_updated_at,
+        insights_doc_count=insights_doc_count,
+        current_analyzed_count=current_analyzed_count,
+        latest_document_updated_at=latest_document_updated_at,
+    )
+
+    recommendation_rows = supabase.table("paper_recommendations").select("*")\
+        .eq("project_id", project_id)\
+        .eq("user_id", user_id)\
+        .order("relevance_score", desc=True)\
+        .execute()
+    recommendation_groups = _group_recommendations_by_context(recommendation_rows.data or [])
+
+    response_payload = {
+        "status": status,
+        "insights": insights,
+        "is_stale": stale_state["is_stale"],
+        "stale_reason": stale_state["stale_reason"],
+        "insights_updated_at": insights_updated_at,
+        "latest_document_updated_at": latest_document_updated_at,
+        "quota": quota,
+        "summary_recommendations": recommendation_groups["summary_recommendations"],
+        "gap_recommendations_by_title": recommendation_groups["gap_recommendations_by_title"],
+        "conflict_recommendations_by_topic": recommendation_groups["conflict_recommendations_by_topic"],
+    }
+
+    if status == "analyzing":
+        response_payload["message"] = "Literature Map analysis in progress"
+        response_payload["progress"] = get_progress_snapshot("insights", project_id)
     elif status == "failed":
-        return {
-            "status": "failed",
-            "message": "Insights analysis failed. Please try again.",
-        }
-    else:  # not_analyzed
-        return {
-            "status": "not_analyzed",
-            "message": "Insights have not been generated yet"
-        }
+        response_payload["message"] = "Literature Map analysis failed. Please try again."
+        error_detail = (project.get("insights_metadata") or {}).get("error_detail")
+        if error_detail:
+            response_payload["error_detail"] = error_detail
+    elif status == "not_analyzed":
+        response_payload["message"] = "Literature Map has not been generated yet"
+
+    return response_payload
 
 
 @router.get("/{project_id}/export-bibtex")

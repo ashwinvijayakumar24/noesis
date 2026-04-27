@@ -23,10 +23,6 @@ from app.core.openai_client import get_openai_client, get_completion_params
 
 logger = get_logger(__name__)
 
-# Initialize OpenAI client
-client = get_openai_client()
-
-
 # ============================================
 # Citation Format Patterns
 # ============================================
@@ -706,8 +702,7 @@ async def generate_citation_suggestions(
     suggestions = []
 
     try:
-        if not client:
-            raise ValueError("OpenAI API key not configured")
+        client = get_openai_client()
 
         logger.info(f"Generating citation suggestions for claim: {claim_text[:100]}...")
 
@@ -722,7 +717,7 @@ async def generate_citation_suggestions(
         claim_embedding = embeddings[0].embedding
 
         # 2. Check if project has documents with embeddings
-        docs_check = supabase.table("documents").select("id").eq("project_id", project_id).limit(1).execute()
+        docs_check = supabase.table("documents").select("id").eq("project_id", project_id).neq("resolution_status", "unresolved").limit(1).execute()
         logger.info(f"Project {project_id} has {len(docs_check.data) if docs_check.data else 0} documents")
         
         chunks_check = supabase.table("document_chunks").select("id").eq("project_id", project_id).limit(1).execute()
@@ -767,7 +762,7 @@ async def generate_citation_suggestions(
 
         # 5. Fetch document details and metadata
         for doc_id in document_ids[:max_suggestions]:
-            doc_response = supabase.table("documents").select("*").eq("id", doc_id).single().execute()
+            doc_response = supabase.table("documents").select("*").eq("id", doc_id).neq("resolution_status", "unresolved").single().execute()
 
             if not doc_response.data:
                 continue

@@ -33,7 +33,6 @@ interface ProjectTag {
 
 export default function Projects() {
   const navigate = useNavigate()
-  const FREE_PROJECT_LIMIT = 3
 
   const { session } = useAuthStore()
   const [projects, setProjects] = useState<Project[]>([])
@@ -43,6 +42,7 @@ export default function Projects() {
   const [projectTags, setProjectTags] = useState<Record<string, ProjectTag[]>>({})
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [projectLimit, setProjectLimit] = useState(3)
 
   useEffect(() => {
     document.title = 'Projects | Noesis'
@@ -76,8 +76,14 @@ export default function Projects() {
 
     try {
       setLoading(true)
-      const data = await api.projects.list(session.access_token)
+      const [data, quotaData] = await Promise.all([
+        api.projects.list(session.access_token),
+        api.quota.getSummary(session.access_token).catch(() => null),
+      ])
       setProjects(data)
+      if (quotaData?.projects?.limit != null) {
+        setProjectLimit(quotaData.projects.limit)
+      }
 
       // Load tags for all projects
       await loadAllProjectTags(data)
@@ -171,16 +177,16 @@ export default function Projects() {
       title="Projects"
       description="Manage your research projects and documents"
       headerActions={
-        projects.length >= FREE_PROJECT_LIMIT ? (
+        projects.length >= projectLimit ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-muted">
-              {FREE_PROJECT_LIMIT}/{FREE_PROJECT_LIMIT} projects
+              {projectLimit}/{projectLimit} projects
             </span>
             <Button
               variant="primary"
               size="lg"
               disabled
-              title={`Free plan is limited to ${FREE_PROJECT_LIMIT} projects`}
+              title={`Free plan is limited to ${projectLimit} projects`}
             >
               <LockClosedIcon className="h-4 w-4" />
               Create Project
@@ -190,7 +196,7 @@ export default function Projects() {
           <div className="flex items-center gap-2">
             {projects.length > 0 && (
               <span className="text-xs text-text-muted">
-                {projects.length}/{FREE_PROJECT_LIMIT} projects
+                {projects.length}/{projectLimit} projects
               </span>
             )}
             <Button
@@ -446,9 +452,9 @@ export default function Projects() {
               icon: <DocumentTextIcon className="h-6 w-6 text-accent-purple" />,
             },
             {
-              title: 'Step 4: Generate Insights to Identify Gaps',
+              title: 'Step 4: Generate Literature Map to Identify Gaps',
               description: 'Generate cross-paper insights to discover research gaps, common themes, methodological patterns, and conflicting findings across your literature.',
-              action: 'Use the Insights tab to generate analysis',
+              action: 'Use the Literature Map tab to generate analysis',
               icon: <LightBulbIcon className="h-6 w-6 text-warning" />,
             },
             {

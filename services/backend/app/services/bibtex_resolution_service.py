@@ -133,7 +133,16 @@ async def _resolve_single_entry(doc_id: str, user_id: str, project_id: str) -> s
             await _apply_cached_paper(doc_id, project_id, cached, title, abstract)
             return "resolved"
 
-    # 4. Search external sources for OA PDF
+    # 4. Try known PDF URL from metadata first (e.g. arXiv papers always have one)
+    known_pdf_url = meta.get("pdf_url") or ""
+    if known_pdf_url:
+        logger.info(f"[BibResolution] Trying known pdf_url: {known_pdf_url}")
+        success = await _download_and_analyze(doc_id, user_id, project_id, known_pdf_url, title, doi)
+        if success:
+            return "resolved"
+        logger.info(f"[BibResolution] Known pdf_url failed, falling back to external search")
+
+    # 5. Search external sources for OA PDF
     pdf_url = await _find_oa_pdf(title, doi, authors)
 
     if pdf_url:
@@ -142,7 +151,7 @@ async def _resolve_single_entry(doc_id: str, user_id: str, project_id: str) -> s
         if success:
             return "resolved"
 
-    # 5. No OA PDF — embed title+abstract only
+    # 6. No OA PDF — embed title+abstract only
     logger.info(f"[BibResolution] No OA PDF for '{title[:60]}' — metadata only")
     await _embed_metadata_only(doc_id, project_id, title, abstract)
     _set_resolution_status(doc_id, "unresolved")
@@ -192,7 +201,8 @@ async def _apply_cached_paper(
     abstract: str,
 ) -> None:
     """
-    Use a cached paper's analysis. Still generates user-scoped RAG chunks.
+    Use a cached paper's analysis. Tries to copy full-text chunks and structured
+    data from the source document; falls back to title+abstract embedding.
     """
     try:
         analysis = cached.get("analysis")
@@ -205,8 +215,55 @@ async def _apply_cached_paper(
             "updated_at": _now(),
         }).eq("id", doc_id).execute()
 
-        # Generate user-scoped RAG chunks from title+abstract (no full PDF)
-        await _embed_metadata_only(doc_id, project_id, title, abstract, skip_status_update=True)
+        # Try to find a source document with full-text chunks (by DOI)
+        chunks_copied = False
+        cached_doi = cached.get("doi")
+        if cached_doi:
+            source_doc = supabase.table("documents").select("id")\
+                .eq("metadata->>doi", cached_doi)\
+                .neq("id", doc_id)\
+                .limit(1).execute()
+
+            if source_doc.data:
+                source_id = source_doc.data[0]["id"]
+                # Check if source has full-text chunks (more than just title+abstract)
+                chunk_count_res = supabase.table("document_chunks").select("id", count="exact")\
+                    .eq("document_id", source_id).execute()
+                chunk_count = chunk_count_res.count if chunk_count_res.count is not None else 0
+
+                if chunk_count > 2:
+                    # Copy full-text chunks with new document_id and project_id
+                    logger.info(
+                        f"[BibResolution] Copying {chunk_count} chunks from "
+                        f"source doc {source_id}"
+                    )
+                    source_chunks = supabase.table("document_chunks").select("*")\
+                        .eq("document_id", source_id).execute()
+                    for chunk in (source_chunks.data or []):
+                        new_chunk = {
+                            k: v for k, v in chunk.items()
+                            if k not in ("id", "created_at")
+                        }
+                        new_chunk["document_id"] = doc_id
+                        new_chunk["project_id"] = project_id
+                        supabase.table("document_chunks").insert(new_chunk).execute()
+                    chunks_copied = True
+                    logger.info(f"[BibResolution] Copied {chunk_count} full-text chunks")
+
+                    # Also copy structured data (claims, methods, findings)
+                    try:
+                        from app.services.structured_data_storage import copy_structured_data
+                        copy_structured_data(source_id, doc_id, project_id)
+                    except Exception as e:
+                        logger.warning(
+                            f"[BibResolution] Failed to copy structured data: {e}"
+                        )
+
+        if not chunks_copied:
+            # Fallback: embed title+abstract only
+            await _embed_metadata_only(
+                doc_id, project_id, title, abstract, skip_status_update=True
+            )
 
         logger.info(f"[BibResolution] Applied cached analysis to {doc_id}")
     except Exception as e:
@@ -413,7 +470,27 @@ async def _download_and_analyze(
         logger.error(f"[BibResolution] GPT analysis failed: {e}")
         return False
 
-    # 5. Run RAG ingest (user-scoped chunks + embeddings)
+    # 5. Run LangGraph workflow for structured extraction (claims, methods, findings)
+    logger.info(f"[BibResolution] Running LangGraph structured extraction for {doc_id}")
+    try:
+        from app.workflows.document_analysis.graph import run_document_analysis_workflow
+        from app.services.structured_data_storage import store_structured_data
+
+        final_state = await run_document_analysis_workflow(
+            document_id=doc_id,
+            project_id=project_id,
+            document_text=paper_text,
+            page_count=page_count,
+        )
+        struct_counts = store_structured_data(doc_id, project_id, final_state)
+        logger.info(
+            f"[BibResolution] LangGraph done: {struct_counts['claims']} claims, "
+            f"{struct_counts['methods']} methods, {struct_counts['findings']} findings"
+        )
+    except Exception as e:
+        logger.warning(f"[BibResolution] LangGraph extraction failed (non-fatal): {e}")
+
+    # 6. Run RAG ingest (user-scoped chunks + embeddings)
     logger.info(f"[BibResolution] Ingesting {doc_id} into RAG")
     try:
         from app.services.rag_ingest import ingest_document

@@ -82,6 +82,16 @@ Feedback Types:
   - Are limitations acknowledged?
   - Is the approach well-justified?
 
+- **reproducibility**: Replication and procedural clarity
+  - Are methods described with enough detail to replicate the study?
+  - Are missing parameters, datasets, or implementation details blocking reproducibility?
+  - Is code, tooling, or experimental setup described precisely enough for another researcher?
+
+- **limitations**: Limits, uncertainty, and overclaiming
+  - Does the paper honestly acknowledge its limitations?
+  - Are results generalized beyond the evidence?
+  - Are constraints or failure modes missing where a reviewer would expect them?
+
 Severity Levels:
 - **critical**: Must be addressed for acceptance (major flaws)
 - **major**: Should be addressed for strong work (significant issues)
@@ -689,7 +699,15 @@ def validate_feedback_content(feedback: Dict[str, Any]) -> Dict[str, Any]:
         return {"valid": False, "issues": issues}
 
     # Check feedback type is valid
-    valid_types = ["positioning", "argumentation", "coverage", "methodology", "evidence"]
+    valid_types = [
+        "positioning",
+        "argumentation",
+        "coverage",
+        "methodology",
+        "evidence",
+        "reproducibility",
+        "limitations",
+    ]
     if feedback["feedback_type"] not in valid_types:
         issues.append(f"Invalid feedback_type: {feedback['feedback_type']}")
 
@@ -987,10 +1005,21 @@ async def generate_reviewer_feedback(draft_id: str) -> Dict[str, Any]:
             severity = feedback.get("severity", "minor")
             priority = map_severity_to_priority(severity)
 
+            raw_feedback_text = feedback.get("feedback_text", "")
+            # Strip internal "Claim N" / "Regarding Claim N" prefixes added by LLM
+            import re as _re
+            raw_feedback_text = _re.sub(
+                r'^(?:Regarding\s+)?Claim\s+\d+(?:\s*\(.*?\))?\s*(?:asserts?|states?|claims?|says?|argues?|notes?|mentions?|suggests?|indicates?|is\s+about)?[:\s]*',
+                '', raw_feedback_text, flags=_re.IGNORECASE
+            ).lstrip(', ').strip()
+            # Capitalise first letter after stripping
+            if raw_feedback_text:
+                raw_feedback_text = raw_feedback_text[0].upper() + raw_feedback_text[1:]
+
             record = {
                 "draft_id": draft_id,
                 "feedback_type": feedback.get("feedback_type", "argumentation"),
-                "feedback_text": feedback.get("feedback_text", ""),
+                "feedback_text": raw_feedback_text,
                 "severity": severity,
                 "priority": priority,  # Priority mapping (high/medium/low)
                 "section_reference": section_ref,

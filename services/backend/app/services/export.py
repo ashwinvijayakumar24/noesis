@@ -84,6 +84,48 @@ def export_to_latex(review_text: str, metadata: Dict[str, Any]) -> str:
     return latex_doc
 
 
+def export_to_text(content: str, title: str = "", metadata: dict = None) -> str:
+    """
+    Export content to plain text by stripping markdown formatting.
+
+    Args:
+        content: Markdown-formatted content
+        title: Optional title to prepend
+        metadata: Optional metadata key-value pairs to prepend
+
+    Returns:
+        Plain text string
+    """
+    metadata = metadata or {}
+    text = content or ""
+
+    # Remove markdown syntax while preserving readable text.
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    text = re.sub(r'```(?:[\w.+-]+)?\n?', '', text)
+    text = text.replace('```', '')
+    text = re.sub(r'`([^`]*)`', r'\1', text)
+    text = re.sub(r'^\s{0,3}#{1,6}\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'(\*\*|__)(.*?)\1', r'\2', text)
+    text = re.sub(r'(\*|_)(.*?)\1', r'\2', text)
+    text = re.sub(r'\n{3,}', '\n\n', text.strip())
+
+    header_lines = []
+    if title:
+        header_lines.append(title.upper())
+
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        label = key.replace('_', ' ').title()
+        header_lines.append(f"{label}: {value}")
+
+    header = "\n".join(header_lines)
+    if header:
+        return f"{header}\n\n{text}".strip()
+
+    return text
+
+
 def markdown_to_pdf(markdown_text: str, metadata: Dict[str, Any]) -> bytes:
     """
     Convert markdown to PDF using weasyprint.

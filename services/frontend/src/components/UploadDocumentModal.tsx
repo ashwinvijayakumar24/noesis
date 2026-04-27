@@ -9,9 +9,11 @@ import {
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { api } from '../lib/api'
+import { getApiErrorDetail, getApiErrorDetailsList } from '../lib/apiErrors'
 import { trackEvent } from '../lib/analytics'
 import { validateFileSize, validateFileType, handleError, handleQuotaError } from '../lib/errorHandler'
 import UploadSuccessModal from './UploadSuccessModal'
+import InlineAlert from './ui/InlineAlert'
 
 type TabId = 'pdf' | 'bibtex' | 'zotero'
 
@@ -26,6 +28,12 @@ interface BibEntryStatus {
   title: string
   status: string
   resolution_status: 'resolving' | 'resolved' | 'unresolved' | null
+}
+
+interface BibImportResult {
+  imported: number
+  skipped: number
+  entry_errors?: Array<{ index: number; title: string; warnings: string[]; status: string }>
 }
 
 interface UploadDocumentModalProps {
@@ -116,6 +124,7 @@ export default function UploadDocumentModal({
   const [bibEntries, setBibEntries] = useState<BibEntryStatus[]>([])
   const [bibPollTimer, setBibPollTimer] = useState<ReturnType<typeof setInterval> | null>(null)
   const [_bibImportedCount, setBibImportedCount] = useState(0)
+  const [importResult, setImportResult] = useState<BibImportResult | null>(null)
 
   // Zotero state
   const [zoteroKey, setZoteroKey] = useState('')
@@ -133,8 +142,9 @@ export default function UploadDocumentModal({
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [uploadedCount, setUploadedCount] = useState(0)
   const [uploadedTitles, setUploadedTitles] = useState<string[]>([])
+  const [inlineError, setInlineError] = useState<{ title: string; message: string; details: string[] } | null>(null)
 
-  const MAX_FILES = 10
+  const MAX_FILES = 5
   const MAX_SIZE_MB = 50
 
   // Reset active tab when modal opens based on mode
@@ -162,6 +172,7 @@ export default function UploadDocumentModal({
   // ─── PDF handlers ───────────────────────────────────────────────────────────
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInlineError(null)
     if (!e.target.files) return
     const filesArray = Array.from(e.target.files)
     if (filesArray.length > MAX_FILES) {
@@ -220,6 +231,7 @@ export default function UploadDocumentModal({
       return
     }
     try {
+      setInlineError(null)
       setLoading(true)
       const uploadPromises = selectedFiles.map(file =>
         api.documents.upload(token, file, {
@@ -246,6 +258,12 @@ export default function UploadDocumentModal({
       onSuccess()
     } catch (error: any) {
       if (!handleQuotaError(error)) {
+        const detail = getApiErrorDetail(error)
+        setInlineError({
+          title: detail?.title || 'Upload failed',
+          message: detail?.message || 'We could not upload these PDFs.',
+          details: getApiErrorDetailsList(detail),
+        })
         handleError(error, 'uploading documents')
       }
     } finally {
@@ -262,8 +280,10 @@ export default function UploadDocumentModal({
       return
     }
     try {
+      setInlineError(null)
       setLoading(true)
       const result = await api.documents.importBibtex(token, projectId, bibtexFile)
+      setImportResult(result)
       setBibImportedCount(result.imported)
 
       // If resolution was started, show live panel
@@ -311,6 +331,12 @@ export default function UploadDocumentModal({
       }
     } catch (error: any) {
       if (!handleQuotaError(error)) {
+        const detail = getApiErrorDetail(error)
+        setInlineError({
+          title: detail?.title || 'BibTeX import failed',
+          message: detail?.message || 'We could not import this BibTeX file.',
+          details: getApiErrorDetailsList(detail),
+        })
         handleError(error, 'importing BibTeX file')
       }
     } finally {
@@ -328,6 +354,7 @@ export default function UploadDocumentModal({
   // ─── Zotero handlers ──────────────────────────────────────────────────────────
 
   const handleZoteroValidate = async () => {
+    setInlineError(null)
     if (!zoteroKey.trim()) {
       toast.error('Enter your Zotero API key')
       return
@@ -357,6 +384,7 @@ export default function UploadDocumentModal({
     if (!zoteroUserId) return
     setLoading(true)
     try {
+      setInlineError(null)
       const result = await api.zotero.importCollection(
         token, zoteroKey.trim(), zoteroUserId, projectId,
         zoteroSelectedCollection || undefined,
@@ -367,7 +395,13 @@ export default function UploadDocumentModal({
       setUploadedTitles([])
       setShowSuccessModal(true)
       toast.success(result.message || `Imported ${result.imported} references from Zotero`)
-    } catch {
+    } catch (error: any) {
+      const detail = getApiErrorDetail(error)
+      setInlineError({
+        title: detail?.title || 'Zotero import failed',
+        message: detail?.message || 'We could not import from Zotero.',
+        details: getApiErrorDetailsList(detail),
+      })
       toast.error('Failed to import from Zotero')
     } finally {
       setLoading(false)
@@ -384,6 +418,8 @@ export default function UploadDocumentModal({
     setBibtexFile(null)
     setBibPhase('select')
     setBibEntries([])
+    setImportResult(null)
+    setInlineError(null)
     setZoteroKey('')
     setZoteroValidated(false)
     setZoteroCollections([])
@@ -458,6 +494,19 @@ export default function UploadDocumentModal({
                         ))}
                     </div>
                   )}
+                </div>
+
+                <div className="px-6 pt-4 space-y-3">
+                  {inlineError && (
+                    <InlineAlert
+                      title={inlineError.title}
+                      message={inlineError.message}
+                      details={inlineError.details}
+                    />
+                  )}
+                  <p className="text-xs text-text-muted">
+                    Private by default. Your files stay in your workspace and are not used to train models.
+                  </p>
                 </div>
 
                 {/* ── PDF Tab ────────────────────────────────────────── */}
@@ -663,6 +712,28 @@ export default function UploadDocumentModal({
                           className="h-full bg-accent-primary rounded-full transition-all duration-500"
                           style={{ width: `${(bibResolved / bibEntries.length) * 100}%` }}
                         />
+                      </div>
+                    )}
+
+                    {importResult?.skipped > 0 && importResult?.entry_errors && (
+                      <div className="mt-3 p-3 rounded-lg border border-amber-500/30 bg-[#2C1A06] text-amber-400 text-xs">
+                        <p className="font-semibold mb-1">
+                          {importResult.skipped} {importResult.skipped === 1 ? 'entry' : 'entries'} skipped
+                        </p>
+                        <ul className="space-y-0.5 text-text-secondary">
+                          {importResult.entry_errors
+                            .filter(entryError => entryError.status === 'skipped')
+                            .slice(0, 5)
+                            .map(entryError => (
+                              <li key={entryError.index}>
+                                <span className="text-text-primary">"{entryError.title}"</span>
+                                {entryError.warnings.length > 0 && ` — ${entryError.warnings.join(', ')}`}
+                              </li>
+                            ))}
+                          {importResult.skipped > 5 && (
+                            <li className="text-text-muted">...and {importResult.skipped - 5} more</li>
+                          )}
+                        </ul>
                       </div>
                     )}
 

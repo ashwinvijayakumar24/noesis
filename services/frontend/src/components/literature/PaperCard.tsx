@@ -1,10 +1,16 @@
 import { useNavigate } from 'react-router-dom'
+import { useState, useRef } from 'react'
 import {
   DocumentTextIcon,
   BookOpenIcon,
   TrashIcon,
+  ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
+  TagIcon,
+  XMarkIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline'
+import { api } from '../../lib/api'
 
 export interface PaperDocument {
   id: string
@@ -14,6 +20,7 @@ export interface PaperDocument {
   resolution_status?: string | null
   file_url?: string
   created_at: string
+  tags?: string[]
   metadata?: {
     authors?: string[]
     year?: string
@@ -138,6 +145,84 @@ function StatusBadge({
   }
 }
 
+// ─── Inline tag editor ────────────────────────────────────────────────────────
+
+function DocumentTagRow({ docId, initialTags, token }: { docId: string; initialTags: string[]; token?: string }) {
+  const [tags, setTags] = useState<string[]>(initialTags)
+  const [inputVisible, setInputVisible] = useState(false)
+  const [inputValue, setInputValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const saveTag = async (newTags: string[]) => {
+    if (!token) return
+    try {
+      await api.documents.updateTags(token, docId, newTags)
+    } catch {
+      // silently revert on failure
+    }
+  }
+
+  const addTag = async () => {
+    const t = inputValue.trim().toLowerCase()
+    if (!t || tags.includes(t) || tags.length >= 10) { setInputValue(''); setInputVisible(false); return }
+    const next = [...tags, t]
+    setTags(next)
+    setInputValue('')
+    setInputVisible(false)
+    await saveTag(next)
+  }
+
+  const removeTag = async (tag: string) => {
+    const next = tags.filter(t => t !== tag)
+    setTags(next)
+    await saveTag(next)
+  }
+
+  if (tags.length === 0 && !inputVisible) {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); setInputVisible(true); setTimeout(() => inputRef.current?.focus(), 0) }}
+        className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-tertiary transition-colors duration-150 mt-1.5"
+      >
+        <TagIcon className="h-3 w-3" />
+        <span>add tag</span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-1.5" onClick={e => e.stopPropagation()}>
+      {tags.map(tag => (
+        <span key={tag} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border bg-bg-elevated text-text-secondary border-border-default group/tag">
+          {tag}
+          <button onClick={() => removeTag(tag)} className="opacity-0 group-hover/tag:opacity-100 transition-opacity">
+            <XMarkIcon className="h-2.5 w-2.5 text-text-muted hover:text-error" />
+          </button>
+        </span>
+      ))}
+      {inputVisible ? (
+        <input
+          ref={inputRef}
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') addTag(); if (e.key === 'Escape') { setInputVisible(false); setInputValue('') } }}
+          onBlur={addTag}
+          maxLength={24}
+          className="text-xs bg-bg-elevated border border-accent-primary/40 rounded px-1.5 py-0.5 text-text-primary outline-none w-20"
+          placeholder="tag…"
+        />
+      ) : tags.length < 10 && (
+        <button
+          onClick={() => { setInputVisible(true); setTimeout(() => inputRef.current?.focus(), 0) }}
+          className="inline-flex items-center justify-center h-5 w-5 rounded border border-dashed border-border-default text-text-muted hover:border-accent-primary/40 hover:text-text-secondary transition-colors duration-150"
+        >
+          <PlusIcon className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PaperCard({ document, projectId, onDelete, token }: PaperCardProps) {
@@ -226,6 +311,13 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
     }
   }
 
+  const handleRetry = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!token) return
+
+    await api.documents.retry(token, document.id)
+  }
+
   return (
     <div
       onClick={handleClick}
@@ -258,21 +350,24 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
           </p>
         )}
 
-        {/* Row 3: Unresolved hint */}
+        {/* Row 3: Document tags */}
+        <DocumentTagRow docId={document.id} initialTags={document.tags ?? []} token={token} />
+
+        {/* Row 4: Unresolved hint */}
         {document.resolution_status === 'unresolved' && (
           <p className="text-xs text-text-tertiary mt-1.5 italic">
             No open-access PDF found. Upload the PDF manually for full RAG analysis.
           </p>
         )}
 
-        {/* Row 4: Abstract preview (metadata-only entries) */}
+        {/* Row 5: Abstract preview (metadata-only entries) */}
         {showAbstract && (
           <p className="text-xs text-text-secondary mt-1.5 line-clamp-2 leading-relaxed">
             {abstract}
           </p>
         )}
 
-        {/* Row 5: Action buttons — View Paper, PDF */}
+        {/* Row 6: Action buttons — View Paper, PDF */}
         {(viewPaperHref || hasPdf) && (
           <div className="flex items-center gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
             {viewPaperHref && (
@@ -309,14 +404,24 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
           />
         </div>
 
-        {/* Delete button — visible on hover */}
-        <button
-          onClick={handleDelete}
-          className="mt-1 p-1 rounded-md text-text-muted hover:text-error transition-colors duration-150"
-          title="Remove paper"
-        >
-          <TrashIcon className="h-4 w-4" />
-        </button>
+        <div className="mt-1 flex items-center gap-1">
+          {statusLower === 'failed' && token && (
+            <button
+              onClick={handleRetry}
+              className="p-1 rounded-md text-text-muted hover:text-accent-primary transition-colors duration-150"
+              title="Retry analysis"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            className="p-1 rounded-md text-text-muted hover:text-error transition-colors duration-150"
+            title="Remove paper"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   )

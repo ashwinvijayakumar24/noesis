@@ -7,18 +7,129 @@ Documents are PDFs that will be ingested into the RAG pipeline.
 
 from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form, Query, Request
 from fastapi.responses import Response
+from openai import APIConnectionError, APIError, RateLimitError
 from app.core.supabase_client import supabase
+from app.core.api_errors import build_error_detail, raise_api_error
 from app.services.citation_management import format_citation_bibtex
 from app.core.security_middleware import SecureAuthValidator, limiter
+from app.services.progress_tracking import (
+    clear_progress_snapshot,
+    get_progress_snapshot,
+    store_progress_snapshot,
+)
 from app.tasks import analyze_document_task
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 from datetime import datetime
 import logging
+import json
 
 router = APIRouter()
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+ACTIVE_DOCUMENT_STATUSES = {"uploaded", "processing", "ready", "analyzing"}
+
+
+def _merge_metadata(existing: Optional[dict], **updates) -> dict:
+    merged = dict(existing or {})
+    for key, value in updates.items():
+        if value is not None:
+            merged[key] = value
+    return merged
+
+
+def _is_transient_provider_error(error: Exception) -> bool:
+    if isinstance(error, (RateLimitError, APIError, APIConnectionError)):
+        return True
+
+    message = str(error).lower()
+    return any(
+        token in message
+        for token in (
+            "ratelimiterror",
+            "rate limit",
+            "too many requests",
+            "apiconnectionerror",
+            "temporary service issue",
+            "connection reset",
+        )
+    )
+
+
+def _attach_document_progress(document: dict) -> dict:
+    progress = get_progress_snapshot("document", document["id"])
+    if progress and document.get("status") in ACTIVE_DOCUMENT_STATUSES:
+        document["progress"] = progress
+
+    metadata = document.get("metadata") or {}
+    error_detail = metadata.get("error_detail")
+    if error_detail and document.get("status") == "failed":
+        document["error_detail"] = error_detail
+
+    return document
+
+
+def _sanitize_filename(filename: str, fallback: str = "document_analysis") -> str:
+    safe_filename = "".join(c for c in (filename or "") if c.isalnum() or c in (" ", "_", "-")).strip()
+    if not safe_filename:
+        safe_filename = fallback
+    return safe_filename.replace(" ", "_")
+
+
+def _serialize_document_analysis(analysis: object, title: str) -> str:
+    """Normalize structured document analysis into markdown for export flows."""
+    if isinstance(analysis, str):
+        return analysis
+
+    if not isinstance(analysis, dict):
+        return str(analysis)
+
+    sections: List[str] = [f"# {title}"]
+
+    executive_summary = analysis.get("executive_summary")
+    if executive_summary:
+        sections.extend(["", "## Executive Summary", "", str(executive_summary)])
+
+    methodology = analysis.get("methodology") or {}
+    if methodology:
+        sections.extend(["", "## Methodology", ""])
+        if methodology.get("approach"):
+            sections.append(f"**Approach:** {methodology['approach']}")
+        if methodology.get("summary"):
+            sections.extend(["", str(methodology["summary"])])
+
+    key_findings = analysis.get("key_findings") or []
+    if key_findings:
+        sections.extend(["", "## Key Findings", ""])
+        sections.extend(f"- {finding}" for finding in key_findings)
+
+    results = analysis.get("results") or {}
+    if results:
+        sections.extend(["", "## Results", ""])
+        if results.get("summary"):
+            sections.append(str(results["summary"]))
+        for key, value in results.items():
+            if key == "summary":
+                continue
+            label = key.replace("_", " ").title()
+            sections.append(f"- **{label}:** {value}")
+
+    limitations = analysis.get("limitations") or []
+    if limitations:
+        sections.extend(["", "## Limitations", ""])
+        sections.extend(f"- {limitation}" for limitation in limitations)
+
+    references = analysis.get("references") or []
+    if references:
+        sections.extend(["", "## References", ""])
+        sections.extend(f"- {reference}" for reference in references)
+
+    if len(sections) == 1:
+        sections.extend(["", "## Analysis", "", json.dumps(analysis, indent=2)])
+
+    return "\n".join(sections).strip()
 
 
 # Helper to extract user info from token
@@ -62,19 +173,33 @@ async def upload_document(
     print(f"[UPLOAD] Received: file={file.filename}, project_id={project_id}, title={title}, user_id={user_id}")
     from app.services.quota_management import check_quota, QuotaExceededError
     try:
+        file_extension = (file.filename or "").split(".")[-1].lower()
+        if file_extension != "pdf":
+            raise_api_error(
+                400,
+                code="invalid_file_type",
+                title="PDF required",
+                message="Only PDF uploads are supported in this flow.",
+                details=[f"Received file: {file.filename or 'unknown'}"],
+                next_action="fix_file",
+                retryable=False,
+            )
+
         # CHECK QUOTA BEFORE PROCESSING
         try:
             await check_quota(user_id, "document")
         except QuotaExceededError as qe:
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "error": "quota_exceeded",
-                    "message": str(qe),
-                    "quota_type": qe.quota_type,
-                    "limit": qe.limit,
-                    "current": qe.current
-                }
+            raise_api_error(
+                429,
+                code="quota_exceeded",
+                title="Monthly PDF limit reached",
+                message=str(qe),
+                next_action="upgrade",
+                retryable=False,
+                error="quota_exceeded",
+                quota_type=qe.quota_type,
+                limit=qe.limit,
+                current=qe.current,
             )
         # Read file content
         file_content = await file.read()
@@ -140,35 +265,59 @@ async def upload_document(
                 supabase.storage.from_("documents").remove([storage_path])
             except:
                 pass
-            raise HTTPException(status_code=400, detail="Failed to create document metadata")
+            raise_api_error(
+                400,
+                code="document_metadata_failed",
+                title="We couldn't register this upload",
+                message="The PDF was uploaded, but Noesis could not create the document record.",
+                next_action="retry",
+                retryable=True,
+            )
 
         document = db_response.data[0]
         document_id = document['id']
         print(f"[UPLOAD] Document created: id={document_id}, project_id={document.get('project_id')}")
 
         # Auto-trigger analysis: set status to 'analyzing' and enqueue Celery task
+        task_id = None
         if project_id:
             try:
-                supabase.table("documents").update({"status": "analyzing"}).eq("id", document_id).execute()
-                analyze_document_task.delay(document_id, user_id, project_id)
+                store_progress_snapshot("document", document_id, "queued", 5, "Queued for document analysis")
+                task_result = analyze_document_task.delay(document_id, user_id, project_id)
+                task_id = task_result.id
+                supabase.table("documents").update({
+                    "status": "analyzing",
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "metadata": _merge_metadata(document.get("metadata"), analysis_task_id=task_id),
+                }).eq("id", document_id).execute()
                 print(f"[UPLOAD] Auto-triggered analysis for document_id={document_id}")
             except Exception as task_err:
                 print(f"[UPLOAD] Warning: Failed to auto-trigger analysis: {task_err}")
+                clear_progress_snapshot("document", document_id)
 
         # Refresh document record to reflect updated status
         doc_refresh = supabase.table("documents").select("*").eq("id", document_id).execute()
         if doc_refresh.data:
-            document = doc_refresh.data[0]
+            document = _attach_document_progress(doc_refresh.data[0])
 
         return {
             "message": "Document uploaded successfully",
-            "document": document
+            "document": document,
+            "task_id": task_id,
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        raise_api_error(
+            500,
+            code="document_upload_failed",
+            title="Upload failed",
+            message="We couldn't upload this PDF.",
+            details=[str(e)],
+            next_action="retry",
+            retryable=True,
+        )
 
 
 @router.get("/")
@@ -201,8 +350,10 @@ def list_documents(
 
     response = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
 
+    documents = [_attach_document_progress(document) for document in (response.data or [])]
+
     return {
-        "data": response.data,
+        "data": documents,
         "pagination": {
             "total": total,
             "limit": limit,
@@ -220,9 +371,16 @@ def get_document(document_id: str, user_id: str = Depends(get_current_user)):
     response = supabase.table("documents").select("*").eq("id", document_id).eq("user_id", user_id).execute()
 
     if not response.data:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise_api_error(
+            404,
+            code="document_not_found",
+            title="Document not found",
+            message="This document may have been deleted or is unavailable.",
+            next_action="refresh",
+            retryable=False,
+        )
 
-    return response.data[0]
+    return _attach_document_progress(response.data[0])
 
 
 @router.put("/{document_id}")
@@ -253,6 +411,28 @@ def update_document(
     return {"message": "Document updated", "document": response.data[0]}
 
 
+class UpdateTagsRequest(BaseModel):
+    tags: List[str]
+
+
+@router.patch("/{document_id}/tags")
+def update_document_tags(
+    document_id: str,
+    request: UpdateTagsRequest,
+    user_id: str = Depends(get_current_user)
+):
+    tags = [t.strip().lower() for t in request.tags if t.strip()][:10]
+    response = supabase.table("documents").update({
+        "tags": tags,
+        "updated_at": datetime.utcnow().isoformat(),
+    }).eq("id", document_id).eq("user_id", user_id).execute()
+
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return {"tags": response.data[0]["tags"]}
+
+
 @router.delete("/{document_id}")
 def delete_document(document_id: str, user_id: str = Depends(get_current_user)):
     """
@@ -265,7 +445,14 @@ def delete_document(document_id: str, user_id: str = Depends(get_current_user)):
     document_response = supabase.table("documents").select("*").eq("id", document_id).eq("user_id", user_id).execute()
 
     if not document_response.data:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise_api_error(
+            404,
+            code="document_not_found",
+            title="Document not found",
+            message="This document may have been deleted or is unavailable.",
+            next_action="refresh",
+            retryable=False,
+        )
 
     document = document_response.data[0]
     print(f"[DELETE] Found document: title={document.get('title')}, file_url={document.get('file_url')}")
@@ -341,6 +528,62 @@ def delete_document(document_id: str, user_id: str = Depends(get_current_user)):
     return {"message": "Document deleted successfully"}
 
 
+@router.post("/{document_id}/retry")
+def retry_document_analysis(document_id: str, user_id: str = Depends(get_current_user)):
+    """Re-queue analysis for a failed document without requiring a re-upload."""
+    document_response = supabase.table("documents").select("*").eq("id", document_id).eq("user_id", user_id).execute()
+
+    if not document_response.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    document = document_response.data[0]
+    if document.get("status") != "failed":
+        raise_api_error(
+            400,
+            code="retry_not_allowed",
+            title="Retry unavailable",
+            message="Only failed document analyses can be retried.",
+            next_action="refresh",
+            retryable=False,
+        )
+
+    project_id = document.get("project_id") or ""
+    store_progress_snapshot("document", document_id, "queued", 5, "Queued for document analysis")
+    task_result = analyze_document_task.delay(document_id, user_id, project_id)
+
+    update_response = supabase.table("documents").update({
+        "status": "analyzing",
+        "updated_at": datetime.utcnow().isoformat(),
+        "metadata": _merge_metadata(document.get("metadata"), analysis_task_id=task_result.id),
+    }).eq("id", document_id).eq("user_id", user_id).execute()
+
+    if not update_response.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return {"message": "Analysis re-queued", "document_id": document_id, "task_id": task_result.id}
+
+
+@router.post("/{document_id}/mark-failed")
+def mark_document_failed(document_id: str, user_id: str = Depends(get_current_user)):
+    """Mark a stuck document as failed so the retry button becomes available."""
+    document_response = supabase.table("documents").select("id, status")\
+        .eq("id", document_id).eq("user_id", user_id).execute()
+
+    if not document_response.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    stuck_statuses = {"analyzing", "processing", "uploaded", "ready"}
+    if document_response.data[0].get("status") not in stuck_statuses:
+        raise HTTPException(status_code=400, detail="Document is not in a stuck state")
+
+    supabase.table("documents").update({
+        "status": "failed",
+        "updated_at": datetime.utcnow().isoformat(),
+    }).eq("id", document_id).eq("user_id", user_id).execute()
+
+    return {"document_id": document_id, "status": "failed"}
+
+
 @router.post("/{document_id}/attach-to-project/{project_id}")
 def attach_document_to_project(
     document_id: str,
@@ -404,9 +647,11 @@ def _run_analysis_task(document_id: str, file_url: str):
             raise Exception("Document not found")
         user_id = doc_response.data[0]["user_id"]
         project_id = doc_response.data[0].get("project_id")
+        store_progress_snapshot("document", document_id, "queued", 5, "Queued for analysis")
 
         # 1. Download PDF from storage using Supabase client (authenticated)
         print(f"[ANALYZE-BG] Downloading PDF from: {file_url}")
+        store_progress_snapshot("document", document_id, "parsing_pdf", 15, "Downloading and parsing PDF")
 
         # Extract storage path from file_url
         # URL format: https://.../storage/v1/object/public/documents/{user_id}/{filename}
@@ -435,6 +680,7 @@ def _run_analysis_task(document_id: str, file_url: str):
 
         # 3. Extract text from PDF (using fallback for compatibility)
         print(f"[ANALYZE-BG-LG] Step 3: Extracting text from PDF")
+        store_progress_snapshot("document", document_id, "extracting_structure", 30, "Extracting text and structure")
         paper_text = extract_text_from_pdf_fallback(pdf_bytes)
         print(f"[ANALYZE-BG-LG] ✓ Extracted {len(paper_text)} characters of text")
 
@@ -461,6 +707,7 @@ def _run_analysis_task(document_id: str, file_url: str):
                     # Still run RAG ingest for user-scoped chunks
                     from app.services.rag_ingest import ingest_document
                     try:
+                        store_progress_snapshot("document", document_id, "generating_embeddings", 60, "Generating embeddings")
                         ingest_document(document_id, file_url, project_id)
                     except Exception as ingest_err:
                         print(f"[ANALYZE-BG-LG] Warning: RAG ingest failed: {ingest_err}")
@@ -470,6 +717,8 @@ def _run_analysis_task(document_id: str, file_url: str):
                         "status": "analyzed",
                         "updated_at": datetime.utcnow().isoformat()
                     }).eq("id", document_id).execute()
+                    store_progress_snapshot("document", document_id, "finalizing", 100, "Analysis ready")
+                    clear_progress_snapshot("document", document_id)
                     print(f"[ANALYZE-BG-LG] ✓ Applied cached analysis — document {document_id} marked analyzed")
                     return  # Skip expensive GPT call
         except Exception as cache_err:
@@ -477,6 +726,7 @@ def _run_analysis_task(document_id: str, file_url: str):
 
         # 4. Run BOTH workflows in parallel for best of both worlds
         print(f"[ANALYZE-BG-LG] Step 4: Running dual analysis (LangGraph + Traditional)...")
+        store_progress_snapshot("document", document_id, "running_analysis", 55, "Running paper analysis")
 
         # 4a. Run traditional comprehensive analysis (for display quality)
         print(f"[ANALYZE-BG-LG] Step 4a: Running traditional GPT-4o analysis for narrative quality...")
@@ -564,91 +814,14 @@ def _run_analysis_task(document_id: str, file_url: str):
 
         # 5. Store extracted claims, methods, and findings in database
         print(f"[ANALYZE-BG-LG] Step 5: Storing structured data in database...")
+        store_progress_snapshot("document", document_id, "generating_embeddings", 75, "Saving structured extraction")
 
-        # Clear any existing structured data so re-analysis doesn't hit unique constraint violations
-        supabase.table("document_claims").delete().eq("document_id", document_id).execute()
-        supabase.table("document_methods").delete().eq("document_id", document_id).execute()
-        supabase.table("document_findings").delete().eq("document_id", document_id).execute()
+        from app.services.structured_data_storage import store_structured_data
+        struct_counts = store_structured_data(document_id, project_id, final_state)
 
-        # Get OpenAI client for generating embeddings
-        client = get_openai_client()
-
-        # 5.1 Store claims with embeddings
-        claims = final_state.get("claims", [])
-        if claims:
-            print(f"[ANALYZE-BG-LG] Storing {len(claims)} claims...")
-            # Generate embeddings for all claims
-            claim_texts = [c["claim_text"] for c in claims]
-            embeddings_response = client.embeddings.create(
-                model="text-embedding-3-large",
-                input=claim_texts,
-                dimensions=1536
-            )
-
-            # Insert claims into database
-            for i, claim in enumerate(claims):
-                claim_row = {
-                    "document_id": document_id,
-                    "project_id": project_id,
-                    "claim_text": claim["claim_text"],
-                    "claim_type": claim["claim_type"],
-                    "section_title": claim.get("section_title"),
-                    "section_type": claim.get("section_type"),
-                    "page_number": claim.get("page_number"),
-                    "importance_score": claim["importance_score"],
-                    "confidence_score": claim["confidence_score"],
-                    "supports_primary_thesis": claim["supports_primary_thesis"],
-                    "embedding": embeddings_response.data[i].embedding
-                }
-                supabase.table("document_claims").insert(claim_row).execute()
-
-            print(f"[ANALYZE-BG-LG] ✓ Stored {len(claims)} claims")
-
-        # 5.2 Store methods
-        methods = final_state.get("methods", [])
-        if methods:
-            print(f"[ANALYZE-BG-LG] Storing {len(methods)} methods...")
-            for method in methods:
-                method_row = {
-                    "document_id": document_id,
-                    "project_id": project_id,
-                    "method_name": method["method_name"],
-                    "method_type": method.get("method_type"),
-                    "description": method["description"],
-                    "parameters": method.get("parameters", {}),
-                    "section_title": method.get("section_title"),
-                    "page_number": method.get("page_number"),
-                    "datasets_used": method.get("datasets_used", []),
-                    "evaluation_metrics": method.get("evaluation_metrics", [])
-                }
-                supabase.table("document_methods").insert(method_row).execute()
-
-            print(f"[ANALYZE-BG-LG] ✓ Stored {len(methods)} methods")
-
-        # 5.3 Store findings
-        findings = final_state.get("findings", [])
-        if findings:
-            print(f"[ANALYZE-BG-LG] Storing {len(findings)} findings...")
-            for finding in findings:
-                finding_row = {
-                    "document_id": document_id,
-                    "project_id": project_id,
-                    "finding_text": finding["finding_text"],
-                    "finding_type": finding.get("finding_type"),
-                    "metrics": finding.get("metrics", {}),
-                    "comparison_baseline": finding.get("comparison_baseline"),
-                    "improvement_over_baseline": finding.get("improvement_over_baseline"),
-                    "section_title": finding.get("section_title"),
-                    "page_number": finding.get("page_number"),
-                    "table_or_figure_reference": finding.get("table_or_figure_reference"),
-                    "statistical_significance": finding.get("statistical_significance"),
-                    "confidence_score": finding["confidence_score"]
-                }
-                supabase.table("document_findings").insert(finding_row).execute()
-
-            print(f"[ANALYZE-BG-LG] ✓ Stored {len(findings)} findings")
-
-        print(f"[ANALYZE-BG-LG] ✓ All structured data stored successfully")
+        print(f"[ANALYZE-BG-LG] ✓ All structured data stored successfully "
+              f"({struct_counts['claims']} claims, {struct_counts['methods']} methods, "
+              f"{struct_counts['findings']} findings)")
 
         # 5.5. Track quota usage and OpenAI costs
         try:
@@ -675,6 +848,7 @@ def _run_analysis_task(document_id: str, file_url: str):
 
         # 6. Store analysis in database with v2_langgraph version
         print(f"[ANALYZE-BG-LG] Step 6: Storing analysis report in database...")
+        store_progress_snapshot("document", document_id, "finalizing", 90, "Finalizing analysis")
         update_response = supabase.table("documents").update({
             "analysis": analysis,
             "status": "analyzed",
@@ -769,15 +943,17 @@ def _run_analysis_task(document_id: str, file_url: str):
 
                 else:
                     # Just mark as stale for first-time or failed insights
-                    if current_status in ["analyzing", "failed"]:
-                        supabase.table("projects").update({
-                            "insights_status": "not_analyzed",
-                            "updated_at": datetime.utcnow().isoformat()
-                        }).eq("id", project_id).execute()
+                        if current_status in ["analyzing", "failed"]:
+                            supabase.table("projects").update({
+                                "insights_status": "not_analyzed",
+                                "updated_at": datetime.utcnow().isoformat()
+                            }).eq("id", project_id).execute()
                         print(f"[ANALYZE-BG-LG] Insights status reset to not_analyzed")
 
         print(f"[ANALYZE-BG-LG] ========== LANGGRAPH ANALYSIS COMPLETE ==========")
         print(f"[ANALYZE-BG-LG] Successfully analyzed document_id={document_id}")
+        store_progress_snapshot("document", document_id, "finalizing", 100, "Analysis ready")
+        clear_progress_snapshot("document", document_id)
 
     except Exception as e:
         # Update status to failed
@@ -785,13 +961,34 @@ def _run_analysis_task(document_id: str, file_url: str):
         print(f"[ANALYZE-BG-LG] ========== LANGGRAPH ANALYSIS FAILED ==========")
         print(f"[ANALYZE-BG-LG] ERROR for document_id={document_id}: {type(e).__name__}: {str(e)}")
         print(f"[ANALYZE-BG-LG] Traceback:\n{traceback.format_exc()}")
+        error_detail = build_error_detail(
+            code="transient_provider_error" if _is_transient_provider_error(e) else "document_analysis_failed",
+            title="Analysis failed" if not _is_transient_provider_error(e) else "Service under load",
+            message=(
+                "The analysis service is under load. We can retry automatically."
+                if _is_transient_provider_error(e)
+                else "We couldn't analyze this PDF."
+            ),
+            next_action="retry",
+            retryable=True,
+            details=[str(e)] if str(e) else None,
+        )
+        clear_progress_snapshot("document", document_id)
+        metadata_res = supabase.table("documents").select("metadata").eq("id", document_id).execute()
+        existing_metadata = (
+            metadata_res.data[0].get("metadata") or {}
+            if metadata_res.data
+            else {}
+        )
         supabase.table("documents").update({
-            "status": "failed",
+            "status": "analyzing",
             "updated_at": datetime.utcnow().isoformat(),
-            "metadata": {
-                "error": str(e),
-                "error_type": type(e).__name__
-            }
+            "metadata": _merge_metadata(
+                existing_metadata,
+                error=str(e),
+                error_type=type(e).__name__,
+                error_detail=error_detail,
+            ),
         }).eq("id", document_id).execute()
 
         # CRITICAL: Re-raise the exception so Celery knows the task failed and can retry
@@ -830,21 +1027,28 @@ async def analyze_document(document_id: str, user_id: str = Depends(get_current_
         try:
             await check_quota(user_id, "document")
         except QuotaExceededError as qe:
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "error": "quota_exceeded",
-                    "message": str(qe),
-                    "quota_type": qe.quota_type,
-                    "limit": qe.limit,
-                    "current": qe.current
-                }
+            raise_api_error(
+                429,
+                code="quota_exceeded",
+                title="Document quota reached",
+                message=str(qe),
+                next_action="upgrade",
+                retryable=False,
+                quota_type=qe.quota_type,
+                limit=qe.limit,
+                current=qe.current,
             )
         # 1. Fetch document record
         doc_response = supabase.table("documents").select("*").eq("id", document_id).eq("user_id", user_id).execute()
 
         if not doc_response.data:
-            raise HTTPException(status_code=404, detail="Document not found")
+            raise_api_error(
+                404,
+                code="document_not_found",
+                title="Document not found",
+                message="We couldn't find that PDF in your workspace.",
+                next_action="refresh",
+            )
 
         document = doc_response.data[0]
         project_id = document.get("project_id", "")
@@ -864,22 +1068,29 @@ async def analyze_document(document_id: str, user_id: str = Depends(get_current_
             return {
                 "message": "Analysis already in progress",
                 "document_id": document_id,
-                "status": "analyzing"
+                "status": "analyzing",
+                "progress": get_progress_snapshot("document", document_id),
             }
 
         # 4. Validate file URL exists
         file_url = document.get("file_url")
         if not file_url:
-            raise HTTPException(status_code=400, detail="Document has no file URL")
+            raise_api_error(
+                400,
+                code="file_parse_failed",
+                title="PDF missing",
+                message="This document doesn't have a valid PDF file attached.",
+                next_action="fix_file",
+            )
 
         # 5. Update status to 'analyzing'
+        task_result = analyze_document_task.delay(document_id, user_id, project_id)
+        queued_progress = store_progress_snapshot("document", document_id, "queued", 5, "Queued for analysis")
         supabase.table("documents").update({
             "status": "analyzing",
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.utcnow().isoformat(),
+            "metadata": _merge_metadata(document.get("metadata"), analysis_task_id=task_result.id, error_detail=None),
         }).eq("id", document_id).execute()
-
-        # 6. Submit Celery task
-        task_result = analyze_document_task.delay(document_id, user_id, project_id)
 
         print(f"[ANALYZE] Celery analysis task submitted for document_id={document_id} (task_id={task_result.id})")
 
@@ -887,14 +1098,24 @@ async def analyze_document(document_id: str, user_id: str = Depends(get_current_
             "message": "Analysis started in background",
             "document_id": document_id,
             "status": "analyzing",
-            "estimated_time_seconds": 25
+            "estimated_time_seconds": 25,
+            "task_id": task_result.id,
+            "progress": queued_progress,
         }
 
     except HTTPException:
         raise
     except Exception as e:
         print(f"[ANALYZE] ERROR: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to start analysis: {str(e)}")
+        raise_api_error(
+            500,
+            code="analysis_start_failed",
+            title="Couldn't start analysis",
+            message="We couldn't queue this PDF for analysis right now.",
+            details=[str(e)] if str(e) else None,
+            next_action="retry",
+            retryable=True,
+        )
 
 
 @router.post("/{document_id}/resolve")
@@ -1016,6 +1237,71 @@ async def get_document_file(document_id: str, user_id: str = Depends(get_current
         raise HTTPException(status_code=500, detail=f"Failed to fetch document file: {str(e)}")
 
 
+@router.get("/{document_id}/export")
+def export_document(
+    document_id: str,
+    format: str = Query("txt", pattern="^(txt|md|tex|pdf)$"),
+    user_id: str = Depends(get_current_user),
+):
+    """Export a document analysis as plain text, markdown, LaTeX, or PDF."""
+    from app.services.export import export_to_markdown, export_to_latex, export_to_text, markdown_to_pdf
+
+    document_response = (
+        supabase.table("documents")
+        .select("id, title, status, analysis, metadata")
+        .eq("id", document_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not document_response.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    document = document_response.data[0]
+    analysis = document.get("analysis")
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Document has no analysis to export")
+
+    document_title = document.get("title") or "Document Analysis"
+    safe_filename = _sanitize_filename(document_title)
+    export_metadata = {
+        "status": document.get("status"),
+        "document_id": document.get("id"),
+    }
+    markdown_content = _serialize_document_analysis(analysis, document_title)
+
+    if format == "txt":
+        text_content = export_to_text(markdown_content, title=document_title, metadata=export_metadata)
+        return Response(
+            content=text_content,
+            media_type="text/plain",
+            headers={"Content-Disposition": f'attachment; filename="{safe_filename}.txt"'},
+        )
+
+    if format == "md":
+        markdown_export = export_to_markdown(markdown_content, export_metadata)
+        return Response(
+            content=markdown_export,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="{safe_filename}.md"'},
+        )
+
+    if format == "tex":
+        latex_content = export_to_latex(markdown_content, export_metadata)
+        return Response(
+            content=latex_content,
+            media_type="application/x-latex",
+            headers={"Content-Disposition": f'attachment; filename="{safe_filename}.tex"'},
+        )
+
+    pdf_bytes = markdown_to_pdf(markdown_content, export_metadata)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename}.pdf"'},
+    )
+
+
 @router.get("/{document_id}/signed-url")
 def get_document_signed_url(document_id: str, user_id: str = Depends(get_current_user)):
     """
@@ -1068,7 +1354,13 @@ def get_document_analysis(document_id: str, user_id: str = Depends(get_current_u
         doc_response = supabase.table("documents").select("id, title, status, analysis, metadata").eq("id", document_id).eq("user_id", user_id).execute()
 
         if not doc_response.data:
-            raise HTTPException(status_code=404, detail="Document not found")
+            raise_api_error(
+                404,
+                code="document_not_found",
+                title="Document not found",
+                message="We couldn't find that PDF in your workspace.",
+                next_action="refresh",
+            )
 
         document = doc_response.data[0]
         status = document.get("status", "uploaded")
@@ -1085,15 +1377,18 @@ def get_document_analysis(document_id: str, user_id: str = Depends(get_current_u
                 "status": "analyzing",
                 "document_id": document_id,
                 "document_title": document.get("title"),
-                "message": "Analysis in progress"
+                "message": "Analysis in progress",
+                "progress": get_progress_snapshot("document", document_id),
             }
         elif status == "failed":
-            error_info = document.get("metadata", {}).get("error", "Unknown error")
+            metadata = document.get("metadata") or {}
+            error_info = metadata.get("error", "Unknown error")
             return {
                 "status": "failed",
                 "document_id": document_id,
                 "document_title": document.get("title"),
-                "error": error_info
+                "error": error_info,
+                "error_detail": metadata.get("error_detail"),
             }
         else:
             return {
@@ -1107,7 +1402,15 @@ def get_document_analysis(document_id: str, user_id: str = Depends(get_current_u
         raise
     except Exception as e:
         print(f"[GET-ANALYSIS] ERROR: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch analysis: {str(e)}")
+        raise_api_error(
+            500,
+            code="analysis_fetch_failed",
+            title="Couldn't load analysis",
+            message="We couldn't load this document analysis right now.",
+            details=[str(e)] if str(e) else None,
+            next_action="retry",
+            retryable=True,
+        )
 
 
 # NOTE: BibTeX export endpoint moved to projects.py router

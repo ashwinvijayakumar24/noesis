@@ -65,11 +65,11 @@ celery_app.conf.update(
     # Rate limiting
     task_annotations={
         "app.tasks.document_analysis.analyze_document": {
-            "rate_limit": "10/m",  # Max 10 document analyses per minute
+            "rate_limit": "30/m",  # Max 30 document analyses per minute
             "queue": "analysis",
         },
         "app.tasks.draft_analysis.analyze_draft": {
-            "rate_limit": "10/m",  # Max 10 draft analyses per minute
+            "rate_limit": "30/m",  # Max 30 draft analyses per minute
             "queue": "analysis",
         },
         "app.tasks.insights_analysis.generate_insights": {

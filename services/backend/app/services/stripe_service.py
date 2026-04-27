@@ -6,10 +6,20 @@ Handles subscription creation, checkout, and webhooks
 
 import stripe
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
+from app.services.quota_management import (
+    PLAN_BIB_LIMITS,
+    PLAN_DRAFT_LIMITS,
+    PLAN_PDF_LIMITS,
+    ensure_user_quota,
+    get_plan_limits,
+    get_project_limit,
+    normalize_plan_tier,
+    sync_user_quota_plan,
+)
 
 
 # Initialize Stripe
@@ -21,17 +31,15 @@ PLAN_CONFIGS = {
         "name": "Pro Plan",
         "price_monthly": 12.00,
         "features": [
-            "Unlimited draft analyses",
-            "Unlimited papers in library",
-            "Advanced feedback (severity levels, line references)",
+            "20 draft analyses per month",
+            "100 PDF uploads per month total",
+            "100 BibTeX references per month total",
+            "50 Discover searches per day",
+            "Unlimited Literature Map refreshes",
             "Priority support",
             "Export analysis as PDF"
         ],
-        "limits": {
-            "monthly_draft_limit": 9999,
-            "library_size_limit": 9999,
-            "monthly_chat_limit": 9999
-        }
+        "limits": get_plan_limits("pro"),
     },
     "team": {
         "name": "Research Group Plan",
@@ -40,19 +48,49 @@ PLAN_CONFIGS = {
         "maximum_seats": 3,
         "features": [
             "All Pro features for 2–3 users",
+            "Effectively unlimited usage",
             "Shared project workspaces",
             "Team collaboration features",
-            "Lab member invite link",
+            "Shared literature libraries",
             "Dedicated support"
         ],
         "limits": {
-            "monthly_draft_limit": 9999,
-            "library_size_limit": 9999,
-            "monthly_chat_limit": 9999,
-            "team_members": 3
-        }
+            **get_plan_limits("team"),
+            "project_limit": get_project_limit("team"),
+        },
     }
 }
+
+
+def _normalize_plan_tier(plan_tier: Optional[str]) -> str:
+    return normalize_plan_tier(plan_tier)
+
+
+def _to_iso8601(timestamp: Optional[int]) -> Optional[str]:
+    if not timestamp:
+        return None
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+
+
+def _get_plan_tier_from_subscription_data(subscription_data: Dict[str, Any], current_plan_tier: str = "free") -> str:
+    metadata = subscription_data.get("metadata") or {}
+    metadata_plan = metadata.get("plan_tier")
+    if metadata_plan:
+        return _normalize_plan_tier(metadata_plan)
+
+    items = (((subscription_data.get("items") or {}).get("data")) or [])
+    price_ids = {
+        (item.get("price") or {}).get("id")
+        for item in items
+        if item.get("price")
+    }
+
+    if settings.STRIPE_PRICE_ID_PRO and settings.STRIPE_PRICE_ID_PRO in price_ids:
+        return "pro"
+    if settings.STRIPE_PRICE_ID_TEAM and settings.STRIPE_PRICE_ID_TEAM in price_ids:
+        return "team"
+
+    return _normalize_plan_tier(current_plan_tier)
 
 
 def create_checkout_session(
@@ -70,7 +108,7 @@ def create_checkout_session(
         plan_tier: Plan tier (pro, team)
         success_url: URL to redirect after successful payment
         cancel_url: URL to redirect if user cancels
-        team_seats: Number of team seats (required for team plan, minimum 3)
+        team_seats: Number of team seats (required for team plan, minimum 2)
 
     Returns:
         Dictionary with checkout session URL
@@ -202,26 +240,20 @@ def handle_checkout_completed(session_data: Dict[str, Any]):
 
     try:
         user_id = session_data["metadata"]["user_id"]
-        plan_tier = session_data["metadata"]["plan_tier"]
+        plan_tier = _normalize_plan_tier(session_data["metadata"]["plan_tier"])
         subscription_id = session_data.get("subscription")
         customer_id = session_data.get("customer")
 
-        # Update subscription record
-        update_data = {
+        subscription_payload = {
+            "user_id": user_id,
             "plan_tier": plan_tier,
             "stripe_subscription_id": subscription_id,
             "stripe_customer_id": customer_id,
             "status": "active",
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
-
-        supabase.table("subscriptions").update(update_data).eq("user_id", user_id).execute()
-
-        # Update usage limits
-        supabase.rpc("set_usage_limits", {
-            "user_id_param": user_id,
-            "tier": plan_tier
-        }).execute()
+        supabase.table("subscriptions").upsert(subscription_payload, on_conflict="user_id").execute()
+        sync_user_quota_plan(user_id, plan_tier)
 
     except Exception as e:
         # Log error but don't fail webhook
@@ -240,16 +272,30 @@ def handle_subscription_updated(subscription_data: Dict[str, Any]):
     try:
         subscription_id = subscription_data["id"]
         status = subscription_data["status"]
-        current_period_start = datetime.fromtimestamp(subscription_data["current_period_start"]).isoformat()
-        current_period_end = datetime.fromtimestamp(subscription_data["current_period_end"]).isoformat()
+        existing = supabase.table("subscriptions").select("user_id, plan_tier")\
+            .eq("stripe_subscription_id", subscription_id)\
+            .limit(1)\
+            .execute()
+
+        if not existing.data:
+            return
+
+        current_plan_tier = existing.data[0].get("plan_tier", "free")
+        user_id = existing.data[0]["user_id"]
+        plan_tier = _get_plan_tier_from_subscription_data(subscription_data, current_plan_tier)
 
         # Update subscription
         supabase.table("subscriptions").update({
+            "plan_tier": plan_tier,
             "status": status,
-            "current_period_start": current_period_start,
-            "current_period_end": current_period_end,
-            "updated_at": datetime.utcnow().isoformat()
+            "current_period_start": _to_iso8601(subscription_data.get("current_period_start")),
+            "current_period_end": _to_iso8601(subscription_data.get("current_period_end")),
+            "cancel_at_period_end": subscription_data.get("cancel_at_period_end", False),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }).eq("stripe_subscription_id", subscription_id).execute()
+
+        enforced_tier = plan_tier if status in {"active", "trialing", "past_due"} else "free"
+        sync_user_quota_plan(user_id, enforced_tier)
 
     except Exception as e:
         print(f"Error handling subscription update: {str(e)}")
@@ -279,14 +325,10 @@ def handle_subscription_deleted(subscription_data: Dict[str, Any]):
         supabase.table("subscriptions").update({
             "plan_tier": "free",
             "status": "canceled",
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }).eq("stripe_subscription_id", subscription_id).execute()
 
-        # Reset usage limits to free tier
-        supabase.rpc("set_usage_limits", {
-            "user_id_param": user_id,
-            "tier": "free"
-        }).execute()
+        sync_user_quota_plan(user_id, "free")
 
     except Exception as e:
         print(f"Error handling subscription deletion: {str(e)}")
@@ -328,13 +370,13 @@ def cancel_subscription(user_id: str, cancel_at_period_end: bool = True) -> Dict
         # Update database
         supabase.table("subscriptions").update({
             "cancel_at_period_end": cancel_at_period_end,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }).eq("user_id", user_id).execute()
 
         return {
             "success": True,
             "message": message,
-            "effective_date": datetime.fromtimestamp(subscription["current_period_end"]).isoformat() if cancel_at_period_end else datetime.utcnow().isoformat()
+            "effective_date": datetime.fromtimestamp(subscription["current_period_end"], tz=timezone.utc).isoformat() if cancel_at_period_end else datetime.now(timezone.utc).isoformat()
         }
 
     except stripe.error.StripeError as e:
@@ -351,47 +393,45 @@ def get_usage_limits(user_id: str) -> Dict[str, Any]:
     Returns:
         Dictionary with usage stats and limits
     """
-    supabase = get_supabase_client()
-
     try:
-        limits = supabase.table("usage_limits").select("*").eq("user_id", user_id).execute()
-
-        if not limits.data:
-            # Create default limits
-            supabase.rpc("set_usage_limits", {
-                "user_id_param": user_id,
-                "tier": "free"
-            }).execute()
-
-            limits = supabase.table("usage_limits").select("*").eq("user_id", user_id).execute()
-
-        if not limits.data:
-            return {
-                "plan_tier": "free",
-                "drafts_analyzed": 0,
-                "drafts_limit": 1,
-                "papers_count": 0,
-                "papers_limit": 5,
-                "can_analyze_draft": True,
-                "can_add_paper": True
-            }
-
-        limit_data = limits.data[0]
+        limit_data = ensure_user_quota(user_id)
+        document_limit = limit_data.get("monthly_document_limit", PLAN_PDF_LIMITS["free"])
+        bib_limit = limit_data.get("monthly_bib_refs_limit", PLAN_BIB_LIMITS["free"])
+        draft_limit = limit_data.get("monthly_draft_limit", PLAN_DRAFT_LIMITS["free"])
+        documents_used = limit_data.get("current_month_documents", 0)
+        bib_refs_used = limit_data.get("current_month_bib_refs", 0)
+        drafts_used = limit_data.get("current_month_drafts", 0)
 
         return {
-            "plan_tier": limit_data.get("plan_tier", "free"),
-            "drafts_analyzed": limit_data.get("drafts_analyzed_this_month", 0),
-            "drafts_limit": limit_data.get("monthly_draft_limit", 1),
-            "papers_count": limit_data.get("papers_in_library", 0),
-            "papers_limit": limit_data.get("library_size_limit", 5),
-            "can_analyze_draft": (
-                limit_data.get("monthly_draft_limit", 1) == -1 or
-                limit_data.get("drafts_analyzed_this_month", 0) < limit_data.get("monthly_draft_limit", 1)
-            ),
+            "plan_tier": normalize_plan_tier(limit_data.get("plan_tier", "free")),
+            "documents_uploaded": documents_used,
+            "documents_limit": document_limit,
+            "bib_refs_imported": bib_refs_used,
+            "bib_refs_limit": bib_limit,
+            "drafts_analyzed": drafts_used,
+            "drafts_limit": draft_limit,
+            "papers_count": documents_used + bib_refs_used,
+            "papers_limit": document_limit + bib_limit,
+            "can_analyze_draft": drafts_used < draft_limit or draft_limit >= 9999,
+            "can_upload_document": documents_used < document_limit or document_limit >= 9999,
+            "can_import_bib": bib_refs_used < bib_limit or bib_limit >= 9999,
             "can_add_paper": (
-                limit_data.get("library_size_limit", 5) == -1 or
-                limit_data.get("papers_in_library", 0) < limit_data.get("library_size_limit", 5)
-            )
+                documents_used < document_limit
+                or bib_refs_used < bib_limit
+                or document_limit >= 9999
+                or bib_limit >= 9999
+            ),
+            "documents": {
+                "current": documents_used,
+                "limit": document_limit,
+                "remaining": max(document_limit - documents_used, 0),
+            },
+            "bib_refs": {
+                "current": bib_refs_used,
+                "limit": bib_limit,
+                "remaining": max(bib_limit - bib_refs_used, 0),
+            },
+            "quota_reset_date": limit_data.get("quota_reset_date"),
         }
 
     except Exception as e:

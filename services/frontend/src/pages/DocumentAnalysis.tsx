@@ -7,6 +7,8 @@ import { handleError } from '../lib/errorHandler'
 import { useAuthStore } from '../stores/authStore'
 import DocumentViewer from '../components/DocumentViewer'
 import { Badge } from '../components/ui/Badge'
+import InlineAlert from '../components/ui/InlineAlert'
+import { ProgressIndicator } from '../components/ui/ProgressIndicator'
 
 interface Document {
   id: string
@@ -15,6 +17,17 @@ interface Document {
   file_type: string
   status: string
   analysis: DocumentAnalysis | null
+  progress?: {
+    stage?: string
+    label?: string
+    percent?: number
+    retrying?: boolean
+  }
+  error_detail?: {
+    title?: string
+    message?: string
+    details?: string[]
+  }
   created_at: string
   updated_at: string
 }
@@ -52,6 +65,15 @@ export default function DocumentAnalysis() {
   const [loading, setLoading] = useState(true)
   const [document, setDocument] = useState<Document | null>(null)
   const [selectedTab, setSelectedTab] = useState(0)
+
+  const documentProgressSteps = [
+    { key: 'queued', label: 'Queued' },
+    { key: 'parsing_pdf', label: 'Parsing PDF' },
+    { key: 'extracting_structure', label: 'Extracting structure' },
+    { key: 'running_analysis', label: 'Running analysis' },
+    { key: 'generating_embeddings', label: 'Saving evidence' },
+    { key: 'finalizing', label: 'Finalizing' },
+  ]
 
   const loadDocumentData = useCallback(async () => {
     if (!documentId || !token) return
@@ -187,12 +209,20 @@ export default function DocumentAnalysis() {
   const proxyFileUrl = `${API_URL}/documents/${documentId}/file`
 
   if (document.status === 'failed') {
+    const details = Array.isArray(document.error_detail?.details) ? document.error_detail.details : []
     return (
       <div className="min-h-screen bg-bg-base flex items-center justify-center">
-        <div className="text-center">
+        <div className="max-w-lg text-center space-y-4">
           <ExclamationTriangleIcon className="h-16 w-16 text-error mx-auto" />
           <h2 className="mt-4 text-xl font-serif font-semibold text-text-primary">Analysis failed</h2>
           <p className="mt-2 text-text-secondary">Document analysis failed. Please try analyzing again.</p>
+          {document.error_detail && (
+            <InlineAlert
+              title={document.error_detail.title || 'Analysis failed'}
+              message={document.error_detail.message || 'We could not analyze this PDF.'}
+              details={details}
+            />
+          )}
           <button
             onClick={() => navigate(`/projects/${projectId}`)}
             className="mt-6 px-4 py-2 bg-surface border border-border-base text-text-primary rounded-lg hover:bg-surface-hover transition-colors"
@@ -205,17 +235,32 @@ export default function DocumentAnalysis() {
   }
 
   if (document.status === 'analyzing' || document.status === 'processing') {
+    const currentStage = document.progress?.stage
+    const currentStageIndex = currentStage
+      ? documentProgressSteps.findIndex((item) => item.key === currentStage)
+      : 0
+    const steps = documentProgressSteps.map((step) => ({
+      label: step.label,
+      completed: currentStageIndex > -1 ? documentProgressSteps.findIndex((item) => item.key === step.key) < currentStageIndex : false,
+      active: currentStage ? step.key === currentStage : step.key === 'queued',
+    }))
     return (
-      <div className="min-h-screen bg-bg-base flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-accent-primary"></div>
-          <h2 className="mt-4 text-xl font-serif font-semibold text-text-primary">Analysis in progress</h2>
-          <p className="mt-2 text-text-secondary">
-            We're analyzing this document. This usually takes about 60 seconds.
-          </p>
+      <div className="min-h-screen bg-bg-base flex items-center justify-center px-4">
+        <div className="w-full max-w-2xl space-y-4">
+          <ProgressIndicator
+            progress={document.progress?.percent ?? 15}
+            status={document.progress?.retrying ? 'Processing and retrying' : 'Processing document'}
+            steps={steps}
+            showElapsedTime
+          />
+          <InlineAlert
+            tone="info"
+            title="Private by default"
+            message="Your files stay in your workspace and are not used to train models."
+          />
           <button
             onClick={loadDocumentData}
-            className="mt-6 px-4 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-hover transition-colors"
+            className="px-4 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-hover transition-colors"
           >
             Refresh Status
           </button>

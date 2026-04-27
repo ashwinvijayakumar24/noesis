@@ -59,7 +59,7 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0
       GROBID_URL: http://grobid:8070
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 --queues=default,analysis,insights
+    command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=20,4 --queues=default,analysis,insights
     depends_on:
       redis:
         condition: service_healthy

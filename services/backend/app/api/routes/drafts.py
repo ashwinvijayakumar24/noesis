@@ -15,7 +15,7 @@ from app.services.draft_processing import ingest_draft, validate_file_format
 from app.services.draft_export import export_draft_analysis_as_pdf
 from app.services.draft_errors import DraftProcessingError
 from app.core.security_middleware import SecureAuthValidator, limiter
-from typing import Optional
+from typing import Any, Optional
 import datetime
 import uuid
 import logging
@@ -32,6 +32,91 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 REDIS_URL = "redis://redis:6379/0"
+VALID_PAPER_TYPES = {
+    "journal_article",
+    "conference_paper",
+    "thesis",
+    "dissertation",
+    "preprint",
+}
+VALID_CITATION_STYLES = {
+    "apa",
+    "mla",
+    "chicago",
+    "ieee",
+    "vancouver",
+    "other",
+}
+
+
+def _normalize_reviewer_persona(value: Optional[str]) -> str:
+    return value if value in {"reviewer_1", "reviewer_2"} else "reviewer_2"
+
+
+def _validate_upload_context(paper_type: str, citation_style: str) -> tuple[str, str]:
+    normalized_paper_type = (paper_type or "journal_article").strip().lower()
+    normalized_citation_style = (citation_style or "apa").strip().lower()
+
+    if normalized_paper_type not in VALID_PAPER_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid paper_type. Must be one of: {', '.join(sorted(VALID_PAPER_TYPES))}",
+        )
+
+    if normalized_citation_style not in VALID_CITATION_STYLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid citation_style. Must be one of: {', '.join(sorted(VALID_CITATION_STYLES))}",
+        )
+
+    return normalized_paper_type, normalized_citation_style
+
+
+def _get_latest_revision_metadata(draft_id: str, user_id: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    empty_metadata = {
+        "has_previous_version": False,
+        "comparison_id": None,
+        "draft_v1_id": None,
+        "draft_v2_id": draft_id,
+        "improvement_score": None,
+        "feedback_resolved_count": 0,
+        "feedback_carryover_count": 0,
+        "gaps_resolved_count": 0,
+    }
+
+    comparison_response = supabase.table("draft_comparisons")\
+        .select("*")\
+        .eq("draft_v2_id", draft_id)\
+        .eq("user_id", user_id)\
+        .order("created_at", desc=True)\
+        .limit(1)\
+        .execute()
+
+    if not comparison_response.data:
+        return empty_metadata, {}
+
+    comparison = comparison_response.data[0]
+    comparison_result = comparison.get("comparison_result") or {}
+    carryover_items = comparison_result.get("feedback_carryover") or []
+    carryover_map = {
+        item["feedback_id"]: item
+        for item in carryover_items
+        if item.get("feedback_id")
+    }
+
+    return (
+        {
+            "has_previous_version": True,
+            "comparison_id": comparison.get("id"),
+            "draft_v1_id": comparison.get("draft_v1_id"),
+            "draft_v2_id": comparison.get("draft_v2_id"),
+            "improvement_score": comparison.get("improvement_score"),
+            "feedback_resolved_count": comparison.get("feedback_addressed", 0),
+            "feedback_carryover_count": len(carryover_map),
+            "gaps_resolved_count": comparison.get("gaps_resolved", 0),
+        },
+        carryover_map,
+    )
 
 
 # Helper functions
@@ -156,6 +241,8 @@ async def analyze_draft_from_extension(
         "version": 1,
         "file_url": file_url,
         "file_type": "txt",
+        "paper_type": "journal_article",
+        "citation_style": "apa",
         "status": "processing",
         "created_at": datetime.datetime.utcnow().isoformat(),
         "updated_at": datetime.datetime.utcnow().isoformat(),
@@ -177,6 +264,8 @@ async def upload_draft(
     file: UploadFile = File(...),
     project_id: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
+    paper_type: str = Form(default="journal_article"),
+    citation_style: str = Form(default="apa"),
     user_id: str = Depends(get_current_user)
 ):
     """
@@ -196,9 +285,14 @@ async def upload_draft(
     Returns:
         Draft metadata with ID for subsequent analysis
     """
-    print(f"[DRAFT-UPLOAD] Received: file={file.filename}, project_id={project_id}, title={title}, user_id={user_id}")
+    print(
+        f"[DRAFT-UPLOAD] Received: file={file.filename}, project_id={project_id}, title={title}, "
+        f"user_id={user_id}, paper_type={paper_type}, citation_style={citation_style}"
+    )
 
     try:
+        paper_type, citation_style = _validate_upload_context(paper_type, citation_style)
+
         # Read file content
         file_content = await file.read()
         file_size = len(file_content)
@@ -292,6 +386,8 @@ async def upload_draft(
             "file_url": file_url,
             "file_type": file_extension,
             "file_size": file_size,
+            "paper_type": paper_type,
+            "citation_style": citation_style,
             "status": "processing",  # Changed from "uploaded" to auto-trigger analysis
             "created_at": datetime.datetime.utcnow().isoformat(),
             "updated_at": datetime.datetime.utcnow().isoformat()
@@ -950,11 +1046,17 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
         if status in ("analyzed", "failed") and analysis_response.data:
             analysis_data = analysis_response.data[0]
             analysis_metadata = analysis_data.get("analysis_metadata") or {}
+            analysis_payload = analysis_data.get("analysis") or {}
+            revision_metadata, _ = _get_latest_revision_metadata(draft_id, user_id)
             return {
                 "status": status,
                 "draft_id": draft_id,
                 "draft_title": draft.get("title"),
                 "analysis": analysis_data,
+                "editing_feedback": analysis_payload.get("editing_feedback"),
+                "paper_type": draft.get("paper_type", "journal_article"),
+                "citation_style": draft.get("citation_style", "apa"),
+                "revision_metadata": revision_metadata,
                 "priority_actions": analysis_metadata.get("priority_actions", []),
                 # Enriched output fields
                 "readiness_score": analysis_metadata.get("readiness_score"),
@@ -1253,6 +1355,227 @@ async def get_feedback_by_section(
     except Exception as e:
         logger.error(f"Failed to fetch section feedback for draft {draft_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch section feedback: {str(e)}")
+
+
+@router.get("/{draft_id}/all-feedback")
+async def get_all_feedback(
+    draft_id: str,
+    actionable_only: bool = Query(True, description="Filter to only actionable items"),
+    status: str = Query('new', description="Feedback status: new, saved, dismissed"),
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Get all feedback items across all sections in one call.
+
+    Returns combined claims, coverage gaps, and reviewer feedback with
+    aggregated counts and readiness score/verdict from draft_analysis.
+
+    When actionable_only=True (default):
+    - Claims: only those with requires_citation=True OR importance_score >= 0.65
+    - Feedback: excludes feedback_type='strength'
+    - Gaps: all included (gaps are inherently actionable)
+    """
+    try:
+        # Verify draft ownership
+        draft_response = supabase.table("drafts")\
+            .select("id")\
+            .eq("id", draft_id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not draft_response.data:
+            raise HTTPException(status_code=404, detail="Draft not found")
+
+        # Validate status
+        valid_statuses = ['new', 'saved', 'dismissed']
+        if status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            )
+
+        # Status filter: when querying "new", also include items with NULL status
+        status_filter = f"status.eq.{status},status.is.null" if status == "new" else f"status.eq.{status}"
+
+        # Fetch all claims, gaps, feedback in parallel-ish queries
+        claims_response = supabase.table("draft_claims")\
+            .select("*")\
+            .eq("draft_id", draft_id)\
+            .or_(status_filter)\
+            .eq("hidden", False)\
+            .order("importance_score", desc=True)\
+            .execute()
+
+        gaps_response = supabase.table("coverage_gaps")\
+            .select("*")\
+            .eq("draft_id", draft_id)\
+            .or_(status_filter)\
+            .order("priority", desc=False)\
+            .execute()
+
+        feedback_response = supabase.table("reviewer_feedback")\
+            .select("*")\
+            .eq("draft_id", draft_id)\
+            .or_(status_filter)\
+            .order("priority", desc=False)\
+            .execute()
+
+        claims = claims_response.data or []
+        gaps = gaps_response.data or []
+        feedback = feedback_response.data or []
+        revision_metadata, carryover_map = _get_latest_revision_metadata(draft_id, user_id)
+
+        for item in feedback:
+            item["reviewer_persona"] = _normalize_reviewer_persona(item.get("reviewer_persona"))
+            carryover = carryover_map.get(item.get("id"))
+            item["carryover_from_previous_version"] = carryover is not None
+            item["carryover_status"] = "carried_over" if carryover else None
+            item["previous_feedback_text"] = carryover.get("previous_feedback_text") if carryover else None
+            item["previous_feedback_id"] = carryover.get("previous_feedback_id") if carryover else None
+
+        # Apply actionable_only filtering
+        if actionable_only:
+            claims = [
+                c for c in claims
+                if c.get("requires_citation") is True or (c.get("importance_score") or 0) >= 0.65
+            ]
+            feedback = [
+                f for f in feedback
+                if f.get("feedback_type") != "strength"
+            ]
+
+        # Compute aggregated counts
+        claims_needing_citation = len([c for c in claims if c.get("requires_citation") is True])
+        critical_gaps = len([g for g in gaps if g.get("priority") == "high"])
+        critical_feedback = len([f for f in feedback if f.get("severity") in ("critical", "major")])
+
+        # Fetch readiness_score and verdict from draft_analysis
+        analysis_response = supabase.table("draft_analysis")\
+            .select("analysis_metadata")\
+            .eq("draft_id", draft_id)\
+            .execute()
+
+        readiness_score = None
+        verdict = None
+        score_breakdown = {}
+        if analysis_response.data:
+            metadata = analysis_response.data[0].get("analysis_metadata") or {}
+            readiness_score = metadata.get("readiness_score")
+            verdict = metadata.get("verdict")
+            score_breakdown = metadata.get("score_breakdown", {})
+
+        return {
+            "claims": claims,
+            "gaps": gaps,
+            "feedback": feedback,
+            "status": status,
+            "actionable_only": actionable_only,
+            "counts": {
+                "total_claims": len(claims),
+                "claims_needing_citation": claims_needing_citation,
+                "total_gaps": len(gaps),
+                "critical_gaps": critical_gaps,
+                "total_feedback": len(feedback),
+                "critical_feedback": critical_feedback,
+            },
+            "readiness_score": readiness_score,
+            "verdict": verdict,
+            "score_breakdown": score_breakdown,
+            "revision_metadata": revision_metadata,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch all feedback for draft {draft_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch all feedback: {str(e)}")
+
+
+@router.post("/{draft_id}/gaps/{gap_id}/find-papers")
+async def find_papers_for_gap(
+    draft_id: str,
+    gap_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Search for relevant external papers for a specific coverage gap."""
+    draft_res = (
+        supabase.table("drafts")
+        .select("id, user_id, project_id")
+        .eq("id", draft_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    if not draft_res.data:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    gap_res = (
+        supabase.table("coverage_gaps")
+        .select("id, description, draft_id, suggested_papers")
+        .eq("id", gap_id)
+        .eq("draft_id", draft_id)
+        .single()
+        .execute()
+    )
+    if not gap_res.data:
+        raise HTTPException(status_code=404, detail="Gap not found")
+
+    from fastapi.concurrency import run_in_threadpool
+    from app.services.paper_recommendations import search_papers_by_query
+
+    query = " ".join(
+        part
+        for part in [
+            gap_res.data.get("description", "").strip(),
+        ]
+        if part
+    )
+    if not query:
+        raise HTTPException(status_code=400, detail="Gap has no description to search")
+
+    papers = await run_in_threadpool(lambda: search_papers_by_query(query=query, limit=5))
+
+    project_id = draft_res.data.get("project_id")
+    existing_recs = []
+    if project_id:
+        rec_res = (
+            supabase.table("paper_recommendations")
+            .select("id, doi, arxiv_id, title")
+            .eq("project_id", project_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        existing_recs = rec_res.data or []
+
+    rec_map: dict[str, str] = {}
+    for rec in existing_recs:
+        if rec.get("doi"):
+            rec_map[f"doi:{rec['doi']}"] = rec["id"]
+        if rec.get("arxiv_id"):
+            rec_map[f"arxiv:{rec['arxiv_id']}"] = rec["id"]
+        if rec.get("title"):
+            rec_map[f"title:{rec['title'].strip().lower()}"] = rec["id"]
+
+    annotated_papers = []
+    for paper in papers:
+        recommendation_id = None
+        if paper.get("doi"):
+            recommendation_id = rec_map.get(f"doi:{paper['doi']}")
+        if recommendation_id is None and paper.get("arxiv_id"):
+            recommendation_id = rec_map.get(f"arxiv:{paper['arxiv_id']}")
+        if recommendation_id is None and paper.get("title"):
+            recommendation_id = rec_map.get(f"title:{paper['title'].strip().lower()}")
+
+        annotated_papers.append({**paper, "recommendation_id": recommendation_id})
+
+    supabase.table("coverage_gaps").update(
+        {
+            "suggested_papers": annotated_papers,
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }
+    ).eq("id", gap_id).eq("draft_id", draft_id).execute()
+
+    return {"gap_id": gap_id, "query": query, "papers": annotated_papers, "count": len(annotated_papers)}
 
 
 @router.patch("/{draft_id}/feedback/{feedback_id}/status")

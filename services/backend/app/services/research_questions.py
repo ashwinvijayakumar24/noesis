@@ -10,7 +10,6 @@ from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_completion_params
 
 logger = get_logger(__name__)
-client = get_openai_client()
 
 
 def generate_research_questions(insights: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -98,6 +97,7 @@ Return a JSON object with a "questions" array in the format:
     logger.info("Generating research questions from insights")
 
     try:
+        client = get_openai_client()
         # Note: Temperature removed - GPT-5.2 models use default temperature=1.0
         response = client.chat.completions.create(
             model="gpt-5.2-chat-latest",

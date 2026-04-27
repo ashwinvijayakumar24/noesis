@@ -76,7 +76,7 @@ export default function EmailCaptureModal({ isOpen, onClose, onSubmit }: EmailCa
                     Want to Analyze Your Own Drafts?
                   </h3>
                   <p className="text-text-secondary">
-                    Sign up for free to upload your papers and get AI-powered feedback before submission.
+                    Sign up for free to upload papers, import references, and get AI-powered feedback before submission.
                   </p>
                 </div>
 
@@ -112,15 +112,15 @@ export default function EmailCaptureModal({ isOpen, onClose, onSubmit }: EmailCa
                 <div className="mt-6 space-y-2 text-sm text-text-secondary">
                   <div className="flex items-start gap-2">
                     <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                    <span>Unlimited draft analyses (free tier)</span>
+                    <span>2 draft analyses per month on Free</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                    <span>AI-powered reviewer feedback with line references</span>
+                    <span>30 PDF uploads and 30 BibTeX references per month</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                    <span>Citation gap detection and suggestions</span>
+                    <span>5 Discover searches and 5 Literature Map refreshes per day</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0" />

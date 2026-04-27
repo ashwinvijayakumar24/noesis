@@ -141,23 +141,6 @@ export function SkeletonProjectCard() {
 }
 
 /**
- * Skeleton for chat messages
- */
-export function SkeletonChatMessage({ isUser = false }: { isUser?: boolean }) {
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-3xl ${isUser ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-800'} rounded-lg p-4 space-y-2`}>
-        <div className="space-y-2">
-          <Skeleton variant="text" height="0.875rem" width="100%" />
-          <Skeleton variant="text" height="0.875rem" width="90%" />
-          <Skeleton variant="text" height="0.875rem" width="70%" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
  * Skeleton for table rows
  */
 export function SkeletonTableRow({ columns = 4 }: { columns?: number }) {

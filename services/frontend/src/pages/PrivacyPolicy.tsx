@@ -50,7 +50,7 @@ export default function PrivacyPolicy() {
                 <li>Research drafts (PDF, DOCX, TXT files)</li>
                 <li>Literature documents (PDF files)</li>
                 <li>Project titles and descriptions</li>
-                <li>Chat messages and queries</li>
+                <li>Research questions, annotations, and analysis requests</li>
                 <li>Annotations and notes</li>
               </ul>
             </div>
@@ -133,10 +133,10 @@ export default function PrivacyPolicy() {
                 <div>
                   <h4 className="font-semibold text-text-primary">OpenAI (AI Processing)</h4>
                   <p className="text-sm text-text-muted mt-1">
-                    <strong>Purpose:</strong> Powers AI analysis (GPT-4o) and embeddings (text-embedding-3-small)
+                    <strong>Purpose:</strong> Powers AI analysis and embeddings (text-embedding-3-small)
                   </p>
                   <p className="text-sm text-text-muted mt-1">
-                    <strong>Data Handling:</strong> Zero data retention enabled. Your research content is processed but never stored by OpenAI for training or other purposes.
+                    <strong>Data Handling:</strong> Research content is sent only to the providers needed to run analysis, and it is not used to train models.
                   </p>
                   <p className="text-sm text-text-muted mt-1">
                     <strong>Privacy Policy:</strong>{' '}
@@ -342,7 +342,7 @@ export default function PrivacyPolicy() {
               <ul className="space-y-2 text-sm text-text-secondary">
                 <li className="flex items-start gap-2">
                   <span className="text-accent-primary">•</span>
-                  <span><strong>Zero Data Retention:</strong> OpenAI does not store your research content for training or other purposes</span>
+                  <span><strong>No Model Training:</strong> Your research content is not used to train models</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-accent-primary">•</span>
@@ -496,8 +496,8 @@ export default function PrivacyPolicy() {
                 <div className="flex items-start gap-3">
                   <LockClosedIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-text-primary">Zero Data Retention</p>
-                    <p className="text-text-muted">OpenAI doesn't store your research for training</p>
+                    <p className="font-semibold text-text-primary">No Model Training</p>
+                    <p className="text-text-muted">Your research content is not used to train models</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">

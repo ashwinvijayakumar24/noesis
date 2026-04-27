@@ -239,7 +239,7 @@ def generate_reviewer_feedback_node(state: DraftAnalysisState) -> DraftAnalysisS
     # OPTIMIZATION: Check if feedback already exists in database (from Phase 1)
     try:
         existing_feedback_res = supabase.table("reviewer_feedback")\
-            .select("id, feedback_type, feedback_text, severity, section_reference")\
+            .select("id, feedback_type, feedback_text, severity, section_reference, reviewer_persona")\
             .eq("draft_id", draft_id)\
             .execute()
 
@@ -252,7 +252,8 @@ def generate_reviewer_feedback_node(state: DraftAnalysisState) -> DraftAnalysisS
                     "feedback_type": db_fb["feedback_type"],
                     "feedback_text": db_fb["feedback_text"],
                     "severity": db_fb["severity"],
-                    "section_reference": db_fb.get("section_reference", "")
+                    "section_reference": db_fb.get("section_reference", ""),
+                    "reviewer_persona": db_fb.get("reviewer_persona") or "reviewer_2",
                 }
                 feedback_items.append(feedback)
 
@@ -356,7 +357,8 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
                 'feedback_type': item['feedback_type'],
                 'feedback_text': item['feedback_text'],
                 'severity': item['severity'],
-                'section_reference': item.get('section_reference', '')
+                'section_reference': item.get('section_reference', ''),
+                'reviewer_persona': 'reviewer_2',
             }
             feedback_items.append(feedback)
 

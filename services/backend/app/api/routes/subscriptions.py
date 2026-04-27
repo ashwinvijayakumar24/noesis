@@ -19,6 +19,7 @@ from app.services.stripe_service import (
     handle_subscription_deleted,
     PLAN_CONFIGS
 )
+from app.services.quota_management import get_plan_limits, get_project_limit
 
 
 def get_current_user(authorization: str = Header(None)):
@@ -39,7 +40,7 @@ class CheckoutRequest(BaseModel):
     plan_tier: str = Field(..., description="Plan tier: pro or team")
     success_url: HttpUrl = Field(..., description="URL to redirect after successful payment")
     cancel_url: HttpUrl = Field(..., description="URL to redirect if payment is canceled")
-    team_seats: Optional[int] = Field(None, description="Number of team seats (required for team plan, minimum 3)")
+    team_seats: Optional[int] = Field(None, description="Number of team seats (required for team plan, minimum 2, maximum 3)")
 
 
 class CheckoutResponse(BaseModel):
@@ -64,15 +65,16 @@ async def get_available_plans():
                 "name": "Free Plan",
                 "price_monthly": 0,
                 "features": [
-                    "1 draft analysis per month",
-                    "5 papers in library",
-                    "20 chat messages per month",
+                    "2 draft analyses per month",
+                    "30 PDF uploads per month total",
+                    "30 BibTeX references per month total",
+                    "5 Discover searches per day",
+                    "5 Literature Map refreshes per day",
                     "Basic feedback"
                 ],
                 "limits": {
-                    "monthly_draft_limit": 1,
-                    "library_size_limit": 5,
-                    "monthly_chat_limit": 20
+                    **get_plan_limits("free"),
+                    "project_limit": get_project_limit("free"),
                 }
             },
             "pro": PLAN_CONFIGS["pro"],
@@ -102,10 +104,10 @@ async def create_checkout(
 
         # Validate team_seats for team plan
         if request.plan_tier == "team" and request.team_seats is not None:
-            if request.team_seats < 3:
-                raise HTTPException(status_code=400, detail="Team plan requires minimum 3 seats")
-            if request.team_seats > 100:
-                raise HTTPException(status_code=400, detail="Team plan allows maximum 100 seats")
+            if request.team_seats < 2:
+                raise HTTPException(status_code=400, detail="Team plan requires minimum 2 seats")
+            if request.team_seats > 3:
+                raise HTTPException(status_code=400, detail="Team plan allows maximum 3 seats")
 
         result = create_checkout_session(
             user_id=user_id,

@@ -18,17 +18,18 @@ const getStatusBadge = (status: string): { variant: BadgeVariant; label: string;
   const statusLower = status.toLowerCase()
   switch (statusLower) {
     case 'processing':
-    case 'uploaded':
-    case 'ready':  // Backend intermediate state - treat as processing
+    case 'ready':
       return { variant: 'warning', label: 'Processing', animate: true }
+    case 'uploaded':
+      return { variant: 'neutral', label: 'Queued', animate: true }
     case 'analyzing':
-      return { variant: 'warning', label: 'Analyzing', animate: true }
+      return { variant: 'warning', label: 'Processing', animate: true }
     case 'failed':
       return { variant: 'error', label: 'Failed', animate: false }
     case 'analyzed':
-      return { variant: 'success', label: 'Processed', animate: false }
+      return { variant: 'success', label: 'Ready', animate: false }
     default:
-      return { variant: 'success', label: 'Processed', animate: false }
+      return { variant: 'success', label: 'Ready', animate: false }
   }
 }
 
@@ -37,9 +38,10 @@ const getStatusColor = (status: string): string => {
   const statusLower = status.toLowerCase()
   switch (statusLower) {
     case 'processing':
-    case 'uploaded':
-    case 'ready':  // Backend intermediate state - treat as processing
+    case 'ready':
       return 'bg-amber-400 animate-pulse'
+    case 'uploaded':
+      return 'bg-slate-400 animate-pulse'
     case 'analyzing':
       return 'bg-amber-400 animate-pulse'
     case 'failed':

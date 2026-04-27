@@ -184,7 +184,6 @@ async def _maybe_grant_lab_reward(supabase, referrer_id: str, referee_email: str
             "plan_tier": "lab",
             "monthly_draft_limit": 9999,
             "monthly_document_limit": 9999,
-            "monthly_chat_messages_limit": 9999,
         }).eq("user_id", referrer_id).execute()
 
         # Mark the qualifying referrals as reward_granted so we don't double-grant

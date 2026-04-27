@@ -112,6 +112,7 @@ async def analyze_draft_with_langgraph(
             try:
                 docs_res = supabase.table("documents")\
                     .select("id, title, analysis, metadata")\
+                    .neq("resolution_status", "unresolved")\
                     .in_("id", list(all_doc_ids))\
                     .execute()
                 # First pass: build display map; collect arxiv IDs for fallback lookup
@@ -166,6 +167,24 @@ async def analyze_draft_with_langgraph(
             except Exception as doc_err:
                 logger.warning(f"[LangGraph Draft Analysis] Could not fetch doc metadata for display: {doc_err}")
 
+        existing_analysis_res = supabase.table("draft_analysis")\
+            .select("analysis, analysis_metadata")\
+            .eq("draft_id", draft_id)\
+            .limit(1)\
+            .execute()
+        existing_analysis = {}
+        existing_metadata = {}
+        if existing_analysis_res.data:
+            existing_analysis = existing_analysis_res.data[0].get("analysis") or {}
+            existing_metadata = existing_analysis_res.data[0].get("analysis_metadata") or {}
+
+        draft_context_res = supabase.table("drafts")\
+            .select("paper_type, citation_style")\
+            .eq("id", draft_id)\
+            .limit(1)\
+            .execute()
+        draft_context = draft_context_res.data[0] if draft_context_res.data else {}
+
         # ============================================================
         # 1. Store draft_analysis (structure and initial metadata)
         # ============================================================
@@ -173,13 +192,17 @@ async def analyze_draft_with_langgraph(
             "draft_id": draft_id,
             "structure": structure,
             "word_count": structure.get("word_count", 0),
+            "analysis": existing_analysis,
             "analysis_metadata": {
+                **existing_metadata,
                 "workflow_type": "langgraph",
                 "total_claims": len(claims),
                 "total_gaps": len(gaps),
                 "total_feedback": len(all_feedback),
                 "errors": errors,
-                "timestamp": datetime.datetime.utcnow().isoformat()
+                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "paper_type": draft_context.get("paper_type", existing_metadata.get("paper_type")),
+                "citation_style": draft_context.get("citation_style", existing_metadata.get("citation_style")),
             },
             "created_at": datetime.datetime.utcnow().isoformat()
         }
@@ -216,7 +239,13 @@ async def analyze_draft_with_langgraph(
                     if citation_info:
                         base_display = doc_display_map.get(citation_info["doc_id"], "")
                         similarity_pct = int(citation_info["similarity"] * 100)
-                        display_str = f"{base_display} · {similarity_pct}% match" if base_display else ""
+                        if base_display:
+                            display_str = f"{base_display} · {similarity_pct}% match"
+                        elif citation_info.get("doc_title"):
+                            short_title = citation_info["doc_title"][:45] + ("…" if len(citation_info["doc_title"]) > 45 else "")
+                            display_str = f"{short_title} · {similarity_pct}% match"
+                        else:
+                            display_str = f"Library document · {similarity_pct}% match"
                         supporting_lit = {
                             "top_match": {
                                 "document_id": citation_info["doc_id"],
@@ -256,7 +285,13 @@ async def analyze_draft_with_langgraph(
                     if citation_info:
                         base_display = doc_display_map.get(citation_info["doc_id"], "")
                         similarity_pct = int(citation_info["similarity"] * 100)
-                        display_str = f"{base_display} · {similarity_pct}% match" if base_display else ""
+                        if base_display:
+                            display_str = f"{base_display} · {similarity_pct}% match"
+                        elif citation_info.get("doc_title"):
+                            short_title = citation_info["doc_title"][:45] + ("…" if len(citation_info["doc_title"]) > 45 else "")
+                            display_str = f"{short_title} · {similarity_pct}% match"
+                        else:
+                            display_str = f"Library document · {similarity_pct}% match"
                         supporting_lit = {
                             "top_match": {
                                 "document_id": citation_info["doc_id"],
@@ -321,8 +356,13 @@ async def analyze_draft_with_langgraph(
                     }
                     gaps_data.append(gap_record)
 
-                supabase.table("coverage_gaps").insert(gaps_data).execute()
+                insert_res = supabase.table("coverage_gaps").insert(gaps_data).execute()
                 logger.info(f"[LangGraph Draft Analysis] Stored {len(gaps)} coverage gaps")
+                # Backfill DB-assigned IDs into in-memory gaps so the enrichment step can update them
+                if insert_res.data:
+                    for i, row in enumerate(insert_res.data):
+                        if i < len(gaps):
+                            gaps[i]["id"] = row.get("id")
 
         # ============================================================
         # 4. Store reviewer_feedback + structural feedback
@@ -350,6 +390,7 @@ async def analyze_draft_with_langgraph(
                         "feedback_type": "structural",
                         "feedback_text": fb.get("feedback_text", ""),
                         "severity": fb.get("severity", "major"),
+                        "reviewer_persona": "reviewer_2",
                         "section_reference": fb.get("section_reference", ""),
                         "specific_issue": fb.get("specific_issue", ""),
                         "created_at": datetime.datetime.utcnow().isoformat()
@@ -365,14 +406,55 @@ async def analyze_draft_with_langgraph(
                     "feedback_type": fb.get("feedback_type", "general"),
                     "feedback_text": fb.get("feedback_text", ""),
                     "severity": fb.get("severity", "minor"),
+                    "reviewer_persona": fb.get("reviewer_persona", "reviewer_2"),
                     "section_reference": fb.get("section_reference", ""),
                     "specific_issue": fb.get("specific_issue", ""),
+                    "suggestions": fb.get("suggestions", []),
                     "created_at": datetime.datetime.utcnow().isoformat()
                 })
 
             if feedback_data:
                 supabase.table("reviewer_feedback").insert(feedback_data).execute()
                 logger.info(f"[LangGraph Draft Analysis] Stored {len(feedback_data)} feedback items")
+
+        r1_existing_res = supabase.table("reviewer_feedback")\
+            .select("id")\
+            .eq("draft_id", draft_id)\
+            .eq("reviewer_persona", "reviewer_1")\
+            .limit(1)\
+            .execute()
+        r1_items = []
+        if r1_existing_res.data:
+            logger.info("[LangGraph Draft Analysis] Reviewer 1 strengths already exist - skipping")
+        else:
+            try:
+                from app.services.reviewer1_feedback import generate_reviewer1_feedback
+
+                r1_items = await generate_reviewer1_feedback(
+                    draft_id=draft_id,
+                    draft_content=draft_content,
+                    structure=structure,
+                )
+                r1_rows = [
+                    {
+                        "draft_id": draft_id,
+                        "feedback_type": item.get("feedback_type", "strength"),
+                        "feedback_text": item.get("feedback_text", ""),
+                        "severity": item.get("severity", "suggestion"),
+                        "reviewer_persona": "reviewer_1",
+                        "section_reference": item.get("section_reference", "Overall"),
+                        "specific_issue": item.get("specific_issue", ""),
+                        "suggestions": item.get("suggestions", []),
+                        "created_at": datetime.datetime.utcnow().isoformat(),
+                    }
+                    for item in r1_items
+                    if item.get("feedback_text")
+                ]
+                if r1_rows:
+                    supabase.table("reviewer_feedback").insert(r1_rows).execute()
+                    logger.info(f"[LangGraph Draft Analysis] Stored {len(r1_rows)} Reviewer 1 strengths")
+            except Exception as r1_err:
+                logger.warning(f"[LangGraph Draft Analysis] Reviewer 1 strengths failed (non-fatal): {r1_err}")
 
         # ============================================================
         # 5. Store citation_suggestions (only if not already stored)
@@ -462,7 +544,7 @@ async def analyze_draft_with_langgraph(
                             {"suggested_papers": enriched_papers}
                         ).eq("id", gap_id).execute()
                     except Exception:
-                        pass  # Non-fatal: gap_id may not exist if gaps were just inserted without IDs
+                        pass
             logger.info(f"[LangGraph Draft Analysis] External paper suggestions applied to {len(enriched_gaps)} gaps")
         except Exception as suggestion_err:
             logger.warning(f"[LangGraph Draft Analysis] suggest_papers_for_gaps failed (non-fatal): {suggestion_err}")
@@ -502,13 +584,17 @@ async def analyze_draft_with_langgraph(
 
         # 6d. Update draft_analysis.analysis_metadata with enriched data
         try:
+            total_feedback = len(scoring_feedback) if "scoring_feedback" in locals() else len(all_feedback) + len(r1_items)
             enriched_metadata = {
+                **existing_metadata,
                 "workflow_type": "langgraph",
                 "total_claims": len(claims),
                 "total_gaps": len(gaps),
-                "total_feedback": len(all_feedback),
+                "total_feedback": total_feedback,
                 "errors": errors,
                 "timestamp": datetime.datetime.utcnow().isoformat(),
+                "paper_type": draft_context.get("paper_type", existing_metadata.get("paper_type")),
+                "citation_style": draft_context.get("citation_style", existing_metadata.get("citation_style")),
                 # New enrichment fields
                 "readiness_score": readiness_result.get("readiness_score"),
                 "verdict": readiness_result.get("verdict"),

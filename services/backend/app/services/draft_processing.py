@@ -43,10 +43,6 @@ import asyncio
 
 logger = get_logger(__name__)
 
-# Initialize OpenAI client
-client = get_openai_client()
-
-
 # ============================================
 # Text Extraction Functions
 # ============================================
@@ -338,6 +334,7 @@ def analyze_document_structure(draft_text: str) -> Dict[str, Any]:
     Raises:
         StructureAnalysisError: If analysis fails
     """
+    client = get_openai_client()
     if not client:
         raise ValueError("OpenAI API key not configured")
 
@@ -434,7 +431,12 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         file_url = draft_record.data["file_url"]
         file_type = draft_record.data["file_type"]
         user_id = draft_record.data["user_id"]
-        logger.info(f"[INGEST] ✓ Found draft: file_type={file_type}, user_id={user_id}")
+        paper_type = draft_record.data.get("paper_type", "journal_article")
+        citation_style = draft_record.data.get("citation_style", "apa")
+        logger.info(
+            f"[INGEST] ✓ Found draft: file_type={file_type}, user_id={user_id}, "
+            f"paper_type={paper_type}, citation_style={citation_style}"
+        )
 
         # Update status to processing
         logger.info(f"[INGEST] Step 2: Updating status to 'processing'...")
@@ -468,6 +470,16 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         extracted_data = await extract_text(file_bytes, file_type)
         full_text = extracted_data["full_text"]
         logger.info(f"[INGEST] ✓ Extracted {len(full_text)} characters")
+
+        # Start Stage 1 editing in parallel with the heavier analysis path.
+        from app.services.stage1_editing import run_stage1_editing
+        editing_task = asyncio.create_task(
+            run_stage1_editing(
+                full_text,
+                citation_style=citation_style,
+                paper_type=paper_type,
+            )
+        )
 
         # 4. Analyze document structure
         # For PDFs, GROBID already provides structure - use that directly
@@ -514,11 +526,14 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
             "draft_id": draft_id,
             "structure": structure,
             "word_count": word_count,
+            "analysis": {},
             "analysis_metadata": {
                 "processing_timestamp": datetime.datetime.utcnow().isoformat(),
                 "file_type": file_type,
                 "text_length": len(full_text),
                 "model_used": "gpt-5.2-chat-latest" if file_type != 'pdf' else "grobid",
+                "paper_type": paper_type,
+                "citation_style": citation_style,
                 # Store GROBID metadata for PDFs
                 "grobid_title": extracted_data.get("title", ""),
                 "grobid_authors": extracted_data.get("authors", []),
@@ -530,6 +545,25 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
 
         supabase.table("draft_analysis").insert(analysis_record).execute()
         logger.info(f"[INGEST] ✓ Stored draft analysis in database")
+
+        # Stage 1 editing data is substantive analysis output, not metadata.
+        editing_result = await editing_task
+        analysis_res = (
+            supabase.table("draft_analysis")
+            .select("analysis")
+            .eq("draft_id", draft_id)
+            .single()
+            .execute()
+        )
+        current_analysis = (analysis_res.data or {}).get("analysis") or {}
+        current_analysis["editing_feedback"] = editing_result
+        supabase.table("draft_analysis").update(
+            {
+                "analysis": current_analysis,
+                "updated_at": datetime.datetime.utcnow().isoformat(),
+            }
+        ).eq("draft_id", draft_id).execute()
+        logger.info(f"[INGEST] ✓ Stored Stage 1 editing feedback")
 
         # 6. Run advanced analysis: claims, coverage gaps, and feedback
         logger.info(f"[INGEST] ========== STEP 8: RUNNING ADVANCED ANALYSIS ==========")

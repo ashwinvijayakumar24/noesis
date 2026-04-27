@@ -294,7 +294,7 @@ async def suggest_stronger_alternatives(
 
         # Fetch document details
         for doc_id in document_ids[:max_suggestions]:
-            doc_response = supabase.table("documents").select("*").eq("id", doc_id).single().execute()
+            doc_response = supabase.table("documents").select("*").eq("id", doc_id).neq("resolution_status", "unresolved").single().execute()
 
             if doc_response.data:
                 document = doc_response.data

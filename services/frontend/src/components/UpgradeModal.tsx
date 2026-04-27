@@ -6,25 +6,26 @@ import { useUpgradeModalStore } from '../stores/upgradeModalStore'
 
 const QUOTA_LABELS: Record<string, string> = {
   drafts: 'monthly draft analysis',
-  documents: 'monthly document upload',
+  documents: 'monthly PDF or BibTeX import',
   chat_messages: 'monthly chat message',
-  paper_discovery: 'daily paper discovery',
+  paper_discovery: 'daily Discover search',
 }
 
 const PRO_HIGHLIGHTS = [
-  'Unlimited draft analyses',
-  'Unlimited document uploads',
+  '20 draft analyses per month',
+  '100 PDF uploads per month total',
+  '100 BibTeX references per month total',
+  '50 Discover searches per day',
+  'Unlimited Literature Map refreshes',
   'Priority processing',
-  'Larger draft size limits (50+ pages)',
-  'Advanced citation suggestions',
-  'PDF export with branding',
 ]
 
-const LAB_HIGHLIGHTS = [
+const TEAM_HIGHLIGHTS = [
   'Everything in Pro',
-  'Flat $49/month for up to 5 users',
+  '2-3 users billed at $20/user/month',
+  'Effectively unlimited usage across the team',
   'Shared project workspaces',
-  'Team collaboration features',
+  'Shared literature libraries',
   'Dedicated support',
 ]
 
@@ -34,7 +35,7 @@ export default function UpgradeModal() {
 
   const label = quotaType ? QUOTA_LABELS[quotaType] : 'monthly'
 
-  const handleUpgrade = (plan: 'pro' | 'lab') => {
+  const handleUpgrade = (plan: 'pro' | 'team') => {
     close()
     navigate('/pricing')
     // Scroll to the plan after navigation (best effort)
@@ -81,7 +82,7 @@ export default function UpgradeModal() {
                       </Dialog.Title>
                     </div>
                     <p className="text-sm text-text-secondary">
-                      {limitMessage || `Upgrade to continue without interruption.`}
+                      {limitMessage || 'Upgrade to Pro for higher quotas or Team for 2-3 researchers with effectively unlimited usage.'}
                     </p>
                   </div>
                   <button onClick={close} className="p-1 text-text-tertiary hover:text-text-primary rounded transition-colors ml-4 shrink-0">
@@ -115,16 +116,16 @@ export default function UpgradeModal() {
                     </button>
                   </div>
 
-                  {/* Lab */}
+                  {/* Team */}
                   <div className="border border-border-default rounded-xl p-4 bg-bg-hover flex flex-col">
                     <div className="flex items-center gap-2 mb-3">
                       <SparklesIcon className="h-5 w-5 text-text-tertiary" />
-                      <span className="font-semibold text-text-primary">Lab</span>
+                      <span className="font-semibold text-text-primary">Team</span>
                     </div>
-                    <p className="text-2xl font-bold text-text-primary mb-1">$49<span className="text-sm font-normal text-text-tertiary">/mo</span></p>
-                    <p className="text-xs text-text-muted mb-1">Up to 5 users</p>
+                    <p className="text-2xl font-bold text-text-primary mb-1">$20<span className="text-sm font-normal text-text-tertiary">/user/mo</span></p>
+                    <p className="text-xs text-text-muted mb-1">For 2-3 users</p>
                     <ul className="space-y-1.5 mt-3 flex-1">
-                      {LAB_HIGHLIGHTS.map((f) => (
+                      {TEAM_HIGHLIGHTS.map((f) => (
                         <li key={f} className="flex items-start gap-2 text-xs text-text-secondary">
                           <CheckBadgeIcon className="h-4 w-4 text-text-tertiary shrink-0 mt-0.5" />
                           {f}
@@ -132,10 +133,10 @@ export default function UpgradeModal() {
                       ))}
                     </ul>
                     <button
-                      onClick={() => handleUpgrade('lab')}
+                      onClick={() => handleUpgrade('team')}
                       className="mt-4 w-full py-2.5 border border-border-default text-text-secondary text-sm font-semibold rounded-lg hover:border-accent-primary/40 hover:text-text-primary transition-colors"
                     >
-                      Upgrade to Lab
+                      Upgrade to Team
                     </button>
                   </div>
                 </div>

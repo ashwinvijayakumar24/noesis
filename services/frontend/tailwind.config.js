@@ -235,9 +235,14 @@ export default {
           '0%': { transform: 'rotate(0deg)' },
           '100%': { transform: 'rotate(360deg)' }
         },
+        'shimmer-sweep': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(300%)' }
+        },
       },
       animation: {
         shimmer: 'shimmer 1.5s infinite',
+        'shimmer-sweep': 'shimmer-sweep 1.8s ease-in-out infinite',
         'slide-in': 'slide-in 250ms cubic-bezier(0.16, 1, 0.3, 1)',
         'fade-in': 'fade-in 300ms ease-out',
         'scale-in': 'scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1)',

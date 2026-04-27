@@ -44,6 +44,7 @@ class Feedback(TypedDict):
     feedback_text: str
     severity: str  # critical, important, minor
     section_reference: NotRequired[str]
+    reviewer_persona: NotRequired[str]
 
 
 class DraftStructure(TypedDict):

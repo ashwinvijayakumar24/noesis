@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '../../stores/authStore'
+import { api, ApiError } from '../../lib/api'
 import toast from 'react-hot-toast'
 import {
   MagnifyingGlassIcon,
@@ -9,9 +10,8 @@ import {
   DocumentTextIcon,
   PlusIcon,
   LightBulbIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline'
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,12 +40,8 @@ interface DiscoveredPaper {
 }
 
 interface QuotaStatus {
-  refresh_used: number
-  refresh_limit: number
-  search_used: number
-  search_limit: number
-  bib_save_used: number
-  bib_save_limit: number
+  actions_used: number
+  actions_limit: number
   total_held: number
   max_pool: number
 }
@@ -53,6 +49,7 @@ interface QuotaStatus {
 interface DiscoverTabProps {
   projectId: string
   documentCount?: number
+  analyzedDocCount: number
   onDocumentSaved?: () => void
   insightsAnalyzed?: boolean
   onTabChange?: (tab: string) => void
@@ -91,7 +88,6 @@ function SourceBadge({ source }: { source: DiscoveredPaper['source'] }) {
 
 interface DiscoverPaperCardProps {
   paper: DiscoveredPaper
-  quota: QuotaStatus
   savingIds: Set<string>
   dismissingIds: Set<string>
   onSave: (paperId: string) => void
@@ -100,7 +96,6 @@ interface DiscoverPaperCardProps {
 
 function DiscoverPaperCard({
   paper,
-  quota,
   savingIds,
   dismissingIds,
   onSave,
@@ -108,7 +103,6 @@ function DiscoverPaperCard({
 }: DiscoverPaperCardProps) {
   const isSaving = savingIds.has(paper.id)
   const isDismissing = dismissingIds.has(paper.id)
-  const saveAtLimit = quota.bib_save_used >= quota.bib_save_limit
 
   // Build author/year/journal line
   const authorLine = (() => {
@@ -135,7 +129,7 @@ function DiscoverPaperCard({
           onClick={() => onDismiss(paper.id)}
           disabled={isDismissing}
           title="Dismiss paper"
-          className="shrink-0 text-text-muted hover:text-text-secondary transition-colors duration-150 ml-1 mt-0.5 disabled:opacity-40"
+          className="shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-xl text-text-muted hover:bg-bg-elevated hover:text-text-secondary transition-colors duration-150 ml-1 -mt-1 disabled:opacity-40"
         >
           <XMarkIcon className="h-4 w-4" />
         </button>
@@ -182,7 +176,7 @@ function DiscoverPaperCard({
             href={paper.paper_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-text-secondary border border-border-default rounded-lg px-3 py-1.5 hover:text-text-primary hover:border-text-tertiary/30 transition-colors duration-150"
+            className="inline-flex min-h-11 items-center gap-1.5 text-xs text-text-secondary border border-border-default rounded-lg px-3 py-2 hover:text-text-primary hover:border-text-tertiary/30 transition-colors duration-150"
           >
             <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
             View Paper
@@ -195,7 +189,7 @@ function DiscoverPaperCard({
             href={paper.pdf_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 border border-border-default text-text-secondary hover:text-text-primary rounded-lg px-3 py-1.5 text-xs transition-colors duration-150"
+            className="inline-flex min-h-11 items-center gap-1.5 border border-border-default text-text-secondary hover:text-text-primary rounded-lg px-3 py-2 text-xs transition-colors duration-150"
           >
             <DocumentTextIcon className="h-3.5 w-3.5" />
             PDF
@@ -204,7 +198,7 @@ function DiscoverPaperCard({
           <button
             disabled
             title="No open-access PDF available"
-            className="inline-flex items-center gap-1.5 border border-border-default text-text-muted opacity-40 cursor-not-allowed rounded-lg px-3 py-1.5 text-xs"
+            className="inline-flex min-h-11 items-center gap-1.5 border border-border-default text-text-muted opacity-40 cursor-not-allowed rounded-lg px-3 py-2 text-xs"
           >
             <DocumentTextIcon className="h-3.5 w-3.5" />
             PDF
@@ -213,23 +207,14 @@ function DiscoverPaperCard({
 
         {/* Save to Literature */}
         {paper.bib_saved ? (
-          <span className="inline-flex items-center gap-1.5 text-xs text-text-muted border border-border-default rounded-lg px-3 py-1.5 cursor-default">
+          <span className="inline-flex min-h-11 items-center gap-1.5 text-xs text-text-muted border border-border-default rounded-lg px-3 py-2 cursor-default">
             Saved ✓
           </span>
-        ) : saveAtLimit ? (
-          <button
-            disabled
-            title="Daily save limit reached"
-            className="inline-flex items-center gap-1.5 text-xs text-text-muted border border-border-default rounded-lg px-3 py-1.5 cursor-not-allowed opacity-50"
-          >
-            <PlusIcon className="h-3.5 w-3.5" />
-            Save to Literature
-          </button>
         ) : (
           <button
             onClick={() => onSave(paper.id)}
             disabled={isSaving}
-            className="inline-flex items-center gap-1.5 text-xs bg-accent-primary text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex min-h-11 items-center gap-1.5 text-xs bg-accent-primary text-white hover:bg-accent-hover rounded-lg px-3 py-2 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <span className="h-3.5 w-3.5 border border-white/40 border-t-white rounded-full animate-spin" />
@@ -248,25 +233,55 @@ function DiscoverPaperCard({
 // Main DiscoverTab component
 // ---------------------------------------------------------------------------
 
-export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSaved, insightsAnalyzed, onTabChange }: DiscoverTabProps) {
+function normalizePaperListResponse(data: unknown): {
+  papers: DiscoveredPaper[]
+  totalNew: number
+} {
+  if (Array.isArray(data)) {
+    return { papers: data as DiscoveredPaper[], totalNew: data.length }
+  }
+
+  if (data && typeof data === 'object') {
+    const payload = data as {
+      papers?: DiscoveredPaper[]
+      recommendations?: DiscoveredPaper[]
+      total_new?: number
+    }
+    const papers = payload.papers ?? payload.recommendations ?? []
+    return {
+      papers,
+      totalNew: payload.total_new ?? papers.length,
+    }
+  }
+
+  return { papers: [], totalNew: 0 }
+}
+
+export default function DiscoverTab({
+  projectId,
+  documentCount = 0,
+  analyzedDocCount,
+  onDocumentSaved,
+  insightsAnalyzed,
+  onTabChange,
+}: DiscoverTabProps) {
   const { session } = useAuthStore()
   const token = session?.access_token ?? ''
 
   const [papers, setPapers] = useState<DiscoveredPaper[]>([])
   const [quota, setQuota] = useState<QuotaStatus>({
-    refresh_used: 0,
-    refresh_limit: 1,
-    search_used: 0,
-    search_limit: 3,
-    bib_save_used: 0,
-    bib_save_limit: 3,
+    actions_used: 0,
+    actions_limit: 5,
     total_held: 0,
-    max_pool: 20,
+    max_pool: 30,
   })
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [finding, setFinding] = useState(false)
   const [searching, setSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [offset, setOffset] = useState(0)
+  const [totalNew, setTotalNew] = useState(0)
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set())
 
@@ -276,30 +291,46 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
   // Data fetching
   // ------------------------------------------------------------------
 
-  const fetchPapersAndQuota = async () => {
+  const loadQuota = async () => {
     if (!token) return
+
+    try {
+      const data = await api.discover.getQuotaStatus(token, projectId)
+      setQuota(data)
+    } catch {
+      // Silent on background quota refresh failures
+    }
+  }
+
+  const loadPapers = async (nextOffset: number, append: boolean) => {
+    if (!token) return
+
+    const data = await api.discover.list(token, projectId, nextOffset)
+    const normalized = normalizePaperListResponse(data)
+
+    setPapers(prev =>
+      append ? [...prev, ...normalized.papers] : normalized.papers,
+    )
+    setTotalNew(normalized.totalNew)
+    setOffset(nextOffset)
+  }
+
+  const loadInitial = async () => {
+    if (!token || analyzedDocCount === 0) {
+      setLoading(false)
+      setPapers([])
+      setTotalNew(0)
+      setOffset(0)
+      return
+    }
+
     setLoading(true)
     try {
-      const [papersRes, quotaRes] = await Promise.all([
-        fetch(`${API_BASE}/paper-recommendations/projects/${projectId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE}/paper-recommendations/projects/${projectId}/quota-status`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+      await Promise.all([
+        loadPapers(0, false),
+        loadQuota(),
       ])
-
-      if (papersRes.ok) {
-        const data = await papersRes.json()
-        // API may return array directly or { recommendations: [...] }
-        setPapers(Array.isArray(data) ? data : (data.recommendations ?? []))
-      }
-
-      if (quotaRes.ok) {
-        const data = await quotaRes.json()
-        setQuota(data)
-      }
-    } catch (err) {
+    } catch {
       // Silent on mount failure — don't interrupt the user
     } finally {
       setLoading(false)
@@ -307,57 +338,41 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
   }
 
   useEffect(() => {
-    fetchPapersAndQuota()
-  }, [projectId, token]) // eslint-disable-line react-hooks/exhaustive-deps
+    void loadInitial()
+  }, [projectId, token, analyzedDocCount]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------------
   // Find Papers (generate)
   // ------------------------------------------------------------------
 
   const handleFindPapers = async () => {
-    if (!token || finding) return
+    if (!token || finding || quota.actions_used >= quota.actions_limit) return
     setFinding(true)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60s timeout
     try {
-      const res = await fetch(
-        `${API_BASE}/paper-recommendations/projects/${projectId}/generate`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, signal: controller.signal },
-      )
-      clearTimeout(timeoutId)
-      if (res.status === 429) {
-        toast.error('Already used your daily refresh. Come back tomorrow.')
-        return
-      }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || `Request failed (${res.status})`)
-      }
-      const data = await res.json()
-      const newPapers: DiscoveredPaper[] = Array.isArray(data)
-        ? data
-        : (data.recommendations ?? [])
-      setPapers(prev => {
-        // Merge: keep existing, append new by id
-        const existingIds = new Set(prev.map(p => p.id))
-        const appended = newPapers.filter(p => !existingIds.has(p.id))
-        return [...prev, ...appended]
-      })
-      // Refresh quota
-      const qRes = await fetch(
-        `${API_BASE}/paper-recommendations/projects/${projectId}/quota-status`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
-      if (qRes.ok) setQuota(await qRes.json())
+      await api.discover.findForProject(token, projectId)
+      await Promise.all([loadInitial(), loadQuota()])
     } catch (err: any) {
-      clearTimeout(timeoutId)
-      if (err.name === 'AbortError') {
-        toast.error('Request timed out. Try again in a moment.')
+      if (err instanceof ApiError && err.status === 429) {
+        toast.error('Daily discover limit reached. Come back tomorrow.')
       } else {
         toast.error(err.message || 'Failed to find papers.')
       }
     } finally {
       setFinding(false)
+    }
+  }
+
+  const handleShowMore = async () => {
+    if (!token || loadingMore || papers.length >= totalNew) return
+
+    const nextOffset = offset + 5
+    setLoadingMore(true)
+    try {
+      await loadPapers(nextOffset, true)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load more papers.')
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -367,45 +382,17 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
 
   const handleSearch = async () => {
     const q = searchQuery.trim()
-    if (!q || !token || searching) return
+    if (!q || !token || searching || quota.actions_used >= quota.actions_limit) return
     setSearching(true)
     try {
-      const res = await fetch(
-        `${API_BASE}/paper-recommendations/projects/${projectId}/search`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ query: q }),
-        },
-      )
-      if (res.status === 429) {
-        toast.error('Search limit reached (3/day). Resets tomorrow.')
-        return
-      }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || `Request failed (${res.status})`)
-      }
-      const data = await res.json()
-      const newPapers: DiscoveredPaper[] = Array.isArray(data)
-        ? data
-        : (data.recommendations ?? [])
-      setPapers(prev => {
-        const existingIds = new Set(prev.map(p => p.id))
-        const appended = newPapers.filter(p => !existingIds.has(p.id))
-        return [...prev, ...appended]
-      })
-      // Refresh quota
-      const qRes = await fetch(
-        `${API_BASE}/paper-recommendations/projects/${projectId}/quota-status`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
-      if (qRes.ok) setQuota(await qRes.json())
+      await api.discover.search(token, projectId, q)
+      await Promise.all([loadInitial(), loadQuota()])
     } catch (err: any) {
-      toast.error(err.message || 'Search failed.')
+      if (err instanceof ApiError && err.status === 429) {
+        toast.error('Daily discover limit reached. Resets tomorrow.')
+      } else {
+        toast.error(err.message || 'Search failed.')
+      }
     } finally {
       setSearching(false)
     }
@@ -419,29 +406,13 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
     if (!token) return
     setSavingIds(prev => new Set(prev).add(paperId))
     try {
-      const res = await fetch(
-        `${API_BASE}/paper-recommendations/projects/${projectId}/save-discovered/${paperId}`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
-      )
-      if (res.status === 429) {
-        toast.error('Save limit reached (3/day). Resets tomorrow.')
-        return
-      }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || `Request failed (${res.status})`)
-      }
+      await api.discover.saveToLiterature(token, projectId, paperId)
       setPapers(prev =>
         prev.map(p => (p.id === paperId ? { ...p, bib_saved: true } : p)),
       )
       toast.success('Paper saved to your literature library.')
       onDocumentSaved?.()
-      // Refresh quota
-      const qRes = await fetch(
-        `${API_BASE}/paper-recommendations/projects/${projectId}/quota-status`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
-      if (qRes.ok) setQuota(await qRes.json())
+      await loadQuota()
     } catch (err: any) {
       toast.error(err.message || 'Failed to save paper.')
     } finally {
@@ -461,21 +432,10 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
     if (!token) return
     setDismissingIds(prev => new Set(prev).add(paperId))
     try {
-      const res = await fetch(`${API_BASE}/paper-recommendations/${paperId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || `Request failed (${res.status})`)
-      }
+      await api.discover.dismiss(token, paperId)
       setPapers(prev => prev.filter(p => p.id !== paperId))
-      // Refresh quota (pool size decreases)
-      const qRes = await fetch(
-        `${API_BASE}/paper-recommendations/projects/${projectId}/quota-status`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
-      if (qRes.ok) setQuota(await qRes.json())
+      setTotalNew(prev => Math.max(prev - 1, 0))
+      await loadQuota()
     } catch (err: any) {
       toast.error(err.message || 'Failed to dismiss paper.')
     } finally {
@@ -492,14 +452,12 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
   // ------------------------------------------------------------------
 
   const refreshDisabled =
-    documentCount === 0 || quota.refresh_used >= quota.refresh_limit || finding
-  const refreshQuotaExhausted = quota.refresh_used >= quota.refresh_limit
+    quota.actions_used >= quota.actions_limit || finding
+  const searchDisabled =
+    quota.actions_used >= quota.actions_limit || searching || !searchQuery.trim()
+  const discoverQuotaExhausted = quota.actions_used >= quota.actions_limit
   const refreshTooltip =
-    documentCount === 0
-      ? 'Upload a paper first to get personalized recommendations'
-      : refreshQuotaExhausted
-        ? 'Refresh used today'
-        : undefined
+    discoverQuotaExhausted ? 'Daily discover limit reached' : undefined
 
   const poolBadgeClass =
     quota.total_held >= quota.max_pool
@@ -512,23 +470,15 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
   // Render
   // ------------------------------------------------------------------
 
-  if (documentCount > 0 && !insightsAnalyzed) {
+  if (analyzedDocCount === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-        <div className="w-12 h-12 rounded-full bg-bg-surface border border-border-default flex items-center justify-center mb-4">
-          <LightBulbIcon className="h-6 w-6 text-text-muted" />
-        </div>
-        <h3 className="text-text-primary font-semibold text-lg mb-2">Generate Insights First</h3>
-        <p className="text-text-secondary text-sm max-w-sm mb-6">
-          Discover uses your project's research gaps and themes as search seeds.
-          Analyze your literature first to get targeted paper recommendations.
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <LockClosedIcon className="h-10 w-10 text-text-muted mb-4" />
+        <p className="text-text-primary font-semibold mb-2">Upload a paper first</p>
+        <p className="text-text-muted text-sm max-w-xs leading-relaxed">
+          Discover works best when it can match papers to your existing literature.
+          Upload and analyze at least one PDF to unlock discovery.
         </p>
-        <button
-          onClick={() => onTabChange?.('insights')}
-          className="px-4 py-2 bg-accent-primary hover:bg-accent-hover text-white text-sm font-semibold rounded-xl transition-colors duration-150"
-        >
-          Go to Insights →
-        </button>
       </div>
     )
   }
@@ -553,6 +503,23 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
         </span>
       </div>
 
+      {/* Soft nudge when insights haven't been generated yet */}
+      {documentCount > 0 && !insightsAnalyzed && (
+        <div className="flex items-start gap-3 px-3.5 py-3 rounded-xl border border-border-default bg-bg-elevated text-sm">
+          <LightBulbIcon className="h-4 w-4 text-text-muted shrink-0 mt-0.5" />
+          <p className="text-text-secondary leading-snug flex-1">
+            Results will improve after you{' '}
+            <button
+              onClick={() => onTabChange?.('insights')}
+              className="text-accent-primary hover:text-accent-hover font-semibold transition-colors duration-150 underline underline-offset-2"
+            >
+              build your Literature Map
+            </button>
+            {' '} - Discover uses your research gaps and themes as search seeds.
+          </p>
+        </div>
+      )}
+
       {/* Action row */}
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Find Papers button */}
@@ -561,15 +528,15 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
             onClick={handleFindPapers}
             disabled={refreshDisabled}
             title={refreshTooltip}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent-primary text-white text-sm font-semibold hover:bg-accent-hover transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            className="inline-flex min-h-11 items-center gap-2 px-4 py-2.5 rounded-xl bg-accent-primary text-white text-sm font-semibold hover:bg-accent-hover transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
           >
             {finding && (
               <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             )}
             {finding ? 'Finding…' : 'Find Papers for My Project'}
           </button>
-          {refreshQuotaExhausted && (
-            <p className="text-xs text-text-muted pl-1">Refresh used today</p>
+          {discoverQuotaExhausted && (
+            <p className="text-xs text-text-muted pl-1">Daily discover limit reached</p>
           )}
         </div>
 
@@ -583,15 +550,15 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                disabled={searching}
+                disabled={searching || discoverQuotaExhausted}
                 placeholder="Search any topic…"
-                className="w-full bg-bg-surface border border-border-default rounded-xl px-4 py-2 pr-10 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary/50 transition-colors duration-150 disabled:opacity-50"
+                className="w-full min-h-11 bg-bg-surface border border-border-default rounded-xl px-4 py-2.5 pr-10 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary/50 transition-colors duration-150 disabled:opacity-50"
               />
             </div>
             <button
               onClick={handleSearch}
-              disabled={searching || !searchQuery.trim()}
-              className="inline-flex items-center justify-center px-3 py-2 rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-text-primary hover:border-text-tertiary/30 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              disabled={searchDisabled}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 py-2 rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-text-primary hover:border-text-tertiary/30 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
             >
               {searching ? (
                 <span className="h-4 w-4 border-2 border-text-muted/30 border-t-text-secondary rounded-full animate-spin" />
@@ -600,11 +567,9 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
               )}
             </button>
           </div>
-          {quota.search_used >= 1 && (
-            <p className="text-xs text-text-muted pl-1">
-              {quota.search_used} of {quota.search_limit} searches used today
-            </p>
-          )}
+          <span className="text-xs text-text-muted pl-1">
+            {quota.actions_used}/{quota.actions_limit} searches today
+          </span>
         </div>
       </div>
 
@@ -660,13 +625,21 @@ export default function DiscoverTab({ projectId, documentCount = 0, onDocumentSa
             <DiscoverPaperCard
               key={paper.id}
               paper={paper}
-              quota={quota}
               savingIds={savingIds}
               dismissingIds={dismissingIds}
               onSave={handleSave}
               onDismiss={handleDismiss}
             />
           ))}
+          {papers.length < totalNew && (
+            <button
+              onClick={handleShowMore}
+              disabled={loadingMore}
+              className="w-full mt-3 min-h-11 py-2 text-sm text-text-secondary border border-border-default rounded-xl hover:border-border-subtle hover:text-text-primary transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingMore ? 'Loading…' : `Show more (${totalNew - papers.length} remaining)`}
+            </button>
+          )}
         </div>
       )}
     </div>

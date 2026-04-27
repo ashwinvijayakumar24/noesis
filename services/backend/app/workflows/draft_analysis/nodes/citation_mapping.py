@@ -298,7 +298,7 @@ async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState
                 key=lambda c: c.get('claim', {}).get('importance_score', 0),
                 reverse=True
             )
-            top_candidates = discovery_candidates[:5]
+            top_candidates = discovery_candidates[:10]
 
             if top_candidates:
                 logger.info(

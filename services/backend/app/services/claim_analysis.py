@@ -21,13 +21,14 @@ from typing import Dict, Any, List, Optional, Tuple
 from app.core.config import settings
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
-from app.core.openai_client import get_openai_client, get_completion_params
+from app.core.openai_client import get_openai_client, get_async_openai_client, get_completion_params
 import datetime
 
 logger = get_logger(__name__)
 
 # Initialize OpenAI client
 client = get_openai_client()
+async_client = get_async_openai_client()
 
 
 # ============================================
@@ -400,11 +401,47 @@ def map_citations_to_claims(
     # Split text into lines for line number calculation
     lines = draft_text.split('\n')
 
+    draft_lower = draft_text.lower()
+
+    def _fuzzy_locate(claim_text: str) -> int:
+        """Multi-strategy fuzzy search: exact → sentence → n-gram → numbers. Returns -1 on failure."""
+        # 1. Exact match
+        idx = draft_text.find(claim_text)
+        if idx >= 0:
+            return idx
+
+        # 2. Sentence-level: try each sentence from the claim text
+        for sent in re.split(r'(?<=[.!?])\s+', claim_text):
+            sent = sent.strip()
+            if len(sent) > 25:
+                idx = draft_lower.find(sent.lower())
+                if idx >= 0:
+                    return idx
+
+        # 3. 6-word sliding window
+        words = claim_text.split()
+        for window in [7, 5]:
+            for i in range(max(0, len(words) - window + 1)):
+                phrase = ' '.join(words[i:i + window]).lower()
+                if len(phrase) > 20:
+                    idx = draft_lower.find(phrase)
+                    if idx >= 0:
+                        return idx
+
+        # 4. Numbers/percentages (likely verbatim in the draft)
+        for spec in re.findall(r'\d[\d,]*\.?\d*\s*%|\d+\.\d+', claim_text):
+            if len(spec) >= 3:
+                idx = draft_lower.find(spec.lower())
+                if idx >= 0:
+                    return idx
+
+        return -1
+
     for claim in claims:
         claim_text = claim.get("claim_text", "")
 
-        # Find claim location in draft
-        claim_start = draft_text.find(claim_text)
+        # Find claim location in draft (fuzzy multi-strategy)
+        claim_start = _fuzzy_locate(claim_text)
 
         if claim_start >= 0:
             # Calculate line number and character position
@@ -416,10 +453,9 @@ def map_citations_to_claims(
             char_start = claim_start - line_start_pos
             char_end = char_start + len(claim_text)
 
-            # Extract 100-200 char snippet for fuzzy matching
-            snippet_start = max(0, claim_start - 50)
+            # Extract snippet starting AT claim (not before) so frontend slice(0,40) hits the claim
             snippet_end = min(len(draft_text), claim_start + len(claim_text) + 50)
-            text_snippet = draft_text[snippet_start:snippet_end].strip()
+            text_snippet = draft_text[claim_start:snippet_end].strip()
 
             # EXISTING: Line-based positioning (Strategy 3 - fallback)
             claim["line_number"] = line_number
@@ -690,3 +726,61 @@ def categorize_claim_strength(
         return "adequate"
     else:  # 3+ citations
         return "strong"
+
+
+async def find_supporting_claims(
+    draft_claim_text: str,
+    project_id: str,
+    similarity_threshold: float = 0.7,
+    max_results: int = 5,
+    exclude_document_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Find document claims in this project that support or relate to a draft claim.
+
+    Uses the existing find_similar_claims RPC and filters the results back down to
+    the current project because the RPC itself is global across documents.
+    """
+    try:
+        logger.info("[CLAIM-ANALYSIS] Finding supporting claims for draft claim")
+
+        embedding_response = await async_client.embeddings.create(
+            model="text-embedding-3-large",
+            input=[draft_claim_text],
+            dimensions=1536,
+        )
+        draft_claim_embedding = embedding_response.data[0].embedding
+
+        result = supabase.rpc(
+            "find_similar_claims",
+            {
+                "query_embedding": draft_claim_embedding,
+                "similarity_threshold": similarity_threshold,
+                "max_results": max_results * 2,
+                "exclude_document_id": exclude_document_id,
+            },
+        ).execute()
+
+        matching_claims: List[Dict[str, Any]] = []
+        for claim in result.data or []:
+            claim_check = (
+                supabase.table("document_claims")
+                .select("project_id")
+                .eq("id", claim["claim_id"])
+                .single()
+                .execute()
+            )
+            if claim_check.data and claim_check.data["project_id"] == project_id:
+                matching_claims.append(claim)
+                if len(matching_claims) >= max_results:
+                    break
+
+        logger.info(
+            "[CLAIM-ANALYSIS] Found %s supporting claims (threshold=%s)",
+            len(matching_claims),
+            similarity_threshold,
+        )
+        return matching_claims
+    except Exception as exc:
+        logger.error(f"[CLAIM-ANALYSIS] Error finding supporting claims: {exc}")
+        return []
