@@ -10,6 +10,13 @@ Tests:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.core import openai_client
+
+
+@pytest.fixture(autouse=True)
+def _mock_openai_client(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(openai_client, "get_openai_client", lambda: MagicMock())
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -252,8 +259,10 @@ def _setup_supabase_mock(mock_sb, doc_ids: list[str]):
         }
         return m
 
-    mock_sb.table.return_value.select.return_value.eq.return_value \
-        .single.return_value.execute.side_effect = [make_doc(d) for d in doc_ids]
+    mock_query = mock_sb.table.return_value.select.return_value.eq.return_value
+    mock_query.neq.return_value.single.return_value.execute.side_effect = [
+        make_doc(d) for d in doc_ids
+    ]
 
 
 class TestSuggestPapersForGaps:

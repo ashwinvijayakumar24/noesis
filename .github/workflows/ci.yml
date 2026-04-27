@@ -31,6 +31,7 @@ jobs:
       - name: Run unit + integration tests with coverage
         run: |
           python -m pytest tests/ -v --tb=short \
+            --ignore=tests/e2e \
             -m "not slow" \
             --cov=app \
             --cov-report=xml:coverage.xml \
@@ -41,10 +42,9 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
-      - name: E2E API Tests (security + quota logic only in CI)
+      - name: Run in-process API contract tests
         run: |
-          python -m pytest tests/e2e/test_security.py tests/e2e/test_quota_enforcement.py \
-            -v --tb=short -m "unit or not integration" --timeout=30
+          python -m pytest tests/test_ci_api_contracts.py -v --tb=short
         env:
           ENVIRONMENT: test
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
