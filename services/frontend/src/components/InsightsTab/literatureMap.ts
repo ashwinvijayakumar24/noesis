@@ -194,3 +194,31 @@ export function markRecommendationSaved(
     ),
   }
 }
+
+export function getGapRecommendations(
+  response: LiteratureMapResponse,
+  gapTitle: string,
+): RecommendationRecord[] {
+  const direct = response.gap_recommendations_by_title[gapTitle] ?? []
+  if (direct.length > 0) {
+    return direct
+  }
+
+  return response.summary_recommendations.filter((recommendation) =>
+    (recommendation.recommendation_context?.gap_titles ?? []).includes(gapTitle),
+  )
+}
+
+export function getConflictRecommendations(
+  response: LiteratureMapResponse,
+  conflictTopic: string,
+): RecommendationRecord[] {
+  const direct = response.conflict_recommendations_by_topic[conflictTopic] ?? []
+  if (direct.length > 0) {
+    return direct
+  }
+
+  return response.summary_recommendations.filter((recommendation) =>
+    (recommendation.recommendation_context?.conflict_topics ?? []).includes(conflictTopic),
+  )
+}

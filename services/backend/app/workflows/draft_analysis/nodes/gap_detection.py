@@ -47,6 +47,7 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             gaps: List[Gap] = []
             for db_gap in existing_gaps_res.data:
                 gap: Gap = {
+                    "id": db_gap["id"],
                     "gap_type": db_gap["gap_type"],
                     "description": db_gap["description"],
                     "severity": db_gap.get("priority", "major"),  # Map priority -> severity
@@ -83,6 +84,10 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             claim = claim_citation['claim']
             quality = claim_citation.get('citation_quality', 'unknown')
             claim_gaps = claim_citation.get('gaps', [])
+            claim_gaps = [
+                gap_desc for gap_desc in claim_gaps
+                if isinstance(gap_desc, str) and not gap_desc.lower().startswith('assessment failed:')
+            ]
 
             if quality == 'none':
                 # B3: Specific description with section, claim fragment, and gap detail

@@ -27,8 +27,14 @@ interface Project {
 
 interface ProjectTag {
   id: string
+  project_id?: string
   tag_name: string
   tag_color: string
+}
+
+interface TagSuggestion {
+  name: string
+  color: string
 }
 
 export default function Projects() {
@@ -40,6 +46,7 @@ export default function Projects() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [deleteProject, setDeleteProject] = useState<{ id: string; title: string } | null>(null)
   const [projectTags, setProjectTags] = useState<Record<string, ProjectTag[]>>({})
+  const [tagSuggestions, setTagSuggestions] = useState<TagSuggestion[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [projectLimit, setProjectLimit] = useState(3)
@@ -76,17 +83,20 @@ export default function Projects() {
 
     try {
       setLoading(true)
-      const [data, quotaData] = await Promise.all([
+      const [data, allTags] = await Promise.all([
         api.projects.list(session.access_token),
-        api.quota.getSummary(session.access_token).catch(() => null),
+        api.tags.getAllProjectTags(session.access_token).catch(() => []),
       ])
       setProjects(data)
-      if (quotaData?.projects?.limit != null) {
-        setProjectLimit(quotaData.projects.limit)
-      }
+      setProjectTags(groupTagsByProject(allTags))
 
-      // Load tags for all projects
-      await loadAllProjectTags(data)
+      // Tag suggestions are only needed when editing tags, so don't block initial render on them.
+      api.tags.getSuggestions(session.access_token).then(setTagSuggestions).catch(() => {})
+      api.quota.getSummary(session.access_token).then((quotaData) => {
+        if (quotaData?.projects?.limit != null) {
+          setProjectLimit(quotaData.projects.limit)
+        }
+      }).catch(() => {})
 
       // Show onboarding for first-time users with no projects
       const hasSeenOnboarding = localStorage.getItem('noesis_onboarding_completed')
@@ -106,24 +116,26 @@ export default function Projects() {
     setShowOnboarding(false)
   }
 
-  const loadAllProjectTags = async (projectList: Project[]) => {
-    if (!session?.access_token) return
-
+  const groupTagsByProject = (allTags: ProjectTag[]) => {
     const tagsMap: Record<string, ProjectTag[]> = {}
 
-    await Promise.all(
-      projectList.map(async (project) => {
-        try {
-          const tags = await api.tags.getProjectTags(session.access_token!, project.id)
-          tagsMap[project.id] = tags
-        } catch (error) {
-          console.error(`Failed to load tags for project ${project.id}:`, error)
-          tagsMap[project.id] = []
-        }
-      })
-    )
+    allTags.forEach((tag) => {
+      const projectId = tag.project_id
+      if (!projectId) return
+      if (!tagsMap[projectId]) {
+        tagsMap[projectId] = []
+      }
+      tagsMap[projectId].push(tag)
+    })
 
-    setProjectTags(tagsMap)
+    return tagsMap
+  }
+
+  const handleProjectTagsChange = (projectId: string, tags: ProjectTag[]) => {
+    setProjectTags((prev) => ({
+      ...prev,
+      [projectId]: tags,
+    }))
   }
 
   // Get all unique tags across all projects
@@ -376,7 +388,12 @@ export default function Projects() {
 
                 {/* Tags */}
                 <div className="mb-4" onClick={(e) => e.stopPropagation()}>
-                  <TagInput projectId={project.id} />
+                  <TagInput
+                    projectId={project.id}
+                    initialTags={projectTags[project.id] || []}
+                    suggestions={tagSuggestions}
+                    onTagsChange={(tags) => handleProjectTagsChange(project.id, tags)}
+                  />
                 </div>
 
                 {/* Metadata Footer */}

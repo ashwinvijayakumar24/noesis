@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatQuotaLabel,
+  getConflictRecommendations,
+  getGapRecommendations,
   getKeyInsightDetails,
   markRecommendationSaved,
   normalizeLiteratureMapResponse,
@@ -73,5 +75,35 @@ describe('literatureMap helpers', () => {
     expect(updated.summary_recommendations[0].bib_saved).toBe(true)
     expect(updated.gap_recommendations_by_title.Gap[0].bib_saved).toBe(true)
     expect(updated.conflict_recommendations_by_topic.Topic[0].bib_saved).toBe(true)
+  })
+
+  it('falls back to summary recommendation context when grouped maps are empty', () => {
+    const response = normalizeLiteratureMapResponse({
+      status: 'analyzed',
+      is_stale: false,
+      quota: {
+        used: 0,
+        limit: null,
+        remaining: null,
+        is_unlimited: true,
+      },
+      insights: { summary: '' },
+      summary_recommendations: [
+        {
+          id: 'rec-1',
+          title: 'Paper 1',
+          bib_saved: false,
+          recommendation_context: {
+            gap_titles: ['Gap A'],
+            conflict_topics: ['Topic A'],
+          },
+        },
+      ],
+      gap_recommendations_by_title: {},
+      conflict_recommendations_by_topic: {},
+    })
+
+    expect(getGapRecommendations(response, 'Gap A').map((record) => record.id)).toEqual(['rec-1'])
+    expect(getConflictRecommendations(response, 'Topic A').map((record) => record.id)).toEqual(['rec-1'])
   })
 })

@@ -6,6 +6,14 @@ import { MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, XMarkIcon } from '@h
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
+export interface PdfCoordinates {
+  page: number
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 interface Annotation {
   id?: string
   line_number?: number
@@ -15,7 +23,7 @@ interface Annotation {
   color?: string
   section_id?: string
   char_offset_from_section?: number
-  pdf_coordinates?: { page: number; x: number; y: number; width: number; height: number }
+  pdf_coordinates?: PdfCoordinates
   match_confidence?: number
 }
 
@@ -31,6 +39,7 @@ export interface DocumentViewerRef {
   scrollToLine: (lineNumber: number) => void
   scrollToPage: (page: number) => void
   highlightText: (snippet: string, page?: number, headingMode?: boolean) => void
+  highlightRegion: (coordinates: PdfCoordinates) => void
   clearHighlight: () => void
 }
 
@@ -38,6 +47,11 @@ export interface DocumentViewerRef {
 interface ExtractedPage {
   concat: string    // full text joined (lowercase) — for page-level search
   items: string[]   // individual pdf.js text items — for span-level search
+}
+
+interface PdfPageDimensions {
+  width: number
+  height: number
 }
 
 // ─── Client-side search ───────────────────────────────────────────────────────
@@ -160,6 +174,8 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
   const [searchAllPages, setSearchAllPages] = useState(false)
   const [headingSearchMode, setHeadingSearchMode] = useState(false)
   const [highlightedLines, setHighlightedLines] = useState<Set<number>>(new Set())
+  const [activeRegion, setActiveRegion] = useState<PdfCoordinates | null>(null)
+  const [pageDimensions, setPageDimensions] = useState<Record<number, PdfPageDimensions>>({})
 
   // Client-side extracted page text (same extractor as the renderer → perfect match)
   const [extractedPages, setExtractedPages] = useState<ExtractedPage[]>([])
@@ -205,6 +221,19 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     setLoading(false)
   }
 
+  const onPageLoadSuccess = useCallback((page: any) => {
+    const viewport = page.getViewport({ scale: 1 })
+    const pageNumber = page.pageNumber
+    setPageDimensions(prev => {
+      const next = { width: viewport.width, height: viewport.height }
+      const existing = prev[pageNumber]
+      if (existing && existing.width === next.width && existing.height === next.height) {
+        return prev
+      }
+      return { ...prev, [pageNumber]: next }
+    })
+  }, [])
+
   // ── Core highlight logic ──────────────────────────────────────────────────
   const applyHighlight = useCallback((
     snippet: string,
@@ -212,6 +241,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     isHeadingMode: boolean,
     pages: ExtractedPage[],
   ) => {
+    setActiveRegion(null)
     setActiveSnippet(snippet || null)
     setHeadingSearchMode(isHeadingMode)
 
@@ -312,11 +342,25 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
       }
       applyHighlight(snippet, page, headingMode, extractedPages)
     },
+    highlightRegion: (coordinates: PdfCoordinates) => {
+      const page = Math.max(1, coordinates.page)
+      setActiveRegion(coordinates)
+      setActiveSnippet(null)
+      setActiveSearchTarget('')
+      setSearchAllPages(false)
+      setHeadingSearchMode(false)
+      setCurrentPage(page)
+      setTimeout(() => {
+        const div = pageRefs.current[page - 1]
+        div?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 120)
+    },
     clearHighlight: () => {
       setActiveSnippet(null)
       setActiveSearchTarget('')
       setSearchAllPages(false)
       setHeadingSearchMode(false)
+      setActiveRegion(null)
     },
   }))
 
@@ -329,6 +373,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
       setActiveSearchTarget('')
       setSearchAllPages(false)
       setHeadingSearchMode(false)
+      setActiveRegion(null)
     }
   }, [annotation])
 
@@ -461,9 +506,13 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
             {extractedPages.length === 0 && numPages > 0 && (
               <span className="text-xs text-text-muted italic">Indexing text…</span>
             )}
-            {activeSnippet && (
+            {(activeSnippet || activeRegion) && (
               <button
-                onClick={() => { setActiveSnippet(null); setActiveSearchTarget('') }}
+                onClick={() => {
+                  setActiveSnippet(null)
+                  setActiveSearchTarget('')
+                  setActiveRegion(null)
+                }}
                 className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors duration-150 border border-border-default rounded px-1.5 py-0.5"
               >
                 <XMarkIcon className="h-3 w-3" />
@@ -508,11 +557,23 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
                   <span className="absolute -top-0.5 right-0 text-[10px] text-text-muted/40 font-mono select-none">
                     {i + 1}
                   </span>
+                  {activeRegion?.page === i + 1 && pageDimensions[i + 1] && (
+                    <div
+                      className="pointer-events-none absolute z-10 rounded-sm border-2 border-yellow-300 bg-yellow-300/20 shadow-[0_0_0_1px_rgba(250,204,21,0.35)]"
+                      style={{
+                        left: `${(activeRegion.x / pageDimensions[i + 1].width) * 100}%`,
+                        top: `${(activeRegion.y / pageDimensions[i + 1].height) * 100}%`,
+                        width: `${(activeRegion.width / pageDimensions[i + 1].width) * 100}%`,
+                        height: `${(activeRegion.height / pageDimensions[i + 1].height) * 100}%`,
+                      }}
+                    />
+                  )}
                   <Page
                     pageNumber={i + 1}
                     scale={scale}
                     renderTextLayer={true}
                     renderAnnotationLayer={true}
+                    onLoadSuccess={onPageLoadSuccess}
                     className="shadow-xl"
                     customTextRenderer={
                       (searchAllPages || i + 1 === currentPage) ? customTextRenderer : undefined

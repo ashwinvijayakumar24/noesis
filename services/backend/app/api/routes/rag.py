@@ -80,6 +80,15 @@ async def ingest_document_endpoint(
                 detail="Document must be attached to a project before ingestion"
             )
 
+        current_status = (document.get("status") or "").lower()
+        if current_status in {"analyzing", "analyzed", "processing", "ready"}:
+            print(f"[RAG-ENDPOINT] Skipping legacy ingest; document already in active/completed state: {current_status}")
+            return {
+                "message": "Document is already being processed",
+                "document_id": document_id,
+                "status": document.get("status"),
+            }
+
         # Update document status to 'processing' immediately
         print(f"[RAG-ENDPOINT] Updating document status to 'processing'...")
         supabase.table("documents").update({

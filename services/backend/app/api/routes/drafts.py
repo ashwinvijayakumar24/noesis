@@ -14,6 +14,7 @@ from app.core.supabase_client import supabase
 from app.services.draft_processing import ingest_draft, validate_file_format
 from app.services.draft_export import export_draft_analysis_as_pdf
 from app.services.draft_errors import DraftProcessingError
+from app.services.draft_anchor_qa import locate_text_snippet
 from app.core.security_middleware import SecureAuthValidator, limiter
 from typing import Any, Optional
 import datetime
@@ -119,6 +120,155 @@ def _get_latest_revision_metadata(draft_id: str, user_id: str) -> tuple[dict[str
     )
 
 
+def _load_draft_anchor_context(draft_id: str) -> tuple[str, list[dict[str, Any]]]:
+    analysis_response = (
+        supabase.table("draft_analysis")
+        .select("structure")
+        .eq("draft_id", draft_id)
+        .limit(1)
+        .execute()
+    )
+    if not analysis_response.data:
+        return "", []
+
+    structure = analysis_response.data[0].get("structure") or {}
+    sections = [
+        section for section in (structure.get("sections") or [])
+        if isinstance(section, dict) and section.get("content")
+    ]
+    if not sections:
+        return "", []
+
+    draft_text = "\n\n".join(str(section.get("content") or "") for section in sections)
+    return draft_text, sections
+
+
+def _apply_anchor_to_item(
+    item: dict[str, Any],
+    *,
+    draft_text: str,
+    sections: list[dict[str, Any]],
+    snippet_candidates: list[str],
+    section_reference: Optional[str],
+    min_confidence: float = 0.72,
+) -> dict[str, Any]:
+    if item.get("pdf_coordinates") or not draft_text or not sections:
+        return item
+
+    for candidate in snippet_candidates:
+        text = (candidate or "").strip()
+        if len(text) < 12:
+            continue
+        anchor = locate_text_snippet(
+            text,
+            draft_text,
+            sections=sections,
+            section_reference=section_reference,
+            context_radius=60,
+        )
+        if not anchor.get("found"):
+            continue
+        if (anchor.get("match_confidence") or 0) < min_confidence:
+            continue
+        if not anchor.get("pdf_coordinates"):
+            continue
+
+        enriched = dict(item)
+        for key in (
+            "line_number",
+            "char_start",
+            "char_end",
+            "text_snippet",
+            "section_id",
+            "char_offset_from_section",
+            "pdf_coordinates",
+            "match_confidence",
+        ):
+            if anchor.get(key) is not None:
+                enriched[key] = anchor[key]
+        return enriched
+
+    return item
+
+
+def _enrich_feedback_payload_with_anchors(
+    draft_id: str,
+    claims: list[dict[str, Any]],
+    gaps: list[dict[str, Any]],
+    feedback: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    draft_text, sections = _load_draft_anchor_context(draft_id)
+    if not draft_text or not sections:
+        return claims, gaps, feedback
+
+    enriched_claims = [
+        _apply_anchor_to_item(
+            dict(claim),
+            draft_text=draft_text,
+            sections=sections,
+            snippet_candidates=[claim.get("text_snippet", ""), claim.get("claim_text", "")],
+            section_reference=claim.get("section_location") or claim.get("section_type"),
+        )
+        for claim in claims
+    ]
+    claim_anchor_map = {
+        str(claim.get("id")): claim for claim in enriched_claims
+        if claim.get("id") and claim.get("pdf_coordinates")
+    }
+
+    enriched_gaps = [
+        _apply_anchor_to_item(
+            dict(gap),
+            draft_text=draft_text,
+            sections=sections,
+            snippet_candidates=[gap.get("text_snippet", ""), gap.get("description", "")],
+            section_reference=gap.get("section_reference") or gap.get("section_type"),
+        )
+        for gap in gaps
+    ]
+
+    enriched_feedback: list[dict[str, Any]] = []
+    for item in feedback:
+        feedback_item = _apply_anchor_to_item(
+            dict(item),
+            draft_text=draft_text,
+            sections=sections,
+            snippet_candidates=[
+                item.get("text_snippet", ""),
+                item.get("specific_issue", ""),
+                item.get("section_reference", ""),
+                item.get("feedback_text", ""),
+            ],
+            section_reference=item.get("section_reference") or item.get("section_type"),
+        )
+
+        target_claim = claim_anchor_map.get(str(feedback_item.get("target_claim_id")))
+        if target_claim and not feedback_item.get("pdf_coordinates"):
+            for key in (
+                "line_number",
+                "char_start",
+                "char_end",
+                "text_snippet",
+                "section_id",
+                "char_offset_from_section",
+                "pdf_coordinates",
+                "match_confidence",
+            ):
+                if target_claim.get(key) is not None and feedback_item.get(key) is None:
+                    feedback_item[key] = target_claim[key]
+
+        enriched_feedback.append(feedback_item)
+
+    return enriched_claims, enriched_gaps, enriched_feedback
+
+
+def _filter_feedback_diagnostics(items: list[dict[str, Any]], text_key: str) -> list[dict[str, Any]]:
+    return [
+        item for item in items
+        if not str(item.get(text_key) or "").lower().startswith("assessment failed:")
+    ]
+
+
 # Helper functions
 def generate_signed_url_for_draft(file_url: str, draft_id: str) -> Optional[dict]:
     """
@@ -170,12 +320,8 @@ def get_current_user(authorization: str = Header(None)):
             detail="Supabase not configured"
         )
 
-    # Use secure token validator
-    token = SecureAuthValidator.validate_bearer_token(authorization)
-
     try:
-        user = supabase.auth.get_user(token)
-        return user.user.id
+        return SecureAuthValidator.get_user_id(authorization, supabase)
     except Exception as e:
         logger.error(f"Token validation failed: {str(e)}")
         raise HTTPException(
@@ -1112,11 +1258,12 @@ def get_draft_claims(draft_id: str, user_id: str = Depends(get_current_user)):
     # Fetch claims
     claims_response = supabase.table("draft_claims").select("*").eq("draft_id", draft_id).execute()
     print(f"[DRAFT-CLAIMS] Found {len(claims_response.data) if claims_response.data else 0} claims")
+    claims = claims_response.data or []
 
     return {
         "draft_id": draft_id,
-        "claims": claims_response.data or [],
-        "total_claims": len(claims_response.data) if claims_response.data else 0
+        "claims": claims,
+        "total_claims": len(claims)
     }
 
 
@@ -1135,11 +1282,12 @@ def get_draft_coverage_gaps(draft_id: str, user_id: str = Depends(get_current_us
 
     # Fetch coverage gaps
     gaps_response = supabase.table("coverage_gaps").select("*").eq("draft_id", draft_id).execute()
+    gaps = _filter_feedback_diagnostics(gaps_response.data or [], "description")
 
     return {
         "draft_id": draft_id,
-        "gaps": gaps_response.data or [],
-        "total_gaps": len(gaps_response.data) if gaps_response.data else 0
+        "gaps": gaps,
+        "total_gaps": len(gaps)
     }
 
 
@@ -1158,11 +1306,12 @@ def get_draft_feedback(draft_id: str, user_id: str = Depends(get_current_user)):
 
     # Fetch reviewer feedback
     feedback_response = supabase.table("reviewer_feedback").select("*").eq("draft_id", draft_id).execute()
+    feedback = _filter_feedback_diagnostics(feedback_response.data or [], "feedback_text")
 
     return {
         "draft_id": draft_id,
-        "feedback": feedback_response.data or [],
-        "total_feedback_items": len(feedback_response.data) if feedback_response.data else 0
+        "feedback": feedback,
+        "total_feedback_items": len(feedback)
     }
 
 
@@ -1338,8 +1487,8 @@ async def get_feedback_by_section(
             .execute()
 
         claims = claims_response.data or []
-        gaps = gaps_response.data or []
-        feedback = feedback_response.data or []
+        gaps = _filter_feedback_diagnostics(gaps_response.data or [], "description")
+        feedback = _filter_feedback_diagnostics(feedback_response.data or [], "feedback_text")
 
         return {
             "claims": claims,
@@ -1421,8 +1570,8 @@ async def get_all_feedback(
             .execute()
 
         claims = claims_response.data or []
-        gaps = gaps_response.data or []
-        feedback = feedback_response.data or []
+        gaps = _filter_feedback_diagnostics(gaps_response.data or [], "description")
+        feedback = _filter_feedback_diagnostics(feedback_response.data or [], "feedback_text")
         revision_metadata, carryover_map = _get_latest_revision_metadata(draft_id, user_id)
 
         for item in feedback:

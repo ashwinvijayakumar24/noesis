@@ -11,6 +11,7 @@ from app.workflows.draft_analysis.state import DraftAnalysisState, Feedback
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from app.core.openai_client import get_openai_client, get_completion_params
+from app.services.draft_anchor_qa import attach_feedback_qa, select_failed_feedback_for_retry
 import json
 
 logger = get_logger(__name__)
@@ -49,6 +50,10 @@ Return ONLY a valid JSON object:
       "feedback_text": "Specific feedback referencing the exact claim and/or paper by name",
       "severity": "critical" | "major" | "minor" | "suggestion",
       "section_reference": "Section name (e.g., Results, Introduction)",
+      "target_claim_id": "Exact claim ID from the DETAILED CLAIM ANALYSIS, or null",
+      "target_gap_id": "Exact gap ID from CRITICAL COVERAGE GAPS, or null",
+      "specific_issue": "One concrete issue tied to the target claim/gap; empty only for strengths",
+      "suggested_improvements": ["Concrete action 1", "Concrete action 2"],
       "cited_papers": ["Paper title 1", "Paper title 2"]
     }
   ],
@@ -119,6 +124,73 @@ def _build_literature_context(search_results: list) -> str:
     return "\n".join(lines)
 
 
+def _format_external_sources_for_context(sources: list, limit: int = 3) -> str:
+    if not sources:
+        return ""
+
+    paper_strs = []
+    for source in sources[:limit]:
+        title = source.get("title") or "Unknown"
+        authors = source.get("authors") or []
+        first_author = authors[0] if authors else ""
+        year = source.get("year")
+        if first_author and year:
+            paper_strs.append(f"{title} ({first_author} et al., {year})")
+        elif year:
+            paper_strs.append(f"{title} ({year})")
+        else:
+            paper_strs.append(title)
+
+    return "; ".join(paper_strs)
+
+
+def _best_source_grounding_for_claim(cwc: dict) -> dict | None:
+    """Build a stable source_grounding payload from the best uploaded-literature match."""
+    citations = cwc.get("citations") or []
+    if not citations:
+        return None
+
+    best = max(citations, key=lambda c: float(c.get("similarity", 0) or 0))
+    document_id = best.get("document_id")
+    title = best.get("document_title") or best.get("title")
+    if not document_id and not title:
+        return None
+
+    return {
+        "document_id": document_id,
+        "document_title": title,
+        "title": title,
+        "excerpt": best.get("content", ""),
+        "similarity": best.get("similarity", 0.0),
+        "chunk_index": best.get("chunk_index"),
+        "section": best.get("section", ""),
+        "source": "uploaded_literature",
+    }
+
+
+def _attach_source_grounding_to_feedback(
+    feedback_items: list[dict],
+    claims_with_citations: list[dict],
+) -> list[dict]:
+    """Attach best uploaded-literature grounding to feedback items with target_claim_id."""
+    grounding_by_claim_id = {}
+    for cwc in claims_with_citations or []:
+        claim = cwc.get("claim") or {}
+        claim_id = claim.get("id")
+        grounding = _best_source_grounding_for_claim(cwc)
+        if claim_id and grounding:
+            grounding_by_claim_id[str(claim_id)] = grounding
+
+    for feedback in feedback_items:
+        if feedback.get("source_grounding"):
+            continue
+        target_claim_id = feedback.get("target_claim_id")
+        if target_claim_id and str(target_claim_id) in grounding_by_claim_id:
+            feedback["source_grounding"] = grounding_by_claim_id[str(target_claim_id)]
+
+    return feedback_items
+
+
 def _build_per_claim_context(
     claims_with_citations: list,
     coverage_gaps: list,
@@ -180,7 +252,7 @@ def _build_per_claim_context(
             'unknown': 'UNKNOWN',
         }.get(quality, quality.upper())
 
-        lines.append(f"Claim {i}: \"{claim_text[:120]}{'...' if len(claim_text) > 120 else ''}\"")
+        lines.append(f"Claim {i} [target_claim_id={claim_id}]: \"{claim_text[:120]}{'...' if len(claim_text) > 120 else ''}\"")
         lines.append(f"  Section: {section}  |  Importance: {int(importance * 100)}%  |  Type: {claim_type}")
         lines.append(f"  Citation quality: {quality_label}")
 
@@ -195,6 +267,11 @@ def _build_per_claim_context(
             lines.append(f"  Library papers found: {'; '.join(paper_strs)}")
         else:
             lines.append("  Library papers found: NONE")
+
+        external_sources = cwc.get("external_sources") or cwc.get("suggested_citations") or []
+        external_source_context = _format_external_sources_for_context(external_sources)
+        if external_source_context:
+            lines.append(f"  External sources found: {external_source_context}")
 
         # Specific gaps identified during citation quality assessment
         gap_lines = gaps[:2] if gaps else []
@@ -235,42 +312,6 @@ def generate_reviewer_feedback_node(state: DraftAnalysisState) -> DraftAnalysisS
     logger.info(f"[Reviewer Feedback] Starting for draft_id={state['draft_id']}")
 
     draft_id = state["draft_id"]
-
-    # OPTIMIZATION: Check if feedback already exists in database (from Phase 1)
-    try:
-        existing_feedback_res = supabase.table("reviewer_feedback")\
-            .select("id, feedback_type, feedback_text, severity, section_reference, reviewer_persona")\
-            .eq("draft_id", draft_id)\
-            .execute()
-
-        if existing_feedback_res.data and len(existing_feedback_res.data) > 0:
-            logger.info(f"[Reviewer Feedback] Found {len(existing_feedback_res.data)} existing feedback items - SKIPPING re-generation")
-
-            feedback_items: list[Feedback] = []
-            for db_fb in existing_feedback_res.data:
-                feedback: Feedback = {
-                    "feedback_type": db_fb["feedback_type"],
-                    "feedback_text": db_fb["feedback_text"],
-                    "severity": db_fb["severity"],
-                    "section_reference": db_fb.get("section_reference", ""),
-                    "reviewer_persona": db_fb.get("reviewer_persona") or "reviewer_2",
-                }
-                feedback_items.append(feedback)
-
-            strengths = sum(1 for f in feedback_items if f['feedback_type'] == 'strength')
-            weaknesses = sum(1 for f in feedback_items if f['feedback_type'] == 'weakness')
-            logger.info(f"[Reviewer Feedback] Reusing {len(feedback_items)} existing: strengths={strengths}, weaknesses={weaknesses}")
-
-            return {
-                'reviewer_feedback': feedback_items,
-                'overall_assessment': '',
-                'priority_actions': [],
-                'current_step': 'Reviewer Feedback (Cached)',
-                'progress_percentage': 85
-            }
-
-    except Exception as db_error:
-        logger.warning(f"[Reviewer Feedback] Could not check for existing feedback: {db_error}")
 
     try:
         structure = state.get("structure", {})
@@ -334,8 +375,18 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
         critical_gaps = [g for g in gaps if g.get('severity') == 'critical']
         if critical_gaps:
             context += "\nCRITICAL COVERAGE GAPS:\n"
+            gap_ids = {
+                id(gap): gap.get("id") or f"gap_{gap_index}"
+                for gap_index, gap in enumerate(gaps, 1)
+            }
             for gap in critical_gaps[:3]:
-                context += f"  * {gap['description']}\n"
+                gap_id = gap_ids[id(gap)]
+                context += f"  * [target_gap_id={gap_id}] {gap['description']}\n"
+                external_source_context = _format_external_sources_for_context(
+                    gap.get("external_sources") or gap.get("suggested_papers") or []
+                )
+                if external_source_context:
+                    context += f"    External sources found: {external_source_context}\n"
 
         # B4: B5 token limit increased to 6000 for detailed per-claim feedback
         response = client.chat.completions.create(
@@ -359,8 +410,39 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
                 'severity': item['severity'],
                 'section_reference': item.get('section_reference', ''),
                 'reviewer_persona': 'reviewer_2',
+                'target_claim_id': item.get('target_claim_id'),
+                'target_gap_id': item.get('target_gap_id'),
+                'specific_issue': item.get('specific_issue', ''),
+                'suggestions': item.get('suggested_improvements', []),
+                'suggested_improvements': item.get('suggested_improvements', []),
+                'cited_papers': item.get('cited_papers', []),
             }
             feedback_items.append(feedback)
+
+        feedback_items = _attach_source_grounding_to_feedback(
+            feedback_items,
+            claims_with_citations,
+        )
+
+        qa_claims = [
+            cwc.get("claim", {})
+            for cwc in claims_with_citations
+            if cwc.get("claim")
+        ] or state.get("claims", [])
+        feedback_items = attach_feedback_qa(
+            feedback_items,
+            state.get("draft_content", ""),
+            claims=qa_claims,
+            gaps=gaps,
+            sections=structure.get("sections", []),
+            source_grounding_expected=bool(literature_context or literature_search_results),
+        )
+        failed_retry_payload = select_failed_feedback_for_retry(feedback_items)
+        if failed_retry_payload:
+            logger.info(
+                f"[Reviewer Feedback] QA marked {len(failed_retry_payload)} items "
+                "eligible for targeted retry"
+            )
 
         strengths = sum(1 for f in feedback_items if f['feedback_type'] == 'strength')
         weaknesses = sum(1 for f in feedback_items if f['feedback_type'] == 'weakness')
@@ -397,6 +479,7 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
             'reviewer_feedback': feedback_items,
             'overall_assessment': result.get('overall_assessment', ''),
             'priority_actions': priority_actions,
+            'reviewer_feedback_retry_items': failed_retry_payload,
             'current_step': 'Reviewer Feedback',
             'progress_percentage': 85
         }

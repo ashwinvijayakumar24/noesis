@@ -1,8 +1,13 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
+
     # Supabase Configuration
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
@@ -49,9 +54,5 @@ class Settings(BaseSettings):
 
     # API Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100
-
-    class Config:
-        env_file = ".env"
-
 
 settings = Settings()

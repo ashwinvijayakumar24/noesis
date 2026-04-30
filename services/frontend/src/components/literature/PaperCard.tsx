@@ -11,6 +11,9 @@ import {
   PlusIcon,
 } from '@heroicons/react/24/outline'
 import { api } from '../../lib/api'
+import { getApiErrorDetail } from '../../lib/apiErrors'
+import { handleError } from '../../lib/errorHandler'
+import toast from 'react-hot-toast'
 
 export interface PaperDocument {
   id: string
@@ -37,7 +40,7 @@ interface PaperCardProps {
   projectId: string
   onDelete: (id: string, title: string) => void
   token?: string
-  onResolved?: () => void
+  onRefresh?: () => void | Promise<void>
 }
 
 // ─── Source badge ────────────────────────────────────────────────────────────
@@ -106,7 +109,7 @@ function StatusBadge({
   if (r === 'unresolved') {
     return (
       <span className="text-xs font-medium px-2 py-0.5 rounded-sm border bg-[#071A2C] text-sky-400 border-[#0E3A5C]">
-        Imported
+        Metadata only
       </span>
     )
   }
@@ -225,8 +228,33 @@ function DocumentTagRow({ docId, initialTags, token }: { docId: string; initialT
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function PaperCard({ document, projectId, onDelete, token }: PaperCardProps) {
+export default function PaperCard({ document, projectId, onDelete, token, onRefresh }: PaperCardProps) {
   const navigate = useNavigate()
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState(document.title)
+  const [isRetrying, setIsRetrying] = useState(false)
+  const [displayTitle, setDisplayTitle] = useState(document.title)
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  const handleSaveTitle = async () => {
+    const trimmed = editTitle.trim()
+    if (!trimmed || trimmed === displayTitle) { setIsEditingTitle(false); return }
+    if (!token) return
+    try {
+      await api.documents.update(token, document.id, trimmed)
+      setDisplayTitle(trimmed)
+    } catch {
+      setEditTitle(displayTitle)
+    }
+    setIsEditingTitle(false)
+  }
+
+  const startEditTitle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditTitle(displayTitle)
+    setIsEditingTitle(true)
+    setTimeout(() => titleInputRef.current?.focus(), 0)
+  }
 
   const isAnalyzed = document.status.toLowerCase() === 'analyzed'
   const isResolving = document.resolution_status === 'resolving'
@@ -313,9 +341,24 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
 
   const handleRetry = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!token) return
+    if (!token || isRetrying) return
 
-    await api.documents.retry(token, document.id)
+    try {
+      setIsRetrying(true)
+      await api.documents.retry(token, document.id)
+      toast.success('Re-analysis queued')
+      await onRefresh?.()
+    } catch (error) {
+      const detail = getApiErrorDetail(error)
+      if (detail?.code === 'retry_not_allowed') {
+        toast('This paper already changed state. Refreshing its latest status.', { icon: 'ℹ️' })
+        await onRefresh?.()
+        return
+      }
+      handleError(error, 'retrying document analysis')
+    } finally {
+      setIsRetrying(false)
+    }
   }
 
   return (
@@ -339,9 +382,27 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
       {/* Center: content */}
       <div className="flex-1 min-w-0">
         {/* Row 1: Title */}
-        <p className={`font-semibold text-sm text-text-primary leading-snug line-clamp-1 transition-colors duration-150 ${isClickable ? 'group-hover:text-accent-primary' : ''}`}>
-          {document.title}
-        </p>
+        {isEditingTitle ? (
+          <div className="flex items-center gap-1.5 mb-0.5" onClick={e => e.stopPropagation()}>
+            <input
+              ref={titleInputRef}
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setIsEditingTitle(false) }}
+              onBlur={handleSaveTitle}
+              className="flex-1 min-w-0 text-sm bg-bg-elevated border border-accent-primary/40 rounded px-2 py-0.5 text-text-primary outline-none"
+            />
+          </div>
+        ) : (
+          <p
+            onClick={token ? startEditTitle : undefined}
+            className={`font-semibold text-sm text-text-primary leading-snug line-clamp-1 transition-colors duration-150
+              ${token ? 'cursor-text hover:text-accent-primary/80 hover:underline decoration-dotted underline-offset-2' : ''}
+              ${isClickable ? 'group-hover:text-accent-primary' : ''}`}
+          >
+            {displayTitle}
+          </p>
+        )}
 
         {/* Row 2: Meta */}
         {metaLine && (
@@ -408,10 +469,11 @@ export default function PaperCard({ document, projectId, onDelete, token }: Pape
           {statusLower === 'failed' && token && (
             <button
               onClick={handleRetry}
-              className="p-1 rounded-md text-text-muted hover:text-accent-primary transition-colors duration-150"
-              title="Retry analysis"
+              disabled={isRetrying}
+              className="p-1 rounded-md text-text-muted hover:text-accent-primary transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isRetrying ? 'Re-queueing analysis' : 'Retry analysis'}
             >
-              <ArrowPathIcon className="h-4 w-4" />
+              <ArrowPathIcon className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
             </button>
           )}
           <button

@@ -632,7 +632,7 @@ def _run_analysis_task(document_id: str, file_url: str):
     """
     from app.services.rag_ingest import extract_text_from_pdf_fallback, get_pdf_page_count
     from app.workflows.document_analysis.graph import run_document_analysis_workflow
-    import asyncio
+    from app.services.async_utils import run_coroutine_sync
     from app.services.quota_management import increment_quota_usage, track_openai_usage
     from app.core.openai_client import get_openai_client, get_completion_params
     import os
@@ -711,7 +711,7 @@ def _run_analysis_task(document_id: str, file_url: str):
                         ingest_document(document_id, file_url, project_id)
                     except Exception as ingest_err:
                         print(f"[ANALYZE-BG-LG] Warning: RAG ingest failed: {ingest_err}")
-                    asyncio.run(increment_quota_usage(user_id, "document"))
+                    run_coroutine_sync(increment_quota_usage(user_id, "document"))
                     supabase.table("documents").update({
                         "analysis": cached_analysis,
                         "status": "analyzed",
@@ -740,10 +740,7 @@ def _run_analysis_task(document_id: str, file_url: str):
         print(f"[ANALYZE-BG-LG] Step 4b: Running LangGraph workflow for structured extraction...")
         print(f"[ANALYZE-BG-LG] This will extract: claims, methods, findings for citation matching")
 
-        # Create async loop for workflow execution
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        final_state = loop.run_until_complete(
+        final_state = run_coroutine_sync(
             run_document_analysis_workflow(
                 document_id=document_id,
                 project_id=project_id,
@@ -751,7 +748,6 @@ def _run_analysis_task(document_id: str, file_url: str):
                 page_count=page_count
             )
         )
-        loop.close()
 
         print(f"[ANALYZE-BG-LG] ✓ LangGraph workflow completed")
         print(f"[ANALYZE-BG-LG] Extracted: {len(final_state.get('claims', []))} claims, "
@@ -826,13 +822,13 @@ def _run_analysis_task(document_id: str, file_url: str):
         # 5.5. Track quota usage and OpenAI costs
         try:
             # Increment quota counter
-            asyncio.run(increment_quota_usage(user_id, "document"))
+            run_coroutine_sync(increment_quota_usage(user_id, "document"))
             print(f"[ANALYZE-BG] Quota incremented for user_id={user_id}")
 
             # Track OpenAI usage
             metadata = analysis.get("analysis_metadata", {})
             if metadata.get("prompt_tokens") and metadata.get("completion_tokens"):
-                asyncio.run(track_openai_usage(
+                run_coroutine_sync(track_openai_usage(
                     user_id=user_id,
                     operation_type="document_analysis",
                     model=metadata.get("model", "gpt-5.2-chat-latest"),
@@ -868,7 +864,7 @@ def _run_analysis_task(document_id: str, file_url: str):
             doi_to_cache = doc_meta.get("doi")
             if doi_to_cache or doc_full.get("title"):
                 from app.services.shared_paper_cache import store_paper as _store_shared
-                asyncio.run(_store_shared({
+                run_coroutine_sync(_store_shared({
                     "doi": doi_to_cache,
                     "title": doc_full.get("title"),
                     "authors": doc_meta.get("authors", []),
@@ -974,22 +970,6 @@ def _run_analysis_task(document_id: str, file_url: str):
             details=[str(e)] if str(e) else None,
         )
         clear_progress_snapshot("document", document_id)
-        metadata_res = supabase.table("documents").select("metadata").eq("id", document_id).execute()
-        existing_metadata = (
-            metadata_res.data[0].get("metadata") or {}
-            if metadata_res.data
-            else {}
-        )
-        supabase.table("documents").update({
-            "status": "analyzing",
-            "updated_at": datetime.utcnow().isoformat(),
-            "metadata": _merge_metadata(
-                existing_metadata,
-                error=str(e),
-                error_type=type(e).__name__,
-                error_detail=error_detail,
-            ),
-        }).eq("id", document_id).execute()
 
         # CRITICAL: Re-raise the exception so Celery knows the task failed and can retry
         raise

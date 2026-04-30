@@ -101,14 +101,13 @@ def get_current_user(authorization: str = Header(None)):
     if supabase is None:
         raise HTTPException(status_code=500, detail="Supabase not configured")
 
-    # Use secure token validator
-    token = SecureAuthValidator.validate_bearer_token(authorization)
-
     try:
+        user_id = SecureAuthValidator.get_user_id(authorization, supabase)
+        token = SecureAuthValidator.validate_bearer_token(authorization)
         user = supabase.auth.get_user(token)
         return {
             "email": user.user.email,
-            "id": user.user.id,
+            "id": user_id,
             "email_confirmed": user.user.email_confirmed_at is not None
         }
     except Exception as e:
@@ -157,10 +156,8 @@ async def get_quota_summary(authorization: str = Header(None)):
     if supabase is None:
         raise HTTPException(status_code=500, detail="Supabase not configured")
 
-    token = SecureAuthValidator.validate_bearer_token(authorization)
     try:
-        user = supabase.auth.get_user(token)
-        user_id = user.user.id
+        user_id = SecureAuthValidator.get_user_id(authorization, supabase)
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 

@@ -9,17 +9,28 @@ import {
   InformationCircleIcon,
   BeakerIcon
 } from '@heroicons/react/24/outline'
+import type { PdfCoordinates } from '../DocumentViewer'
 
 interface UnifiedFeedbackCardProps {
   item: {
     id: string
     type: 'claim' | 'gap' | 'feedback'
     priority: 'high' | 'medium' | 'low'
+    issueCategory?: string
     content: any
   }
   onStatusChange: (feedbackId: string, feedbackType: 'claim' | 'gap' | 'feedback', newStatus: 'new' | 'saved' | 'dismissed') => void
-  onViewInDocument?: (lineNumber: number) => void
+  onViewInDocument?: (payload: {
+    line_number?: number
+    content_text?: string
+    text_snippet?: string
+    section_type?: string
+    section_location?: string
+    pdf_coordinates?: PdfCoordinates
+    match_confidence?: number
+  }) => void
   currentStatus: 'new' | 'saved' | 'dismissed'
+  fileType: string
 }
 
 // Left border accent — the card border communicates priority
@@ -62,6 +73,11 @@ const CITATION_SOURCE_CONFIG: Record<string, { bg: string; text: string; label: 
   openalex:          { bg: 'bg-amber-500/15',  text: 'text-amber-400',  label: 'OpenAlex' },
 }
 
+const META_LABEL_CLASS = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted'
+const META_VALUE_CLASS = 'text-xs font-medium text-text-secondary'
+const META_STATUS_READY_CLASS = 'text-xs font-medium text-accent-primary hover:text-accent-primary/80'
+const META_STATUS_MISSING_CLASS = 'text-xs font-medium text-warning'
+
 // Parse suggested citations from supporting_literature JSONB
 function parseSuggestedCitations(content: any): Array<{ display: string; source: string; similarity?: number }> {
   const supLit = content?.supporting_literature
@@ -93,7 +109,8 @@ export default function UnifiedFeedbackCard({
   item,
   onStatusChange,
   onViewInDocument,
-  currentStatus
+  currentStatus,
+  fileType,
 }: UnifiedFeedbackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -149,6 +166,18 @@ export default function UnifiedFeedbackCard({
 
   // Citation chips from supporting_literature
   const suggestedCitations = item.type === 'claim' ? parseSuggestedCitations(item.content) : []
+  const isPdf = fileType === 'application/pdf' || fileType === 'pdf'
+  const hasReliablePdfAnchor = Boolean(item.content.pdf_coordinates)
+  const canOpenDocument = isPdf ? hasReliablePdfAnchor : Boolean(item.content.line_number)
+  const viewPayload = {
+    line_number: item.content.line_number,
+    content_text: contentText,
+    text_snippet: item.content.text_snippet,
+    section_type: item.content.section_type ?? item.content.section_reference,
+    section_location: item.content.section_location,
+    pdf_coordinates: item.content.pdf_coordinates,
+    match_confidence: item.content.match_confidence,
+  }
 
   return (
     <div className={`bg-bg-surface rounded-lg border border-border-default ${borderAccentClass} p-4 transition-colors duration-150 hover:border-border-subtle`}>
@@ -188,21 +217,38 @@ export default function UnifiedFeedbackCard({
           )}
         </div>
 
-        {/* Location chips */}
-        <div className="flex items-center gap-2 shrink-0 ml-2">
+        {/* Metadata summary */}
+        <div className="flex items-start gap-4 shrink-0 ml-3 border-l border-border-default pl-4">
           {item.content.section_type && (
-            <span className="text-xs text-text-muted px-1.5 py-0.5 rounded bg-bg-elevated">
-              § {(item.content.section_type || '').replace(/_/g, ' ')}
-            </span>
+            <div className="min-w-[92px]">
+              <div className={META_LABEL_CLASS}>Section</div>
+              <div className={`${META_VALUE_CLASS} mt-1 capitalize`}>
+                {(item.content.section_type || '').replace(/_/g, ' ')}
+              </div>
+            </div>
           )}
-          {item.content.line_number && (
-            <button
-              onClick={() => item.content.line_number && onViewInDocument?.(item.content.line_number)}
-              className="text-xs text-text-muted hover:text-text-primary flex items-center gap-1 transition-colors duration-150"
-            >
-              <span>Line {item.content.line_number}</span>
-              <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
-            </button>
+          {(canOpenDocument || isPdf) && (
+            <div className="min-w-[148px]">
+              <div className={META_LABEL_CLASS}>Location</div>
+              <div className="mt-1">
+                {canOpenDocument ? (
+                  <button
+                    onClick={() => onViewInDocument?.(viewPayload)}
+                    className={`inline-flex items-center gap-1 ${META_STATUS_READY_CLASS} transition-colors duration-150`}
+                  >
+                    <span>{isPdf ? `Page ${item.content.pdf_coordinates?.page}` : `Line ${item.content.line_number}`}</span>
+                    <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                  </button>
+                ) : isPdf ? (
+                  <span
+                    className={META_STATUS_MISSING_CLASS}
+                    title="This item does not have an exact PDF anchor yet. Reanalyze the draft to regenerate anchors."
+                  >
+                    Exact location unavailable
+                  </span>
+                ) : null}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -232,10 +278,8 @@ export default function UnifiedFeedbackCard({
 
         {item.type === 'gap' && (
           <>
-            <span>Type: <span className="text-text-secondary">{metadata.gapType}</span></span>
             {metadata.hasLiterature && (
               <>
-                <span className="text-border-subtle">·</span>
                 <span className="text-success font-medium">Literature available</span>
               </>
             )}
@@ -250,32 +294,40 @@ export default function UnifiedFeedbackCard({
       </div>
 
       {/* Citation chips with source color coding */}
-      {item.type === 'claim' && metadata.requiresCitation && suggestions.length === 0 && (
+      {item.type === 'claim' && suggestedCitations.length > 0 && (
+        <div className="mb-3 pl-3 border-l border-accent-primary/30">
+          <span className="text-xs text-accent-primary font-medium block mb-1.5">Recommended support</span>
+          <div className="space-y-2">
+            {suggestedCitations.slice(0, 4).map((cit, i) => {
+              const sourceConfig = CITATION_SOURCE_CONFIG[cit.source] || CITATION_SOURCE_CONFIG['library']
+              return (
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-3 rounded-md border border-border-default bg-bg-elevated px-3 py-2"
+                  title={`${sourceConfig.label}${cit.similarity ? ` · ${Math.round(cit.similarity * 100)}% match` : ''}`}
+                >
+                  <span className="text-xs font-medium leading-snug text-text-primary">{cit.display}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {cit.similarity && cit.similarity >= 0.7 && (
+                      <span className="text-[11px] font-medium text-text-muted">{Math.round(cit.similarity * 100)}%</span>
+                    )}
+                    <span className={`text-[11px] font-semibold uppercase tracking-wide ${sourceConfig.text}`}>
+                      {sourceConfig.label}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {item.type === 'claim' && metadata.requiresCitation && suggestions.length === 0 && suggestedCitations.length === 0 && (
         <div className="mb-3 pl-3 border-l border-warning">
           <span className="text-xs text-warning font-medium block mb-1.5">Citation needed</span>
-          {suggestedCitations.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {suggestedCitations.slice(0, 4).map((cit, i) => {
-                const sourceConfig = CITATION_SOURCE_CONFIG[cit.source] || CITATION_SOURCE_CONFIG['library']
-                return (
-                  <span
-                    key={i}
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${sourceConfig.bg} ${sourceConfig.text}`}
-                    title={`${sourceConfig.label}${cit.similarity ? ` · ${Math.round(cit.similarity * 100)}% match` : ''}`}
-                  >
-                    {cit.display}
-                    {cit.similarity && cit.similarity >= 0.7 && (
-                      <span className="ml-1 opacity-70">{Math.round(cit.similarity * 100)}%</span>
-                    )}
-                  </span>
-                )
-              })}
-            </div>
-          ) : (
-            <span className="text-xs text-text-muted italic">
-              No citation match found in your library.
-            </span>
-          )}
+          <span className="text-xs text-text-muted italic">
+            No citation match found in your library.
+          </span>
         </div>
       )}
 
@@ -313,7 +365,7 @@ export default function UnifiedFeedbackCard({
                           const source = suggestion.source || 'semantic_scholar'
                           const sourceConfig = CITATION_SOURCE_CONFIG[source] || CITATION_SOURCE_CONFIG['library']
                           return (
-                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${sourceConfig.bg} ${sourceConfig.text}`}>
+                            <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 ${sourceConfig.text}`}>
                               {sourceConfig.label}
                             </span>
                           )

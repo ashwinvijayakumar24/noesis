@@ -9,7 +9,6 @@ import {
   ExclamationTriangleIcon,
   LightBulbIcon,
   PlusIcon,
-  SparklesIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline'
 
@@ -20,6 +19,8 @@ import InlineAlert from '../ui/InlineAlert'
 import { ProgressIndicator } from '../ui/ProgressIndicator'
 import {
   formatQuotaLabel,
+  getConflictRecommendations,
+  getGapRecommendations,
   getKeyInsightDetails,
   markRecommendationSaved,
   normalizeLiteratureMapResponse,
@@ -85,23 +86,23 @@ function RecommendationChip({
   ].filter(Boolean)
 
   return (
-    <div className="rounded-xl border border-border-default bg-bg-surface p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-text-primary line-clamp-2">{recommendation.title}</p>
+    <div className="rounded-lg border border-border-default bg-bg-surface p-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold leading-snug text-text-primary line-clamp-2">{recommendation.title}</p>
           {metaBits.length > 0 && (
-            <p className="mt-1 text-xs text-text-tertiary">{metaBits.join(' · ')}</p>
+            <p className="mt-1 text-xs text-text-tertiary line-clamp-1">{metaBits.join(' · ')}</p>
           )}
         </div>
         {recommendation.bib_saved ? (
-          <span className="rounded-lg border border-border-default px-2 py-1 text-xs text-text-muted">
+          <span className="rounded-md border border-border-default px-2 py-1 text-xs text-text-muted">
             Saved
           </span>
         ) : (
           <button
             onClick={() => onSave(recommendation.id)}
             disabled={isSaving}
-            className="inline-flex h-11 shrink-0 items-center gap-1 rounded-lg bg-accent-primary px-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md bg-accent-primary px-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             {isSaving ? (
               <span className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" />
@@ -114,16 +115,16 @@ function RecommendationChip({
       </div>
 
       {recommendation.relevance_reason && (
-        <p className="mt-2 text-xs text-text-tertiary">{recommendation.relevance_reason}</p>
+        <p className="mt-2 text-xs leading-relaxed text-text-tertiary line-clamp-2">{recommendation.relevance_reason}</p>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         {recommendation.paper_url && (
           <a
             href={recommendation.paper_url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-11 items-center gap-1 rounded-lg border border-border-default px-3 text-sm text-text-secondary transition-colors hover:text-text-primary"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default px-2.5 text-xs text-text-secondary transition-colors hover:text-text-primary"
           >
             <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
             Paper
@@ -134,7 +135,7 @@ function RecommendationChip({
             href={recommendation.pdf_url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-11 items-center gap-1 rounded-lg border border-border-default px-3 text-sm text-text-secondary transition-colors hover:text-text-primary"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default px-2.5 text-xs text-text-secondary transition-colors hover:text-text-primary"
           >
             <DocumentTextIcon className="h-3.5 w-3.5" />
             PDF
@@ -366,7 +367,13 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
   }
 
   const insights = payload.insights
-  const coverageSnapshot = insights.coverage_snapshot
+  const coverageSnapshot = insights.coverage_snapshot ?? {
+    paper_count: insights.analysis_metadata?.num_papers_analyzed ?? 0,
+    year_range: { min: null, max: null },
+    top_methods: [],
+    top_venues: [],
+    top_contexts: [],
+  }
   const keyInsightDetails = getKeyInsightDetails(payload)
 
   return (
@@ -375,7 +382,6 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <SparklesIcon className="h-5 w-5 text-accent-primary" />
               <h3 className="text-xl font-semibold text-text-primary">Literature Map</h3>
             </div>
             <p className="mt-2 text-sm text-text-tertiary">
@@ -513,25 +519,6 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
         </div>
       </section>
 
-      {payload.summary_recommendations.length > 0 && (
-        <section className="rounded-xl border border-border-default bg-bg-surface p-5">
-          <h4 className="text-lg font-semibold text-text-primary">Recommended Papers</h4>
-          <p className="mt-2 text-sm text-text-tertiary">
-            Suggested papers tied to your current literature map.
-          </p>
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            {payload.summary_recommendations.map((recommendation) => (
-              <RecommendationChip
-                key={recommendation.id}
-                recommendation={recommendation}
-                isSaving={savingIds.has(recommendation.id)}
-                onSave={handleSaveRecommendation}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
       <section className="rounded-xl border border-border-default bg-bg-surface p-5">
         <h4 className="text-lg font-semibold text-text-primary">Gaps & Conflicts</h4>
 
@@ -539,6 +526,10 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
           <div className="space-y-4">
             {(insights.research_gaps ?? []).map((gap) => (
               <div key={gap.title} className="rounded-xl border border-border-default bg-bg-elevated p-4">
+                {(() => {
+                  const gapRecommendations = getGapRecommendations(payload, gap.title)
+                  return (
+                    <>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-text-primary">{gap.title}</p>
                   <span className="rounded-lg border border-border-default px-2 py-1 text-xs text-text-muted">
@@ -556,10 +547,11 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
                 <div className="mt-3">
                   <SourcePapers papers={gap.source_papers} />
                 </div>
-                {payload.gap_recommendations_by_title[gap.title]?.length > 0 && (
+                {gapRecommendations.length > 0 && (
                   <div className="mt-4 space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Suggested papers</p>
-                    {payload.gap_recommendations_by_title[gap.title].map((recommendation) => (
+                    <div className="space-y-2">
+                    {gapRecommendations.map((recommendation) => (
                       <RecommendationChip
                         key={recommendation.id}
                         recommendation={recommendation}
@@ -567,8 +559,12 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
                         onSave={handleSaveRecommendation}
                       />
                     ))}
+                    </div>
                   </div>
                 )}
+                    </>
+                  )
+                })()}
               </div>
             ))}
           </div>
@@ -576,6 +572,10 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
           <div className="space-y-4">
             {(insights.conflicting_findings ?? []).map((conflict) => (
               <div key={conflict.topic} className="rounded-xl border border-border-default bg-bg-elevated p-4">
+                {(() => {
+                  const conflictRecommendations = getConflictRecommendations(payload, conflict.topic)
+                  return (
+                    <>
                 <p className="text-sm font-semibold text-text-primary">{conflict.topic}</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-border-default bg-bg-surface p-3">
@@ -593,10 +593,11 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
                 <div className="mt-3">
                   <SourcePapers papers={conflict.source_papers} />
                 </div>
-                {payload.conflict_recommendations_by_topic[conflict.topic]?.length > 0 && (
+                {conflictRecommendations.length > 0 && (
                   <div className="mt-4 space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Suggested papers</p>
-                    {payload.conflict_recommendations_by_topic[conflict.topic].map((recommendation) => (
+                    <div className="space-y-2">
+                    {conflictRecommendations.map((recommendation) => (
                       <RecommendationChip
                         key={recommendation.id}
                         recommendation={recommendation}
@@ -604,8 +605,12 @@ export default function InsightsTab({ projectId, onDocumentSaved }: InsightsTabP
                         onSave={handleSaveRecommendation}
                       />
                     ))}
+                    </div>
                   </div>
                 )}
+                    </>
+                  )
+                })()}
               </div>
             ))}
           </div>

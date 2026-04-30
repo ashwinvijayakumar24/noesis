@@ -27,15 +27,18 @@ class ClaimWithCitation(TypedDict):
     citation_quality: NotRequired[str]  # strong, moderate, weak
     gaps: NotRequired[List[str]]
     suggested_citations: NotRequired[List[Dict[str, Any]]]  # B2: discovered papers for weak/none claims
+    external_sources: NotRequired[List[Dict[str, Any]]]
 
 
 class Gap(TypedDict):
     """A coverage gap in the draft."""
+    id: NotRequired[str]
     gap_type: str  # missing_evidence, missing_perspectives, missing_baselines
     description: str
     severity: str  # critical, important, minor
     affected_claims: List[str]
     suggested_papers: NotRequired[List[Dict[str, Any]]]
+    external_sources: NotRequired[List[Dict[str, Any]]]
 
 
 class Feedback(TypedDict):
@@ -45,6 +48,25 @@ class Feedback(TypedDict):
     severity: str  # critical, important, minor
     section_reference: NotRequired[str]
     reviewer_persona: NotRequired[str]
+    target_claim_id: NotRequired[str]
+    target_gap_id: NotRequired[str]
+    specific_issue: NotRequired[str]
+    suggestions: NotRequired[List[str]]
+    suggested_improvements: NotRequired[List[str]]
+    cited_papers: NotRequired[List[str]]
+    qa_result: NotRequired[Dict[str, Any]]
+    line_number: NotRequired[int]
+    char_start: NotRequired[int]
+    char_end: NotRequired[int]
+    text_snippet: NotRequired[str]
+    section_id: NotRequired[str]
+    char_offset_from_section: NotRequired[int]
+    pdf_coordinates: NotRequired[Dict[str, Any]]
+    match_confidence: NotRequired[float]
+    suggested_fix: NotRequired[str]
+    source_grounding: NotRequired[Dict[str, Any]]
+    qa_status: NotRequired[str]
+    qa_notes: NotRequired[List[str]]
 
 
 class DraftStructure(TypedDict):
@@ -101,9 +123,12 @@ class DraftAnalysisState(TypedDict):
 
     # Literature recommendations
     literature_recommendations: NotRequired[List[Dict[str, Any]]]
+    external_sources: NotRequired[List[Dict[str, Any]]]
+    feedback_qa_failures: NotRequired[List[Dict[str, Any]]]
 
     # Reviewer feedback
     reviewer_feedback: NotRequired[List[Feedback]]
+    reviewer_feedback_retry_items: NotRequired[List[Dict[str, Any]]]
 
     # Structural checks feedback (merged into reviewer_feedback table with feedback_type='structural')
     structural_feedback: NotRequired[List[Dict[str, Any]]]

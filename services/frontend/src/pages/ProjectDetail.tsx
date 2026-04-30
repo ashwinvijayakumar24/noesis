@@ -108,13 +108,10 @@ export default function ProjectDetail() {
   // Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false)
 
-  // Track when each document first entered a stuck/analyzing state (for timeout)
-  const analyzingStartTimes = useRef<Map<string, number>>(new Map())
-
   // Insights state (used by Compass and Insights tabs)
   const [_insights, setInsights] = useState<any | null>(null)
   const [insightsStatus, setInsightsStatus] = useState<'not_analyzed' | 'analyzing' | 'analyzed' | 'failed'>('not_analyzed')
-  const [insightsPolling, setInsightsPolling] = useState<number | null>(null)
+  const [insightsPolling, setInsightsPolling] = useState<ReturnType<typeof window.setInterval> | null>(null)
 
   // Project editing state
   const [isEditingProject, setIsEditingProject] = useState(false)
@@ -159,32 +156,10 @@ export default function ProjectDetail() {
 
     if (!hasProcessingDocs) return
 
-    const STUCK_TIMEOUT_MS = 3 * 60 * 1000 // 3 minutes
-
     const pollInterval = setInterval(() => {
       api.projects.getBundle(session.access_token, projectId).then(data => {
         const { documents: updatedDocs } = data as { documents: any[] }
-        const now = Date.now()
-
-        const processedDocs = (updatedDocs || []).map((doc: any) => {
-          const s = doc.status?.toLowerCase()
-          const isStuck = s === 'analyzing' || s === 'processing' || s === 'uploaded' || s === 'ready' || doc.resolution_status === 'resolving'
-
-          if (isStuck) {
-            if (!analyzingStartTimes.current.has(doc.id)) {
-              analyzingStartTimes.current.set(doc.id, now)
-            } else if (now - analyzingStartTimes.current.get(doc.id)! > STUCK_TIMEOUT_MS) {
-              analyzingStartTimes.current.delete(doc.id)
-              api.documents.markFailed(session.access_token, doc.id).catch(() => {})
-              return { ...doc, status: 'failed' }
-            }
-          } else {
-            analyzingStartTimes.current.delete(doc.id)
-          }
-          return doc
-        })
-
-        setDocuments(processedDocs)
+        setDocuments(updatedDocs || [])
       }).catch(error => {
         console.error('Polling error:', error)
       })
@@ -811,7 +786,7 @@ export default function ProjectDetail() {
                           projectId={projectId!}
                           onDelete={(id, title) => setDeleteDocument({ id, title })}
                           token={session?.access_token}
-                          onResolved={silentRefreshDocuments}
+                          onRefresh={silentRefreshDocuments}
                         />
                       ))}
                       {filtered.length === 0 && (

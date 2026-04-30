@@ -37,12 +37,8 @@ def get_current_user(authorization: str = Header(None)):
             detail="Supabase not configured"  # Don't expose environment details
         )
 
-    # Use secure token validator
-    token = SecureAuthValidator.validate_bearer_token(authorization)
-
     try:
-        user = supabase.auth.get_user(token)
-        return user.user.id
+        return SecureAuthValidator.get_user_id(authorization, supabase)
     except Exception as e:
         logger.error(f"Token validation failed: {str(e)}")
         raise HTTPException(
@@ -83,6 +79,23 @@ def get_tag_suggestions(user_id: str = Depends(get_current_user)):
     except Exception as e:
         print(f"[TAGS] Error getting suggestions: {e}")
         return SUGGESTED_TAGS  # Fallback to predefined
+
+@router.get("/projects")
+def get_all_project_tags(user_id: str = Depends(get_current_user)):
+    """
+    Get all tags for all of the current user's projects in one request.
+    """
+    try:
+        response = supabase.table("project_tags").select("*")\
+            .eq("user_id", user_id)\
+            .order("created_at", desc=False)\
+            .execute()
+
+        return response.data or []
+
+    except Exception as e:
+        print(f"[TAGS] Error getting all project tags: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get project tags: {str(e)}")
 
 @router.get("/projects/{project_id}")
 def get_project_tags(

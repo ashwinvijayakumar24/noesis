@@ -118,6 +118,9 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   const [inviteModal, setInviteModal] = useState<{ isOpen: boolean; inviteUrl: string; labName: string }>({
     isOpen: false, inviteUrl: '', labName: '',
   })
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
+  const [editDraftTitle, setEditDraftTitle] = useState('')
+  const draftTitleInputRef = useRef<HTMLInputElement>(null)
 
   const loadDrafts = async () => {
     try {
@@ -146,6 +149,26 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     api.drafts.list(token, projectId).then(data => {
       setDrafts(data.drafts || [])
     }).catch(err => console.error('[DRAFTS-PANEL] Silent reload error:', err))
+  }
+
+  const startEditDraft = (e: React.MouseEvent, draft: Draft) => {
+    e.stopPropagation()
+    setEditDraftTitle(draft.title)
+    setEditingDraftId(draft.id)
+    setTimeout(() => draftTitleInputRef.current?.focus(), 0)
+  }
+
+  const saveDraftTitle = async (draftId: string) => {
+    const trimmed = editDraftTitle.trim()
+    const original = drafts.find(d => d.id === draftId)?.title ?? ''
+    setEditingDraftId(null)
+    if (!trimmed || trimmed === original) return
+    try {
+      await api.drafts.update(token, draftId, trimmed)
+      setDrafts(prev => prev.map(d => d.id === draftId ? { ...d, title: trimmed } : d))
+    } catch {
+      // revert silently
+    }
   }
 
   useEffect(() => {
@@ -427,9 +450,25 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-medium text-slate-200 truncate mb-1">
-                    {draft.title}
-                  </h3>
+                  {editingDraftId === draft.id ? (
+                    <div className="flex items-center gap-1.5 mb-1" onClick={e => e.stopPropagation()}>
+                      <input
+                        ref={draftTitleInputRef}
+                        value={editDraftTitle}
+                        onChange={e => setEditDraftTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveDraftTitle(draft.id); if (e.key === 'Escape') setEditingDraftId(null) }}
+                        onBlur={() => saveDraftTitle(draft.id)}
+                        className="flex-1 min-w-0 text-sm bg-slate-700 border border-purple-500/40 rounded px-2 py-0.5 text-slate-200 outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <h3
+                      onClick={e => startEditDraft(e, draft)}
+                      className="text-base font-medium text-slate-200 truncate mb-1 cursor-text hover:text-purple-300 hover:underline decoration-dotted underline-offset-2 transition-colors duration-150"
+                    >
+                      {draft.title}
+                    </h3>
+                  )}
                   <div className="flex items-center gap-2 text-sm text-slate-400">
                     <CalendarIcon className="h-4 w-4" />
                     <span>{new Date(draft.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>

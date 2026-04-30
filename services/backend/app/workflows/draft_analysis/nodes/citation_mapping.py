@@ -103,7 +103,7 @@ Found Literature:
         return {
             "overall_quality": "unknown",
             "citations": [],
-            "gaps": [f"Assessment failed: {str(e)}"],
+            "gaps": [],
             "recommendation": "Manual review needed"
         }
 
@@ -266,7 +266,7 @@ async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState
                     'claim': claim,
                     'citations': search_results[i].get('results', []),
                     'citation_quality': 'unknown',
-                    'gaps': [f'Assessment failed: {str(result)}'],
+                    'gaps': [],
                     'suggested_citations': []
                 })
             else:

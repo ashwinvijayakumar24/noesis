@@ -31,6 +31,7 @@ interface BibEntryStatus {
 }
 
 interface BibImportResult {
+  message?: string
   imported: number
   skipped: number
   entry_errors?: Array<{ index: number; title: string; warnings: string[]; status: string }>
@@ -144,8 +145,9 @@ export default function UploadDocumentModal({
   const [uploadedTitles, setUploadedTitles] = useState<string[]>([])
   const [inlineError, setInlineError] = useState<{ title: string; message: string; details: string[] } | null>(null)
 
-  const MAX_FILES = 5
+  const MAX_FILES = 4
   const MAX_SIZE_MB = 50
+  const UPLOAD_GUIDANCE = `Upload up to ${MAX_FILES} PDFs at a time for the fastest analysis.`
 
   // Reset active tab when modal opens based on mode
   useEffect(() => {
@@ -176,7 +178,7 @@ export default function UploadDocumentModal({
     if (!e.target.files) return
     const filesArray = Array.from(e.target.files)
     if (filesArray.length > MAX_FILES) {
-      toast.error(`Maximum ${MAX_FILES} files allowed`)
+      toast.error(`Upload up to ${MAX_FILES} PDFs at a time`)
       return
     }
     const validFiles = filesArray.filter(f =>
@@ -214,7 +216,7 @@ export default function UploadDocumentModal({
       f.type === 'application/pdf' && f.size <= MAX_SIZE_MB * 1024 * 1024
     )
     if (validFiles.length > MAX_FILES) {
-      toast.error(`Maximum ${MAX_FILES} files allowed`)
+      toast.error(`Upload up to ${MAX_FILES} PDFs at a time`)
       return
     }
     if (validFiles.length === 0) {
@@ -242,11 +244,6 @@ export default function UploadDocumentModal({
       )
       const uploadResults = await Promise.all(uploadPromises)
       uploadResults.forEach(r => trackEvent.documentUploaded(projectId, r.document.id))
-      Promise.allSettled(
-        uploadResults.map(r =>
-          api.rag.ingest(token, r.document.id).catch(() => {})
-        )
-      )
       const titles = uploadResults.map(r => r.document.title)
       setSelectedFiles([])
       setDescription('')
@@ -320,14 +317,20 @@ export default function UploadDocumentModal({
         setBibPollTimer(timer)
         onSuccess() // Refresh parent list immediately
       } else {
-        // No resolution (0 entries) — just close
+        // Imported metadata records, but automatic resolution did not start.
         setBibtexFile(null)
         if (bibtexInputRef.current) bibtexInputRef.current.value = ''
         onClose()
         onSuccess()
         setUploadedCount(result.imported)
         setShowSuccessModal(true)
-        toast.success(`Imported ${result.imported} references`)
+        if (result.imported > 0) {
+          toast.success(`Imported ${result.imported} references`)
+          toast('Automatic PDF analysis did not start, so these papers were added as metadata-only references.', {
+            duration: 5000,
+            icon: 'ℹ️',
+          })
+        }
       }
     } catch (error: any) {
       if (!handleQuotaError(error)) {
@@ -431,7 +434,9 @@ export default function UploadDocumentModal({
 
   // Derived stats for bib resolution panel
   const bibResolved = bibEntries.filter(e => e.resolution_status === 'resolved').length
+  const bibUnresolved = bibEntries.filter(e => e.resolution_status === 'unresolved').length
   const bibResolving = bibEntries.filter(e => e.resolution_status === 'resolving').length
+  const bibCompleted = bibResolved + bibUnresolved
   const bibAllDone = bibResolving === 0 && bibEntries.length > 0
 
   return (
@@ -504,6 +509,16 @@ export default function UploadDocumentModal({
                       details={inlineError.details}
                     />
                   )}
+                  {activeTab === 'pdf' && (
+                    <InlineAlert
+                      title="Faster batch uploads"
+                      message={UPLOAD_GUIDANCE}
+                      details={[
+                        'This keeps PDF analysis responsive while the worker processes each paper in the background.',
+                        'If you have a larger batch, upload the next set after the current four start processing.',
+                      ]}
+                    />
+                  )}
                   <p className="text-xs text-text-muted">
                     Private by default. Your files stay in your workspace and are not used to train models.
                   </p>
@@ -554,7 +569,7 @@ export default function UploadDocumentModal({
                               {isDragging ? 'Drop files here' : 'Drag & drop or click to browse'}
                             </p>
                             <p className="text-xs text-text-muted mt-0.5 font-mono">
-                              PDF only · max {MAX_SIZE_MB}MB each · up to {MAX_FILES} files
+                              PDF only · max {MAX_SIZE_MB}MB each · up to {MAX_FILES} files per batch
                             </p>
                           </>
                         )}
@@ -689,18 +704,26 @@ export default function UploadDocumentModal({
                       <div>
                         <p className="text-sm font-semibold text-text-primary">
                           {bibAllDone
-                            ? `Done — ${bibResolved} of ${bibEntries.length} resolved`
+                            ? bibUnresolved === 0
+                              ? `Done — ${bibResolved} fully processed`
+                              : bibResolved === 0
+                                ? `Imported — ${bibUnresolved} metadata-only`
+                                : `Done — ${bibResolved} processed, ${bibUnresolved} metadata-only`
                             : `Finding open-access PDFs…`}
                         </p>
                         <p className="text-xs text-text-muted mt-0.5">
                           {bibAllDone
-                            ? 'Papers are ready in your literature tab.'
-                            : `${bibResolved} of ${bibEntries.length} done — this may take a minute`}
+                            ? bibUnresolved === 0
+                              ? 'Papers are ready in your literature tab.'
+                              : bibResolved === 0
+                                ? 'No open-access PDF was found for these entries. They were still added to your literature as metadata-only references.'
+                                : `${bibResolved} papers were fully processed. ${bibUnresolved} were added as metadata-only references because no open-access PDF was found.`
+                            : `${bibCompleted} of ${bibEntries.length} checked — looking for open-access PDFs and analyzing what can be processed`}
                         </p>
                       </div>
                       {!bibAllDone && (
                         <span className="text-xs font-mono text-text-muted bg-bg-elevated px-2 py-1 rounded border border-border-default">
-                          {bibResolved}/{bibEntries.length}
+                          {bibCompleted}/{bibEntries.length}
                         </span>
                       )}
                     </div>
@@ -710,12 +733,23 @@ export default function UploadDocumentModal({
                       <div className="h-1 bg-bg-elevated rounded-full overflow-hidden">
                         <div
                           className="h-full bg-accent-primary rounded-full transition-all duration-500"
-                          style={{ width: `${(bibResolved / bibEntries.length) * 100}%` }}
+                          style={{ width: `${(bibCompleted / bibEntries.length) * 100}%` }}
                         />
                       </div>
                     )}
 
-                    {importResult?.skipped > 0 && importResult?.entry_errors && (
+                    {bibAllDone && bibUnresolved > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+                          Fully processed: <span className="font-semibold text-emerald-200">{bibResolved}</span>
+                        </div>
+                        <div className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs text-sky-300">
+                          Metadata only: <span className="font-semibold text-sky-200">{bibUnresolved}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {(importResult?.skipped ?? 0) > 0 && importResult?.entry_errors && (
                       <div className="mt-3 p-3 rounded-lg border border-amber-500/30 bg-[#2C1A06] text-amber-400 text-xs">
                         <p className="font-semibold mb-1">
                           {importResult.skipped} {importResult.skipped === 1 ? 'entry' : 'entries'} skipped

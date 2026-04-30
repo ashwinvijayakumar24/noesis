@@ -166,60 +166,18 @@ For full context see `claude.md` and `docs/current-architecture.md`. For design 
 <claude-mem-context>
 # Memory Context
 
-# [noesis] recent context, 2026-04-23 12:53am EDT
+# [noesis] recent context, 2026-04-30 1:21pm EDT
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (28,644t read) | 654,860t work | 96% savings
+Stats: 50 obs (23,142t read) | 888,962t work | 97% savings
 
 ### Apr 20, 2026
+S4 DraftAnalysisModal — Live Processing Status UI (Apr 20 at 11:41 PM)
 S2 Completed DESIGN_SYSTEM.md reference cleanup and planning updates (Apr 20 at 11:41 PM)
-### Apr 21, 2026
-65 8:11p 🔵 Insights Backend: Schema, Triggers, Staleness, Quota, and Rec-Embedding Options
-66 " 🔵 Frontend Component Map: Live vs Legacy Insights and Recommendations Surfaces
-67 8:16p ⚖️ Literature Map Overhaul — Architecture & Scope Decisions
-68 " ⚖️ Literature Map Overhaul Architecture Plan for 05_literature_insights
-69 8:17p 🔵 RAG ingest pipeline stores GROBID structured data in document metadata
-70 8:18p ⚖️ Literature Map Overhaul Plan Finalized for Noesis InsightsTab
-71 8:19p ⚖️ Literature Map Overhaul Architecture Plan for 05_literature_insights
-72 " ⚖️ Literature Map Overhaul Plan for 05_literature_insights
-73 8:21p ⚖️ Literature Map Overhaul Plan — `05_literature_insights` Implementation Handoff
-74 " ⚖️ Literature Map Overhaul — Architecture & Scope Decisions
-75 " 🟣 Literature Map — Four-Block UI Restructure Planned
-76 " 🟣 Insights Synthesis Context Priority Upgraded
-77 8:22p ⚖️ Literature Map Overhaul Architecture Plan for 05_literature_insights
-78 8:24p 🟣 Backend test suite created for Literature Map feature
-79 " 🔵 WeasyPrint import blocks any test that imports `app.api.routes.projects`
-80 " 🟣 Frontend Literature Map helper tests created and passing
-81 " ⚖️ Literature Map Overhaul Plan for 05_literature_insights
-82 " 🟣 Literature Map Overhaul Plan Submitted for Implementation
-83 10:26p 🟣 Discover Papers feature overhaul planned: quota unification, pagination, tab gating, insights cross-population
-85 10:27p ⚖️ Literature Map Overhaul Plan for `05_literature_insights`
-84 " ⚖️ Literature Map Overhaul Plan for `05_literature_insights`
-87 10:29p 🟣 DiscoverTab Frontend Refactor: Unified Quota, Pagination, Tab Gating
-86 " 🟣 Insights background task now conditionally auto-seeds Discover tab via Celery instead of always regenerating
-88 10:30p 🔵 paper_recommendations.py route already partially implements Task 06 requirements before work begins
-89 " 🔄 paper_recommendations.py quota constants updated and shared generation helper extracted
-90 10:31p 🔄 paper_recommendations route endpoints wired to shared helper; bib_save Redis quota removed; GET default limit set to 5
-91 10:32p 🔵 DiscoverTab frontend already fully implements Tasks 3–5 from codex_prompt.md before backend work
-92 10:33p 🟣 New test file test_discover_papers.py added covering unified quota, pagination, save flow, and insights auto-seed
-93 10:34p 🟣 New Celery task paper_recommendation_tasks.py created for background Discover tab seeding
-94 " 🔵 api.ts discover client hardcodes limit=5 and tasks/__init__.py exports new Celery task
-95 10:50p 🔵 Noesis Draft Analysis v2 — Schema Gap Confirmed, Implementation Plan Loaded
-96 10:51p 🔵 Noesis Draft Analysis Full Architecture Mapped — Implementation Touchpoints for Task 07
-97 10:56p ⚖️ Literature Map Overhaul Plan for Noesis (`05_literature_insights`)
-98 " 🔵 Task 07 Draft Analysis — Pre-Implementation State Audit
 ### Apr 22, 2026
-104 10:27p 🔵 Noesis Quota Limits, feedback_type Enum, and Unresolved Ref Filtering — Code Audit
-105 10:29p 🔵 Noesis Insights Tab Architecture — Current Implementation Structure
-106 10:31p ⚖️ Noesis 10_answered_questions.md Audit — Already Done, Deferred, and Remaining Tasks
-107 11:00p ⚖️ Noesis 10_answered_questions.md Audit — Already-Fixed Items Confirmed, 3 Actionable Tasks Identified
-108 11:06p 🔵 Noesis Task 10 Frontend Copy Audit — Stale "Insights Tab" Strings Found
-109 11:09p 🔵 Noesis project_insights.py — Full Implementation Review (Task 10)
-110 " 🔵 Noesis paper_recommendations.py — Full Route Implementation Review (Task 10)
-111 " 🔵 Noesis shared_paper_cache.py — Global Cross-User Paper Store Implementation Review
 112 11:36p ✅ Codex Prompt Created for Dead Code Cleanup Task
 113 " ✅ Codex Prompt Written for Dead Code Cleanup Mini-Plan
 114 11:37p 🔵 Dead Frontend Components Have Zero External Import Sites
@@ -228,6 +186,56 @@ S2 Completed DESIGN_SYSTEM.md reference cleanup and planning updates (Apr 20 at 
 117 11:43p 🔵 rag_retrieval_enhanced, claim_based_citations, and transparency Actively Imported by 7 Backend Files
 118 11:47p 🔵 claim_based_citations Has Single Lazy Import in literature_search.py — rag_retrieval_enhanced and transparency Have Zero
 119 11:52p 🔵 Noesis Task 11 — Backend Service Reachability Audit Results
+### Apr 27, 2026
+120 11:38a 🟣 DraftAnalysisModal — Live Processing Status UI
+S9 Claim Analysis Text Positioning Uses Multi-Strategy Fuzzy Matching (Apr 27 at 11:38 AM)
+121 11:42a 🔵 Noesis Draft Open Spinner — 15s Delay Investigation
+122 11:43a 🔵 DraftAnalysis.tsx — Sequential Bottleneck in Draft Initialization
+124 " 🔴 Draft Open Spinner — Removed Sequential Dependency on assignSections
+128 12:36p 🔵 Claim Analysis Text Positioning Uses Multi-Strategy Fuzzy Matching
+S10 Noesis Team Structure — Solo Technical Founder, No External Contributors (Apr 27 at 12:36 PM)
+129 12:55p 🔴 DocumentViewer PDF highlighting made client-side extraction + guaranteed single-span search
+130 1:13p 🔵 Noesis CI/CD Pipeline Architecture — GitHub Actions to EC2 + Vercel
+131 1:14p 🔵 Noesis Pre-Deploy State — 120 Uncommitted Files, Clean TypeScript
+132 1:15p 🟣 Noesis Major Commit — Draft Analysis UX, Client-Side PDF Highlighting, Citation Fixes
+133 1:17p 🔵 Noesis Frontend — TypeScript Build Errors Found Post-Commit
+### Apr 28, 2026
+134 12:14a 🔵 Noesis Team Structure — Solo Technical Founder, No External Contributors
+S14 Noesis tagline refinement — multiple rounds of 50-char company description options (Apr 28 at 12:14 AM)
+S12 Noesis company description — 50-char tagline brainstorm with recommendation (Apr 28 at 12:17 AM)
+135 12:37a 🔵 Ashwin's YC Application Motivation — Background and Path
+S15 Ashwin's YC Application Motivation — Background and Path (Apr 28 at 12:37 AM)
+136 2:43p ✅ Noesis YC Application — "Progress" Question Drafting Started
+137 2:46p 🔵 Noesis Technical Stack — Full Architecture Audit for YC Application
+138 4:46p ✅ Noesis YC Application — "Progress" Question Active
+### Apr 29, 2026
+139 5:54p 🟣 Noesis DraftAnalysis — Comprehensive Overhaul Plan Requested
+140 5:55p 🔵 Noesis Draft Analysis — Full Codebase Architecture Mapped
+141 " 🟣 Noesis Draft Analysis — Comprehensive Overhaul Plan Requested
+142 5:57p ⚖️ Noesis DraftAnalysis — Full Rewrite Plan Initiated for prompt.md
+143 5:58p 🟣 Noesis Draft Analysis — Comprehensive Overhaul Plan Requested
+144 " 🟣 Noesis Draft Analysis — External Source Discovery Backend Module
+145 " 🟣 Noesis — Reviewer Feedback Anchor & QA Backend Helper
+147 5:59p 🔵 Noesis Draft Analysis — External Source Discovery Architecture Mapped
+146 " 🔵 Noesis Reviewer Feedback & Claim Anchoring — Full Architecture Map
+148 6:00p 🔵 Noesis Backend Test Coverage Map — Draft Analysis Reliability
+149 " 🟣 Noesis Draft Analysis — Text Anchor Service Implemented
+150 " 🟣 Noesis Draft Analysis — Feedback Quality Gate Service Implemented
+151 " 🔵 Noesis Draft Analysis — Existing Architecture Mapped
+154 6:01p 🟣 Noesis Draft Analysis — External Source Discovery Module
+155 " 🟣 Noesis Draft Analysis Graph — External Source Discovery Node Added
+156 " 🟣 Noesis Reviewer Feedback Node — External Sources Surfaced in LLM Context
+152 " 🟣 Noesis — test_draft_analysis_reliability.py Created (Worker D)
+153 " 🔵 claim_analysis.py Calls get_async_openai_client() at Module Import Time
+158 6:02p ✅ Noesis Draft Analysis — Gap Detection Populates Gap ID in State
+159 " ✅ Noesis Reviewer Feedback — LLM Prompt Now Includes Claim/Gap IDs and QA Integration
+157 6:04p 🔵 Noesis draft_anchor_qa.py — Pure-Python Feedback QA and Claim Anchoring Module
+160 6:06p 🟣 Noesis — draft_anchor_qa.py: New Bounded Backend Module for Feedback QA and Text Anchoring
+161 " 🟣 Noesis test_draft_analysis_reliability.py — All 6 Tests Passing
+162 6:07p 🟣 Noesis Draft Analysis — Anchor QA Module (draft_anchor_qa.py) Implemented
+163 " 🟣 Noesis Draft Analysis — External Source Discovery Service Implemented
+164 " 🔵 Noesis Draft Analysis — LangGraph Workflow Full Node Graph Mapped
+165 6:20p ✅ Noesis — Supabase CLI Authenticated via .env Access Token
 
-Access 655k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 889k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

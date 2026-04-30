@@ -85,7 +85,7 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
     # OPTIMIZATION: Check if claims already exist in database (from Phase 1)
     try:
         existing_claims_res = supabase.table("draft_claims")\
-            .select("id, claim_text, claim_type, section_location, importance_score, confidence_score, requires_citation")\
+            .select("id, claim_text, claim_type, section_location, importance_score, confidence_score, requires_citation, line_number, char_start, char_end, text_snippet, match_confidence")\
             .eq("draft_id", draft_id)\
             .execute()
 
@@ -104,6 +104,9 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
                     "confidence": db_claim.get("confidence_score", 0.8),
                     "requires_citation": db_claim.get("requires_citation", True)
                 }
+                for key in ("line_number", "char_start", "char_end", "text_snippet", "match_confidence"):
+                    if db_claim.get(key) is not None:
+                        claim[key] = db_claim[key]
                 claims.append(claim)
 
             logger.info(
@@ -154,6 +157,34 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
                 "requires_citation": True  # All extracted claims should have citation support checked
             }
             claims.append(claim)
+
+        try:
+            from app.services.draft_anchor_qa import locate_text_snippet
+
+            sections = state.get("structure", {}).get("sections", [])
+            for claim in claims:
+                anchor = locate_text_snippet(
+                    claim.get("claim_text", ""),
+                    draft_content,
+                    sections=sections,
+                    section_reference=claim.get("section_location"),
+                    context_radius=50,
+                )
+                if anchor.get("found"):
+                    for key in (
+                        "line_number",
+                        "char_start",
+                        "char_end",
+                        "text_snippet",
+                        "section_id",
+                        "char_offset_from_section",
+                        "pdf_coordinates",
+                        "match_confidence",
+                    ):
+                        if key in anchor:
+                            claim[key] = anchor[key]
+        except Exception as anchor_error:
+            logger.warning(f"[Claim Extraction] Claim anchoring failed (non-fatal): {anchor_error}")
 
         logger.info(
             f"[Claim Extraction] Extracted {len(claims)} claims "

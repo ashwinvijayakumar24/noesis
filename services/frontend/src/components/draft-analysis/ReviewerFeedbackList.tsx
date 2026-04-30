@@ -1,9 +1,7 @@
-import { useState, useMemo } from 'react'
-import { CheckIcon, XMarkIcon, ChevronDownIcon, BookOpenIcon } from '@heroicons/react/24/outline'
-
-// ---------------------------------------------------------------------------
-// Types (mirrors DraftAnalysis.tsx interfaces)
-// ---------------------------------------------------------------------------
+import { useMemo, useState } from 'react'
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import type { PdfCoordinates } from '../DocumentViewer'
+import UnifiedFeedbackCard from './UnifiedFeedbackCard'
 
 interface Claim {
   id: string
@@ -12,10 +10,14 @@ interface Claim {
   section_location: string
   section_type?: string
   importance_score: number
+  confidence_score?: number
   requires_citation: boolean
   existing_citations: string[]
+  supporting_literature?: any
   line_number?: number
   text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
+  match_confidence?: number
   status: 'new' | 'saved' | 'dismissed'
 }
 
@@ -29,6 +31,8 @@ interface Gap {
   has_relevant_literature?: boolean
   line_number?: number
   text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
+  match_confidence?: number
   status: 'new' | 'saved' | 'dismissed'
 }
 
@@ -44,17 +48,28 @@ interface FeedbackItem {
   section_reference?: string
   line_number?: number
   text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
+  match_confidence?: number
   status: 'new' | 'saved' | 'dismissed'
 }
 
 type ItemType = 'claim' | 'gap' | 'feedback'
 type Priority = 'high' | 'medium' | 'low'
-type FilterKey = 'all' | 'claims' | 'gaps' | 'feedback'
+type StatusFilter = 'new' | 'saved' | 'dismissed'
+type CategoryKey =
+  | 'all'
+  | 'missing_citations'
+  | 'weak_arguments'
+  | 'coverage_gaps'
+  | 'methodology'
+  | 'reviewer_questions'
 
 interface ListItem {
+  id: string
   type: ItemType
-  content: Claim | Gap | FeedbackItem
   priority: Priority
+  issueCategory: CategoryKey
+  content: Claim | Gap | FeedbackItem
 }
 
 interface ReviewerFeedbackListProps {
@@ -62,316 +77,315 @@ interface ReviewerFeedbackListProps {
   gaps: Gap[]
   feedback: FeedbackItem[]
   readinessScore: number | null
+  loading?: boolean
+  statusFilter: StatusFilter
+  onStatusFilterChange: (status: StatusFilter) => void
   onStatusChange: (id: string, type: ItemType, status: 'new' | 'saved' | 'dismissed') => void
-  onViewInDocument: (item: { line_number?: number; content_text?: string; text_snippet?: string; section_type?: string; section_location?: string }) => void
+  onViewInDocument: (item: {
+    line_number?: number
+    content_text?: string
+    text_snippet?: string
+    section_type?: string
+    section_location?: string
+    pdf_coordinates?: PdfCoordinates
+    match_confidence?: number
+  }) => void
   fileType: string
   onOpenEditingReview?: () => void
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 }
 
-function claimPriority(c: Claim): Priority {
-  return c.importance_score >= 0.7 ? 'high' : c.importance_score >= 0.4 ? 'medium' : 'low'
+const PRIORITY_HEADER_CONFIG = {
+  high: { dot: 'bg-error', text: 'text-error', label: 'High priority' },
+  medium: { dot: 'bg-warning', text: 'text-warning', label: 'Medium priority' },
+  low: { dot: 'bg-text-muted', text: 'text-text-muted', label: 'Low priority' },
+} as const
+
+const CATEGORY_CONFIG: Record<CategoryKey, { label: string }> = {
+  all: { label: 'All issues' },
+  missing_citations: { label: 'Missing citations' },
+  weak_arguments: { label: 'Weak arguments' },
+  coverage_gaps: { label: 'Coverage gaps' },
+  methodology: { label: 'Methodology' },
+  reviewer_questions: { label: 'Reviewer questions' },
 }
 
-function feedbackPriority(f: FeedbackItem): Priority {
-  if (f.severity === 'critical') return 'high'
-  if (f.severity === 'major') return 'medium'
+function claimPriority(claim: Claim): Priority {
+  if (claim.importance_score >= 0.8) return 'high'
+  if (claim.importance_score >= 0.5) return 'medium'
   return 'low'
 }
 
-function getContentText(item: ListItem): string {
-  if (item.type === 'claim') return (item.content as Claim).claim_text
-  if (item.type === 'gap') return (item.content as Gap).description
-  return (item.content as FeedbackItem).feedback_text
+function feedbackPriority(item: FeedbackItem): Priority {
+  if (item.priority) return item.priority
+  if (item.severity === 'critical') return 'high'
+  if (item.severity === 'major') return 'medium'
+  return 'low'
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1)
+function classifyClaim(claim: Claim): CategoryKey {
+  if (claim.requires_citation) return 'missing_citations'
+  if (claim.claim_type === 'methodological') return 'methodology'
+  return 'weak_arguments'
 }
 
-function buildViewLabel(content: any, fileType: string): string | null {
-  const section = content.section_type ?? content.section_location ?? content.section_reference
-  const lineNum = content.line_number
-  const isPdf = fileType === 'application/pdf' || fileType === 'pdf'
-
-  if (isPdf && lineNum) return `View on Page ~${Math.ceil(lineNum / 55)}`
-  if (section) return `View in ${capitalize((section as string).replace(/_/g, ' '))}`
-  if (!isPdf && lineNum) return `View on Line ${lineNum}`
-  return null
+function classifyGap(gap: Gap): CategoryKey {
+  if ((gap.gap_type || '').toLowerCase().includes('method')) return 'methodology'
+  return 'coverage_gaps'
 }
 
-// ---------------------------------------------------------------------------
-// FeedbackListItem
-// ---------------------------------------------------------------------------
-
-interface FeedbackListItemProps {
-  number: number
-  item: ListItem
-  fileType: string
-  onStatusChange: ReviewerFeedbackListProps['onStatusChange']
-  onViewInDocument: ReviewerFeedbackListProps['onViewInDocument']
-}
-
-function FeedbackListItem({ number, item, fileType, onStatusChange, onViewInDocument }: FeedbackListItemProps) {
-  const [papersExpanded, setPapersExpanded] = useState(false)
-  const isAddressed = item.content.status === 'saved'
-  const text = getContentText(item)
-  const viewLabel = buildViewLabel(item.content, fileType)
-  const suggestedPapers: any[] = item.type === 'gap' ? ((item.content as Gap).suggested_papers ?? []) : []
-
-  const priorityBorder =
-    item.priority === 'high'
-      ? 'border-l-2 border-l-error'
-      : item.priority === 'medium'
-        ? 'border-l-2 border-l-warning'
-        : 'border-l-2 border-l-border-subtle'
-
-  const viewPayload = {
-    line_number: (item.content as any).line_number,
-    content_text: text,
-    text_snippet: (item.content as any).text_snippet,
-    // feedback items use section_reference; claims/gaps use section_type/section_location
-    section_type: (item.content as any).section_type
-      ?? (item.content as any).section_reference
-      ?? (item.content as any).section_location,
-    section_location: (item.content as any).section_location,
+function classifyFeedback(item: FeedbackItem): CategoryKey {
+  if (item.feedback_type === 'question') return 'reviewer_questions'
+  if (
+    item.feedback_type === 'structural'
+    || item.section_type === 'methodology'
+    || /method|evaluation|ablation|baseline|implementation/i.test(item.feedback_text)
+  ) {
+    return 'methodology'
   }
-
-  return (
-    <div
-      onClick={() => onViewInDocument(viewPayload)}
-      className={`px-4 py-4 hover:bg-bg-hover/30 transition-colors duration-150 cursor-pointer ${priorityBorder} ${isAddressed ? 'opacity-50' : ''}`}
-    >
-      <div className="flex gap-3">
-        {/* Number badge */}
-        <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full border border-border-default bg-bg-elevated text-[10px] font-semibold text-text-muted flex items-center justify-center">
-          {number}
-        </span>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-text-primary leading-relaxed line-clamp-4">{text}</p>
-
-          {/* Bottom row: location hint + action buttons */}
-          <div className="flex items-center justify-between mt-2.5">
-            {viewLabel ? (
-              <span className="text-xs text-text-muted">{viewLabel} →</span>
-            ) : (
-              <span />
-            )}
-
-            <div className="flex items-center gap-0.5">
-              {suggestedPapers.length > 0 && (
-                <button
-                  onClick={e => { e.stopPropagation(); setPapersExpanded(p => !p) }}
-                  className="h-8 px-2 rounded-lg flex items-center gap-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors duration-150"
-                  title="Suggested papers"
-                >
-                  <BookOpenIcon className="h-3.5 w-3.5" />
-                  {suggestedPapers.length}
-                  <ChevronDownIcon className={`h-3 w-3 transition-transform duration-150 ${papersExpanded ? 'rotate-180' : ''}`} />
-                </button>
-              )}
-              <button
-                onClick={e => { e.stopPropagation(); onStatusChange(item.content.id, item.type, isAddressed ? 'new' : 'saved') }}
-                title={isAddressed ? 'Mark unaddressed' : 'Mark addressed'}
-                className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors duration-150 ${
-                  isAddressed
-                    ? 'bg-success/10 text-success'
-                    : 'text-text-muted hover:text-success hover:bg-success/10'
-                }`}
-              >
-                <CheckIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); onStatusChange(item.content.id, item.type, 'dismissed') }}
-                title="Dismiss"
-                className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors duration-150"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Suggested papers for gap items */}
-          {papersExpanded && suggestedPapers.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {suggestedPapers.slice(0, 5).map((paper: any, idx: number) => (
-                <div key={idx} className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
-                  <p className="text-xs font-semibold text-text-primary leading-snug line-clamp-2">
-                    {paper.title ?? paper.paper_title ?? 'Unknown title'}
-                  </p>
-                  {(paper.authors || paper.year) && (
-                    <p className="text-[11px] text-text-muted mt-0.5">
-                      {[paper.authors?.slice?.(0, 2)?.join?.(', '), paper.year].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                  {paper.relevance_reason && (
-                    <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">{paper.relevance_reason}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+  return 'weak_arguments'
 }
 
-// ---------------------------------------------------------------------------
-// FilterChips
-// ---------------------------------------------------------------------------
-
-interface FilterChipsProps {
-  filter: FilterKey
-  onChange: (f: FilterKey) => void
-  counts: { claims: number; gaps: number; feedback: number }
+function buildItems(
+  claims: Claim[],
+  gaps: Gap[],
+  feedback: FeedbackItem[],
+): ListItem[] {
+  return [
+    ...claims
+      .map((item) => ({
+        id: item.id,
+        type: 'claim' as const,
+        priority: claimPriority(item),
+        issueCategory: classifyClaim(item),
+        content: item,
+      })),
+    ...gaps
+      .map((item) => ({
+        id: item.id,
+        type: 'gap' as const,
+        priority: item.priority,
+        issueCategory: classifyGap(item),
+        content: item,
+      })),
+    ...feedback
+      .filter((item) => item.feedback_type !== 'strength')
+      .map((item) => ({
+        id: item.id,
+        type: 'feedback' as const,
+        priority: feedbackPriority(item),
+        issueCategory: classifyFeedback(item),
+        content: item,
+      })),
+  ].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
 }
-
-function FilterChips({ filter, onChange, counts }: FilterChipsProps) {
-  const chips: Array<{ key: FilterKey; label: string; count: number }> = [
-    { key: 'all', label: 'All', count: counts.claims + counts.gaps + counts.feedback },
-    { key: 'claims', label: 'Claims', count: counts.claims },
-    { key: 'gaps', label: 'Gaps', count: counts.gaps },
-    { key: 'feedback', label: 'Feedback', count: counts.feedback },
-  ]
-
-  return (
-    <div className="flex gap-1">
-      {chips.map(chip => (
-        <button
-          key={chip.key}
-          onClick={() => onChange(chip.key)}
-          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors duration-150 ${
-            filter === chip.key
-              ? 'bg-accent-primary/10 text-accent-primary'
-              : 'text-text-muted hover:text-text-primary hover:bg-bg-elevated'
-          }`}
-        >
-          {chip.label}
-          {chip.count > 0 && (
-            <span className="ml-1 opacity-60">{chip.count}</span>
-          )}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// ReviewerFeedbackList
-// ---------------------------------------------------------------------------
 
 export default function ReviewerFeedbackList({
   claims,
   gaps,
   feedback,
   readinessScore,
+  loading = false,
+  statusFilter,
+  onStatusFilterChange,
   onStatusChange,
   onViewInDocument,
   fileType,
   onOpenEditingReview,
 }: ReviewerFeedbackListProps) {
-  const [filter, setFilter] = useState<FilterKey>('all')
+  const [category, setCategory] = useState<CategoryKey>('all')
 
-  const allItems = useMemo<ListItem[]>(() => {
-    return [
-      ...claims
-        .filter(c => c.status !== 'dismissed')
-        .map(c => ({ type: 'claim' as const, content: c, priority: claimPriority(c) })),
-      ...gaps
-        .filter(g => g.status !== 'dismissed')
-        .map(g => ({ type: 'gap' as const, content: g, priority: g.priority })),
-      ...feedback
-        .filter(f => f.status !== 'dismissed' && f.feedback_type !== 'strength')
-        .map(f => ({ type: 'feedback' as const, content: f, priority: feedbackPriority(f) })),
-    ].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
-  }, [claims, gaps, feedback])
+  const allItems = useMemo(() => buildItems(claims, gaps, feedback), [claims, gaps, feedback])
 
-  const filtered = useMemo<ListItem[]>(() => {
-    if (filter === 'all') return allItems
-    const typeMap: Record<Exclude<FilterKey, 'all'>, ItemType> = {
-      claims: 'claim',
-      gaps: 'gap',
-      feedback: 'feedback',
-    }
-    return allItems.filter(i => i.type === typeMap[filter as Exclude<FilterKey, 'all'>])
-  }, [allItems, filter])
+  const statusFilteredItems = useMemo(
+    () => allItems.filter((item) => item.content.status === statusFilter),
+    [allItems, statusFilter],
+  )
+
+  const visibleItems = useMemo(
+    () => (category === 'all'
+      ? statusFilteredItems
+      : statusFilteredItems.filter((item) => item.issueCategory === category)),
+    [statusFilteredItems, category],
+  )
 
   const addressedCount = useMemo(
-    () => [...claims, ...gaps, ...feedback].filter(i => i.status === 'saved').length,
+    () => [...claims, ...gaps, ...feedback].filter((item) => item.status === 'saved').length,
     [claims, gaps, feedback],
   )
   const totalCount = useMemo(
-    () => [...claims, ...gaps, ...feedback.filter(f => f.feedback_type !== 'strength')].length,
+    () => buildItems(claims, gaps, feedback).length,
     [claims, gaps, feedback],
   )
 
-  const claimsCount = claims.filter(c => c.status !== 'dismissed').length
-  const gapsCount = gaps.filter(g => g.status !== 'dismissed').length
-  const feedbackCount = feedback.filter(f => f.status !== 'dismissed' && f.feedback_type !== 'strength').length
+  const statusCounts = useMemo(() => ({
+    new: buildItems(
+      claims.filter((item) => item.status === 'new'),
+      gaps.filter((item) => item.status === 'new'),
+      feedback.filter((item) => item.status === 'new'),
+    ).length,
+    saved: buildItems(
+      claims.filter((item) => item.status === 'saved'),
+      gaps.filter((item) => item.status === 'saved'),
+      feedback.filter((item) => item.status === 'saved'),
+    ).length,
+    dismissed: claims.filter((item) => item.status === 'dismissed').length
+      + gaps.filter((item) => item.status === 'dismissed').length
+      + feedback.filter((item) => item.status === 'dismissed' && item.feedback_type !== 'strength').length,
+  }), [claims, gaps, feedback])
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<CategoryKey, number> = {
+      all: statusFilteredItems.length,
+      missing_citations: 0,
+      weak_arguments: 0,
+      coverage_gaps: 0,
+      methodology: 0,
+      reviewer_questions: 0,
+    }
+    statusFilteredItems.forEach((item) => {
+      counts[item.issueCategory] += 1
+    })
+    return counts
+  }, [statusFilteredItems])
+
+  const groupedItems = useMemo(() => ({
+    high: visibleItems.filter((item) => item.priority === 'high'),
+    medium: visibleItems.filter((item) => item.priority === 'medium'),
+    low: visibleItems.filter((item) => item.priority === 'low'),
+  }), [visibleItems])
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Score + filter strip */}
+    <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border-default bg-bg-surface">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-3">
             {readinessScore !== null && (
               <div className="flex items-baseline gap-1">
                 <span className="text-base font-semibold text-text-primary tabular-nums">
-                  {Math.round(readinessScore * 100)}/100
+                  {Math.round(readinessScore)}/100
                 </span>
-                <span className="text-[10px] text-text-muted uppercase tracking-wide">readiness</span>
+                <span className="text-[10px] uppercase tracking-wide text-text-muted">readiness</span>
               </div>
             )}
             <span className="text-xs text-text-muted">
               {addressedCount} of {totalCount} addressed
             </span>
           </div>
-          <FilterChips
-            filter={filter}
-            onChange={setFilter}
-            counts={{ claims: claimsCount, gaps: gapsCount, feedback: feedbackCount }}
-          />
-        </div>
-
-        {onOpenEditingReview && (
-          <div className="px-4 pb-2">
+          {onOpenEditingReview && (
             <button
               onClick={onOpenEditingReview}
               className="text-xs text-text-muted hover:text-accent-primary transition-colors duration-150"
             >
               Editing Review →
             </button>
+          )}
+        </div>
+
+        <div className="px-4 pb-3">
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(CATEGORY_CONFIG) as CategoryKey[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => setCategory(key)}
+                className={`min-h-10 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
+                  category === key
+                    ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
+                    : 'border-border-default bg-bg-elevated text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {CATEGORY_CONFIG[key].label}
+                {categoryCounts[key] > 0 && <span className="ml-1.5 opacity-70">{categoryCounts[key]}</span>}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+
+        <div className="flex space-x-1 border-t border-border-default px-4">
+          {(['new', 'saved', 'dismissed'] as StatusFilter[]).map((status) => {
+            const isActive = statusFilter === status
+            return (
+              <button
+                key={status}
+              onClick={() => onStatusFilterChange(status)}
+                className={`min-h-11 border-b-2 px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                  isActive
+                    ? 'border-accent-primary text-text-primary'
+                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {statusCounts[status] > 0 && (
+                  <span className={`ml-1.5 rounded-full border px-2 py-0.5 text-xs ${
+                    isActive
+                      ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
+                      : 'border-border-default bg-bg-elevated text-text-muted'
+                  }`}>
+                    {statusCounts[status]}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Numbered list */}
-      <div className="flex-1 overflow-y-auto divide-y divide-border-default">
-        {filtered.length > 0 ? (
-          filtered.map((item, idx) => (
-            <FeedbackListItem
-              key={item.content.id}
-              number={idx + 1}
-              item={item}
-              fileType={fileType}
-              onStatusChange={onStatusChange}
-              onViewInDocument={onViewInDocument}
-            />
-          ))
-        ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-            <p className="text-sm text-text-secondary">No items to review</p>
-            <p className="text-xs text-text-muted mt-1">
-              {filter !== 'all' ? 'Try switching the filter above.' : 'Analysis results will appear here.'}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-accent-primary border-r-transparent mb-3" />
+            <p className="text-sm text-text-secondary">Loading issue list...</p>
+          </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-sm text-text-secondary">No issues in this bucket</p>
+            <p className="mt-1 text-xs text-text-muted">
+              Try another issue category or status filter.
             </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {(['high', 'medium', 'low'] as const).map((priority) => {
+              const group = groupedItems[priority]
+              if (group.length === 0) return null
+              const config = PRIORITY_HEADER_CONFIG[priority]
+              return (
+                <div key={priority}>
+                  <div className="mb-3 flex items-center gap-2 py-1">
+                    <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${config.text}`}>
+                      {config.label}
+                    </span>
+                    <span className="text-xs text-text-muted">{group.length}</span>
+                    <div className="ml-1 h-px flex-1 bg-border-default" />
+                  </div>
+                  <div className="space-y-3">
+                    {group.map((item) => (
+                      <UnifiedFeedbackCard
+                        key={item.id}
+                        item={item}
+                        onStatusChange={onStatusChange}
+                        onViewInDocument={onViewInDocument}
+                        currentStatus={statusFilter}
+                        fileType={fileType}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+
+            {statusFilter === 'new' && categoryCounts.missing_citations === 0 && (
+              <div className="rounded-lg border border-border-default bg-bg-elevated/40 p-3">
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 text-text-muted" />
+                  <p className="text-xs text-text-secondary">
+                    Recommendation papers only appear when the analysis found a concrete citation issue or gap with candidate support.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

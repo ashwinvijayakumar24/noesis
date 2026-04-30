@@ -22,6 +22,7 @@ from app.core.config import settings
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_async_openai_client, get_completion_params
+from app.services.draft_anchor_qa import locate_text_snippet
 import datetime
 
 logger = get_logger(__name__)
@@ -401,96 +402,47 @@ def map_citations_to_claims(
     # Split text into lines for line number calculation
     lines = draft_text.split('\n')
 
-    draft_lower = draft_text.lower()
-
-    def _fuzzy_locate(claim_text: str) -> int:
-        """Multi-strategy fuzzy search: exact → sentence → n-gram → numbers. Returns -1 on failure."""
-        # 1. Exact match
-        idx = draft_text.find(claim_text)
-        if idx >= 0:
-            return idx
-
-        # 2. Sentence-level: try each sentence from the claim text
-        for sent in re.split(r'(?<=[.!?])\s+', claim_text):
-            sent = sent.strip()
-            if len(sent) > 25:
-                idx = draft_lower.find(sent.lower())
-                if idx >= 0:
-                    return idx
-
-        # 3. 6-word sliding window
-        words = claim_text.split()
-        for window in [7, 5]:
-            for i in range(max(0, len(words) - window + 1)):
-                phrase = ' '.join(words[i:i + window]).lower()
-                if len(phrase) > 20:
-                    idx = draft_lower.find(phrase)
-                    if idx >= 0:
-                        return idx
-
-        # 4. Numbers/percentages (likely verbatim in the draft)
-        for spec in re.findall(r'\d[\d,]*\.?\d*\s*%|\d+\.\d+', claim_text):
-            if len(spec) >= 3:
-                idx = draft_lower.find(spec.lower())
-                if idx >= 0:
-                    return idx
-
-        return -1
-
     for claim in claims:
         claim_text = claim.get("claim_text", "")
 
-        # Find claim location in draft (fuzzy multi-strategy)
-        claim_start = _fuzzy_locate(claim_text)
+        # Find claim location in draft (exact → normalized → sentence-window → section fallback)
+        anchor = locate_text_snippet(
+            claim_text,
+            draft_text,
+            sections=sections,
+            section_reference=claim.get("section_location"),
+            context_radius=50,
+        )
 
-        if claim_start >= 0:
-            # Calculate line number and character position
-            text_before_claim = draft_text[:claim_start]
-            line_number = text_before_claim.count('\n') + 1  # 1-indexed
-
-            # Find the start of the current line
-            line_start_pos = draft_text.rfind('\n', 0, claim_start) + 1
-            char_start = claim_start - line_start_pos
-            char_end = char_start + len(claim_text)
-
-            # Extract snippet starting AT claim (not before) so frontend slice(0,40) hits the claim
-            snippet_end = min(len(draft_text), claim_start + len(claim_text) + 50)
-            text_snippet = draft_text[claim_start:snippet_end].strip()
+        if anchor.get("found"):
+            claim_start = anchor["start_index"]
+            claim_end = anchor["end_index"]
 
             # EXISTING: Line-based positioning (Strategy 3 - fallback)
-            claim["line_number"] = line_number
-            claim["char_start"] = char_start
-            claim["char_end"] = char_end
-            claim["text_snippet"] = text_snippet
+            claim["line_number"] = anchor.get("line_number")
+            claim["char_start"] = anchor.get("char_start")
+            claim["char_end"] = anchor.get("char_end")
+            claim["text_snippet"] = anchor.get("text_snippet")
 
-            # NEW: Section-based anchoring (Strategy 1 - best)
-            if sections:
-                section = find_section_for_claim(claim_text, sections, draft_text)
-                if section:
-                    claim["section_id"] = section["id"]
+            # NEW: Section-based anchoring (Strategy 1 - best) + PDF coordinates
+            if anchor.get("section_id"):
+                claim["section_id"] = anchor.get("section_id")
+            if anchor.get("char_offset_from_section") is not None:
+                claim["char_offset_from_section"] = anchor.get("char_offset_from_section")
+            if anchor.get("pdf_coordinates"):
+                claim["pdf_coordinates"] = anchor.get("pdf_coordinates")
+            claim["match_confidence"] = anchor.get("match_confidence", 0.6)
 
-                    # Calculate offset from section start
-                    section_start = draft_text.find(section["content"])
-                    if section_start >= 0:
-                        claim["char_offset_from_section"] = claim_start - section_start
-                        claim["match_confidence"] = 0.9  # High confidence
-
-                    # NEW: PDF coordinates if available (Strategy 2)
-                    if section.get("coordinates"):
-                        claim["pdf_coordinates"] = section["coordinates"]
-                        claim["match_confidence"] = max(claim.get("match_confidence", 0), 0.8)
-                else:
-                    # Section not found - use line-based fallback
-                    claim["match_confidence"] = 0.6
-            else:
-                # No sections provided - use line-based fallback
-                claim["match_confidence"] = 0.6
-
-            logger.debug(f"Claim located at line {line_number}, chars {char_start}-{char_end}, confidence: {claim.get('match_confidence', 0.6)}")
+            logger.debug(
+                f"Claim located at line {claim.get('line_number')}, "
+                f"chars {claim.get('char_start')}-{claim.get('char_end')}, "
+                f"strategy={anchor.get('strategy')}, "
+                f"confidence: {claim.get('match_confidence', 0.6)}"
+            )
 
             # Get surrounding context (500 chars before and after)
             context_start = max(0, claim_start - 500)
-            context_end = min(len(draft_text), claim_start + len(claim_text) + 500)
+            context_end = min(len(draft_text), claim_end + 500)
             context = draft_text[context_start:context_end]
 
             # Extract citations from context

@@ -214,260 +214,166 @@ async def analyze_draft_with_langgraph(
             raise Exception("Failed to store draft analysis")
 
         # ============================================================
-        # 2. Store draft_claims (only if not already stored by Phase 1)
+        # 2. Store draft_claims — delete stale rows, insert fresh
         # ============================================================
         if claims:
-            existing_claims_res = supabase.table("draft_claims")\
-                .select("id")\
-                .eq("draft_id", draft_id)\
-                .limit(1)\
-                .execute()
+            supabase.table("draft_claims").delete().eq("draft_id", draft_id).execute()
+            claims_data = []
+            for claim in claims:
+                claim_key = claim.get("claim_text", "")
+                citation_info = claim_citation_map.get(claim_key)
+                suggested_cits = claim_suggestions_map.get(claim_key, [])
 
-            if existing_claims_res.data and len(existing_claims_res.data) > 0:
-                # Claims exist from Phase 1, but we still need to update supporting_literature
-                # with B2 suggested_citations + citation mapping results (not available in Phase 1)
-                logger.info("[LangGraph Draft Analysis] Claims exist - updating supporting_literature with citation data")
-                updated_count = 0
-                for claim in claims:
-                    claim_key = claim.get("claim_text", "")
-                    citation_info = claim_citation_map.get(claim_key)
-                    suggested_cits = claim_suggestions_map.get(claim_key, [])
-
-                    if not citation_info and not suggested_cits:
-                        continue  # Nothing new to write for this claim
-
-                    if citation_info:
-                        base_display = doc_display_map.get(citation_info["doc_id"], "")
-                        similarity_pct = int(citation_info["similarity"] * 100)
-                        if base_display:
-                            display_str = f"{base_display} · {similarity_pct}% match"
-                        elif citation_info.get("doc_title"):
-                            short_title = citation_info["doc_title"][:45] + ("…" if len(citation_info["doc_title"]) > 45 else "")
-                            display_str = f"{short_title} · {similarity_pct}% match"
-                        else:
-                            display_str = f"Library document · {similarity_pct}% match"
-                        supporting_lit = {
-                            "top_match": {
-                                "document_id": citation_info["doc_id"],
-                                "document_title": citation_info["doc_title"],
-                                "similarity": citation_info["similarity"],
-                                "display": display_str,
-                            },
-                            "suggested_citations": suggested_cits,
-                        }
-                        update_payload = {
-                            "supporting_literature": supporting_lit,
-                            "max_similarity": citation_info["similarity"],
-                        }
+                if citation_info:
+                    base_display = doc_display_map.get(citation_info["doc_id"], "")
+                    similarity_pct = int(citation_info["similarity"] * 100)
+                    if base_display:
+                        display_str = f"{base_display} · {similarity_pct}% match"
+                    elif citation_info.get("doc_title"):
+                        short_title = citation_info["doc_title"][:45] + ("…" if len(citation_info["doc_title"]) > 45 else "")
+                        display_str = f"{short_title} · {similarity_pct}% match"
                     else:
-                        update_payload = {
-                            "supporting_literature": {
-                                "top_match": None,
-                                "suggested_citations": suggested_cits,
-                            }
-                        }
-
-                    claim_id = claim.get("id")
-                    if claim_id:
-                        supabase.table("draft_claims").update(update_payload).eq("id", claim_id).execute()
-                        updated_count += 1
-
-                logger.info(f"[LangGraph Draft Analysis] Updated supporting_literature for {updated_count} existing claims")
-            else:
-                claims_data = []
-                for claim in claims:
-                    claim_key = claim.get("claim_text", "")
-                    citation_info = claim_citation_map.get(claim_key)
-                    suggested_cits = claim_suggestions_map.get(claim_key, [])
-
-                    # B2: Store supporting_literature as object with top_match + suggested_citations
-                    # Frontend handles both old array format and new object format
-                    if citation_info:
-                        base_display = doc_display_map.get(citation_info["doc_id"], "")
-                        similarity_pct = int(citation_info["similarity"] * 100)
-                        if base_display:
-                            display_str = f"{base_display} · {similarity_pct}% match"
-                        elif citation_info.get("doc_title"):
-                            short_title = citation_info["doc_title"][:45] + ("…" if len(citation_info["doc_title"]) > 45 else "")
-                            display_str = f"{short_title} · {similarity_pct}% match"
-                        else:
-                            display_str = f"Library document · {similarity_pct}% match"
-                        supporting_lit = {
-                            "top_match": {
-                                "document_id": citation_info["doc_id"],
-                                "document_title": citation_info["doc_title"],
-                                "similarity": citation_info["similarity"],
-                                "display": display_str,
-                            },
-                            "suggested_citations": suggested_cits,
-                        }
-                    else:
-                        supporting_lit = {
-                            "top_match": None,
-                            "suggested_citations": suggested_cits,
-                        }
-
-                    claim_record = {
-                        "draft_id": draft_id,
-                        "claim_text": claim["claim_text"],
-                        "claim_type": claim["claim_type"],
-                        "section_location": claim["section_location"],
-                        "importance_score": claim["importance_score"],
-                        "requires_citation": claim.get("requires_citation", True),
-                        "max_similarity": citation_info["similarity"] if citation_info else 0.0,
-                        "supporting_literature": supporting_lit,
-                        "created_at": datetime.datetime.utcnow().isoformat()
+                        display_str = f"Library document · {similarity_pct}% match"
+                    supporting_lit = {
+                        "top_match": {
+                            "document_id": citation_info["doc_id"],
+                            "document_title": citation_info["doc_title"],
+                            "similarity": citation_info["similarity"],
+                            "display": display_str,
+                        },
+                        "suggested_citations": suggested_cits,
                     }
-                    claims_data.append(claim_record)
-
-                supabase.table("draft_claims").insert(claims_data).execute()
-                logger.info(f"[LangGraph Draft Analysis] Stored {len(claims)} claims")
-
-        # ============================================================
-        # 3. Store coverage_gaps (only if not already stored by Phase 1)
-        # ============================================================
-        if gaps:
-            existing_gaps_res = supabase.table("coverage_gaps")\
-                .select("id")\
-                .eq("draft_id", draft_id)\
-                .limit(1)\
-                .execute()
-
-            if existing_gaps_res.data and len(existing_gaps_res.data) > 0:
-                logger.info("[LangGraph Draft Analysis] Coverage gaps already exist - SKIPPING (Phase 1 stored them)")
-            else:
-                # Map severity/priority values to DB-allowed values: high, medium, low
-                _severity_map = {
-                    "critical": "high", "major": "high",
-                    "minor": "low", "high": "high", "medium": "medium", "low": "low"
-                }
-                gaps_data = []
-                for gap in gaps:
-                    raw_priority = gap.get("severity", gap.get("priority", "medium"))
-                    db_priority = _severity_map.get(raw_priority, "medium")
-                    gap_record = {
-                        "draft_id": draft_id,
-                        "gap_type": gap["gap_type"],
-                        "description": gap["description"],
-                        "priority": db_priority,
-                        "suggested_papers": gap.get("suggested_papers", []),
-                        "reasoning": gap.get("reasoning", ""),
-                        "created_at": datetime.datetime.utcnow().isoformat()
+                else:
+                    supporting_lit = {
+                        "top_match": None,
+                        "suggested_citations": suggested_cits,
                     }
-                    gaps_data.append(gap_record)
 
-                insert_res = supabase.table("coverage_gaps").insert(gaps_data).execute()
-                logger.info(f"[LangGraph Draft Analysis] Stored {len(gaps)} coverage gaps")
-                # Backfill DB-assigned IDs into in-memory gaps so the enrichment step can update them
-                if insert_res.data:
-                    for i, row in enumerate(insert_res.data):
-                        if i < len(gaps):
-                            gaps[i]["id"] = row.get("id")
-
-        # ============================================================
-        # 4. Store reviewer_feedback + structural feedback
-        # ============================================================
-        existing_feedback_res = supabase.table("reviewer_feedback")\
-            .select("id")\
-            .eq("draft_id", draft_id)\
-            .limit(1)\
-            .execute()
-
-        if existing_feedback_res.data and len(existing_feedback_res.data) > 0:
-            logger.info("[LangGraph Draft Analysis] Reviewer feedback already exists - SKIPPING (Phase 1 stored them)")
-            # Replace structural feedback on each run (always reflects current draft state)
-            # Delete any stale structural items first, then insert fresh
-            if structural_feedback:
-                supabase.table("reviewer_feedback")\
-                    .delete()\
-                    .eq("draft_id", draft_id)\
-                    .eq("feedback_type", "structural")\
-                    .execute()
-                struct_data = []
-                for fb in structural_feedback:
-                    struct_data.append({
-                        "draft_id": draft_id,
-                        "feedback_type": "structural",
-                        "feedback_text": fb.get("feedback_text", ""),
-                        "severity": fb.get("severity", "major"),
-                        "reviewer_persona": "reviewer_2",
-                        "section_reference": fb.get("section_reference", ""),
-                        "specific_issue": fb.get("specific_issue", ""),
-                        "created_at": datetime.datetime.utcnow().isoformat()
-                    })
-                if struct_data:
-                    supabase.table("reviewer_feedback").insert(struct_data).execute()
-                    logger.info(f"[LangGraph Draft Analysis] Replaced structural feedback with {len(struct_data)} fresh items")
-        else:
-            feedback_data = []
-            for fb in all_feedback:
-                feedback_data.append({
+                claims_data.append({
                     "draft_id": draft_id,
-                    "feedback_type": fb.get("feedback_type", "general"),
-                    "feedback_text": fb.get("feedback_text", ""),
-                    "severity": fb.get("severity", "minor"),
-                    "reviewer_persona": fb.get("reviewer_persona", "reviewer_2"),
-                    "section_reference": fb.get("section_reference", ""),
-                    "specific_issue": fb.get("specific_issue", ""),
-                    "suggestions": fb.get("suggestions", []),
+                    "claim_text": claim["claim_text"],
+                    "claim_type": claim["claim_type"],
+                    "section_location": claim["section_location"],
+                    "importance_score": claim["importance_score"],
+                    "requires_citation": claim.get("requires_citation", True),
+                    "max_similarity": citation_info["similarity"] if citation_info else 0.0,
+                    "supporting_literature": supporting_lit,
                     "created_at": datetime.datetime.utcnow().isoformat()
                 })
 
-            if feedback_data:
-                supabase.table("reviewer_feedback").insert(feedback_data).execute()
-                logger.info(f"[LangGraph Draft Analysis] Stored {len(feedback_data)} feedback items")
-
-        r1_existing_res = supabase.table("reviewer_feedback")\
-            .select("id")\
-            .eq("draft_id", draft_id)\
-            .eq("reviewer_persona", "reviewer_1")\
-            .limit(1)\
-            .execute()
-        r1_items = []
-        if r1_existing_res.data:
-            logger.info("[LangGraph Draft Analysis] Reviewer 1 strengths already exist - skipping")
-        else:
-            try:
-                from app.services.reviewer1_feedback import generate_reviewer1_feedback
-
-                r1_items = await generate_reviewer1_feedback(
-                    draft_id=draft_id,
-                    draft_content=draft_content,
-                    structure=structure,
-                )
-                r1_rows = [
-                    {
-                        "draft_id": draft_id,
-                        "feedback_type": item.get("feedback_type", "strength"),
-                        "feedback_text": item.get("feedback_text", ""),
-                        "severity": item.get("severity", "suggestion"),
-                        "reviewer_persona": "reviewer_1",
-                        "section_reference": item.get("section_reference", "Overall"),
-                        "specific_issue": item.get("specific_issue", ""),
-                        "suggestions": item.get("suggestions", []),
-                        "created_at": datetime.datetime.utcnow().isoformat(),
-                    }
-                    for item in r1_items
-                    if item.get("feedback_text")
-                ]
-                if r1_rows:
-                    supabase.table("reviewer_feedback").insert(r1_rows).execute()
-                    logger.info(f"[LangGraph Draft Analysis] Stored {len(r1_rows)} Reviewer 1 strengths")
-            except Exception as r1_err:
-                logger.warning(f"[LangGraph Draft Analysis] Reviewer 1 strengths failed (non-fatal): {r1_err}")
+            supabase.table("draft_claims").insert(claims_data).execute()
+            logger.info(f"[LangGraph Draft Analysis] Stored {len(claims)} claims (replaced stale)")
 
         # ============================================================
-        # 5. Store citation_suggestions (only if not already stored)
+        # 3. Store coverage_gaps — delete stale rows, insert fresh
         # ============================================================
-        existing_suggestions_res = supabase.table("citation_suggestions")\
-            .select("id")\
-            .eq("draft_id", draft_id)\
-            .limit(1)\
-            .execute()
+        if gaps:
+            supabase.table("coverage_gaps").delete().eq("draft_id", draft_id).execute()
+            _severity_map = {
+                "critical": "high", "major": "high",
+                "minor": "low", "high": "high", "medium": "medium", "low": "low"
+            }
+            gaps_data = []
+            for gap in gaps:
+                raw_priority = gap.get("severity", gap.get("priority", "medium"))
+                db_priority = _severity_map.get(raw_priority, "medium")
+                gaps_data.append({
+                    "draft_id": draft_id,
+                    "gap_type": gap["gap_type"],
+                    "description": gap["description"],
+                    "priority": db_priority,
+                    "suggested_papers": gap.get("suggested_papers", []),
+                    "reasoning": gap.get("reasoning", ""),
+                    "created_at": datetime.datetime.utcnow().isoformat()
+                })
 
-        if existing_suggestions_res.data and len(existing_suggestions_res.data) > 0:
-            logger.info("[LangGraph Draft Analysis] Citation suggestions already exist - SKIPPING (Phase 1 stored them)")
-        elif claims_with_citations:
+            insert_res = supabase.table("coverage_gaps").insert(gaps_data).execute()
+            logger.info(f"[LangGraph Draft Analysis] Stored {len(gaps)} coverage gaps (replaced stale)")
+            # Backfill DB-assigned IDs into in-memory gaps so enrichment step can update them
+            if insert_res.data:
+                for i, row in enumerate(insert_res.data):
+                    if i < len(gaps):
+                        gaps[i]["id"] = row.get("id")
+
+        # ============================================================
+        # 4. Store reviewer_feedback — delete all stale rows, insert fresh
+        #    with full anchor/QA fields from draft_anchor_qa.py
+        # ============================================================
+        supabase.table("reviewer_feedback").delete().eq("draft_id", draft_id).execute()
+
+        def _fb_row(fb: dict, persona: str = "reviewer_2") -> dict:
+            qa = fb.get("qa_result") or {}
+            anchor = qa.get("anchor") or {}
+            qa_passed = qa.get("passed")
+            failed_checks = qa.get("failed_checks", [])
+            return {
+                "draft_id": draft_id,
+                "feedback_type": fb.get("feedback_type", "general"),
+                "feedback_text": fb.get("feedback_text", ""),
+                "severity": fb.get("severity", "minor"),
+                "reviewer_persona": fb.get("reviewer_persona", persona),
+                "section_reference": fb.get("section_reference", ""),
+                "specific_issue": fb.get("specific_issue", ""),
+                "suggestions": fb.get("suggestions", []),
+                "source_grounding": fb.get("source_grounding"),
+                # Anchor fields (migration 020)
+                "target_claim_id": fb.get("target_claim_id") or qa.get("target_claim_id"),
+                "target_gap_id": fb.get("target_gap_id") or qa.get("target_gap_id"),
+                "line_number": fb.get("line_number") or anchor.get("line_number"),
+                "text_snippet": fb.get("text_snippet") or anchor.get("text_snippet"),
+                "char_start": fb.get("char_start") or anchor.get("char_start"),
+                "char_end": fb.get("char_end") or anchor.get("char_end"),
+                "match_confidence": fb.get("match_confidence") or anchor.get("match_confidence"),
+                "qa_status": "passed" if qa_passed else ("failed" if qa_passed is False else "skipped"),
+                "qa_notes": failed_checks,
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            }
+
+        feedback_data = [_fb_row(fb) for fb in all_feedback if fb.get("feedback_text")]
+
+        # Structural feedback always reflects current draft state
+        for fb in structural_feedback:
+            feedback_data.append({
+                "draft_id": draft_id,
+                "feedback_type": "structural",
+                "feedback_text": fb.get("feedback_text", ""),
+                "severity": fb.get("severity", "major"),
+                "reviewer_persona": "reviewer_2",
+                "section_reference": fb.get("section_reference", ""),
+                "specific_issue": fb.get("specific_issue", ""),
+                "qa_status": "skipped",
+                "qa_notes": [],
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            })
+
+        if feedback_data:
+            supabase.table("reviewer_feedback").insert(feedback_data).execute()
+            logger.info(f"[LangGraph Draft Analysis] Stored {len(feedback_data)} feedback items (replaced stale)")
+
+        # Reviewer 1 strengths — generated fresh each run (no skip guard)
+        try:
+            from app.services.reviewer1_feedback import generate_reviewer1_feedback
+            r1_items = await generate_reviewer1_feedback(
+                draft_id=draft_id,
+                draft_content=draft_content,
+                structure=structure,
+            )
+            r1_rows = [
+                _fb_row(item, persona="reviewer_1")
+                for item in r1_items
+                if item.get("feedback_text")
+            ]
+            if r1_rows:
+                supabase.table("reviewer_feedback").insert(r1_rows).execute()
+                logger.info(f"[LangGraph Draft Analysis] Stored {len(r1_rows)} Reviewer 1 strengths")
+        except Exception as r1_err:
+            logger.warning(f"[LangGraph Draft Analysis] Reviewer 1 strengths failed (non-fatal): {r1_err}")
+
+        # ============================================================
+        # 5. Store citation_suggestions — delete stale, insert fresh
+        # ============================================================
+        supabase.table("citation_suggestions").delete().eq("draft_id", draft_id).execute()
+        if claims_with_citations:
             citation_suggestions_data = []
             for claim_with_citation in claims_with_citations:
                 claim = claim_with_citation.get("claim", {})

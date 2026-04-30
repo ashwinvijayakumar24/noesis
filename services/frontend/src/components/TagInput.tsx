@@ -17,10 +17,17 @@ interface TagSuggestion {
 
 interface TagInputProps {
   projectId: string
-  onTagsChange?: () => void
+  initialTags?: Tag[]
+  suggestions?: TagSuggestion[]
+  onTagsChange?: (tags: Tag[]) => void
 }
 
-export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
+export default function TagInput({
+  projectId,
+  initialTags,
+  suggestions: providedSuggestions,
+  onTagsChange,
+}: TagInputProps) {
   const { session } = useAuthStore()
   const [tags, setTags] = useState<Tag[]>([])
   const [suggestions, setSuggestions] = useState<TagSuggestion[]>([])
@@ -32,10 +39,19 @@ export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
   // Load tags for this project
   useEffect(() => {
     if (session?.access_token) {
-      loadTags()
-      loadSuggestions()
+      if (initialTags) {
+        setTags(initialTags)
+      } else {
+        loadTags()
+      }
+
+      if (providedSuggestions) {
+        setSuggestions(providedSuggestions)
+      } else {
+        loadSuggestions()
+      }
     }
-  }, [projectId, session])
+  }, [projectId, session, initialTags, providedSuggestions])
 
   // Focus input when it's shown
   useEffect(() => {
@@ -50,6 +66,7 @@ export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
     try {
       const data = await api.tags.getProjectTags(session.access_token, projectId)
       setTags(data)
+      onTagsChange?.(data)
     } catch (error) {
       console.error('Failed to load tags:', error)
     }
@@ -85,11 +102,12 @@ export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
 
     try {
       setLoading(true)
-      await api.tags.addTag(session.access_token, projectId, normalizedTag)
-      await loadTags()
+      const newTag = await api.tags.addTag(session.access_token, projectId, normalizedTag)
+      const nextTags = [...tags, newTag]
+      setTags(nextTags)
       setInputValue('')
       setShowInput(false)
-      onTagsChange?.()
+      onTagsChange?.(nextTags)
       toast.success('Tag added')
     } catch (error: any) {
       console.error('Failed to add tag:', error)
@@ -105,8 +123,9 @@ export default function TagInput({ projectId, onTagsChange }: TagInputProps) {
 
     try {
       await api.tags.removeTag(session.access_token, projectId, tagId)
-      await loadTags()
-      onTagsChange?.()
+      const nextTags = tags.filter((tag) => tag.id !== tagId)
+      setTags(nextTags)
+      onTagsChange?.(nextTags)
       toast.success('Tag removed')
     } catch (error) {
       console.error('Failed to remove tag:', error)

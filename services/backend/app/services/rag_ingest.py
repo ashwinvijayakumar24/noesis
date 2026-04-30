@@ -361,15 +361,17 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
         # 10. Update document metadata and status (only update status if not already analyzing/analyzed)
         logger.info(f"[RAG-INGEST] Step 10: Updating document metadata...")
 
-        # First, get current document status to avoid race condition with analysis
-        current_doc = supabase.table("documents").select("status").eq("id", document_id).execute()
+        # Re-check current document status right before writing metadata.
+        # The document may have advanced since ingestion started.
+        current_doc = supabase.table("documents").select("status, metadata").eq("id", document_id).execute()
         current_status = current_doc.data[0].get("status") if current_doc.data else "uploaded"
+        current_metadata = current_doc.data[0].get("metadata") if current_doc.data else {}
 
         # Prepare metadata update
         metadata_update = {
             "updated_at": datetime.datetime.utcnow().isoformat(),
             "metadata": {
-                **record.data.get("metadata", {}),
+                **(current_metadata or record.data.get("metadata", {})),
                 "embedded_at": datetime.datetime.utcnow().isoformat(),
                 "page_count": page_count,
                 "total_tokens": total_tokens,

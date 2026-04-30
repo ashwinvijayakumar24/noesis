@@ -15,6 +15,8 @@ from slowapi.errors import RateLimitExceeded
 import logging
 from typing import Callable
 import re
+import hashlib
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +198,8 @@ class SecureAuthValidator:
     """
     Enhanced authentication token validation with security checks
     """
+    _USER_ID_CACHE: dict[str, tuple[str, float]] = {}
+    _USER_ID_CACHE_TTL_SECONDS = 300
 
     @staticmethod
     def validate_bearer_token(authorization: str) -> str:
@@ -242,6 +246,32 @@ class SecureAuthValidator:
             )
 
         return token
+
+    @classmethod
+    def get_user_id(cls, authorization: str, supabase_client) -> str:
+        """
+        Resolve the current user's ID with a short-lived in-memory token cache.
+        This avoids repeated Supabase auth lookups across hot page loads.
+        """
+        token = cls.validate_bearer_token(authorization)
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        now = time.time()
+
+        cached = cls._USER_ID_CACHE.get(token_hash)
+        if cached and cached[1] > now:
+            return cached[0]
+
+        user = supabase_client.auth.get_user(token)
+        user_id = user.user.id
+        cls._USER_ID_CACHE[token_hash] = (user_id, now + cls._USER_ID_CACHE_TTL_SECONDS)
+
+        if len(cls._USER_ID_CACHE) > 2048:
+            cls._USER_ID_CACHE = {
+                key: value for key, value in cls._USER_ID_CACHE.items()
+                if value[1] > now
+            }
+
+        return user_id
 
 
 # ============================================

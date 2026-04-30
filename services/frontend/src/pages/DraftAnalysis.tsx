@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeftIcon,
@@ -9,7 +9,7 @@ import {
 import { api } from '../lib/api'
 import { handleError } from '../lib/errorHandler'
 import { useAuthStore } from '../stores/authStore'
-import DocumentViewer, { type DocumentViewerRef } from '../components/DocumentViewer'
+import DocumentViewer, { type DocumentViewerRef, type PdfCoordinates } from '../components/DocumentViewer'
 import ReviewerFeedbackList from '../components/draft-analysis/ReviewerFeedbackList'
 import { ProgressIndicator, useEstimatedProgress } from '../components/ui/ProgressIndicator'
 import { useAnalysisStream } from '../hooks/useAnalysisStream'
@@ -28,6 +28,8 @@ interface Claim {
   existing_citations: string[]
   supporting_literature?: any
   line_number?: number
+  text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
   status: 'new' | 'saved' | 'dismissed'
 }
 
@@ -40,6 +42,8 @@ interface Gap {
   suggested_papers: any[]
   has_relevant_literature?: boolean
   line_number?: number
+  text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
   status: 'new' | 'saved' | 'dismissed'
 }
 
@@ -54,6 +58,8 @@ interface Feedback {
   suggestions: string[]
   section_reference?: string
   line_number?: number
+  text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
   status: 'new' | 'saved' | 'dismissed'
 }
 
@@ -68,26 +74,6 @@ interface Draft {
   citation_style?: string
   created_at: string
   updated_at: string
-}
-
-interface FeedbackCounts {
-  total_claims: number
-  claims_needing_citation: number
-  total_gaps: number
-  critical_gaps: number
-  total_feedback: number
-  critical_feedback: number
-}
-
-interface Annotation {
-  id: string
-  type: 'claim' | 'feedback' | 'gap'
-  line_number: number
-  char_start?: number
-  char_end?: number
-  text_snippet?: string
-  section_location?: string
-  color: string
 }
 
 interface EditingIssue {
@@ -113,6 +99,7 @@ interface CarryoverBadge {
 }
 
 type ActiveTab = 'overview' | 'editing' | 'feedback' | 'gaps'
+type FeedbackStatusFilter = 'new' | 'saved' | 'dismissed'
 
 const EMPTY_EDITING_FEEDBACK: EditingFeedback = {
   grammar_issues: [],
@@ -225,27 +212,22 @@ export default function DraftAnalysis() {
   const documentViewerRef = useRef<DocumentViewerRef>(null)
 
   const [loading, setLoading] = useState(true)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [signedFileUrl, setSignedFileUrl] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview')
-  const [activeAnnotation, setActiveAnnotation] = useState<Annotation | null>(null)
+  const [statusFilter, setStatusFilter] = useState<FeedbackStatusFilter>('new')
   const [claims, setClaims] = useState<Claim[]>([])
   const [gaps, setGaps] = useState<Gap[]>([])
   const [feedback, setFeedback] = useState<Feedback[]>([])
   const [editingFeedback, setEditingFeedback] = useState<EditingFeedback>(EMPTY_EDITING_FEEDBACK)
-  const [counts, setCounts] = useState<FeedbackCounts>({
-    total_claims: 0,
-    claims_needing_citation: 0,
-    total_gaps: 0,
-    critical_gaps: 0,
-    total_feedback: 0,
-    critical_feedback: 0,
-  })
   const [readinessScore, setReadinessScore] = useState<number | null>(null)
-  const [verdict, setVerdict] = useState<string | null>(null)
-  const [priorityActions, setPriorityActions] = useState<string[]>([])
-  const [latestComparison, setLatestComparison] = useState<any>(null)
-
+  const feedbackCacheRef = useRef<Partial<Record<FeedbackStatusFilter, {
+    claims: Claim[]
+    gaps: Gap[]
+    feedback: Feedback[]
+    readinessScore: number | null
+  }>>>({})
   const checkAnalysisStatusRef = useRef<(() => Promise<void>) | null>(null)
   const { progress: estimatedProgress } = useEstimatedProgress(180)
   const stream = useAnalysisStream(
@@ -253,45 +235,39 @@ export default function DraftAnalysis() {
     draft?.status === 'processing' || draft?.status === 'uploaded',
   )
 
-  const fetchSignedUrl = useCallback(async () => {
+  const fetchFeedbackForStatus = useCallback(async (
+    nextStatus: FeedbackStatusFilter,
+    force = false,
+  ) => {
     if (!draftId || !token) return
-    try {
-      const urlResponse = await api.drafts.getSignedUrl(token, draftId)
-      setSignedFileUrl(urlResponse.signed_url)
-    } catch (error) {
-      console.error('Failed to fetch signed URL:', error)
+    const cached = feedbackCacheRef.current[nextStatus]
+    if (!force && cached) {
+      setClaims(cached.claims)
+      setGaps(cached.gaps)
+      setFeedback(cached.feedback)
+      setReadinessScore(cached.readinessScore)
+      return
     }
-  }, [draftId, token])
 
-  const fetchAllFeedback = useCallback(async () => {
-    if (!draftId || !token) return
     try {
-      const [newData, savedData, dismissedData] = await Promise.all([
-        api.drafts.getAllFeedback(token, draftId, 'new', true),
-        api.drafts.getAllFeedback(token, draftId, 'saved', false),
-        api.drafts.getAllFeedback(token, draftId, 'dismissed', false),
-      ])
-
-      setClaims([
-        ...(newData.claims || []),
-        ...(savedData.claims || []),
-        ...(dismissedData.claims || []),
-      ])
-      setGaps([
-        ...(newData.gaps || []),
-        ...(savedData.gaps || []),
-        ...(dismissedData.gaps || []),
-      ])
-      setFeedback([
-        ...(newData.feedback || []),
-        ...(savedData.feedback || []),
-        ...(dismissedData.feedback || []),
-      ])
-      setCounts(newData.counts)
-      setReadinessScore(newData.readiness_score)
-      setVerdict(newData.verdict)
+      setFeedbackLoading(true)
+      const actionableOnly = nextStatus === 'new'
+      const data = await api.drafts.getAllFeedback(token, draftId, nextStatus, actionableOnly)
+      const payload = {
+        claims: data.claims || [],
+        gaps: data.gaps || [],
+        feedback: data.feedback || [],
+        readinessScore: data.readiness_score ?? null,
+      }
+      feedbackCacheRef.current[nextStatus] = payload
+      setClaims(payload.claims)
+      setGaps(payload.gaps)
+      setFeedback(payload.feedback)
+      setReadinessScore(payload.readinessScore)
     } catch (error) {
       console.error('Failed to fetch all feedback:', error)
+    } finally {
+      setFeedbackLoading(false)
     }
   }, [draftId, token])
 
@@ -304,22 +280,13 @@ export default function DraftAnalysis() {
     try {
       await api.drafts.updateFeedbackStatus(token, draftId, feedbackId, feedbackType, newStatus)
       toast.success(newStatus === 'saved' ? 'Feedback saved' : 'Feedback dismissed')
-      await fetchAllFeedback()
+      feedbackCacheRef.current = {}
+      await fetchFeedbackForStatus(statusFilter, true)
     } catch (error) {
       handleError(error)
       toast.error('Failed to update feedback status')
     }
-  }, [draftId, token, fetchAllFeedback])
-
-  // Extract the most "verbatim-likely" phrase from a claim/feedback text.
-  // Prefers numbers/percentages (likely exact) then short quoted phrases.
-  const extractSearchPhrase = (text: string): string => {
-    const numbers = text.match(/\d[\d,]*\.?\d*\s*%|\d+\.\d+/g)
-    if (numbers && numbers[0].length >= 3) return numbers[0]
-    const quoted = text.match(/"([^"]{6,35})"/)?.[1]
-    if (quoted) return quoted
-    return text
-  }
+  }, [draftId, token, fetchFeedbackForStatus, statusFilter])
 
   const handleViewInDocument = useCallback((item: {
     line_number?: number
@@ -327,26 +294,17 @@ export default function DraftAnalysis() {
     text_snippet?: string
     section_type?: string
     section_location?: string
+    pdf_coordinates?: PdfCoordinates
   }) => {
     const isPdf = draft?.file_type === 'application/pdf' || draft?.file_type === 'pdf'
     if (isPdf) {
-      if (item.text_snippet && item.line_number) {
-        // Best case: verbatim snippet + page → snippet mode on that page
-        const page = Math.ceil(item.line_number / 55)
-        documentViewerRef.current?.highlightText(item.text_snippet, page, false)
-      } else if (item.text_snippet) {
-        // Snippet but no page: substring search across all pages (NOT heading mode)
-        documentViewerRef.current?.highlightText(item.text_snippet, undefined, false)
-      } else if (item.line_number) {
-        // No snippet: jump to estimated page, try to find content_text as substring
-        const page = Math.ceil(item.line_number / 55)
-        const searchTerm = item.content_text ? extractSearchPhrase(item.content_text) : ''
-        documentViewerRef.current?.highlightText(searchTerm, page, false)
+      if (item.pdf_coordinates) {
+        documentViewerRef.current?.highlightRegion(item.pdf_coordinates)
       } else {
-        // Section only: heading mode — look for the section heading span
-        const raw = item.section_type || item.section_location || ''
-        const heading = raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-        if (heading) documentViewerRef.current?.highlightText(heading, undefined, true)
+        toast('Exact location unavailable for this item yet. Reanalyze the draft to regenerate anchors.', {
+          icon: 'ℹ️',
+          duration: 3000,
+        })
       }
     } else {
       if (item.line_number) {
@@ -363,21 +321,14 @@ export default function DraftAnalysis() {
       setEditingFeedback(extractEditingFeedbackPayload(response))
 
       if (response.status === 'analyzed') {
-        if (response.priority_actions?.length) {
-          setPriorityActions(response.priority_actions)
-        }
         if (response.readiness_score !== undefined) {
           setReadinessScore(response.readiness_score)
-        }
-        if (response.verdict) {
-          setVerdict(response.verdict)
         }
 
         const draftData = await api.drafts.get(token, draftId)
         setDraft(draftData)
-        api.drafts.assignSections(token, draftId).catch(() => {}) // fire-and-forget: section mapping is non-blocking
-        await fetchAllFeedback()
         setLoading(false)
+        void fetchFeedbackForStatus(statusFilter, true)
       } else if (response.status === 'failed') {
         const draftData = await api.drafts.get(token, draftId)
         setDraft(draftData)
@@ -387,7 +338,7 @@ export default function DraftAnalysis() {
     } catch {
       // Keep polling while analysis is pending.
     }
-  }, [draftId, token, fetchAllFeedback])
+  }, [draftId, token, fetchFeedbackForStatus, statusFilter])
 
   useEffect(() => {
     const init = async () => {
@@ -395,53 +346,22 @@ export default function DraftAnalysis() {
       setLoading(true)
 
       try {
-        const [draftData, analysisResponse, comparisonsResponse] = await Promise.all([
+        const [draftData, analysisResponse] = await Promise.all([
           api.drafts.get(token, draftId),
           api.drafts.getAnalysis(token, draftId),
-          projectId ? api.drafts.listComparisons(token, projectId).catch(() => null) : Promise.resolve(null),
         ])
 
         setEditingFeedback(extractEditingFeedbackPayload(analysisResponse))
 
-        if (analysisResponse?.priority_actions?.length) {
-          setPriorityActions(analysisResponse.priority_actions)
-        }
         if (analysisResponse?.readiness_score !== undefined) {
           setReadinessScore(analysisResponse.readiness_score)
         }
-        if (analysisResponse?.verdict) {
-          setVerdict(analysisResponse.verdict)
-        }
-
-        if (comparisonsResponse?.comparisons?.length) {
-          const myComparison = comparisonsResponse.comparisons.find(
-            (comparison: any) => comparison.draft_v2_id === draftId || comparison.draft_v1_id === draftId,
-          )
-
-          if (myComparison) {
-            try {
-              const detail = await api.drafts.getComparison(token, myComparison.comparison_id)
-              setLatestComparison({
-                ...detail,
-                v1Id: detail.draft_v1_id ?? myComparison.draft_v1_id,
-                v2Id: detail.draft_v2_id ?? myComparison.draft_v2_id,
-              })
-            } catch {
-              setLatestComparison({
-                ...myComparison,
-                v1Id: myComparison.draft_v1_id,
-                v2Id: myComparison.draft_v2_id,
-              })
-            }
-          }
-        }
 
         setDraft(draftData)
-        fetchSignedUrl()
+        setSignedFileUrl(draftData.file_url ?? null)
 
         if (draftData.status === 'analyzed') {
-          api.drafts.assignSections(token, draftId).catch(() => {}) // fire-and-forget
-          await fetchAllFeedback()
+          void fetchFeedbackForStatus(statusFilter)
         }
       } catch (error) {
         handleError(error)
@@ -452,7 +372,13 @@ export default function DraftAnalysis() {
     }
 
     init()
-  }, [draftId, token, projectId, fetchSignedUrl, fetchAllFeedback])
+  }, [draftId, token, fetchFeedbackForStatus, statusFilter])
+
+  useEffect(() => {
+    if (draft?.status === 'analyzed') {
+      void fetchFeedbackForStatus(statusFilter)
+    }
+  }, [draft?.status, statusFilter, fetchFeedbackForStatus])
 
   useEffect(() => {
     if (draft?.status === 'processing' || draft?.status === 'uploaded') {
@@ -625,6 +551,9 @@ if (loading) {
                 gaps={gaps}
                 feedback={feedback}
                 readinessScore={readinessScore}
+                loading={feedbackLoading}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
                 onStatusChange={handleStatusChange}
                 onViewInDocument={handleViewInDocument}
                 fileType={draft.file_type}
@@ -640,7 +569,7 @@ if (loading) {
                 ref={documentViewerRef}
                 fileUrl={signedFileUrl}
                 fileType={draft.file_type}
-                annotation={activeAnnotation}
+                annotation={null}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

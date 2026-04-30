@@ -6,6 +6,7 @@ Analyzes the draft's document structure including sections, word count, and orga
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, DraftStructure
 from app.core.logging_config import get_logger
+from app.core.supabase_client import supabase
 import re
 
 logger = get_logger(__name__)
@@ -33,6 +34,49 @@ def extract_structure_node(state: DraftAnalysisState) -> DraftAnalysisState:
     logger.info(f"[Structure Extraction] draft_content length={len(draft_content)} chars")
 
     try:
+        existing_structure = None
+        try:
+            analysis_response = (
+                supabase.table("draft_analysis")
+                .select("structure")
+                .eq("draft_id", state["draft_id"])
+                .limit(1)
+                .execute()
+            )
+            if analysis_response.data:
+                candidate = analysis_response.data[0].get("structure") or {}
+                if candidate.get("sections") and any(
+                    section.get("content") for section in candidate.get("sections", [])
+                ):
+                    existing_structure = candidate
+        except Exception as structure_error:
+            logger.warning(f"[Structure Extraction] Failed to load stored structure: {structure_error}")
+
+        if existing_structure:
+            section_types = {s.get("type") for s in existing_structure.get("sections", [])}
+            structure: DraftStructure = {
+                'sections': existing_structure.get("sections", []),
+                'word_count': existing_structure.get("word_count", len(draft_content.split())),
+                'page_count': existing_structure.get("page_count", max(1, len(draft_content.split()) // 250)),
+                'has_abstract': existing_structure.get("has_abstract", 'abstract' in section_types),
+                'has_introduction': existing_structure.get("has_introduction", 'introduction' in section_types),
+                'has_methods': existing_structure.get("has_methods", 'methods' in section_types),
+                'has_results': existing_structure.get("has_results", 'results' in section_types),
+                'has_discussion': existing_structure.get("has_discussion", 'discussion' in section_types),
+                'has_conclusion': existing_structure.get("has_conclusion", 'conclusion' in section_types),
+            }
+
+            logger.info(
+                f"[Structure Extraction] Reusing stored structure with "
+                f"{len(structure['sections'])} sections"
+            )
+
+            return {
+                'structure': structure,
+                'current_step': 'Structure Extraction',
+                'progress_percentage': 10
+            }
+
         # Basic structure analysis
         word_count = len(draft_content.split())
         # Estimate page count (assuming ~250 words per page)

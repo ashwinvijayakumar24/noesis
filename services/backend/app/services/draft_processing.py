@@ -491,14 +491,26 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
             structure = {
                 "sections": [
                     {
+                        "id": s.get("id"),
                         "title": s.get("title", ""),
                         "type": s.get("type", "other"),
+                        "content": s.get("content", ""),
+                        "coordinates": s.get("coordinates", {}),
+                        "paragraphs": s.get("paragraphs", []),
                         "start_position": 0,  # GROBID doesn't provide exact positions
                         "word_count": len(s.get("content", "").split()),
                         "has_subsections": False
                     }
                     for s in extracted_data["sections"]
                 ],
+                "word_count": len(full_text.split()),
+                "page_count": extracted_data.get("metadata", {}).get("page_count", 0),
+                "has_abstract": any(s.get("type") == "abstract" for s in extracted_data["sections"]),
+                "has_introduction": any(s.get("type") == "introduction" for s in extracted_data["sections"]),
+                "has_methods": any(s.get("type") == "methods" for s in extracted_data["sections"]),
+                "has_results": any(s.get("type") == "results" for s in extracted_data["sections"]),
+                "has_discussion": any(s.get("type") == "discussion" for s in extracted_data["sections"]),
+                "has_conclusion": any(s.get("type") == "conclusion" for s in extracted_data["sections"]),
                 "document_metadata": {
                     "has_abstract": any(s.get("type") == "abstract" for s in extracted_data["sections"]),
                     "has_introduction": any(s.get("type") == "introduction" for s in extracted_data["sections"]),
@@ -565,145 +577,11 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         ).eq("draft_id", draft_id).execute()
         logger.info(f"[INGEST] ✓ Stored Stage 1 editing feedback")
 
-        # 6. Run advanced analysis: claims, coverage gaps, and feedback
-        logger.info(f"[INGEST] ========== STEP 8: RUNNING ADVANCED ANALYSIS ==========")
-        logger.info(f"[INGEST] This includes: claim extraction, coverage gaps, reviewer feedback")
-
-        try:
-            # Import analysis services
-            logger.info(f"[INGEST] Importing analysis services...")
-            from app.services.claim_analysis import analyze_draft_claims
-            from app.services.coverage_analysis import generate_coverage_gap_report
-            from app.services.reviewer_feedback import generate_reviewer_feedback
-            logger.info(f"[INGEST] ✓ Analysis services imported")
-
-            # Run claim analysis
-            logger.info(f"[INGEST] Step 8a: Extracting claims...")
-            await analyze_draft_claims(draft_id)
-            logger.info(f"[INGEST] ✓ Claims extracted")
-
-            # Auto-generate citation suggestions for claims needing citations
-            logger.info(f"[INGEST] Step 8b: Auto-generating citation suggestions...")
-            try:
-                from app.services.citation_management import generate_citation_suggestions
-
-                # Get claims that need citations - INCLUDE claim id for linking
-                logger.info(f"[INGEST] Fetching claims that need citations...")
-                claims_res = supabase.table("draft_claims")\
-                    .select("id, claim_text, section_location, existing_citations")\
-                    .eq("draft_id", draft_id)\
-                    .eq("requires_citation", True)\
-                    .execute()
-
-                claims_needing_citations = claims_res.data or []
-                logger.info(f"[INGEST] Found {len(claims_needing_citations)} claims with requires_citation=True")
-
-                # Filter claims without existing citations
-                claims_to_process = [
-                    claim for claim in claims_needing_citations
-                    if not claim.get("existing_citations") or len(claim.get("existing_citations", [])) == 0
-                ]
-
-                logger.info(f"[INGEST] Processing {len(claims_to_process)} claims (limit 20)")
-
-                # Generate suggestions in PARALLEL for massive speedup (40-50s → 10-15s)
-                async def process_single_claim(claim, index):
-                    """Process a single claim and return suggestions with metadata."""
-                    try:
-                        suggestions = await generate_citation_suggestions(
-                            claim_text=claim["claim_text"],
-                            project_id=project_id,
-                            draft_id=draft_id,
-                            existing_citations=claim.get("existing_citations", []),
-                            max_suggestions=3
-                        )
-                        return {
-                            "claim": claim,
-                            "suggestions": suggestions,
-                            "index": index,
-                            "success": True
-                        }
-                    except Exception as e:
-                        logger.warning(f"[INGEST] ⚠ Failed to generate suggestions for claim {claim.get('id', index)}: {e}")
-                        return {
-                            "claim": claim,
-                            "suggestions": [],
-                            "index": index,
-                            "success": False,
-                            "error": str(e)
-                        }
-
-                # Create parallel tasks for all claims (up to 20)
-                claims_batch = claims_to_process[:20]
-                logger.info(f"[INGEST] Starting PARALLEL citation generation for {len(claims_batch)} claims...")
-
-                tasks = [
-                    process_single_claim(claim, i)
-                    for i, claim in enumerate(claims_batch)
-                ]
-
-                # Execute all citation generations in parallel
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                # Process results and store to database
-                total_suggestions_stored = 0
-                successful_claims = 0
-
-                for result in results:
-                    if isinstance(result, Exception):
-                        logger.warning(f"[INGEST] ⚠ Task exception: {result}")
-                        continue
-
-                    if not result.get("success"):
-                        continue
-
-                    claim = result["claim"]
-                    suggestions = result["suggestions"]
-                    successful_claims += 1
-
-                    # Store each suggestion to database
-                    for suggestion in suggestions:
-                        suggestion_record = {
-                            "draft_id": draft_id,
-                            "user_id": user_id,
-                            "claim_text": claim["claim_text"][:500],
-                            "section_location": claim.get("section_location"),
-                            "suggestion_type": suggestion.get("suggestion_type", "missing_citation"),
-                            "suggested_paper": suggestion.get("suggested_paper", {}),
-                            "confidence_score": suggestion.get("confidence_score", 0.0),
-                            "relevance_score": suggestion.get("relevance_score", 0.0),
-                            "priority_score": suggestion.get("priority_score", 0.0),
-                            "impact_level": suggestion.get("impact_level", "medium"),
-                            "reasoning": suggestion.get("reasoning", ""),
-                            "status": "pending"
-                        }
-                        supabase.table("citation_suggestions").insert(suggestion_record).execute()
-                        total_suggestions_stored += 1
-
-                logger.info(f"[INGEST] ✓ Citation suggestions completed: {total_suggestions_stored} suggestions from {successful_claims}/{len(claims_batch)} claims (PARALLEL)")
-            except Exception as citation_error:
-                logger.error(f"[INGEST] ⚠ Citation auto-generation failed: {citation_error}", exc_info=True)
-                # Don't fail the analysis if citation generation fails
-
-            # Run coverage gap detection
-            logger.info(f"[INGEST] Step 8c: Detecting coverage gaps...")
-            await generate_coverage_gap_report(draft_id, project_id)
-            logger.info(f"[INGEST] ✓ Coverage gaps detected")
-
-            # Generate reviewer feedback
-            logger.info(f"[INGEST] Step 8d: Generating reviewer feedback...")
-            try:
-                await generate_reviewer_feedback(draft_id)
-                logger.info(f"[INGEST] ✓ Reviewer feedback generated successfully")
-            except Exception as feedback_error:
-                logger.error(f"[INGEST] ⚠ Reviewer feedback generation failed: {feedback_error}", exc_info=True)
-
-            logger.info(f"[INGEST] ✓ Advanced analysis completed")
-
-        except Exception as analysis_error:
-            logger.error(f"[INGEST] ⚠ Advanced analysis failed: {analysis_error}", exc_info=True)
-            # Don't fail the entire ingestion if advanced analysis fails
-            # The structural analysis is already complete
+        # 6. (Steps 8a-8d removed) — LangGraph is the authoritative analysis writer.
+        # Claims, coverage gaps, citation suggestions, and reviewer feedback are all
+        # generated by the LangGraph workflow that runs after this function completes.
+        # ingest_draft is responsible only for: file extraction, structure analysis,
+        # Stage 1 editing, and initial draft_analysis record creation.
 
         # 7. Update draft status to 'processing' (NOT 'analyzed') —
         # LangGraph runs AFTER this function and writes supporting_literature.

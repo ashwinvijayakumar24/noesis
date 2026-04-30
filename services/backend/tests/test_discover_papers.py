@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import sys
+import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -81,6 +82,10 @@ class FakeRecommendationTable:
         self.payload = payload
         return self
 
+    def delete(self):
+        self.action = "delete"
+        return self
+
     def insert(self, payload):
         self.action = "insert"
         self.payload = payload
@@ -111,6 +116,17 @@ class FakeRecommendationTable:
             row = {"id": f"rec-{len(self.supabase.recommendations) + 1}", **self.payload}
             self.supabase.recommendations.append(row)
             return FakeResponse([row])
+
+        if self.action == "delete":
+            kept = []
+            deleted = []
+            for row in self.supabase.recommendations:
+                if all(row.get(field) == value for field, value in self.filters.items()):
+                    deleted.append(row)
+                else:
+                    kept.append(row)
+            self.supabase.recommendations = kept
+            return FakeResponse(deleted)
 
         return FakeResponse([])
 
@@ -337,7 +353,7 @@ class TestDiscoverSaveFlow:
 
 class TestInsightsAutoSeed:
     @pytest.mark.unit
-    def test_insights_queues_discover_seed_when_no_recommendations_exist(self):
+    def test_insights_generates_discover_seed_inline_when_no_recommendations_exist(self):
         projects_route = _load_route_module("projects.py", "projects_route_discover_test")
         fake_supabase = FakeSupabase(
             projects=[{"id": "project-1", "user_id": "user-1"}],
@@ -351,12 +367,20 @@ class TestInsightsAutoSeed:
                 "metadata": {},
             }],
         )
+        fake_paper_recommendations_module = types.SimpleNamespace(
+            _generate_and_store_recommendations=MagicMock(return_value={"count": 2})
+        )
 
         with patch.object(projects_route, "supabase", fake_supabase), \
              patch("app.services.project_insights.analyze_project_insights", return_value={"summary": "", "research_gaps": [], "common_themes": [], "methodological_patterns": [], "conflicting_findings": [], "key_insights": [], "analysis_metadata": {}}), \
              patch("app.services.project_insights.validate_insights"), \
              patch("app.services.research_questions.generate_research_questions", return_value=[]), \
-             patch("app.tasks.paper_recommendation_tasks.generate_paper_recommendations_task.delay") as mock_delay:
+             patch.dict(sys.modules, {"app.api.routes.paper_recommendations": fake_paper_recommendations_module}):
             projects_route._run_insights_analysis_task("project-1", "user-1")
 
-        mock_delay.assert_called_once_with("project-1", "user-1")
+        fake_paper_recommendations_module._generate_and_store_recommendations.assert_called_once_with(
+            project_id="project-1",
+            user_id="user-1",
+            discovery_type="recommended",
+            search_query=None,
+        )

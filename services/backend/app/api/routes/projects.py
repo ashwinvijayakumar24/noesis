@@ -46,12 +46,8 @@ def get_current_user(authorization: str = Header(None)):
             detail="Supabase not configured"  # Don't expose environment details
         )
 
-    # Use secure token validator
-    token = SecureAuthValidator.validate_bearer_token(authorization)
-
     try:
-        user = supabase.auth.get_user(token)
-        return user.user.id
+        return SecureAuthValidator.get_user_id(authorization, supabase)
     except Exception as e:
         logger.error(f"Token validation failed: {str(e)}")
         raise HTTPException(
@@ -242,12 +238,23 @@ def create_project(title: str, description: Optional[str] = None, user_id: str =
 def get_projects(user_id: str = Depends(get_current_user)):
     # Get all projects for the user
     res = supabase.table("projects").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
-    projects = res.data
+    projects = res.data or []
 
-    # For each project, count the number of documents
+    if not projects:
+        return []
+
+    # Batch-load document project_ids once instead of issuing one count query per project.
+    project_ids = {project["id"] for project in projects}
+    document_counts: dict[str, int] = {project_id: 0 for project_id in project_ids}
+    documents_res = supabase.table("documents").select("project_id").eq("user_id", user_id).execute()
+
+    for document in documents_res.data or []:
+        project_id = document.get("project_id")
+        if project_id in document_counts:
+            document_counts[project_id] += 1
+
     for project in projects:
-        doc_count_res = supabase.table("documents").select("id", count="exact").eq("project_id", project["id"]).eq("user_id", user_id).execute()
-        project["document_count"] = doc_count_res.count if doc_count_res.count is not None else 0
+        project["document_count"] = document_counts.get(project["id"], 0)
 
     return projects
 
@@ -374,12 +381,25 @@ async def import_bibtex(
     # Verify project exists and belongs to user
     project_res = supabase.table("projects").select("id").eq("id", project_id).eq("user_id", user_id).execute()
     if not project_res.data:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise_api_error(
+            404,
+            code="project_not_found",
+            title="Project not found",
+            message="We could not find that project.",
+            next_action="refresh",
+        )
 
     # Validate file type
     filename = file.filename or ""
     if not filename.lower().endswith('.bib'):
-        raise HTTPException(status_code=400, detail="File must be a BibTeX (.bib) file")
+        raise_api_error(
+            400,
+            code="invalid_file_type",
+            title="Invalid file type",
+            message="The selected file must be a BibTeX (.bib) file.",
+            next_action="fix_file",
+            retryable=False,
+        )
 
     # Read and parse file
     try:
@@ -389,21 +409,46 @@ async def import_bibtex(
         except UnicodeDecodeError:
             bibtex_content = content_bytes.decode('latin-1')
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+        raise_api_error(
+            400,
+            code="file_parse_failed",
+            title="BibTeX file could not be read",
+            message="We could not read this BibTeX file.",
+            details=[str(e)[:200]],
+            next_action="fix_file",
+            retryable=False,
+        )
 
     # Parse BibTeX entries
     try:
         parsed_entries = parse_bibtex_file(bibtex_content)
     except Exception as e:
         logger.error(f"BibTeX parse error: {e}")
-        raise HTTPException(status_code=400, detail={
-            "error": "parse_failed",
-            "message": "Could not parse BibTeX file. Ensure it is a valid .bib exported from Zotero, Mendeley, or similar.",
-            "raw_error": str(e)[:200],
-        })
+        raise_api_error(
+            400,
+            code="file_parse_failed",
+            title="BibTeX file could not be processed",
+            message="This BibTeX file appears incorrectly formatted and could not be parsed.",
+            details=[
+                "Ensure the file is a valid .bib export from Zotero, Mendeley, or another reference manager.",
+                str(e)[:200],
+            ],
+            next_action="fix_file",
+            retryable=False,
+        )
 
     if not parsed_entries:
-        raise HTTPException(status_code=400, detail="No valid BibTeX entries found in file")
+        raise_api_error(
+            400,
+            code="file_parse_failed",
+            title="BibTeX file could not be processed",
+            message="No valid BibTeX entries were found. The file appears empty or incorrectly formatted.",
+            details=[
+                "Ensure the file is a valid .bib export from Zotero, Mendeley, or another reference manager."
+            ],
+            next_action="fix_file",
+            retryable=False,
+        )
 
     # Cap at 500 entries per import to prevent abuse
     MAX_ENTRIES = 500
@@ -504,6 +549,26 @@ async def import_bibtex(
                 "status": "skipped",
             })
 
+    if imported == 0:
+        detail_lines = []
+        for error in entry_errors[:5]:
+            warnings = ", ".join(error.get("warnings") or [])
+            title = error.get("title") or "Untitled entry"
+            detail_lines.append(f"\"{title}\": {warnings or 'entry could not be imported'}")
+
+        raise_api_error(
+            400,
+            code="file_parse_failed",
+            title="BibTeX file could not be processed",
+            message="No importable references were found. The BibTeX file appears incorrectly formatted or is missing required fields.",
+            details=detail_lines or [
+                "Ensure each entry includes at least a title, author list, and year."
+            ],
+            next_action="fix_file",
+            retryable=False,
+            entry_errors=entry_errors[:50],
+        )
+
     # Increment bib quota by actual number of records created
     if imported > 0:
         try:
@@ -512,11 +577,13 @@ async def import_bibtex(
             logger.warning(f"Failed to increment bib quota: {e}")
 
     # Submit background Celery task for OA PDF resolution
+    resolution_started = False
     if created_ids:
         try:
             from app.tasks.bibtex_resolution_task import resolve_bibtex_task
             task = resolve_bibtex_task.delay(created_ids, user_id, project_id)
             logger.info(f"[BIBTEX] Submitted resolution task {task.id} for {len(created_ids)} entries")
+            resolution_started = True
         except Exception as e:
             logger.warning(f"[BIBTEX] Failed to submit resolution task: {e}")
             # Non-fatal — documents still imported without resolution
@@ -528,7 +595,7 @@ async def import_bibtex(
         "total_in_file": len(parsed_entries),
         "entry_errors": entry_errors[:50],
         "document_ids": created_ids,
-        "resolution_started": len(created_ids) > 0,
+        "resolution_started": resolution_started,
     }
 
 
@@ -714,22 +781,29 @@ def _run_insights_analysis_task(project_id: str, user_id: str):
         except Exception as rq_err:
             print(f"[INSIGHTS-BG] Auto-RQ generation failed (non-fatal): {rq_err}")
 
-        print(f"[INSIGHTS-BG] Checking whether Discover should be auto-seeded")
+        store_progress_snapshot("insights", project_id, "grouping_recommendations", 82, "Preparing suggested papers")
+        print(f"[INSIGHTS-BG] Refreshing auto-generated Discover recommendations")
         try:
-            existing_recs_res = supabase.table("paper_recommendations")\
-                .select("id", count="exact")\
+            supabase.table("paper_recommendations")\
+                .delete()\
                 .eq("project_id", project_id)\
                 .eq("user_id", user_id)\
-                .eq("status", "new")\
+                .eq("discovery_type", "recommended")\
+                .eq("bib_saved", False)\
                 .execute()
 
-            if (existing_recs_res.count or 0) == 0:
-                from app.tasks.paper_recommendation_tasks import generate_paper_recommendations_task
+            from app.api.routes.paper_recommendations import _generate_and_store_recommendations
 
-                generate_paper_recommendations_task.delay(project_id, user_id)
-                print(f"[INSIGHTS-BG] Queued Discover auto-seed task for project_id={project_id}")
-            else:
-                print(f"[INSIGHTS-BG] Existing Discover recommendations found; skipping auto-seed")
+            recommendation_result = _generate_and_store_recommendations(
+                project_id=project_id,
+                user_id=user_id,
+                discovery_type="recommended",
+                search_query=None,
+            )
+            print(
+                f"[INSIGHTS-BG] Generated {recommendation_result.get('count', 0)} "
+                f"Discover recommendations inline for project_id={project_id}"
+            )
         except Exception as pr_err:
             print(f"[INSIGHTS-BG] Auto-PR generation failed (non-fatal): {pr_err}")
 

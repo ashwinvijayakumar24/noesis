@@ -130,7 +130,7 @@ services:
       ENVIRONMENT: production
       LOG_LEVEL: INFO
 
-    command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=30,4 --queues=default,analysis,insights
+    command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=6,2 --queues=default,analysis,insights
 
     volumes:
       # Logs for debugging

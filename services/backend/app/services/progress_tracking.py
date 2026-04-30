@@ -65,9 +65,12 @@ def store_progress_snapshot(
     percent: int,
     message: str,
     extra: Optional[dict[str, Any]] = None,
+    **event_fields: Any,
 ) -> None:
     try:
         redis_conn = redis_lib.from_url(REDIS_URL, decode_responses=True)
+        payload_extra = dict(extra or {})
+        payload_extra.update(event_fields)
         event = json.dumps(
             _build_event(
                 resource_type=resource_type,
@@ -75,7 +78,7 @@ def store_progress_snapshot(
                 step=step,
                 percent=percent,
                 message=message,
-                extra=extra,
+                extra=payload_extra or None,
             )
         )
         redis_conn.set(_snapshot_key(resource_type, resource_id), event, ex=PROGRESS_TTL_SECONDS)

@@ -88,6 +88,54 @@ async def _detect_gaps_node_with_progress(state: DraftAnalysisState) -> DraftAna
     return result
 
 
+async def _external_source_discovery_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "external_sources_start", 75, "Discovering external sources...")
+
+    claims_with_citations = state.get("claims_with_citations", [])
+    coverage_gaps = state.get("coverage_gaps", [])
+
+    try:
+        from app.services.draft_external_source_discovery import (
+            attach_external_sources_to_analysis,
+            discover_external_sources_for_draft,
+        )
+
+        external_sources = await discover_external_sources_for_draft(
+            draft_id=state["draft_id"],
+            project_id=state["project_id"],
+            user_id=state["user_id"],
+            claims_with_citations=claims_with_citations,
+            coverage_gaps=coverage_gaps,
+        )
+        attach_external_sources_to_analysis(
+            claims_with_citations,
+            coverage_gaps,
+            external_sources,
+        )
+        result: DraftAnalysisState = {
+            "claims_with_citations": claims_with_citations,
+            "coverage_gaps": coverage_gaps,
+            "external_sources": external_sources,
+            "current_step": "External Source Discovery",
+            "progress_percentage": 76,
+        }
+    except Exception as exc:
+        logger.warning(f"[Workflow] External source discovery failed (non-fatal): {exc}")
+        warnings = state.get("warnings", [])
+        warnings.append(f"External source discovery failed: {str(exc)}")
+        result = {
+            "warnings": warnings,
+            "current_step": "External Source Discovery (Skipped)",
+            "progress_percentage": 76,
+        }
+
+    if draft_id:
+        await publish_progress(draft_id, "external_sources", 76, "External source discovery complete")
+    return result
+
+
 async def _structural_checks_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
     draft_id = state.get("draft_id")
     if draft_id:
@@ -229,6 +277,7 @@ def create_draft_analysis_workflow() -> StateGraph:
     workflow.add_node("search_literature", _literature_search_node_with_progress)
     workflow.add_node("map_citations", _citation_mapping_node_with_progress)
     workflow.add_node("detect_gaps", _detect_gaps_node_with_progress)
+    workflow.add_node("discover_external_sources", _external_source_discovery_node_with_progress)
     workflow.add_node("structural_checks", _structural_checks_node_with_progress)
     workflow.add_node("generate_feedback", _generate_feedback_node_with_progress)
     workflow.add_node("synthesize_report", _synthesize_report_node_with_progress)
@@ -266,9 +315,10 @@ def create_draft_analysis_workflow() -> StateGraph:
         }
     )
 
-    # Continue with citation mapping → gap detection → structural checks → feedback → synthesis
+    # Continue with citation mapping → gap detection → external source discovery → structural checks → feedback → synthesis
     workflow.add_edge("map_citations", "detect_gaps")
-    workflow.add_edge("detect_gaps", "structural_checks")
+    workflow.add_edge("detect_gaps", "discover_external_sources")
+    workflow.add_edge("discover_external_sources", "structural_checks")
     workflow.add_edge("structural_checks", "generate_feedback")
     workflow.add_edge("generate_feedback", "synthesize_report")
 
