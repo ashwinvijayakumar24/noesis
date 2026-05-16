@@ -28,7 +28,6 @@ from . import (
     referrals,
     platform,
     subscriptions,
-    comparisons
 )
 
 __all__ = [
@@ -53,5 +52,4 @@ __all__ = [
     "referrals",
     "platform",
     "subscriptions",
-    "comparisons",
 ]

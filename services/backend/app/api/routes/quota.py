@@ -37,7 +37,7 @@ def get_current_user(authorization: str = Header(None)):
         user = supabase.auth.get_user(token)
         return user.user.id
     except Exception as e:
-        logger.error(f"Token validation failed: {str(e)}")
+        logger.warning(f"Token validation failed: {str(e)}")
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired token"
@@ -80,7 +80,7 @@ async def get_my_cost_summary(
         - total_cost: Total estimated cost in USD
         - total_tokens: Total tokens used
         - by_operation: Breakdown by operation type (document_analysis, chat, etc.)
-        - by_model: Breakdown by model (gpt-4o, gpt-5-mini, etc.)
+        - by_model: Breakdown by model (gpt-5.2, gpt-5-mini, etc.)
         - date_range: Date range for the summary
     """
     try:

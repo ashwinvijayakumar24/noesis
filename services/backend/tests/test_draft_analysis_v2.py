@@ -364,35 +364,6 @@ class TestDraftAnalysisRouteV2:
         assert fake_supabase.tables["coverage_gaps"][0]["suggested_papers"][0]["title"] == "Paper A"
 
 
-class TestDraftComparisonCarryover:
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_analyze_changes_tracks_carryover_and_skips_reviewer1_strengths(self):
-        service = _load_module(["app", "services", "draft_comparison.py"], "draft_comparison_v2_test")
-
-        async def similarity_side_effect(text1, text2, threshold=0.75):
-            return "baseline comparison" in text1.lower() and "baseline comparison" in text2.lower()
-
-        with patch.object(service, "_are_semantically_similar", side_effect=similarity_side_effect):
-            payload = await service.analyze_changes(
-                claims_v1=[],
-                claims_v2=[],
-                feedback_v1=[
-                    {"id": "fb-r1", "feedback_text": "Strong novelty", "reviewer_persona": "reviewer_1", "feedback_type": "strength"},
-                    {"id": "fb-r2", "feedback_text": "Clarify baseline comparison", "reviewer_persona": "reviewer_2", "severity": "major"},
-                ],
-                feedback_v2=[
-                    {"id": "fb-v2", "feedback_text": "Baseline comparison still needs clarification", "reviewer_persona": "reviewer_2", "severity": "major"},
-                ],
-                gaps_v1=[],
-                gaps_v2=[],
-            )
-
-        assert len(payload["feedback_tracked"]) == 1
-        assert payload["feedback_tracked"][0]["feedback_id"] == "fb-r2"
-        assert payload["feedback_carryover"][0]["feedback_id"] == "fb-v2"
-
-
 class TestReviewerAndStage1Services:
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -419,16 +390,15 @@ class TestReviewerAndStage1Services:
     @pytest.mark.asyncio
     async def test_run_stage1_editing_returns_stable_payload(self):
         service = _load_module(["app", "services", "stage1_editing.py"], "stage1_editing_v2_test")
-        fake_client = MagicMock()
-        fake_client.chat.completions.create.return_value = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content='{"grammar_issues":[{"text":"teh","issue":"typo","suggestion":"the","section":"Intro"}],"citation_issues":[],"formatting_issues":[],"structural_notes":[]}'
-                    )
-                )
-            ]
+        from app.workflows.draft_analysis.schemas import Stage1EditingOutput, GrammarIssue
+        fake_parsed = Stage1EditingOutput(
+            grammar_issues=[GrammarIssue(text="teh", issue="typo", suggestion="the", section="Intro")],
+            citation_issues=[],
+            formatting_issues=[],
+            structural_notes=[],
         )
+        fake_client = MagicMock()
+        fake_client.beta.chat.completions.parse.return_value = SimpleNamespace(parsed=fake_parsed)
 
         with patch.object(service, "get_openai_client", return_value=fake_client):
             payload = await service.run_stage1_editing("Draft text", citation_style="apa", paper_type="journal_article")

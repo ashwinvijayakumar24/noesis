@@ -5,6 +5,7 @@ LangGraph workflow that orchestrates the complete draft analysis process.
 """
 
 from langgraph.graph import StateGraph, END
+from langgraph.types import Send
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.checkpoints import get_checkpoint_saver
 from app.core.logging_config import get_logger
@@ -18,7 +19,11 @@ from app.workflows.draft_analysis.nodes.literature_search import literature_sear
 from app.workflows.draft_analysis.nodes.citation_mapping import citation_mapping_node
 from app.workflows.draft_analysis.nodes.gap_detection import detect_gaps_node
 from app.workflows.draft_analysis.nodes.structural_checks import structural_checks_node
-from app.workflows.draft_analysis.nodes.reviewer_feedback import generate_reviewer_feedback_node
+from app.workflows.draft_analysis.nodes.editor_pass import editor_pass_node
+from app.workflows.draft_analysis.nodes.reviewer_panel import reviewer_panel_node
+from app.workflows.draft_analysis.nodes.meta_reviewer import meta_reviewer_node
+from app.workflows.draft_analysis.nodes.citation_judge import citation_judge_node
+from app.workflows.draft_analysis.nodes.reviewer_judge import reviewer_judge_node
 from app.workflows.draft_analysis.nodes.report_synthesis import synthesize_report_node
 
 logger = get_logger(__name__)
@@ -136,6 +141,26 @@ async def _external_source_discovery_node_with_progress(state: DraftAnalysisStat
     return result
 
 
+async def _citation_judge_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "citation_judge_start", 76, "Judging citation relevance...")
+    result = await citation_judge_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "citation_judge", 77, "Citation quality assessed")
+    return result
+
+
+async def _reviewer_judge_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "reviewer_judge_start", 85, "Judging review specificity...")
+    result = await reviewer_judge_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "reviewer_judge", 88, "Review quality assessed")
+    return result
+
+
 async def _structural_checks_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
     draft_id = state.get("draft_id")
     if draft_id:
@@ -146,26 +171,28 @@ async def _structural_checks_node_with_progress(state: DraftAnalysisState) -> Dr
     return result
 
 
-async def _generate_feedback_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+async def _editor_pass_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
     draft_id = state.get("draft_id")
     if draft_id:
-        await publish_progress(draft_id, "generate_feedback_start", 79, "Generating reviewer feedback...")
-    result = generate_reviewer_feedback_node(state)
-    try:
-        from app.services.reviewer1_feedback import generate_reviewer1_feedback
-
-        r1_items = await generate_reviewer1_feedback(
-            draft_id=state["draft_id"],
-            draft_content=state.get("draft_content", ""),
-            structure=state.get("structure", {}),
-        )
-        if r1_items:
-            existing = result.get("reviewer_feedback", [])
-            result["reviewer_feedback"] = existing + r1_items
-    except Exception as exc:
-        logger.warning(f"[Workflow] Reviewer 1 generation failed (non-fatal): {exc}")
+        await publish_progress(draft_id, "editor_pass_start", 79, "Running editorial desk check...")
+    result = await editor_pass_node(state)
     if draft_id:
-        await publish_progress(draft_id, "generate_feedback", 88, "Reviewer feedback generated")
+        await publish_progress(draft_id, "editor_pass", 80, "Editorial check complete")
+    return result
+
+
+async def _reviewer_panel_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    # Progress published per-reviewer inside the node; no outer wrapper needed
+    return await reviewer_panel_node(state)
+
+
+async def _meta_reviewer_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "meta_review_start", 90, "Synthesizing reviewer panel...")
+    result = await meta_reviewer_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "meta_review", 95, "Review panel synthesis complete")
     return result
 
 
@@ -240,6 +267,30 @@ def route_after_literature_search(state: DraftAnalysisState) -> str:
 
 
 # ============================================
+# PEER REVIEW PANEL ROUTING
+# ============================================
+
+REVIEWER_TYPES = ["novelty", "methodology", "coverage", "clarity"]
+
+
+def route_to_reviewer_panel(state: DraftAnalysisState):
+    """
+    After editor_pass: if desk-rejected route straight to synthesis,
+    otherwise fan out to 4 parallel reviewers via LangGraph Send API.
+    """
+    editor = state.get("editor_decision") or {}
+    if not editor.get("proceed_to_review", True):
+        logger.info("[Routing] Editor desk-rejected — skipping reviewer panel")
+        return "synthesize_report"
+
+    logger.info("[Routing] Editor approved — dispatching 4 parallel reviewers")
+    return [
+        Send("reviewer_panel_node", {**state, "reviewer_type": rt})
+        for rt in REVIEWER_TYPES
+    ]
+
+
+# ============================================
 # WORKFLOW GRAPH CONSTRUCTION
 # ============================================
 
@@ -278,8 +329,12 @@ def create_draft_analysis_workflow() -> StateGraph:
     workflow.add_node("map_citations", _citation_mapping_node_with_progress)
     workflow.add_node("detect_gaps", _detect_gaps_node_with_progress)
     workflow.add_node("discover_external_sources", _external_source_discovery_node_with_progress)
+    workflow.add_node("citation_judge_node", _citation_judge_node_with_progress)
     workflow.add_node("structural_checks", _structural_checks_node_with_progress)
-    workflow.add_node("generate_feedback", _generate_feedback_node_with_progress)
+    workflow.add_node("editor_pass_node", _editor_pass_node_with_progress)
+    workflow.add_node("reviewer_panel_node", _reviewer_panel_node_with_progress)
+    workflow.add_node("reviewer_judge_node", _reviewer_judge_node_with_progress)
+    workflow.add_node("meta_reviewer_node", _meta_reviewer_node_with_progress)
     workflow.add_node("synthesize_report", _synthesize_report_node_with_progress)
 
     # ============================================
@@ -315,12 +370,24 @@ def create_draft_analysis_workflow() -> StateGraph:
         }
     )
 
-    # Continue with citation mapping → gap detection → external source discovery → structural checks → feedback → synthesis
+    # citation mapping → gap detection → external sources → citation judge → structural checks → editor pass
     workflow.add_edge("map_citations", "detect_gaps")
     workflow.add_edge("detect_gaps", "discover_external_sources")
-    workflow.add_edge("discover_external_sources", "structural_checks")
-    workflow.add_edge("structural_checks", "generate_feedback")
-    workflow.add_edge("generate_feedback", "synthesize_report")
+    workflow.add_edge("discover_external_sources", "citation_judge_node")
+    workflow.add_edge("citation_judge_node", "structural_checks")
+    workflow.add_edge("structural_checks", "editor_pass_node")
+
+    # Editor pass → fan-out to 4 parallel reviewers OR desk-reject → synthesis
+    workflow.add_conditional_edges(
+        "editor_pass_node",
+        route_to_reviewer_panel,
+        {"synthesize_report": "synthesize_report"},
+    )
+
+    # Fan-in: all reviewer_panel_node instances → reviewer judge → meta_reviewer → synthesize
+    workflow.add_edge("reviewer_panel_node", "reviewer_judge_node")
+    workflow.add_edge("reviewer_judge_node", "meta_reviewer_node")
+    workflow.add_edge("meta_reviewer_node", "synthesize_report")
 
     # End after synthesis
     workflow.add_edge("synthesize_report", END)
@@ -342,7 +409,10 @@ async def run_draft_analysis_workflow(
     project_id: str,
     user_id: str,
     draft_content: str,
-    checkpoint_enabled: bool = True
+    checkpoint_enabled: bool = True,
+    paper_type: str | None = None,
+    citation_style: str | None = None,
+    analysis: dict | None = None,
 ) -> DraftAnalysisState:
     """
     Run the complete draft analysis workflow.
@@ -353,6 +423,9 @@ async def run_draft_analysis_workflow(
         user_id: User who owns the draft
         draft_content: Full text content of the draft
         checkpoint_enabled: Whether to save checkpoints (for resume capability)
+        paper_type: Optional draft type for editor/reviewer context
+        citation_style: Optional citation style for editor/reviewer context
+        analysis: Existing draft_analysis.analysis payload, including Stage 1 editing feedback
 
     Returns:
         Final workflow state with complete analysis
@@ -381,10 +454,15 @@ async def run_draft_analysis_workflow(
         "project_id": project_id,
         "user_id": user_id,
         "draft_content": draft_content,
+        "paper_type": paper_type or "journal_article",
+        "citation_style": citation_style or "apa",
+        "analysis": analysis or {},
         "current_step": "Starting",
         "progress_percentage": 0,
         "search_iterations": 0,
-        "max_search_iterations": 1  # Can be increased for iterative refinement
+        "max_search_iterations": 1,
+        # Must be initialised here so the Annotated reducer channel is seeded.
+        "reviewer_outputs": [],
     }
     logger.info(f"[Workflow] State initialized: {list(initial_state.keys())}")
 

@@ -9,15 +9,23 @@ for top weak/none claims and stores them as suggested_citations.
 """
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, ClaimWithCitation
+from app.workflows.draft_analysis.schemas import CitationMappingOutput
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_completion_params
+from app.services.retry_utils import parse_chat_completion_with_retries_sync
 import json
 import asyncio
 
 logger = get_logger(__name__)
 
-# Initialize OpenAI client
-client = get_openai_client()
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = get_openai_client()
+    return client
 
 
 CITATION_QUALITY_PROMPT = """You are an expert academic reviewer. Assess the quality of citations for a research claim.
@@ -86,17 +94,25 @@ Found Literature:
    Similarity: {result.get('similarity', 'N/A')}
 """
 
-        response = client.chat.completions.create(
+        response = parse_chat_completion_with_retries_sync(
+            _get_client(),
             model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": CITATION_QUALITY_PROMPT},
                 {"role": "user", "content": context}
             ],
             max_completion_tokens=800,
+            response_format=CitationMappingOutput,
             **get_completion_params()
         )
 
-        return json.loads(response.choices[0].message.content)
+        parsed = response.parsed
+        return {
+            "overall_quality": parsed.overall_quality,
+            "citations": [c.model_dump() for c in parsed.citations],
+            "gaps": parsed.gaps,
+            "recommendation": parsed.recommendation,
+        }
 
     except Exception as e:
         logger.error(f"[Citation Quality] Error assessing quality: {e}")

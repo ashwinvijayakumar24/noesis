@@ -8,6 +8,8 @@ from typing import Any
 
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_completion_params, get_openai_client
+from app.services.retry_utils import parse_chat_completion_with_retries_sync
+from app.workflows.draft_analysis.schemas import Stage1EditingOutput
 
 logger = get_logger(__name__)
 
@@ -73,8 +75,9 @@ async def run_stage1_editing(
     user_prompt = f"Run the editing pass on this draft:\n\n{draft_content[:14000]}"
 
     def _sync_call() -> dict[str, list[dict[str, Any]]]:
-        response = client.chat.completions.create(
-            model="gpt-5-mini",
+        response = parse_chat_completion_with_retries_sync(
+            client,
+            model="gpt-5.2-chat-latest",
             messages=[
                 {
                     "role": "system",
@@ -85,16 +88,17 @@ async def run_stage1_editing(
                 },
                 {"role": "user", "content": user_prompt},
             ],
-            max_completion_tokens=2000,
+            max_completion_tokens=4096,
+            response_format=Stage1EditingOutput,
             **get_completion_params(),
         )
-        parsed = _extract_json_object(response.choices[0].message.content or "")
-        result = _default_stage1_payload()
-        for key in result:
-            value = parsed.get(key)
-            if isinstance(value, list):
-                result[key] = value[:15]
-        return result
+        parsed = response.parsed
+        return {
+            "grammar_issues": [i.model_dump() for i in parsed.grammar_issues[:15]],
+            "citation_issues": [i.model_dump() for i in parsed.citation_issues[:15]],
+            "formatting_issues": [i.model_dump() for i in parsed.formatting_issues[:15]],
+            "structural_notes": [i.model_dump() for i in parsed.structural_notes[:15]],
+        }
 
     try:
         return await asyncio.to_thread(_sync_call)

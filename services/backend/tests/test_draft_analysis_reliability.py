@@ -389,3 +389,55 @@ class TestLangGraphPersistenceGrounding:
         }
         assert supporting["suggested_citations"][0]["source"] == "semantic_scholar"
         assert claim_row["max_similarity"] == 0.87
+
+
+class TestStructuredOutputRetryUtils:
+    @pytest.mark.unit
+    def test_sync_parse_helper_normalizes_sdk_choice_message_parsed(self):
+        from app.services.retry_utils import parse_chat_completion_with_retries_sync
+
+        parsed = SimpleNamespace(value="ok")
+        client = MagicMock()
+        client.beta.chat.completions.parse.return_value = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(parsed=parsed))]
+        )
+
+        response = parse_chat_completion_with_retries_sync(
+            client,
+            model="gpt-5.2",
+            messages=[{"role": "user", "content": "Return structured output"}],
+            response_format=object,
+        )
+
+        assert response.parsed is parsed
+        assert response.raw.choices[0].message.parsed is parsed
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_async_parse_helper_normalizes_sdk_choice_message_parsed(self):
+        from app.services.retry_utils import parse_chat_completion_with_retries
+
+        parsed = SimpleNamespace(value="ok")
+        client = SimpleNamespace(
+            beta=SimpleNamespace(
+                chat=SimpleNamespace(
+                    completions=SimpleNamespace(
+                        parse=AsyncMock(
+                            return_value=SimpleNamespace(
+                                choices=[SimpleNamespace(message=SimpleNamespace(parsed=parsed))]
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        response = await parse_chat_completion_with_retries(
+            client,
+            model="gpt-5.2",
+            messages=[{"role": "user", "content": "Return structured output"}],
+            response_format=object,
+        )
+
+        assert response.parsed is parsed
+        assert response.raw.choices[0].message.parsed is parsed

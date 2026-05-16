@@ -1,6 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { CheckIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import UnifiedFeedbackCard from './UnifiedFeedbackCard'
+import EditorDecisionCard from './EditorDecisionCard'
+import MetaReviewCard from './MetaReviewCard'
+import ReviewerPanelTabs from './ReviewerPanelTabs'
+import MarkdownText from './MarkdownText'
+import type { PdfCoordinates } from '../DocumentViewer'
 
 interface Claim {
   id: string
@@ -48,7 +53,26 @@ interface ReviewerFeedbackTabProps {
   feedback: Feedback[]
   carryoverBadges?: Record<string, { label: string; tone: 'warning' | 'accent' }>
   onStatusChange: (feedbackId: string, feedbackType: 'claim' | 'gap' | 'feedback', newStatus: 'new' | 'saved' | 'dismissed') => void
-  onViewInDocument?: (lineNumber: number) => void
+  onViewInDocument?: (payload: {
+    line_number?: number
+    content_text?: string
+    text_snippet?: string
+    section_type?: string
+    section_location?: string
+    pdf_coordinates?: PdfCoordinates
+    match_confidence?: number
+  }) => void
+  fileType: string
+  // Phase 3 peer review panel (optional — gracefully absent on older drafts)
+  editorDecision?: {
+    proceed_to_review: boolean
+    fatal_flaws: string[]
+    scope_appropriate: boolean
+    writing_quality: 'publishable' | 'needs_revision' | 'major_revision'
+    notes: string
+  } | null
+  reviewerPanel?: any[]
+  metaReview?: any | null
 }
 
 type StatusFilter = 'new' | 'saved' | 'dismissed'
@@ -88,6 +112,10 @@ export default function ReviewerFeedbackTab({
   carryoverBadges = {},
   onStatusChange,
   onViewInDocument,
+  fileType,
+  editorDecision,
+  reviewerPanel,
+  metaReview,
 }: ReviewerFeedbackTabProps) {
   const r1Items = useMemo(
     () => feedback.filter((item) => getReviewerPersona(item) === 'r1'),
@@ -241,6 +269,9 @@ export default function ReviewerFeedbackTab({
 
   return (
     <div className="space-y-4">
+      {editorDecision && <EditorDecisionCard decision={editorDecision} />}
+      {metaReview && <MetaReviewCard metaReview={metaReview} />}
+      {reviewerPanel && reviewerPanel.length > 0 && <ReviewerPanelTabs reviewers={reviewerPanel} />}
       <div className="flex flex-wrap gap-1.5">
         <button
           onClick={() => handleReviewerTabChange('r1')}
@@ -328,20 +359,21 @@ export default function ReviewerFeedbackTab({
       </div>
 
       {reviewerTab === 'r1' ? (
-        <StrengthList
-          items={visibleR1Subset}
-          hasMore={hasMore}
-          statusFilter={statusFilter}
-          onLoadMore={() => setVisibleCount((count) => count + PAGE_SIZE)}
-          onStatusChange={onStatusChange}
-          onViewInDocument={onViewInDocument}
-        />
+      <StrengthList
+        items={visibleR1Subset}
+        hasMore={hasMore}
+        statusFilter={statusFilter}
+        onLoadMore={() => setVisibleCount((count) => count + PAGE_SIZE)}
+        onStatusChange={onStatusChange}
+        onViewInDocument={onViewInDocument}
+      />
       ) : (
         <CritiqueList
           items={visibleR2Items}
           hasMore={hasMore}
           statusFilter={statusFilter}
           carryoverBadges={carryoverBadges}
+          fileType={fileType}
           onLoadMore={() => setVisibleCount((count) => count + PAGE_SIZE)}
           onStatusChange={onStatusChange}
           onViewInDocument={onViewInDocument}
@@ -364,7 +396,15 @@ function StrengthList({
   statusFilter: StatusFilter
   onLoadMore: () => void
   onStatusChange: ReviewerFeedbackTabProps['onStatusChange']
-  onViewInDocument?: (lineNumber: number) => void
+  onViewInDocument?: (payload: {
+    line_number?: number
+    content_text?: string
+    text_snippet?: string
+    section_type?: string
+    section_location?: string
+    pdf_coordinates?: PdfCoordinates
+    match_confidence?: number
+  }) => void
 }) {
   if (items.length === 0) {
     return (
@@ -398,7 +438,7 @@ function StrengthList({
             </div>
             {item.line_number && (
               <button
-                onClick={() => onViewInDocument?.(item.line_number!)}
+                onClick={() => onViewInDocument?.({ line_number: item.line_number })}
                 className="text-xs text-text-muted hover:text-text-primary transition-colors duration-150"
               >
                 Line {item.line_number}
@@ -406,7 +446,11 @@ function StrengthList({
             )}
           </div>
 
-          <p className="mt-3 text-sm text-text-primary leading-relaxed">{item.feedback_text}</p>
+          <MarkdownText
+            as="p"
+            text={item.feedback_text}
+            className="mt-3 text-sm text-text-primary leading-relaxed"
+          />
 
           {item.section_reference && (
             <p className="mt-2 text-xs text-text-secondary">
@@ -459,6 +503,7 @@ function CritiqueList({
   onLoadMore,
   onStatusChange,
   onViewInDocument,
+  fileType,
 }: {
   items: Array<{
     id: string
@@ -471,7 +516,16 @@ function CritiqueList({
   carryoverBadges: ReviewerFeedbackTabProps['carryoverBadges']
   onLoadMore: () => void
   onStatusChange: ReviewerFeedbackTabProps['onStatusChange']
-  onViewInDocument?: (lineNumber: number) => void
+  onViewInDocument?: (payload: {
+    line_number?: number
+    content_text?: string
+    text_snippet?: string
+    section_type?: string
+    section_location?: string
+    pdf_coordinates?: PdfCoordinates
+    match_confidence?: number
+  }) => void
+  fileType: string
 }) {
   const groupedItems = useMemo(() => ({
     high: items.filter((item) => item.priority === 'high'),
@@ -528,6 +582,7 @@ function CritiqueList({
                       onStatusChange={onStatusChange}
                       onViewInDocument={onViewInDocument}
                       currentStatus={statusFilter}
+                      fileType={fileType}
                     />
                   </div>
                 )

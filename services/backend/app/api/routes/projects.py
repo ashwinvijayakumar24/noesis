@@ -49,7 +49,7 @@ def get_current_user(authorization: str = Header(None)):
     try:
         return SecureAuthValidator.get_user_id(authorization, supabase)
     except Exception as e:
-        logger.error(f"Token validation failed: {str(e)}")
+        logger.warning(f"Token validation failed: {str(e)}")
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired token"  # Don't expose error details

@@ -1,5 +1,7 @@
 # Executive Decision: Noesis vs. Reviewer3
 
+> May 10, 2026 note: This file is retained as historical competitive/positioning context. It is not the current product or pricing source of truth. Use `current_state.md` for current Noesis status, especially the caveat that Stripe production pricing is not finished and lab outreach is starting now.
+
 **Date:** April 25, 2026
 **Status:** Active strategic decision
 **Author:** Founder review

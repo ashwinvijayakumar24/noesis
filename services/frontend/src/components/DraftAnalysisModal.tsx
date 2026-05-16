@@ -3,7 +3,7 @@ import { Dialog, Transition, Tab } from '@headlessui/react'
 import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon, LightBulbIcon, MagnifyingGlassIcon, MapPinIcon, LinkIcon, HandThumbUpIcon, FlagIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
 import { handleError } from '../lib/errorHandler'
-import DocumentViewer from './DocumentViewer'
+import DocumentViewer, { type DocumentViewerRef } from './DocumentViewer'
 import CitationSuggestionSidebar from './CitationSuggestionSidebar'
 import TopActionItems from './draft-analysis/TopActionItems'
 import { Badge, type BadgeVariant } from './ui/Badge'
@@ -106,6 +106,7 @@ export default function DraftAnalysisModal({
   const [feedbackReactions, setFeedbackReactions] = useState<Record<string, 'helpful' | 'dispute'>>({})
   const [reactingTo, setReactingTo] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const viewerRef = useRef<DocumentViewerRef>(null)
 
   // WS stream is enabled while draft is processing, independent of the results-loading state
   const isAnalyzing = draftStatus === 'processing' || draftStatus === 'pending'
@@ -221,40 +222,30 @@ export default function DraftAnalysisModal({
   }
 
   const handleScrollToFeedback = (item: Feedback) => {
-    // Set as active annotation for highlighting
     setActiveAnnotationId(item.id)
+    const viewer = viewerRef.current
+    if (!viewer) return
 
-    // For now, show a toast with location info
-    // TODO: Integrate with DocumentViewer component for actual scrolling
-    if (item.section_id) {
-      const confidence = item.match_confidence ? (item.match_confidence * 100).toFixed(0) : 'unknown'
-      toast.success(`Location found: ${item.section_reference || 'Section'} (${confidence}% confidence)`, {
-        duration: 3000
-      })
-    } else {
-      toast('Location tracking not available for this feedback item', {
-        icon: 'ℹ️',
-        duration: 3000
-      })
+    if (item.pdf_coordinates?.page) {
+      viewer.highlightRegion(item.pdf_coordinates)
+    } else if (item.text_snippet) {
+      viewer.highlightText(item.text_snippet, item.line_number)
+    } else if (item.section_reference) {
+      viewer.highlightText(item.section_reference, undefined, true)
     }
   }
 
   const handleScrollToClaim = (claim: Claim) => {
-    // Set as active annotation for highlighting
     setActiveAnnotationId(claim.id)
+    const viewer = viewerRef.current
+    if (!viewer) return
 
-    // For now, show a toast with location info
-    // TODO: Integrate with DocumentViewer component for actual scrolling
-    if (claim.section_id) {
-      const confidence = claim.match_confidence ? (claim.match_confidence * 100).toFixed(0) : 'unknown'
-      toast.success(`Location found: ${claim.section_location || 'Section'} (${confidence}% confidence)`, {
-        duration: 3000
-      })
-    } else {
-      toast('Location tracking not available for this claim', {
-        icon: 'ℹ️',
-        duration: 3000
-      })
+    if (claim.pdf_coordinates?.page) {
+      viewer.highlightRegion(claim.pdf_coordinates)
+    } else if (claim.text_snippet) {
+      viewer.highlightText(claim.text_snippet, claim.line_number)
+    } else if (claim.section_location) {
+      viewer.highlightText(claim.section_location, undefined, true)
     }
   }
 
@@ -383,7 +374,7 @@ export default function DraftAnalysisModal({
                 <div className="flex-1 flex overflow-hidden">
                   {/* Left: Document Viewer */}
                   <div className="w-1/2 border-r border-border-default p-4 overflow-hidden">
-                    <DocumentViewer fileUrl={draftFileUrl} fileType={draftFileType} />
+                    <DocumentViewer ref={viewerRef} fileUrl={draftFileUrl} fileType={draftFileType} />
                   </div>
 
                   {/* Right: Analysis */}

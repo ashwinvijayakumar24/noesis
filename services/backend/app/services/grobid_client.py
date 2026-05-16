@@ -227,12 +227,15 @@ class GrobidClient:
         Extract PDF bounding box coordinates from TEI element.
 
         GROBID returns coordinates in @coords attribute when teiCoordinates enabled.
-        Format: "page,x,y,width,height"
+        Format: "page,x,y,width,height" — multiple boxes are space-separated.
+        Returns the first bounding box only (sufficient for scroll-to-location).
         """
         coords = element.get('coords')
         if coords:
             try:
-                parts = coords.split(',')
+                # Take first box if multiple (multi-line spans)
+                first = coords.strip().split(' ')[0]
+                parts = first.split(',')
                 return {
                     "page": int(parts[0]),
                     "x": float(parts[1]),
@@ -244,6 +247,21 @@ class GrobidClient:
                 logger.warning(f"Failed to parse coordinates: {coords}")
                 return {}
         return {}
+
+    def _extract_sentence_coords(self, element: ET.Element) -> List[Dict]:
+        """
+        Extract sentence-level bounding boxes from <s> elements inside a paragraph.
+
+        Returns list of {text, coords} dicts — empty list if no <s> elements found.
+        """
+        sentences = []
+        for s_elem in element.findall('.//tei:s', TEI_NAMESPACE):
+            text = ''.join(s_elem.itertext()).strip()
+            if not text:
+                continue
+            coords = self._extract_coordinates(s_elem)
+            sentences.append({"text": text, "coords": coords})
+        return sentences
 
     def _extract_sections(self, root: ET.Element) -> List[Dict[str, Any]]:
         """Extract document sections with structure and coordinates."""
@@ -273,7 +291,8 @@ class GrobidClient:
                     paragraph_data.append({
                         "id": f"section-{idx}-para-{p_idx}",
                         "text": text,
-                        "coordinates": self._extract_coordinates(p)
+                        "coordinates": self._extract_coordinates(p),
+                        "sentences": self._extract_sentence_coords(p),
                     })
 
             content = '\n\n'.join(paragraphs)

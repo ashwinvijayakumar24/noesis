@@ -10,6 +10,7 @@ import {
   BeakerIcon
 } from '@heroicons/react/24/outline'
 import type { PdfCoordinates } from '../DocumentViewer'
+import MarkdownText from './MarkdownText'
 
 interface UnifiedFeedbackCardProps {
   item: {
@@ -76,7 +77,6 @@ const CITATION_SOURCE_CONFIG: Record<string, { bg: string; text: string; label: 
 const META_LABEL_CLASS = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted'
 const META_VALUE_CLASS = 'text-xs font-medium text-text-secondary'
 const META_STATUS_READY_CLASS = 'text-xs font-medium text-accent-primary hover:text-accent-primary/80'
-const META_STATUS_MISSING_CLASS = 'text-xs font-medium text-warning'
 
 // Parse suggested citations from supporting_literature JSONB
 function parseSuggestedCitations(content: any): Array<{ display: string; source: string; similarity?: number }> {
@@ -168,7 +168,7 @@ export default function UnifiedFeedbackCard({
   const suggestedCitations = item.type === 'claim' ? parseSuggestedCitations(item.content) : []
   const isPdf = fileType === 'application/pdf' || fileType === 'pdf'
   const hasReliablePdfAnchor = Boolean(item.content.pdf_coordinates)
-  const canOpenDocument = isPdf ? hasReliablePdfAnchor : Boolean(item.content.line_number)
+  const canOpenDocument = Boolean(onViewInDocument) && (isPdf ? hasReliablePdfAnchor : Boolean(item.content.line_number))
   const viewPayload = {
     line_number: item.content.line_number,
     content_text: contentText,
@@ -227,26 +227,21 @@ export default function UnifiedFeedbackCard({
               </div>
             </div>
           )}
-          {(canOpenDocument || isPdf) && (
+          {canOpenDocument && (
             <div className="min-w-[148px]">
               <div className={META_LABEL_CLASS}>Location</div>
               <div className="mt-1">
-                {canOpenDocument ? (
-                  <button
-                    onClick={() => onViewInDocument?.(viewPayload)}
-                    className={`inline-flex items-center gap-1 ${META_STATUS_READY_CLASS} transition-colors duration-150`}
-                  >
-                    <span>{isPdf ? `Page ${item.content.pdf_coordinates?.page}` : `Line ${item.content.line_number}`}</span>
-                    <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
-                  </button>
-                ) : isPdf ? (
-                  <span
-                    className={META_STATUS_MISSING_CLASS}
-                    title="This item does not have an exact PDF anchor yet. Reanalyze the draft to regenerate anchors."
-                  >
-                    Exact location unavailable
+                <button
+                  onClick={() => onViewInDocument?.(viewPayload)}
+                  className={`inline-flex items-center gap-1 ${META_STATUS_READY_CLASS} transition-colors duration-150`}
+                >
+                  <span>
+                    {isPdf
+                      ? `Page ${item.content.pdf_coordinates?.page}`
+                      : `Line ${item.content.line_number}`}
                   </span>
-                ) : null}
+                  <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           )}
@@ -255,9 +250,11 @@ export default function UnifiedFeedbackCard({
 
       {/* Content text */}
       <div className="mb-3">
-        <p className={`text-sm text-text-primary leading-relaxed ${!isExpanded && hasLongContent ? 'line-clamp-3' : ''}`}>
-          {contentText}
-        </p>
+        <MarkdownText
+          as="p"
+          text={contentText}
+          className={`text-sm text-text-primary leading-relaxed ${!isExpanded && hasLongContent ? 'line-clamp-3' : ''}`}
+        />
       </div>
 
       {/* Metadata row */}
@@ -298,7 +295,7 @@ export default function UnifiedFeedbackCard({
         <div className="mb-3 pl-3 border-l border-accent-primary/30">
           <span className="text-xs text-accent-primary font-medium block mb-1.5">Recommended support</span>
           <div className="space-y-2">
-            {suggestedCitations.slice(0, 4).map((cit, i) => {
+            {suggestedCitations.slice(0, 2).map((cit, i) => {
               const sourceConfig = CITATION_SOURCE_CONFIG[cit.source] || CITATION_SOURCE_CONFIG['library']
               return (
                 <div
@@ -351,10 +348,10 @@ export default function UnifiedFeedbackCard({
 
           {(isExpanded || !hasLongContent) && (
             <ul className="space-y-2">
-              {suggestions.slice(0, isExpanded ? undefined : 3).map((suggestion: any, idx: number) => (
+              {suggestions.slice(0, isExpanded ? undefined : 2).map((suggestion: any, idx: number) => (
                 <li key={idx} className="pl-3 border-l border-border-subtle">
                   {typeof suggestion === 'string' ? (
-                    <span className="text-xs text-text-secondary">{suggestion}</span>
+                    <MarkdownText text={suggestion} className="text-xs text-text-secondary" />
                   ) : (
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-start gap-1.5 flex-wrap">
@@ -395,8 +392,8 @@ export default function UnifiedFeedbackCard({
                   )}
                 </li>
               ))}
-              {!isExpanded && suggestions.length > 3 && (
-                <li className="text-xs text-text-muted pl-3 italic">+{suggestions.length - 3} more</li>
+              {!isExpanded && suggestions.length > 2 && (
+                <li className="text-xs text-text-muted pl-3 italic">+{suggestions.length - 2} more</li>
               )}
             </ul>
           )}

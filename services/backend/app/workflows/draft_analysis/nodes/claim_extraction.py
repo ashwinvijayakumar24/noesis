@@ -6,16 +6,24 @@ Each claim is categorized by type (empirical, theoretical, methodological) and i
 """
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, Claim
+from app.workflows.draft_analysis.schemas import ClaimExtractionOutput
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from app.core.openai_client import get_openai_client, get_completion_params
+from app.services.retry_utils import parse_chat_completion_with_retries_sync
 import json
 import uuid
 
 logger = get_logger(__name__)
 
-# Initialize OpenAI client
-client = get_openai_client()
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = get_openai_client()
+    return client
 
 
 CLAIM_EXTRACTION_PROMPT = """You are an expert academic reviewer. Analyze this research draft and ONLY extract claims that appear WEAK, UNSUPPORTED, or PROBLEMATIC in the context of the paper.
@@ -132,28 +140,30 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
     try:
         # Use gpt-5.2-chat-latest for higher quality claim extraction
         # Note: Removing temperature to use model defaults
-        response = client.chat.completions.create(
+        response = parse_chat_completion_with_retries_sync(
+            _get_client(),
             model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": CLAIM_EXTRACTION_PROMPT},
                 {"role": "user", "content": f"Extract claims from this draft:\n\n{draft_content}"}
             ],
             max_completion_tokens=8000,
+            response_format=ClaimExtractionOutput,
             **get_completion_params()  # Enable zero data retention
         )
 
-        result = json.loads(response.choices[0].message.content)
+        result = response.parsed
 
         # Convert to typed Claim objects with unique IDs
         claims: list[Claim] = []
-        for claim_data in result.get("claims", []):
+        for claim_data in result.claims:
             claim: Claim = {
                 "id": str(uuid.uuid4()),
-                "claim_text": claim_data["claim_text"],
-                "claim_type": claim_data["claim_type"],
-                "section_location": claim_data["section_location"],
-                "importance_score": claim_data["importance_score"],
-                "confidence": claim_data.get("confidence", 0.8),
+                "claim_text": claim_data.claim_text,
+                "claim_type": claim_data.claim_type,
+                "section_location": claim_data.section_location,
+                "importance_score": claim_data.importance_score,
+                "confidence": claim_data.confidence,
                 "requires_citation": True  # All extracted claims should have citation support checked
             }
             claims.append(claim)

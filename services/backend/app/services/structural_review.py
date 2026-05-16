@@ -14,13 +14,21 @@ These checks complement the standard reviewer_feedback by catching specific
 rhetorical and structural anti-patterns before submission.
 """
 
-import json
 from typing import List, Dict, Any
 from app.core.openai_client import get_openai_client, get_completion_params
 from app.core.logging_config import get_logger
+from app.services.retry_utils import parse_chat_completion_with_retries_sync
+from app.workflows.draft_analysis.schemas import StructuralChecksOutput
 
 logger = get_logger(__name__)
-client = get_openai_client()
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = get_openai_client()
+    return client
 
 
 STRUCTURAL_CHECKS_PROMPT = """You are an expert peer reviewer performing targeted structural quality checks on a research draft.
@@ -82,34 +90,23 @@ async def run_structural_checks(draft_text: str) -> List[Dict[str, Any]]:
         # Truncate to ~6000 tokens (24000 chars) to stay well within context window
         truncated = draft_text[:24000] if len(draft_text) > 24000 else draft_text
 
-        response = client.chat.completions.create(
+        response = parse_chat_completion_with_retries_sync(
+            _get_client(),
             model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": STRUCTURAL_CHECKS_PROMPT},
                 {"role": "user", "content": f"Research draft to analyze:\n\n{truncated}"}
             ],
             max_completion_tokens=1500,
+            response_format=StructuralChecksOutput,
             **get_completion_params()
         )
 
-        raw = response.choices[0].message.content.strip()
-
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            parts = raw.split("```")
-            raw = parts[1] if len(parts) > 1 else raw
-            if raw.startswith("json"):
-                raw = raw[4:].strip()
-
-        result = json.loads(raw)
-        checks = result.get("checks", [])
+        checks = [check.model_dump() for check in response.parsed.checks]
 
         logger.info(f"[Structural Review] Identified {len(checks)} structural issues")
         return checks
 
-    except json.JSONDecodeError as e:
-        logger.error(f"[Structural Review] JSON parse error: {e}")
-        return []
     except Exception as e:
         logger.error(f"[Structural Review] Error running checks: {e}")
         return []

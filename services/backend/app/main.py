@@ -7,7 +7,7 @@ from app.api.routes import (
     research_questions, methodology_recommendations, paper_recommendations,
     analytics, analytics_tracking, citations, tasks, quota,
     # New routes (Week 2-4 implementation)
-    paper_discovery, feedback, referrals, platform, subscriptions, comparisons,
+    paper_discovery, feedback, referrals, platform, subscriptions,
     # Zotero integration
     zotero,
 )
@@ -17,14 +17,37 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import os
+from urllib.parse import urlparse
 
 # Security middleware imports
 from app.core.security_middleware import (
     SecurityHeadersMiddleware,
     InputValidationMiddleware,
+    is_sensitive_probe_path,
     get_cors_config,
     rate_limit_exceeded_handler
 )
+
+
+def _sentry_request_path(event: dict) -> str:
+    request = event.get("request") or {}
+    url = request.get("url") or ""
+    if url:
+        return urlparse(url).path
+
+    env = request.get("env") or {}
+    return env.get("PATH_INFO") or request.get("path") or ""
+
+
+def should_drop_sentry_event(event: dict) -> bool:
+    """Drop high-volume internet scanner probes before they become product noise."""
+    path = _sentry_request_path(event)
+    if path and is_sensitive_probe_path(path):
+        return True
+
+    transaction = event.get("transaction") or ""
+    return bool(transaction and is_sensitive_probe_path(transaction))
+
 
 # Initialize Sentry for error tracking
 if settings.SENTRY_DSN:
@@ -55,6 +78,8 @@ if settings.SENTRY_DSN:
         # Apply environment filter first
         event = before_send_filter(event, hint)
         if event is None:
+            return None
+        if should_drop_sentry_event(event):
             return None
 
         # Sensitive keys to redact
@@ -157,9 +182,6 @@ app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
 app.include_router(referrals.router, prefix="/api", tags=["Referrals"])
 app.include_router(platform.router, prefix="/api", tags=["Platform"])
 app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
-
-# Week 4: Performance & Polish
-app.include_router(comparisons.router, prefix="", tags=["Comparisons"])
 
 # Zotero Integration
 app.include_router(zotero.router, prefix="/api", tags=["Zotero"])

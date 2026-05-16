@@ -33,6 +33,7 @@ interface DocumentViewerProps {
   annotation?: Annotation | null
   onLineClick?: (lineNumber: number) => void
   authToken?: string
+  initialScale?: number
 }
 
 export interface DocumentViewerRef {
@@ -159,12 +160,12 @@ function scrollToMarkAcrossPages(divs: (HTMLDivElement | null)[], maxMs = 3500) 
 
 // ─── Component ───────────────────────────────────────────────────────────────
 const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
-  { fileUrl, fileType, annotation, onLineClick, authToken },
+  { fileUrl, fileType, annotation, onLineClick, authToken, initialScale = 1.0 },
   ref,
 ) => {
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
-  const [scale, setScale] = useState(1.0)
+  const [scale, setScale] = useState(initialScale)
   const [lines, setLines] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -184,6 +185,10 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
 
   const lineRefs = useRef<(HTMLDivElement | null)[]>([])
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  useEffect(() => {
+    setScale(initialScale)
+  }, [initialScale])
 
   // ── Extract text from all pages using pdf.js (same engine as the renderer) ──
   const extractPageTexts = useCallback(async (pdf: any) => {

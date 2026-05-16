@@ -254,7 +254,7 @@ async def track_openai_usage(
     Args:
         user_id: User UUID
         operation_type: Type of operation (document_analysis, chat, etc.)
-        model: OpenAI model used (gpt-4o, gpt-5-mini, text-embedding-3-large, etc.)
+        model: OpenAI model used (gpt-5.2, gpt-5-mini, text-embedding-3-small, etc.)
         prompt_tokens: Number of prompt tokens
         completion_tokens: Number of completion tokens
         project_id: Optional project ID

@@ -311,7 +311,7 @@ def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-
     Args:
         paper_text: The full text content of the paper
         page_count: Number of pages in the paper (default: 10 for MEDIUM tier)
-        model: OpenAI model to use (default: gpt-4o)
+        model: OpenAI model to use (default: gpt-5.2-chat-latest)
 
     Returns:
         Dictionary containing structured analysis with tier-appropriate detail
@@ -340,7 +340,7 @@ def analyze_paper_text(paper_text: str, page_count: int = 10, model: str = "gpt-
         logger.info(f"Max tokens for tier {tier}: {max_tokens}")
 
         # Truncate paper text to fit within token limits
-        # OpenAI TPM limit: 30,000 tokens/min for gpt-4o
+        # OpenAI TPM limit: 30,000 tokens/min for the configured GPT model
         # Reserve tokens: max_tokens (output) + ~2000 (prompt/overhead)
         # Available for input: 30000 - max_tokens - 2000 ≈ 24,000 tokens
         # Convert to characters: ~96,000 chars (4 chars per token)

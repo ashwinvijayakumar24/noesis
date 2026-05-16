@@ -154,6 +154,32 @@ def _section_candidates(
             yield section
 
 
+def _find_sentence_coords(
+    sentences: List[Dict[str, Any]],
+    paragraph_text: str,
+    char_offset_in_paragraph: int,
+) -> Optional[Dict[str, Any]]:
+    """
+    Find the sentence bounding box that contains the given char offset within a paragraph.
+    Returns the sentence's `coords` dict, or None if no sentence match found.
+    """
+    cursor = 0
+    for sent in sentences:
+        text = str(sent.get("text") or "").strip()
+        if not text:
+            continue
+        pos = paragraph_text.find(text, cursor)
+        if pos < 0:
+            continue
+        end = pos + len(text)
+        cursor = end
+        if pos <= char_offset_in_paragraph <= end:
+            coords = sent.get("coords")
+            if coords and coords.get("page"):
+                return coords
+    return None
+
+
 def _section_metadata(
     draft_text: str,
     sections: Optional[List[Dict[str, Any]]],
@@ -170,7 +196,7 @@ def _section_metadata(
                 "section_id": section.get("id"),
                 "char_offset_from_section": char_offset_from_section,
             }
-            paragraph_coordinates = None
+            best_coords = None
             search_cursor = 0
             for paragraph in section.get("paragraphs") or []:
                 paragraph_text = str(paragraph.get("text") or "").strip()
@@ -182,11 +208,17 @@ def _section_metadata(
                 paragraph_end = paragraph_start + len(paragraph_text)
                 search_cursor = paragraph_end
                 if paragraph_start <= char_offset_from_section <= paragraph_end:
-                    paragraph_coordinates = paragraph.get("coordinates")
+                    # Try sentence-level coords first (finest granularity)
+                    sentence_coords = _find_sentence_coords(
+                        paragraph.get("sentences") or [],
+                        paragraph_text,
+                        char_offset_from_section - paragraph_start,
+                    )
+                    best_coords = sentence_coords or paragraph.get("coordinates")
                     break
 
-            if paragraph_coordinates:
-                metadata["pdf_coordinates"] = paragraph_coordinates
+            if best_coords:
+                metadata["pdf_coordinates"] = best_coords
             elif section.get("coordinates"):
                 metadata["pdf_coordinates"] = section.get("coordinates")
             return metadata

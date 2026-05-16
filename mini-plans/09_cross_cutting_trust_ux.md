@@ -1,48 +1,39 @@
-# 09 — Cross-Cutting: Trust, UX, Infrastructure
+# 09 - Cross-Cutting Trust, UX, And Infrastructure
 
-**Scope:** Privacy copy, error messages, progress visibility, OpenAI rate limits.
-**Source:** `arch_plan.md` §10.
+Last updated: May 10, 2026
 
----
+Original scope: privacy copy, error messages, progress visibility, and OpenAI rate limits.
 
-## 10.1 Plan-tier awareness
-See `08_quotas_and_plan_tier.md`. Paying users currently get free-tier limits due to missing Stripe-webhook → quota-upgrade wiring.
+## Status
 
-## 10.2 OpenAI rate limits
-- You've noted this. The 3 req/min free tier is crippling for batch uploads.
-- Tier 1 requires $50 pre-paid.
-- **Do this before any demo.** Without it, a user uploading 5 PDFs will see half of them stall.
-- Long-term: monitor usage against tier limits; auto-request tier upgrade at thresholds.
+Partially implemented.
 
-## 10.3 Frontend error surfaces are thin
-Multiple places return HTTP 400/403 with detail strings, but the frontend toast is generic. For a trust-sensitive product, specific errors matter.
+Completed:
 
-**Examples of current vs. needed:**
-| Current toast | What it should say |
-|---|---|
-| "Bad Request" | "We couldn't parse 3 of your 20 BibTeX entries. Entries 7, 12, 15 had missing required fields." |
-| "Forbidden" | "You've used 30 of your 30 monthly PDFs. Upgrade to Pro for 100/month." |
-| "Failed" (on doc) | "Upload failed during GPT analysis. Click retry to try again." |
+- Privacy/no-training copy appears in signup, privacy policy, document analysis, draft analysis, and Literature Map contexts.
+- Draft analysis has stepwise progress streaming.
+- Literature Map has progress snapshots.
+- Sentry path traversal scanner requests now return clean 400 JSON from security middleware instead of unhandled 500s.
 
-**Implementation note:** backend errors should return structured JSON (`{ code, message, details }`), not string details. Frontend toast reads `.message` and optionally expands `.details`.
+## Remaining Work
 
-## 10.4 No "what the site is doing right now" indicator
-- Upload → processing → analyzing → analyzed takes 30-90s per paper. Users see a spinner.
-- Without stepwise visibility ("Parsing PDF", "Generating embeddings", "Running GPT-5.2 analysis"), bouncing feels likely.
-- **LangGraph supports streaming** via its StateGraph events. Surface via WebSocket or Server-Sent Events.
-- Minimum: a status ladder in the UI that reads the current `documents.status` + an estimated progress bar based on typical timing.
+- Structured frontend errors are inconsistent.
+- Upload/BibTeX/quota errors need specific user-facing next actions.
+- OpenAI throughput/rate-limit readiness needs validation before heavier demos.
+- More workflows should expose precise progress states and retry affordances.
+- Failed document retry UX still needs strengthening if not already covered by current frontend changes.
 
-## 10.5 Privacy / not-used-for-training copy
-- See `07_draft_analysis.md` §7f for the full analysis.
-- Addresses the single biggest objection a PhD has before uploading an unpublished draft.
-- **Surface locations:**
-  - Draft upload modal footer.
-  - Dedicated `/privacy` legal page.
-  - Sidebar badge: "End-to-end private · Not used for training."
-  - Signup page copy: "Your research stays yours."
+## Files
 
-## Priority
-- **P0:** Privacy copy on draft upload (see `07_draft_analysis.md` §7f).
-- **P1:** OpenAI Tier 1 upgrade (infra prerequisite for demo).
-- **P2:** Stepwise progress visibility via LangGraph stream.
-- **P2:** Structured backend errors + specific frontend toasts.
+- `services/backend/app/core/api_errors.py`
+- `services/backend/app/core/security_middleware.py`
+- `services/backend/app/services/progress_tracking.py`
+- `services/backend/app/services/progress_publisher.py`
+- `services/frontend/src/components/ui/InlineAlert.tsx`
+- `services/frontend/src/components/ui/Toast.tsx`
+
+## Next Actions
+
+1. Standardize backend error payloads.
+2. Standardize frontend toast/inline error rendering.
+3. Validate OpenAI tier and throughput before lab demos with batch uploads.

@@ -1,8 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import {
-  DocumentTextIcon as _DocumentTextIcon,
-  ChatBubbleLeftRightIcon as _ChatBubbleLeftRightIcon,
   LightBulbIcon,
   BeakerIcon,
   ArrowRightIcon,
@@ -11,224 +9,25 @@ import {
   UserIcon,
   AcademicCapIcon,
   CheckBadgeIcon,
-  DocumentArrowDownIcon as _DocumentArrowDownIcon,
   BookOpenIcon,
-  ExclamationCircleIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { useEffect, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { NoesisLogo } from '../components/ui/NoesisLogo'
-
-const TABS = [
-  { id: 'analysis', label: 'Draft Analysis' },
-  { id: 'feedback', label: 'Reviewer Feedback' },
-  { id: 'gaps', label: 'Coverage Gaps' },
-] as const
-
-type TabId = typeof TABS[number]['id']
-
-function AnalysisTab() {
-  return (
-    <div className="space-y-3">
-      <div className="bg-bg-elevated border-l-4 border-l-accent-primary border border-border-default rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <ExclamationCircleIcon className="h-4 w-4 text-accent-primary shrink-0" />
-          <h3 className="text-sm font-semibold text-text-primary">Top Action Items</h3>
-        </div>
-        <ol className="space-y-2">
-          {[
-            'Add primary citations for CRISPR efficiency claims in §2.3',
-            'Address off-target effect coverage gap in Methods section',
-            'Strengthen Discussion with Cas9 variant comparison data',
-          ].map((action, i) => (
-            <li key={i} className="flex items-start gap-2.5">
-              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-accent-primary text-white text-xs font-semibold flex items-center justify-center mt-0.5">
-                {i + 1}
-              </span>
-              <span className="text-sm text-text-secondary leading-snug">{action}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
-
-      <div className="bg-bg-surface rounded-lg border border-warning p-4">
-        <div className="flex items-center gap-4 mb-4">
-          <ExclamationTriangleIcon className="h-8 w-8 text-warning shrink-0" />
-          <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-sans font-extrabold text-warning tracking-tighter">74</span>
-              <span className="text-sm font-semibold text-text-secondary">/ 100 · Needs Work</span>
-            </div>
-            <p className="text-xs font-mono text-text-muted mt-0.5">CRISPR-Cas9 Off-Target Effects — v2</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: 'Claims', value: '12', note: '4 need citation', color: 'text-warning' },
-            { label: 'Gaps', value: '5', note: '2 critical', color: 'text-error' },
-            { label: 'Feedback', value: '8', note: '3 critical', color: 'text-error' },
-          ].map(m => (
-            <div key={m.label} className="bg-bg-elevated rounded-lg p-3 border border-border-default">
-              <p className="text-xs text-text-muted font-mono uppercase tracking-wide mb-1">{m.label}</p>
-              <p className="text-2xl font-sans font-bold text-text-primary">{m.value}</p>
-              <p className={`text-xs font-medium ${m.color}`}>{m.note}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function FeedbackTab() {
-  return (
-    <div className="space-y-3">
-      <div className="flex gap-2 flex-wrap">
-        {['Introduction', 'Methods ⚠', 'Results', 'Discussion'].map((s, i) => (
-          <button key={s} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
-            i === 1
-              ? 'bg-bg-elevated text-text-primary border-border-subtle'
-              : 'bg-bg-surface text-text-secondary border-border-default'
-          }`}>
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex space-x-1 border-b border-border-default">
-        <button className="px-4 py-2 text-sm font-semibold border-b-2 border-accent-primary text-text-primary">
-          New
-          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-accent-primary text-white font-semibold">7</span>
-        </button>
-        <button className="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-text-secondary">
-          Saved
-          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-bg-elevated text-text-muted border border-border-default">2</span>
-        </button>
-        <button className="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-text-secondary">
-          Dismissed
-        </button>
-      </div>
-
-      <div className="bg-bg-surface rounded-lg border border-border-default border-l-4 border-l-accent-primary p-4 transition-all duration-150">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-accent-primary text-white">
-              Unsupported Claim
-            </span>
-            <span className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-error text-white">
-              HIGH
-            </span>
-          </div>
-        </div>
-        <p className="text-sm text-text-primary leading-relaxed mb-3">
-          The reported CRISPR efficiency of &gt;85% in vivo lacks primary data support in this manuscript.
-        </p>
-        <div className="flex gap-2 mb-3">
-          <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">§ Methods · 2.3</span>
-          <span className="text-xs font-mono text-text-secondary bg-bg-elevated px-2 py-1 rounded-md border border-border-default">High confidence</span>
-        </div>
-        <div className="border-t border-border-default pt-3 flex items-center gap-2">
-          <p className="text-xs text-text-muted">Suggested:</p>
-          <span className="text-xs font-mono text-accent-primary">Zhang et al. (2023) · 94% match</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function GapsTab() {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-semibold text-text-secondary">Coverage Analysis</h3>
-        <span className="text-xs font-mono text-white bg-error px-2 py-0.5 rounded-md font-semibold">3 Critical Gaps</span>
-      </div>
-      {[
-        { type: 'Missing Methodology', priority: 'CRITICAL', color: 'error',
-          title: 'Off-target effect measurement protocols not cited',
-          suggestion: 'Anzalone et al. (2020), Kleinstiver et al. (2019)' },
-        { type: 'Theoretical Gap', priority: 'HIGH', color: 'warning',
-          title: 'Cas9 variant comparison literature absent from §3',
-          suggestion: 'Spencer & Zhang (2022)' },
-        { type: 'Statistical Support', priority: 'HIGH', color: 'warning',
-          title: 'In vivo efficiency claims lack comparative studies',
-          suggestion: 'Liu et al. (2021)' },
-      ].map((gap, i) => (
-        <div key={i} className={`bg-bg-surface rounded-lg border-l-2 ${
-          gap.color === 'error' ? 'border-l-error' : 'border-l-warning'
-        } border border-border-default p-3`}>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-md text-white ${
-              gap.color === 'error' ? 'bg-error' : 'bg-warning'}`}>{gap.priority}</span>
-            <span className="text-xs text-text-muted">{gap.type}</span>
-          </div>
-          <p className="text-sm text-text-primary mb-2">{gap.title}</p>
-          <p className="text-xs text-text-muted">Suggested: <span className="text-accent-primary font-mono">{gap.suggestion}</span></p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ProductShowcase() {
-  const [activeTab, setActiveTab] = useState<TabId>('analysis')
-  return (
-    <div className="bg-bg-surface border border-border-default rounded-xl overflow-hidden shadow-2xl">
-      <div className="flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default">
-        <div className="flex gap-1.5 shrink-0">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-        </div>
-        <div className="flex gap-1 ml-2">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150 ${
-                activeTab === tab.id
-                  ? 'bg-bg-surface text-text-primary border border-border-default'
-                  : 'text-text-muted hover:text-text-secondary'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="p-5 min-h-[380px] relative overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }}
-            transition={{ duration: 0.15 }}
-          >
-            {activeTab === 'analysis' && <AnalysisTab />}
-            {activeTab === 'feedback' && <FeedbackTab />}
-            {activeTab === 'gaps' && <GapsTab />}
-          </motion.div>
-        </AnimatePresence>
-        <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-bg-void/70 to-transparent pointer-events-none" />
-      </div>
-    </div>
-  )
-}
+import DraftAnalysisShowcase from '../components/draft-analysis/DraftAnalysisShowcase'
 
 const FAQ_ITEMS = [
   {
     question: 'What is Noesis?',
-    answer: 'Noesis is an AI pre-submission peer review tool. Upload your research draft and Noesis finds unsupported claims, citation gaps, and methodology blind spots — grounded in your literature and 200M+ papers.',
+    answer: 'Noesis is a draft-aware research workspace. You build a literature library, generate a Literature Map, discover missing papers, and analyze your draft with literature-grounded feedback before submission.',
   },
   {
     question: 'How is Noesis different from ChatGPT or other AI writing tools?',
-    answer: 'Noesis does not write or rewrite your paper. It acts like an expert academic reviewer: identifying what a hostile reviewer would flag before you submit. Every piece of feedback is grounded in your uploaded literature — no hallucinated references.',
+    answer: 'Noesis does not write or rewrite your paper. It reviews the draft against your project literature, surfaces unsupported claims, missing citations, and coverage gaps, and keeps the feedback tied to real sources instead of generic chat output.',
   },
   {
     question: 'Does Noesis write my paper for me?',
-    answer: 'No. Noesis critiques your existing draft — finding weaknesses, unsupported claims, and citation gaps — so you can strengthen your own arguments. Your thinking, your paper.',
+    answer: 'No. Noesis critiques your existing draft so you can strengthen your own argument, citations, and literature coverage. Your thinking stays central to the paper.',
   },
   {
     question: 'Is Noesis free to use?',
@@ -244,7 +43,7 @@ function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <section className="py-24 px-6 sm:px-8 bg-bg-surface" aria-label="Frequently asked questions about Noesis pre-submission peer review">
+    <section className="py-24 px-6 sm:px-8 bg-bg-surface" aria-label="Frequently asked questions about the Noesis research feedback workflow">
       <div className="max-w-3xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -321,7 +120,7 @@ export default function Landing() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
 
   useEffect(() => {
-    document.title = 'Noesis - Know What Reviewer 2 Will Say Before You Submit'
+    document.title = 'Noesis | AI Pre-Submission Peer Review'
     loadTestimonials()
   }, [])
 
@@ -340,40 +139,40 @@ export default function Landing() {
   const features = [
     {
       icon: ClipboardDocumentCheckIcon,
-      title: 'Expert Reviewer Feedback',
-      description: 'Upload your draft and get expert academic reviewer-style critique: unsupported claims, missing citations, coverage gaps, and argument weaknesses — with source passages shown.'
+      title: 'Two-Pass Draft Analysis',
+      description: 'Run a structured editing review first, then a deeper reviewer-style analysis for unsupported claims, weak arguments, citation gaps, and coverage problems.'
     },
     {
       icon: BookOpenIcon,
-      title: 'Import Your Library Instantly',
-      description: 'Export from Zotero, Mendeley, or Endnote as a .bib file and import in seconds. No rebuilding your library from scratch — your references are ready immediately.'
+      title: 'Build the Literature Workspace',
+      description: 'Upload PDFs, import BibTeX, and save discovered papers into one project library. Your draft is analyzed against the literature you are actually working with.'
     },
     {
       icon: BeakerIcon,
-      title: 'Discover 200M+ Papers',
-      description: 'Not just your uploads. Noesis searches PubMed, arXiv, and Semantic Scholar to surface papers relevant to your coverage gaps — then adds them to your project automatically.'
+      title: 'Literature Map and Discovery',
+      description: 'Generate a Literature Map to surface themes, gaps, and conflicts, then use Discover to find missing papers from trusted academic sources and add them to the project.'
     },
     {
       icon: LightBulbIcon,
-      title: 'Grounded in Your Literature',
-      description: 'Every piece of feedback shows the exact passage from your uploaded literature that informed it. Not a black box — see the AI\'s reasoning and evaluate it yourself.'
+      title: 'Grounded and Private',
+      description: 'Noesis keeps the workflow project-based, shows source-grounded support where available, and treats your draft as a private workspace artifact rather than public training data.'
     }
   ]
 
   const useCases = [
     {
       role: 'PIs & Postdocs',
-      description: 'Run every lab draft through Noesis before submission. Catch unsupported claims and coverage gaps before Reviewer 2 does. One caught comment = weeks saved.',
+      description: 'Run lab drafts through a consistent pre-submission review flow. Catch unsupported claims, missing literature, and weak evidence before the manuscript leaves the group.',
       impact: 'Protect submission timelines'
     },
     {
       role: 'PhD Students',
-      description: 'Get expert reviewer-style feedback before your advisor sees your draft. Know the weaknesses before the high-stakes conversation.',
+      description: 'Get structured feedback before sending a draft to your advisor. See where the argument is weak, where citations are missing, and which papers may still need to be added.',
       impact: 'Confident revisions'
     },
     {
       role: 'Grant Writers',
-      description: 'Strengthen NIH and NSF proposals with comprehensive literature coverage analysis. Identify gaps reviewers will flag before the study section sees your application.',
+      description: 'Strengthen proposals and research narratives with better literature coverage, clearer support for claims, and a cleaner revision workflow.',
       impact: 'Stronger grant applications'
     }
   ]
@@ -411,13 +210,12 @@ export default function Landing() {
       </motion.nav>
 
       {/* Hero Section - Two Column Layout */}
-      <section className="relative pt-28 pb-16 sm:pt-36 sm:pb-20 px-6 sm:px-8 overflow-hidden bg-gradient-to-br from-bg-void via-bg-surface to-bg-void">
+      <section className="relative pt-28 pb-12 sm:pt-36 sm:pb-14 px-6 sm:px-8 overflow-hidden bg-gradient-to-br from-bg-void via-bg-surface to-bg-void">
         <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 xl:gap-16 items-center">
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-14">
 
-            {/* Left Column — Text + CTA */}
             <motion.div
-              className="space-y-8 relative z-10 text-center lg:text-left"
+              className="relative z-10 space-y-8 text-center lg:text-left"
               initial="initial"
               animate="animate"
               variants={{ animate: { transition: { staggerChildren: 0.15 } } }}
@@ -426,21 +224,20 @@ export default function Landing() {
                 variants={fadeIn}
                 className="text-4xl sm:text-5xl xl:text-6xl font-heading font-semibold leading-display tracking-tightest"
               >
-                Know What{' '}
-                <span className="text-accent-primary">Reviewer 2</span>{' '}
-                Will Say Before You Submit
+                AI Research Feedback{' '}
+                <span className="text-accent-primary">Before Submission</span>
               </motion.h1>
 
               <motion.p
                 variants={fadeIn}
-                className="text-lg sm:text-xl text-text-secondary leading-body-large tracking-normal max-w-xl mx-auto lg:mx-0"
+                className="mx-auto max-w-3xl text-lg leading-body-large tracking-normal text-text-secondary sm:text-xl lg:mx-0 lg:max-w-2xl"
               >
-                Upload your draft. Noesis finds unsupported claims, citation gaps, and blind spots — grounded in your literature and 200M+ papers. Not AI writing. Expert AI review.
+                Build a project library, generate a Literature Map, discover missing papers, and run two-pass draft analysis grounded in the literature behind your manuscript.
               </motion.p>
 
               <motion.div
                 variants={fadeIn}
-                className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4"
+                className="flex flex-col items-center justify-center gap-4 sm:flex-row lg:justify-start"
               >
                 <Button
                   onClick={() => navigate('/signup')}
@@ -455,11 +252,11 @@ export default function Landing() {
 
               <motion.div
                 variants={fadeIn}
-                className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-sm text-text-muted font-mono"
+                className="flex flex-wrap items-center justify-center gap-6 text-sm text-text-muted font-mono lg:justify-start"
               >
                 <div className="flex items-center gap-2">
                   <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
-                  <span>No credit card</span>
+                  <span>No credit card required</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
@@ -467,21 +264,19 @@ export default function Landing() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
-                  <span>Privacy-first</span>
+                  <span>Private workspace</span>
                 </div>
               </motion.div>
             </motion.div>
 
-            {/* Right Column — Product Showcase */}
-            <motion.div
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="relative z-10"
-            >
-              <ProductShowcase />
-            </motion.div>
-
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="relative z-10"
+          >
+            <DraftAnalysisShowcase variant="preview" showDocumentPane={false} />
+          </motion.div>
           </div>
         </div>
       </section>
@@ -497,9 +292,9 @@ export default function Landing() {
             className="mb-16 text-center"
           >
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-semibold leading-heading-1 tracking-tighter text-text-primary mb-6">
-              Pre-Submission{' '}
+              Literature-grounded{' '}
               <span className="text-accent-primary relative inline-block">
-                Peer Review
+                Draft Review
                 <motion.span
                   className="absolute -bottom-1 left-0 right-0 h-0.5 bg-accent-primary/60 rounded-full"
                   initial={{ scaleX: 0, originX: 0 }}
@@ -510,7 +305,7 @@ export default function Landing() {
               </span>
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary max-w-3xl mx-auto leading-body-large tracking-normal">
-              Expert AI feedback grounded in your literature — not a writing assistant
+              Built to critique a manuscript against its literature, not to write the paper for you
             </p>
           </motion.div>
 
@@ -584,7 +379,7 @@ export default function Landing() {
                 <div>
                   <h4 className="font-sans font-semibold text-text-primary mb-2 text-lg tracking-normal">You Own Your Work</h4>
                   <p className="text-sm text-text-secondary leading-body-small tracking-normal">
-                    Noesis critiques and suggests—you decide. Your thinking, your arguments, your paper.
+                    Noesis critiques and suggests. You decide what changes belong in the manuscript.
                   </p>
                 </div>
               </div>
@@ -596,7 +391,7 @@ export default function Landing() {
                 <div>
                   <h4 className="font-sans font-semibold text-text-primary mb-2 text-lg tracking-normal">Research Integrity</h4>
                   <p className="text-sm text-text-secondary leading-body-small tracking-normal">
-                    We don't auto-write. We help you identify weaknesses, gaps, and missing citations before peer review.
+                    We do not auto-write. We help you identify weaknesses, missing citations, and literature gaps before submission.
                   </p>
                 </div>
               </div>
@@ -608,7 +403,7 @@ export default function Landing() {
                 <div>
                   <h4 className="font-sans font-semibold text-text-primary mb-2 text-lg tracking-normal">Real Citations Only</h4>
                   <p className="text-sm text-text-secondary leading-body-small tracking-normal">
-                    Citation suggestions come from your uploaded literature—no hallucinated references.
+                    Citation suggestions come from your uploaded literature and linked discovery sources, not invented references.
                   </p>
                 </div>
               </div>
@@ -631,7 +426,7 @@ export default function Landing() {
               Built for <span className="text-accent-primary">Serious Researchers</span>
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary tracking-normal">
-              Trusted by undergrads, PhDs, postdocs, and faculty
+              Designed for PhD students, postdocs, faculty, and research teams
             </p>
           </motion.div>
 
@@ -732,10 +527,10 @@ export default function Landing() {
             className="mb-20 text-center"
           >
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-semibold leading-[1.2] tracking-tight text-text-primary mb-6">
-              Simple. Powerful. <span className="text-accent-primary">Fast.</span>
+              A clear workflow from literature to draft
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary tracking-normal">
-              Get started in three steps
+              Get started in four steps
             </p>
           </motion.div>
 
@@ -743,21 +538,27 @@ export default function Landing() {
             {[
               {
                 number: '01',
-                title: 'Upload Your Papers',
-                description: 'Add PDF research papers to your project. Noesis automatically extracts text, metadata, and citations from each document.',
+                title: 'Build your literature library',
+                description: 'Upload PDFs, import BibTeX, and organize the papers that matter for the draft you are writing.',
                 color: 'rose'
               },
               {
                 number: '02',
-                title: 'AI Analyzes Everything',
-                description: 'Advanced AI extracts methodology, findings, claims, and citations from each paper. No hallucinated references, only real analysis.',
+                title: 'Generate a Literature Map',
+                description: 'Synthesize the field inside the project to see evidence clusters, research gaps, conflicts, and where your current library is still thin.',
                 color: 'teal'
               },
               {
                 number: '03',
-                title: 'Get Critique & Guidance',
-                description: 'Upload your draft to get reviewer-style feedback, citation suggestions, and structural guidance—before peer review.',
+                title: 'Discover missing papers',
+                description: 'Use project-aware recommendations to find papers that strengthen weak sections or fill literature gaps before submission.',
                 color: 'indigo'
+              },
+              {
+                number: '04',
+                title: 'Run two-pass draft analysis',
+                description: 'Start with editing and citation checks, then move into deeper reviewer-style feedback on claims, evidence, coverage, and argument quality.',
+                color: 'rose'
               }
             ].map((step, index) => (
               <div
@@ -780,7 +581,7 @@ export default function Landing() {
                   }}
                   className="shrink-0 w-32 h-32 flex items-center justify-center"
                 >
-                  <span className={`text-6xl font-heading font-bold ${
+                <span className={`text-6xl font-heading font-bold ${
                     step.color === 'rose' ? 'text-accent-primary' :
                     step.color === 'teal' ? 'text-teal-primary' :
                     'text-indigo-primary'
@@ -795,9 +596,9 @@ export default function Landing() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: false, amount: 0.3 }}
                   transition={{ delay: index * 0.1 + 0.1, duration: 0.4, ease: 'easeOut' }}
-                  className="flex-1"
-                >
-                  <div className="bg-bg-void border border-border-default rounded-lg p-8 space-y-4">
+                className="flex-1"
+              >
+                <div className="bg-bg-void border border-border-default rounded-lg p-8 space-y-4">
                     <h3 className="text-3xl sm:text-4xl font-heading font-semibold text-text-primary tracking-normal">
                       {step.title}
                     </h3>

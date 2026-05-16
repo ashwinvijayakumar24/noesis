@@ -1,15 +1,51 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DocumentTextIcon, TrashIcon, CalendarIcon, ArrowsRightLeftIcon, ClockIcon, ExclamationTriangleIcon, XMarkIcon, UserGroupIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, TrashIcon, CalendarIcon, ExclamationTriangleIcon, XMarkIcon, UserGroupIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { handleError } from '../lib/errorHandler'
-import { Badge, type BadgeVariant } from './ui/Badge'
 import { SkeletonListItem, SkeletonList } from './ui/Skeleton'
-import VersionTimeline from './draft-analysis/VersionTimeline'
-import RecurringPatterns from './draft-analysis/RecurringPatterns'
-import VersionProgressCard from './draft-analysis/VersionProgressCard'
 import { useAnalysisStream } from '../hooks/useAnalysisStream'
+
+function DraftStatusBadge({ status, updatedAt }: { status: string; updatedAt: string }) {
+  const s = status.toLowerCase()
+  const recentlyFailed = s === 'failed' && Date.now() - new Date(updatedAt).getTime() < 15 * 60 * 1000
+  const isProcessing = s === 'processing' || s === 'uploaded' || recentlyFailed
+
+  if (isProcessing) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-sm border bg-[#2C1A06] text-amber-400 border-[#5C3A10]">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
+        </span>
+        Analyzing
+      </span>
+    )
+  }
+
+  if (s === 'analyzed') {
+    return (
+      <span className="text-xs font-medium px-2 py-0.5 rounded-sm border bg-[#0D2E1F] text-emerald-400 border-[#1A5C3A]">
+        Processed
+      </span>
+    )
+  }
+
+  if (s === 'failed') {
+    return (
+      <span className="text-xs font-medium px-2 py-0.5 rounded-sm border bg-[#2C0D0D] text-red-400 border-[#5C1A1A]">
+        Failed
+      </span>
+    )
+  }
+
+  return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-sm border bg-bg-elevated text-text-muted border-border-default">
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  )
+}
 
 function AnimatedDots() {
   const [dots, setDots] = useState('.')
@@ -31,11 +67,14 @@ function ElapsedTimer({ startedAt }: { startedAt: number }) {
   return <span>{m > 0 ? `${m}m ` : ''}{s}s</span>
 }
 
-function DraftProgressBar({ draftId, onComplete }: { draftId: string; token: string; onComplete?: () => void }) {
+function DraftProgressBar({ draftId, onComplete }: { draftId: string; onComplete?: () => void }) {
   const stream = useAnalysisStream(draftId, true)
-  const pct = Math.max(stream.progress, 5)
   const firedRef = useRef(false)
   const startedAt = useRef(Date.now())
+
+  // WS has data: use its progress. WS disconnected or never connected: indeterminate.
+  const hasStreamData = stream.progress > 0
+  const pct = hasStreamData ? Math.max(stream.progress, 5) : null
 
   useEffect(() => {
     if (stream.complete && !firedRef.current && onComplete) {
@@ -48,7 +87,6 @@ function DraftProgressBar({ draftId, onComplete }: { draftId: string; token: str
     <div className="mt-3 px-1">
       <div className="flex justify-between items-center mb-1.5">
         <span className="text-xs text-slate-400 flex items-center gap-1">
-          {/* spinning ring */}
           <svg className="animate-spin h-3 w-3 text-accent-primary flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
@@ -56,18 +94,28 @@ function DraftProgressBar({ draftId, onComplete }: { draftId: string; token: str
           <span>{stream.message || 'Starting analysis'}<AnimatedDots /></span>
         </span>
         <span className="text-xs text-slate-500 flex items-center gap-1.5">
-          {stream.progress > 0 && <span>{stream.progress}%</span>}
+          {pct !== null && <span>{stream.progress}%</span>}
           <span className="text-slate-600">· <ElapsedTimer startedAt={startedAt.current} /></span>
         </span>
       </div>
       <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
-          style={{ width: `${pct}%`, background: 'var(--color-accent-primary, #E5484D)' }}
-        >
-          {/* shimmer sweep — signals activity even when % is static */}
-          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer-sweep" />
-        </div>
+        {pct !== null ? (
+          // Determinate — WS is feeding progress
+          <div
+            className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+            style={{ width: `${pct}%`, background: 'var(--color-accent-primary, #E5484D)' }}
+          >
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer-sweep" />
+          </div>
+        ) : (
+          // Indeterminate — WS not yet connected or disconnected before 100%
+          <div
+            className="h-full rounded-full relative overflow-hidden w-full"
+            style={{ background: 'var(--color-accent-primary, #E5484D)', opacity: 0.35 }}
+          >
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer-sweep" />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -91,11 +139,6 @@ interface DraftsPanelProps {
   onDraftsLoaded?: (count: number) => void
 }
 
-interface CompareModalState {
-  isOpen: boolean
-  selectedDraftId: string | null
-}
-
 interface DeleteModalState {
   isOpen: boolean
   draftId: string | null
@@ -107,14 +150,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   const navigate = useNavigate()
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [loading, setLoading] = useState(true)
-  const [compareModal, setCompareModal] = useState<CompareModalState>({ isOpen: false, selectedDraftId: null })
   const [deleteModal, setDeleteModal] = useState<DeleteModalState>({ isOpen: false, draftId: null, draftTitle: '', isDeleting: false })
-  const [showTimeline, setShowTimeline] = useState(false)
-  const [timeline, setTimeline] = useState<any[]>([])
-  const [recurringPatterns, setRecurringPatterns] = useState<any[]>([])
-  const [overallObservation, setOverallObservation] = useState<string | null>(null)
-  const [patternsLoading, setPatternsLoading] = useState(false)
-  const [latestComparison, setLatestComparison] = useState<any | null>(null)
   const [inviteModal, setInviteModal] = useState<{ isOpen: boolean; inviteUrl: string; labName: string }>({
     isOpen: false, inviteUrl: '', labName: '',
   })
@@ -174,51 +210,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   useEffect(() => {
     loadDrafts()
   }, [token, projectId, refreshTrigger])
-
-  // Load timeline, recurring patterns, and latest comparison when analyzed draft count changes
-  useEffect(() => {
-    const analyzedCount = drafts.filter(d => d.status === 'analyzed').length
-    if (analyzedCount < 2) {
-      setTimeline([])
-      setRecurringPatterns([])
-      setLatestComparison(null)
-      return
-    }
-
-    // Fetch timeline (2+ analyzed drafts)
-    api.drafts.getTimeline(token, projectId)
-      .then(data => setTimeline(data.timeline || []))
-      .catch(() => {}) // non-critical
-
-    // Fetch latest comparison for VersionProgressCard
-    api.drafts.listComparisons(token, projectId)
-      .then(async (data) => {
-        const comparisons = data.comparisons || []
-        if (comparisons.length === 0) return
-        const latest = comparisons[0]
-        // Fetch full comparison details for the card
-        try {
-          const detail = await api.drafts.getComparison(token, latest.comparison_id)
-          setLatestComparison({ ...detail, v1Id: latest.draft_v1_id, v2Id: latest.draft_v2_id })
-        } catch {
-          // non-critical — just show the card without full data
-          setLatestComparison(latest)
-        }
-      })
-      .catch(() => {}) // non-critical
-
-    // Fetch recurring patterns (3+ analyzed drafts)
-    if (analyzedCount >= 3) {
-      setPatternsLoading(true)
-      api.drafts.getRecurringPatterns(token, projectId)
-        .then(data => {
-          setRecurringPatterns(data.patterns || [])
-          setOverallObservation(data.overall_observation || null)
-        })
-        .catch(() => {})
-        .finally(() => setPatternsLoading(false))
-    }
-  }, [drafts, token, projectId])
 
   // Poll for status updates if there are processing or recently-failed drafts
   useEffect(() => {
@@ -290,66 +281,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     toast.success('Invite link copied!')
   }
 
-  const getStatusBadge = (status: string): BadgeVariant => {
-    switch (status) {
-      case 'analyzed':
-        return 'success'
-      case 'processing':
-      case 'uploaded':
-        return 'warning'
-      case 'failed':
-        return 'error'
-      default:
-        return 'warning'
-    }
-  }
-
-  const getStatusLabel = (draft: Draft): string => {
-    if (draft.status === 'analyzed') return 'Processed'
-    if (draft.status === 'processing') return 'Processing...'
-    if (draft.status === 'uploaded') return 'Uploaded'
-    if (draft.status === 'failed') {
-      // If updated recently, Celery may retry — show as processing
-      const updatedAt = new Date(draft.updated_at).getTime()
-      if (Date.now() - updatedAt < 15 * 60 * 1000) return 'Processing...'
-      return 'Failed'
-    }
-    return 'Processing...'
-  }
-
-  const handleOpenCompareModal = (draftId: string) => {
-    setCompareModal({ isOpen: true, selectedDraftId: draftId })
-  }
-
-  const handleCloseCompareModal = () => {
-    setCompareModal({ isOpen: false, selectedDraftId: null })
-  }
-
-  const handleCompareWithDraft = (otherDraftId: string) => {
-    if (!compareModal.selectedDraftId) return
-
-    // Navigate to comparison page with the two draft IDs
-    // Convention: older draft first, newer draft second
-    const draft1 = drafts.find(d => d.id === compareModal.selectedDraftId)
-    const draft2 = drafts.find(d => d.id === otherDraftId)
-
-    if (!draft1 || !draft2) return
-
-    // Order by version number (or creation date if versions are equal)
-    const [olderDraft, newerDraft] = draft1.version < draft2.version
-      ? [draft1, draft2]
-      : draft2.version < draft1.version
-      ? [draft2, draft1]
-      : new Date(draft1.created_at) < new Date(draft2.created_at)
-      ? [draft1, draft2]
-      : [draft2, draft1]
-
-    navigate(`/projects/${projectId}/compare/${olderDraft.id}/${newerDraft.id}`)
-  }
-
-  // Get analyzed drafts for comparison
-  const analyzedDrafts = drafts.filter(d => d.status === 'analyzed')
-
   if (loading) {
     return <SkeletonList count={4} ItemComponent={SkeletonListItem} />
   }
@@ -368,66 +299,6 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
 
   return (
     <>
-      {/* Action buttons row */}
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        {analyzedDrafts.length >= 2 && (
-          <>
-            <button
-              onClick={() => handleOpenCompareModal(analyzedDrafts[0].id)}
-              className="px-4 py-2 bg-indigo-600/20 border-2 border-indigo-600/50 text-indigo-300 font-semibold rounded-lg hover:bg-indigo-600/30 hover:border-indigo-500 transition-all flex items-center gap-2"
-            >
-              <ArrowsRightLeftIcon className="h-5 w-5" />
-              Compare Versions
-            </button>
-            <button
-              onClick={() => setShowTimeline(v => !v)}
-              className="px-4 py-2 bg-bg-surface border border-border-default text-text-secondary font-semibold rounded-lg hover:border-accent-primary/40 hover:text-text-primary transition-all flex items-center gap-2"
-            >
-              <ClockIcon className="h-5 w-5" />
-              {showTimeline ? 'Hide History' : 'Version History'}
-            </button>
-          </>
-        )}
-        {/* Invite Lab Members — temporarily disabled, pending worktree implementation */}
-      </div>
-
-      {/* Version Timeline */}
-      {showTimeline && timeline.length > 0 && (
-        <div className="mb-4">
-          <VersionTimeline
-            projectId={projectId}
-            timeline={timeline}
-            onClose={() => setShowTimeline(false)}
-          />
-        </div>
-      )}
-
-      {/* Recurring Patterns (3+ analyzed drafts) */}
-      {analyzedDrafts.length >= 3 && (
-        <div className="mb-4">
-          <RecurringPatterns
-            patterns={recurringPatterns}
-            overallObservation={overallObservation}
-            loading={patternsLoading}
-          />
-        </div>
-      )}
-
-      {/* Version Progress Card — shows improvement trajectory when a comparison exists */}
-      {latestComparison && latestComparison.v1Id && latestComparison.v2Id && (
-        <div className="mb-4">
-          <VersionProgressCard
-            projectId={projectId}
-            comparisonId={latestComparison.comparison_id}
-            improvementScore={latestComparison.improvement_score ?? 0}
-            feedbackTracked={latestComparison.feedback_tracked ?? []}
-            narrative={latestComparison.narrative}
-            v1Id={latestComparison.v1Id}
-            v2Id={latestComparison.v2Id}
-          />
-        </div>
-      )}
-
       <div className="space-y-3">
         {drafts.map((draft) => {
           return (
@@ -478,9 +349,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                   {/* Status Badge */}
-                  <Badge variant={getStatusBadge(draft.status)}>
-                    {getStatusLabel(draft)}
-                  </Badge>
+                  <DraftStatusBadge status={draft.status} updatedAt={draft.updated_at} />
 
                   {/* Action Buttons */}
                   {draft.status === 'uploaded' && (
@@ -511,59 +380,14 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
                 </div>
               </div>
 
-              {/* Progress bar — only shown while processing */}
-              {draft.status === 'processing' && (
-                <DraftProgressBar draftId={draft.id} token={token} onComplete={silentReloadDrafts} />
+              {/* Progress bar — shown for any in-progress state */}
+              {(draft.status === 'processing' || draft.status === 'uploaded') && (
+                <DraftProgressBar draftId={draft.id} onComplete={silentReloadDrafts} />
               )}
             </div>
           )
         })}
       </div>
-
-      {/* Compare Modal */}
-      {compareModal.isOpen && compareModal.selectedDraftId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-800 border-2 border-slate-700 rounded-lg max-w-md w-full mx-4 p-6">
-            <h3 className="text-xl font-semibold text-slate-200 mb-4">Compare with Version</h3>
-            <p className="text-sm text-slate-400 mb-6">
-              Select another draft to compare with{' '}
-              <span className="font-medium text-slate-300">
-                {drafts.find(d => d.id === compareModal.selectedDraftId)?.title}
-              </span>
-            </p>
-
-            <div className="space-y-2 max-h-96 overflow-y-auto mb-6">
-              {analyzedDrafts
-                .filter(d => d.id !== compareModal.selectedDraftId)
-                .map(draft => (
-                  <button
-                    key={draft.id}
-                    onClick={() => handleCompareWithDraft(draft.id)}
-                    className="w-full text-left px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg hover:bg-slate-900 hover:border-purple-600 transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-slate-200">{draft.title}</div>
-                        <div className="text-xs text-slate-400 mt-1 font-mono">
-                          Version {draft.version} • {new Date(draft.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <ArrowsRightLeftIcon className="h-5 w-5 text-purple-400" />
-                    </div>
-                  </button>
-                ))
-              }
-            </div>
-
-            <button
-              onClick={handleCloseCompareModal}
-              className="w-full px-4 py-2 bg-slate-700 text-slate-200 font-medium rounded-lg hover:bg-slate-600 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Lab Invite Modal */}
       {inviteModal.isOpen && (

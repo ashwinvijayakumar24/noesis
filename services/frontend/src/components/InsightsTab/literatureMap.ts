@@ -13,6 +13,10 @@ export interface RecommendationRecord {
   relevance_reason?: string | null
   bib_saved?: boolean
   status?: string
+  recommendation_context?: {
+    gap_titles?: string[]
+    conflict_topics?: string[]
+  }
 }
 
 export interface CoverageItem {

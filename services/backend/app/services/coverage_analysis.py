@@ -22,8 +22,14 @@ import datetime
 
 logger = get_logger(__name__)
 
-# Initialize OpenAI client
-client = get_openai_client()
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = get_openai_client()
+    return client
 
 
 # ============================================
@@ -360,7 +366,8 @@ async def detect_coverage_gaps(draft_text: str) -> Dict[str, Any]:
 
     Validates: Requirements 4.1, 4.2, 4.4
     """
-    if not client:
+    llm_client = _get_client()
+    if not llm_client:
         raise ValueError("OpenAI API key not configured")
 
     import asyncio
@@ -385,7 +392,7 @@ async def detect_coverage_gaps(draft_text: str) -> Dict[str, Any]:
 
         async def analyze_window(window_label: str, window_text: str) -> Dict[str, Any]:
             def _sync_call():
-                response = client.chat.completions.create(
+                response = llm_client.chat.completions.create(
                     model="gpt-5.2-chat-latest",
                     messages=[
                         {"role": "system", "content": COVERAGE_ANALYSIS_PROMPT},

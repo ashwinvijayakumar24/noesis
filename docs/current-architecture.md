@@ -1,294 +1,244 @@
 # Noesis Current Architecture
 
+Last updated: May 10, 2026
+
+For product status and next priorities, read `../current_state.md`. This file describes the current architecture shape.
+
 ## Summary
 
-Noesis is a project-centered research workspace for academics. The live product loop is:
+Noesis is a project-centered research workspace for academics. The live loop is:
 
 1. sign in
 2. create a project
-3. build the literature base
+3. build a literature base
 4. generate a Literature Map
 5. discover missing papers
 6. upload a draft
-7. analyze the draft against the project literature
-8. iterate with new papers and revised drafts
+7. analyze the draft against the project literature and external candidates
+8. revise and compare versions
 
-The main workspace is the current `ProjectDetail` path. The draft deep-review experience lives on the dedicated draft analysis page.
+The main workspace is `ProjectDetail`. The full draft deep-review experience lives on `DraftAnalysis`.
 
 ## Product Surfaces
 
-### Authenticated Workspace
+### Authenticated
 
-- `Projects`
-  - dashboard of project containers
-- `ProjectDetail`
-  - the live project workspace
-  - tabs: `Literature`, `Discover`, `Drafts`, `Literature Map`
-- `DraftAnalysis`
-  - full-page analysis experience for one draft version
+- `Projects`: project list and project creation
+- `ProjectDetail`: live workspace with `Literature`, `Literature Map`, `Discover`, `Drafts`
+- `DraftAnalysis`: full analysis page for one draft version
+- `DraftComparison`: version comparison surface
+- `Pricing`: plan selection, pending production Stripe completion
 
-### Supporting Surfaces
+### Public
 
 - `Landing`
+- `Demo`
 - `Pricing`
-- `Privacy`
+- `PrivacyPolicy`
+- `Login` / `SignUp`
 
-## Core User Flow
+## Data Boundaries
 
-### 1. Create a Project
+- `projects`: durable workspace container
+- `documents`: canonical literature records for uploaded PDFs, imports, and saved recommendations
+- `document_chunks`: embedding-backed full-text retrieval substrate
+- `paper_recommendations`: Discover and Literature Map recommendation pool
+- `drafts`: manuscript versions plus upload context
+- `draft_analysis`: structured analysis payloads, Stage 1 output, metadata
+- `draft_claims`: extracted claims and anchors
+- `coverage_gaps`: missing evidence or coverage issues
+- `reviewer_feedback`: normalized critique and Reviewer 1/Reviewer 2 items
+- `draft_comparisons`: v1/v2 comparison outputs
+- `user_quotas`: enforced plan limits and usage counters
+- `subscriptions`: Stripe billing state
 
-Projects are the durable container for:
+## Backend Domains
 
-- literature
-- Literature Map outputs
-- Discover recommendations
-- drafts
-- revision history
+### Projects
 
-### 2. Build Literature
+Primary file: `services/backend/app/api/routes/projects.py`
 
-Users add papers through:
+Responsibilities:
+
+- CRUD project container
+- enforce project limits through `get_project_limit()`
+- project bundle
+- BibTeX import/export
+- Literature Map generation and retrieval
+- Literature Map quota/staleness/progress payloads
+
+Key Literature Map endpoints:
+
+```text
+POST /projects/{id}/insights/analyze
+GET  /projects/{id}/insights
+```
+
+### Documents
+
+Primary file: `services/backend/app/api/routes/documents.py`
+
+Responsibilities:
 
 - PDF upload
-- BibTeX import
-- Zotero import
-- saving recommendations from Discover or Literature Map
+- document analysis queueing
+- document metadata updates
+- export
+- resolution status
 
-Documents converge into one literature system:
+Processing path:
 
-- analyzed PDFs become full-text evidence with embeddings and structured analysis
-- unresolved BibTeX or discovered items remain metadata-only
-- document retry, rename, export, filtering, and save paths all belong to the same literature surface
+```text
+Upload -> Supabase Storage -> documents row -> Celery -> GROBID/PyMuPDF -> chunks -> embeddings -> GPT-5.2 analysis
+```
 
-### 3. Generate a Literature Map
+### Discover
 
-The Literature Map is the project-level synthesis layer. It combines:
+Current surface: `services/backend/app/api/routes/paper_recommendations.py`
 
-- freshness and quota state
-- a deterministic Coverage Snapshot
-- field overview and grounded key insights
-- research gaps and conflicts
-- top-level and inline recommended papers
+Responsibilities:
 
-The Literature Map becomes stale when the analyzed literature changes. Freshness is determined on the server.
+- generate recommendations
+- search recommendations
+- expose paginated recommendation pool
+- expose quota status
+- save recommendations into the project library
 
-### 4. Discover Missing Papers
+Key endpoints:
 
-Discover is the acquisition surface for papers not yet in the project library.
+```text
+POST /paper-recommendations/projects/{id}/generate
+POST /paper-recommendations/projects/{id}/search
+GET  /paper-recommendations/projects/{id}
+GET  /paper-recommendations/projects/{id}/quota-status
+POST /paper-recommendations/projects/{id}/save-discovered/{recommendation_id}
+```
 
-It supports:
+Legacy note: `services/backend/app/api/routes/paper_discovery.py` still exists and auto-adds papers. It should be treated as legacy cleanup unless intentionally revived.
 
-- recommendation generation
-- search-driven discovery
-- pagination
-- save
-- dismiss
+### Drafts
 
-Saved papers flow into the same `documents` table and refresh the rest of the project state through the normal literature pipeline.
+Primary file: `services/backend/app/api/routes/drafts.py`
 
-### 5. Upload and Analyze a Draft
+Responsibilities:
 
-Draft upload captures manuscript context before processing:
+- draft upload
+- paper type and citation style validation
+- draft analysis lifecycle
+- all-feedback payload
+- WebSocket progress stream
+- PDF report export
 
-- `paper_type`
-- `citation_style`
+Key endpoints:
 
-Draft analysis is split conceptually into:
+```text
+POST /drafts/upload
+GET  /drafts/{id}/all-feedback
+GET  /drafts/{id}/analysis-stream
+GET  /drafts/{id}/export-pdf
+```
 
-- Stage 1: editing and mechanical review
-- Stage 2: reviewer-style substantive critique
+Draft analysis services:
 
-The draft analysis view should surface:
+- `draft_processing.py`
+- `stage1_editing.py`
+- `reviewer1_feedback.py`
+- `reviewer_feedback.py`
+- `coverage_analysis.py`
+- `draft_external_source_discovery.py`
+- `draft_anchor_qa.py`
+- `draft_comparison.py`
 
-- editing feedback
-- reviewer feedback
-- coverage gaps
-- citation and evidence issues
-- external papers for gaps
-- version-over-version carryover and resolved items
+### Billing And Quotas
 
-### 6. Iterate
+Primary files:
 
-The product loop is:
+- `services/backend/app/services/quota_management.py`
+- `services/backend/app/services/stripe_service.py`
+- `services/backend/app/api/routes/subscriptions.py`
 
-- save missing papers
-- refresh the Literature Map when stale
-- upload a revised draft
-- compare versions
-- confirm which issues were resolved
+Quota model:
 
-## Backend Architecture
+- per-user, not per-project
+- Free: 3 projects, 30 PDFs/month, 30 BibTeX refs/month, 2 drafts/month, 5 Discover actions/day, 5 Literature Map refreshes/day
+- Pro: 10 projects, 100 PDFs/month, 100 BibTeX refs/month, 20 drafts/month, 50 Discover actions/day, unlimited Literature Map refreshes
+- Team/Enterprise/Admin: effectively unlimited usage with hard caps
 
-### Primary Route Domains
+Stripe caveat:
 
-- `projects`
-  - project container
-  - project bundle
-  - Literature Map generation and retrieval
-  - BibTeX project import and export
-- `documents`
-  - PDF upload
-  - document retry
-  - document export and metadata updates
-- `paper_recommendations`
-  - Discover generation
-  - search
-  - pagination
-  - save and dismiss
-- `drafts`
-  - draft upload
-  - analysis lifecycle
-  - WebSocket progress
-  - all-feedback and gap paper lookup
-- `subscriptions`
-  - billing and plan checkout
-- `auth`
-  - auth and quota summary
-
-### Shared Services
-
-- `quota_management`
-  - canonical per-user enforcement source
-- `stripe_service`
-  - syncs billing state into enforced quota state
-- `progress_tracking`
-  - shared progress snapshots for polling-based workflows
-- `project_insights`
-  - Literature Map synthesis and validation
-- `paper_recommendations`
-  - recommendation generation and context grouping
-- draft-analysis services
-  - draft processing
-  - stage 1 editing
-  - reviewer feedback
-  - draft comparison
-  - coverage analysis
-
-## Data Model Boundaries
-
-### Core Records
-
-- `projects`
-  - container for the workspace and Literature Map state
-- `documents`
-  - canonical literature records for PDFs, imports, and saved recommendations
-- `document_chunks`
-  - embedding-backed retrieval substrate for analyzed full text
-- `paper_recommendations`
-  - Discover inventory plus Literature Map recommendation context
-- `drafts`
-  - manuscript versions with upload context
-- `draft_analysis`
-  - structured outputs for a draft version
-- `reviewer_feedback`
-  - normalized per-item critique and resolution state
-- `user_quotas`
-  - single source of truth for enforced plan limits
-
-### Draft Analysis Record Split
-
-- `structure`
-  - extracted manuscript structure
-- `analysis`
-  - substantive outputs like `editing_feedback`
-- `analysis_metadata`
-  - runtime, scoring, and processing details
+The code has checkout, webhook handlers, and quota sync, but production billing is not done. Live price IDs, webhook verification, billing portal behavior, and checkout-to-quota-upgrade testing are still required.
 
 ## Processing Model
 
-### Polling Workflows
+### Polling / Progress Snapshot
 
 - document analysis
 - Literature Map generation
 
-These expose `status` plus progress snapshots.
+Shared progress helpers live in `services/backend/app/services/progress_tracking.py`.
 
-### Streaming Workflow
+### Streaming
 
-- draft analysis
+- draft analysis progress stream
 
-This remains the real-time workflow and uses the draft analysis WebSocket stream.
+Draft workflow progress is published from `services/backend/app/workflows/draft_analysis/graph.py`.
 
-### Synchronous Actions
+### Synchronous
 
 - project creation
-- save recommendation
-- dismiss recommendation
-- rename/update metadata
+- document rename/update metadata
+- save/dismiss recommendation
 - export
+- quota-status reads
 
-## Public Interface Expectations
+## AI Model Use
 
-### Project Bootstrap
+- GPT-5.2 / `gpt-5.2-chat-latest`: substantive document analysis, Literature Map, claim extraction, reviewer critique
+- `gpt-5-mini`: Stage 1 mechanical editing
+- Embeddings: mostly `text-embedding-3-large` in RAG paths, with 1536-dimensional storage compatibility; some comparison paths use `text-embedding-3-small`
 
-- `GET /projects/{id}/bundle`
-  - project metadata plus attached documents
+Do not use `max_tokens` in GPT-5.2 calls.
 
-### Literature Map
+## Frontend Architecture
 
-- `POST /projects/{id}/insights/analyze`
-  - starts Literature Map generation
-- `GET /projects/{id}/insights`
-  - single source of truth for Literature Map UI state
+Primary pages:
 
-### Discover
+- `ProjectDetail.tsx`: workspace tabs and project loop
+- `DraftAnalysis.tsx`: full draft review experience
+- `Pricing.tsx`: plan copy and checkout trigger
+- `Landing.tsx`: GTM positioning
+- `PrivacyPolicy.tsx`: privacy/no-training assurances
 
-- `POST /paper-recommendations/projects/{id}/generate`
-- `POST /paper-recommendations/projects/{id}/search`
-- `GET /paper-recommendations/projects/{id}`
-- `POST /paper-recommendations/projects/{id}/save-discovered/{recommendation_id}`
+Primary components:
 
-### Drafts
+- `InsightsTab/`: Literature Map
+- `DiscoverTab/`: Discover
+- `DraftAnalysisModal.tsx`: draft upload/status entry
+- `draft-analysis/*`: draft feedback panels, filters, cards, action items
+- `literature/*`: literature cards and imported references
 
-- `POST /drafts/upload`
-- `GET /drafts/{id}/all-feedback`
-- `POST /drafts/{id}/gaps/{gap_id}/find-papers`
-- `GET /drafts/{id}/analysis-stream`
+Design source: `services/frontend/tailwind.config.js`.
 
-## UX Rules
+## Known Architectural Gaps
 
-### Trust
-
-- private by default
-- files stay in the user workspace
-- files are not used to train models
-
-### Long-Running Work
-
-- document analysis and Literature Map use polling plus progress
-- draft analysis uses WebSocket progress
-- structured errors should expose the next action, not just raw failure text
-
-### Quotas
-
-Quotas are per user, not per project.
-
-Current plan model:
-
-- Free
-  - 30 PDFs/month total
-  - 30 BibTeX refs/month total
-  - 2 draft analyses/month
-  - 5 Discover actions/day
-  - 5 Literature Map refreshes/day
-- Pro
-  - 100 PDFs/month total
-  - 100 BibTeX refs/month total
-  - 20 draft analyses/month
-  - 50 Discover actions/day
-  - unlimited Literature Map refreshes
-- Team
-  - effectively unlimited usage
+- Production Stripe remains unfinished.
+- Collaboration and shared lab workspaces are not implemented.
+- Inline editing/Overleaf workflow is not implemented.
+- PDF figure/table/caption extraction is weak.
+- Exact text anchors and claim support scoring need further work.
+- Legacy Discover route should be deleted or fully deprecated.
+- Structured error surfaces are inconsistent across frontend workflows.
 
 ## Acceptance Shape
 
-If the architecture is functioning correctly, a user should be able to:
+A healthy Noesis build lets a researcher:
 
 1. create a project
-2. upload or import literature
+2. upload/import literature
 3. generate a Literature Map
-4. save missing papers into the project library
-5. upload a draft with manuscript context
-6. receive editing and reviewer-style analysis
-7. revise and re-upload
-8. see what resolved and what still persists
+4. save missing papers
+5. upload a draft with context
+6. receive Stage 1 and reviewer-style feedback
+7. jump from feedback to the relevant draft text where possible
+8. revise and compare versions
+9. understand quota/payment state clearly

@@ -1,4 +1,6 @@
-# Noesis — Create-X Startup Launch Pitch Deck Guide
+# Noesis - Historical Create-X Startup Launch Pitch Deck Guide
+
+> May 10, 2026 note: Historical fundraising/pitch material. Use `../../current_state.md` for current product, pricing, and outreach status.
 
 > **CEO Advisory Note:** This guide has been sharpened with a CEO lens for narrative, market sizing, competitive positioning, and Create-X-specific framing. Every slide has a "why this works" rationale. Read the Execution section at the end before building.
 

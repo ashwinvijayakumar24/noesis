@@ -57,41 +57,4 @@ describe('DraftAnalysis helpers', () => {
     expect(result.citation_issues).toEqual([])
   })
 
-  it('marks still-pending and partially-addressed feedback as carryover badges', async () => {
-    const { buildCarryoverBadgeMap } = await import('./DraftAnalysis')
-
-    const badges = buildCarryoverBadgeMap(
-      [
-        { id: 'f-1', feedback_text: 'The methodology section does not justify sample selection.' },
-        { id: 'f-2', feedback_text: 'Results overclaim statistical significance.' },
-        { id: 'f-3', feedback_text: 'Novel framing is clearer in this version.' },
-      ] as any,
-      {
-        feedback_tracked: [
-          {
-            feedback_text: 'methodology section does not justify sample selection',
-            resolution_status: 'still_pending',
-          },
-          {
-            feedback_text: 'results overclaim statistical significance',
-            resolution_status: 'partially_addressed',
-          },
-          {
-            feedback_text: 'novel framing is clearer in this version',
-            resolution_status: 'resolved',
-          },
-        ],
-      },
-    )
-
-    expect(badges['f-1']).toEqual({
-      label: 'Carryover from previous version',
-      tone: 'warning',
-    })
-    expect(badges['f-2']).toEqual({
-      label: 'Partially addressed in revision',
-      tone: 'accent',
-    })
-    expect(badges['f-3']).toBeUndefined()
-  })
 })

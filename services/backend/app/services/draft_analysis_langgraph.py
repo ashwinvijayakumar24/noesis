@@ -15,6 +15,18 @@ import asyncio
 logger = get_logger(__name__)
 
 
+ANCHOR_DB_FIELDS = ("line_number", "char_start", "char_end", "text_snippet")
+
+
+def _anchor_fields(item: dict) -> dict:
+    """Return anchor fields supported by the current draft_claims/coverage_gaps schema."""
+    return {
+        key: item.get(key)
+        for key in ANCHOR_DB_FIELDS
+        if item.get(key) is not None
+    }
+
+
 async def analyze_draft_with_langgraph(
     draft_id: str,
     project_id: str,
@@ -48,6 +60,26 @@ async def analyze_draft_with_langgraph(
     logger.info(f"[LangGraph Draft Analysis] draft_content length={len(draft_content)} chars")
 
     try:
+        existing_analysis_res = supabase.table("draft_analysis")\
+            .select("analysis, analysis_metadata")\
+            .eq("draft_id", draft_id)\
+            .limit(1)\
+            .execute()
+        existing_analysis = {}
+        existing_metadata = {}
+        if existing_analysis_res.data:
+            existing_analysis = existing_analysis_res.data[0].get("analysis") or {}
+            existing_metadata = existing_analysis_res.data[0].get("analysis_metadata") or {}
+
+        draft_context_res = supabase.table("drafts")\
+            .select("paper_type, citation_style")\
+            .eq("id", draft_id)\
+            .limit(1)\
+            .execute()
+        draft_context = draft_context_res.data[0] if draft_context_res.data else {}
+        paper_type = draft_context.get("paper_type") or existing_metadata.get("paper_type")
+        citation_style = draft_context.get("citation_style") or existing_metadata.get("citation_style")
+
         # Run the LangGraph workflow
         logger.info(f"[LangGraph Draft Analysis] Calling run_draft_analysis_workflow...")
         final_state = await run_draft_analysis_workflow(
@@ -55,6 +87,9 @@ async def analyze_draft_with_langgraph(
             project_id=project_id,
             user_id=user_id,
             draft_content=draft_content,
+            paper_type=paper_type,
+            citation_style=citation_style,
+            analysis=existing_analysis,
             checkpoint_enabled=True
         )
         logger.info(f"[LangGraph Draft Analysis] Workflow completed, processing results...")
@@ -69,8 +104,7 @@ async def analyze_draft_with_langgraph(
         synthesis_report = final_state.get("synthesis_report", {})
         errors = final_state.get("errors", [])
 
-        # Merge structural feedback into total feedback list for readiness scoring
-        all_feedback = list(feedback) + list(structural_feedback)
+        all_feedback = list(feedback)
 
         logger.info(
             f"[LangGraph Draft Analysis] Workflow completed: "
@@ -167,24 +201,6 @@ async def analyze_draft_with_langgraph(
             except Exception as doc_err:
                 logger.warning(f"[LangGraph Draft Analysis] Could not fetch doc metadata for display: {doc_err}")
 
-        existing_analysis_res = supabase.table("draft_analysis")\
-            .select("analysis, analysis_metadata")\
-            .eq("draft_id", draft_id)\
-            .limit(1)\
-            .execute()
-        existing_analysis = {}
-        existing_metadata = {}
-        if existing_analysis_res.data:
-            existing_analysis = existing_analysis_res.data[0].get("analysis") or {}
-            existing_metadata = existing_analysis_res.data[0].get("analysis_metadata") or {}
-
-        draft_context_res = supabase.table("drafts")\
-            .select("paper_type, citation_style")\
-            .eq("id", draft_id)\
-            .limit(1)\
-            .execute()
-        draft_context = draft_context_res.data[0] if draft_context_res.data else {}
-
         # ============================================================
         # 1. Store draft_analysis (structure and initial metadata)
         # ============================================================
@@ -198,7 +214,7 @@ async def analyze_draft_with_langgraph(
                 "workflow_type": "langgraph",
                 "total_claims": len(claims),
                 "total_gaps": len(gaps),
-                "total_feedback": len(all_feedback),
+                "total_feedback": len(all_feedback) + len(structural_feedback),
                 "errors": errors,
                 "timestamp": datetime.datetime.utcnow().isoformat(),
                 "paper_type": draft_context.get("paper_type", existing_metadata.get("paper_type")),
@@ -258,6 +274,7 @@ async def analyze_draft_with_langgraph(
                     "requires_citation": claim.get("requires_citation", True),
                     "max_similarity": citation_info["similarity"] if citation_info else 0.0,
                     "supporting_literature": supporting_lit,
+                    **_anchor_fields(claim),
                     "created_at": datetime.datetime.utcnow().isoformat()
                 })
 
@@ -284,6 +301,7 @@ async def analyze_draft_with_langgraph(
                     "priority": db_priority,
                     "suggested_papers": gap.get("suggested_papers", []),
                     "reasoning": gap.get("reasoning", ""),
+                    **_anchor_fields(gap),
                     "created_at": datetime.datetime.utcnow().isoformat()
                 })
 
@@ -329,6 +347,84 @@ async def analyze_draft_with_langgraph(
                 "created_at": datetime.datetime.utcnow().isoformat(),
             }
 
+        def _panel_feedback_rows(meta_review: dict | None, reviewer_outputs: list[dict]) -> list[dict]:
+            """
+            Convert the peer-review panel/meta-review into the legacy flat
+            reviewer_feedback surface so /all-feedback and existing UI tabs keep
+            showing the new peer-review conclusions.
+            """
+            if not meta_review:
+                return []
+
+            rows = []
+            for item in meta_review.get("must_address") or []:
+                rows.append({
+                    "draft_id": draft_id,
+                    "feedback_type": "weakness",
+                    "feedback_text": item,
+                    "severity": "critical",
+                    "reviewer_persona": "area_chair",
+                    "reviewer_id": "area_chair",
+                    "section_reference": "",
+                    "specific_issue": item,
+                    "suggestions": [],
+                    "qa_status": "skipped",
+                    "qa_notes": [],
+                    "created_at": datetime.datetime.utcnow().isoformat(),
+                })
+
+            for item in (meta_review.get("consensus_strengths") or [])[:3]:
+                rows.append({
+                    "draft_id": draft_id,
+                    "feedback_type": "strength",
+                    "feedback_text": item,
+                    "severity": "suggestion",
+                    "reviewer_persona": "area_chair",
+                    "reviewer_id": "area_chair",
+                    "section_reference": "",
+                    "specific_issue": "",
+                    "suggestions": [],
+                    "qa_status": "skipped",
+                    "qa_notes": [],
+                    "created_at": datetime.datetime.utcnow().isoformat(),
+                })
+
+            for item in (meta_review.get("nice_to_address") or [])[:4]:
+                rows.append({
+                    "draft_id": draft_id,
+                    "feedback_type": "suggestion",
+                    "feedback_text": item,
+                    "severity": "minor",
+                    "reviewer_persona": "area_chair",
+                    "reviewer_id": "area_chair",
+                    "section_reference": "",
+                    "specific_issue": item,
+                    "suggestions": [],
+                    "qa_status": "skipped",
+                    "qa_notes": [],
+                    "created_at": datetime.datetime.utcnow().isoformat(),
+                })
+
+            for reviewer in reviewer_outputs:
+                reviewer_id = reviewer.get("reviewer_id") or "reviewer"
+                for question in (reviewer.get("questions_to_authors") or [])[:2]:
+                    rows.append({
+                        "draft_id": draft_id,
+                        "feedback_type": "question",
+                        "feedback_text": question,
+                        "severity": "major",
+                        "reviewer_persona": reviewer_id,
+                        "reviewer_id": reviewer_id,
+                        "section_reference": "",
+                        "specific_issue": question,
+                        "suggestions": [],
+                        "qa_status": "skipped",
+                        "qa_notes": [],
+                        "created_at": datetime.datetime.utcnow().isoformat(),
+                    })
+
+            return rows
+
         feedback_data = [_fb_row(fb) for fb in all_feedback if fb.get("feedback_text")]
 
         # Structural feedback always reflects current draft state
@@ -346,11 +442,19 @@ async def analyze_draft_with_langgraph(
                 "created_at": datetime.datetime.utcnow().isoformat(),
             })
 
+        panel_rows = _panel_feedback_rows(
+            final_state.get("meta_review"),
+            final_state.get("judged_reviewer_outputs") or final_state.get("reviewer_outputs") or [],
+        )
+        feedback_data.extend(panel_rows)
+
         if feedback_data:
             supabase.table("reviewer_feedback").insert(feedback_data).execute()
             logger.info(f"[LangGraph Draft Analysis] Stored {len(feedback_data)} feedback items (replaced stale)")
 
         # Reviewer 1 strengths — generated fresh each run (no skip guard)
+        r1_items = []
+        r1_rows = []
         try:
             from app.services.reviewer1_feedback import generate_reviewer1_feedback
             r1_items = await generate_reviewer1_feedback(
@@ -489,8 +593,13 @@ async def analyze_draft_with_langgraph(
             logger.warning(f"[LangGraph Draft Analysis] synthesize_action_items failed (non-fatal): {action_err}")
 
         # 6d. Update draft_analysis.analysis_metadata with enriched data
+        total_feedback = len(feedback_data) + len(r1_rows)
         try:
-            total_feedback = len(scoring_feedback) if "scoring_feedback" in locals() else len(all_feedback) + len(r1_items)
+            total_feedback = (
+                len(scoring_feedback)
+                if "scoring_feedback" in locals()
+                else len(feedback_data) + len(r1_rows)
+            )
             enriched_metadata = {
                 **existing_metadata,
                 "workflow_type": "langgraph",
@@ -506,6 +615,11 @@ async def analyze_draft_with_langgraph(
                 "verdict": readiness_result.get("verdict"),
                 "score_breakdown": readiness_result.get("score_breakdown", {}),
                 "action_items": action_items,
+                # Phase 4 judge outputs
+                "citation_judge": final_state.get("citation_judge_output"),
+                "reviewer_judge": final_state.get("reviewer_judge_output"),
+                # editor_decision stored here for API retrieval
+                "editor_decision": final_state.get("editor_decision"),
             }
             supabase.table("draft_analysis").update(
                 {"analysis_metadata": enriched_metadata}
@@ -547,7 +661,7 @@ async def analyze_draft_with_langgraph(
                     "methodological": sum(1 for c in claims if c.get("claim_type") == "methodological")
                 },
                 "total_gaps": len(gaps),
-                "total_feedback": len(all_feedback),
+                "total_feedback": total_feedback,
                 "total_citation_suggestions": total_citation_suggestions,
                 "readiness_score": readiness_result.get("readiness_score"),
                 "verdict": readiness_result.get("verdict"),

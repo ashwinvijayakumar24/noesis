@@ -111,6 +111,40 @@ def test_health_route_does_not_echo_arbitrary_origin(client: TestClient):
 
 
 @pytest.mark.unit
+def test_suspicious_query_is_rejected_without_server_error(client: TestClient):
+    response = client.get("/index.php?lang=../../../../../../../../tmp/index1")
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid request"}
+
+
+@pytest.mark.unit
+def test_sensitive_path_probe_is_rejected_before_auth(client: TestClient):
+    response = client.get("/projects/.env")
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid request"}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/projects/.env",
+        "/.env.local",
+        "/index.php",
+        "/wp-login.php",
+        "/xmlrpc.php",
+        "/.git/config",
+    ],
+)
+def test_known_scanner_paths_are_classified_as_sensitive(path: str):
+    from app.core.security_middleware import is_sensitive_probe_path
+
+    assert is_sensitive_probe_path(path) is True
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "path",
     [

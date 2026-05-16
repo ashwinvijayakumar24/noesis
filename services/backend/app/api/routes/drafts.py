@@ -54,6 +54,78 @@ def _normalize_reviewer_persona(value: Optional[str]) -> str:
     return value if value in {"reviewer_1", "reviewer_2"} else "reviewer_2"
 
 
+def _get_revision_metadata(draft_id: str) -> dict[str, Any]:
+    """
+    Best-effort compatibility payload for revision-aware UI.
+
+    The comparison workflow may be absent for new peer-review runs, so callers
+    should always receive a stable shape instead of an undefined variable.
+    """
+    metadata: dict[str, Any] = {
+        "has_previous_version": False,
+        "comparison_id": None,
+        "previous_draft_id": None,
+        "improvement_score": None,
+        "feedback_addressed": 0,
+        "gaps_resolved": 0,
+        "feedback_carryover_count": 0,
+        "gap_carryover_count": 0,
+        "feedback_carryover": [],
+        "gap_carryover": [],
+    }
+
+    try:
+        comparison_res = (
+            supabase.table("draft_comparisons")
+            .select("*")
+            .eq("draft_v2_id", draft_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return metadata
+
+    if not comparison_res.data:
+        return metadata
+
+    comparison = comparison_res.data[0]
+    result = comparison.get("comparison_result") or {}
+    feedback_carryover = result.get("feedback_carryover") or []
+    gap_carryover = result.get("gap_carryover") or []
+
+    metadata.update({
+        "has_previous_version": True,
+        "comparison_id": comparison.get("id"),
+        "previous_draft_id": comparison.get("draft_v1_id"),
+        "improvement_score": comparison.get("improvement_score"),
+        "feedback_addressed": comparison.get("feedback_addressed", 0),
+        "gaps_resolved": comparison.get("gaps_resolved", 0),
+        "feedback_carryover_count": len(feedback_carryover),
+        "gap_carryover_count": len(gap_carryover),
+        "feedback_carryover": feedback_carryover,
+        "gap_carryover": gap_carryover,
+    })
+    return metadata
+
+
+def _apply_feedback_carryover_metadata(feedback: list[dict[str, Any]], revision_metadata: dict[str, Any]) -> None:
+    carryover_by_id = {
+        item.get("feedback_id"): item
+        for item in revision_metadata.get("feedback_carryover", [])
+        if item.get("feedback_id")
+    }
+
+    for item in feedback:
+        carryover = carryover_by_id.get(item.get("id"))
+        if carryover:
+            item["carryover_from_previous_version"] = True
+            item["previous_feedback_id"] = carryover.get("previous_feedback_id")
+            item["previous_feedback_text"] = carryover.get("previous_feedback_text")
+        else:
+            item["carryover_from_previous_version"] = False
+
+
 def _validate_upload_context(paper_type: str, citation_style: str) -> tuple[str, str]:
     normalized_paper_type = (paper_type or "journal_article").strip().lower()
     normalized_citation_style = (citation_style or "apa").strip().lower()
@@ -71,53 +143,6 @@ def _validate_upload_context(paper_type: str, citation_style: str) -> tuple[str,
         )
 
     return normalized_paper_type, normalized_citation_style
-
-
-def _get_latest_revision_metadata(draft_id: str, user_id: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    empty_metadata = {
-        "has_previous_version": False,
-        "comparison_id": None,
-        "draft_v1_id": None,
-        "draft_v2_id": draft_id,
-        "improvement_score": None,
-        "feedback_resolved_count": 0,
-        "feedback_carryover_count": 0,
-        "gaps_resolved_count": 0,
-    }
-
-    comparison_response = supabase.table("draft_comparisons")\
-        .select("*")\
-        .eq("draft_v2_id", draft_id)\
-        .eq("user_id", user_id)\
-        .order("created_at", desc=True)\
-        .limit(1)\
-        .execute()
-
-    if not comparison_response.data:
-        return empty_metadata, {}
-
-    comparison = comparison_response.data[0]
-    comparison_result = comparison.get("comparison_result") or {}
-    carryover_items = comparison_result.get("feedback_carryover") or []
-    carryover_map = {
-        item["feedback_id"]: item
-        for item in carryover_items
-        if item.get("feedback_id")
-    }
-
-    return (
-        {
-            "has_previous_version": True,
-            "comparison_id": comparison.get("id"),
-            "draft_v1_id": comparison.get("draft_v1_id"),
-            "draft_v2_id": comparison.get("draft_v2_id"),
-            "improvement_score": comparison.get("improvement_score"),
-            "feedback_resolved_count": comparison.get("feedback_addressed", 0),
-            "feedback_carryover_count": len(carryover_map),
-            "gaps_resolved_count": comparison.get("gaps_resolved", 0),
-        },
-        carryover_map,
-    )
 
 
 def _load_draft_anchor_context(draft_id: str) -> tuple[str, list[dict[str, Any]]]:
@@ -170,9 +195,6 @@ def _apply_anchor_to_item(
             continue
         if (anchor.get("match_confidence") or 0) < min_confidence:
             continue
-        if not anchor.get("pdf_coordinates"):
-            continue
-
         enriched = dict(item)
         for key in (
             "line_number",
@@ -213,7 +235,7 @@ def _enrich_feedback_payload_with_anchors(
     ]
     claim_anchor_map = {
         str(claim.get("id")): claim for claim in enriched_claims
-        if claim.get("id") and claim.get("pdf_coordinates")
+        if claim.get("id") and (claim.get("pdf_coordinates") or claim.get("text_snippet") or claim.get("line_number"))
     }
 
     enriched_gaps = [
@@ -323,7 +345,7 @@ def get_current_user(authorization: str = Header(None)):
     try:
         return SecureAuthValidator.get_user_id(authorization, supabase)
     except Exception as e:
-        logger.error(f"Token validation failed: {str(e)}")
+        logger.warning(f"Token validation failed: {str(e)}")
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired token"  # Don't expose error details
@@ -1021,43 +1043,6 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
             # Don't fail the analysis if tracking fails
             print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Failed to track quota/usage: {tracking_error}")
 
-        # Auto-trigger comparison if a previous analyzed draft exists in the project
-        print(f"[DRAFT-ANALYZE-BG-LG] ========== STEP 5: AUTO-COMPARISON ==========")
-        try:
-            if project_id:
-                # Find the most recent *other* analyzed draft in this project
-                prev_drafts = supabase.table("drafts")\
-                    .select("id, created_at")\
-                    .eq("project_id", project_id)\
-                    .eq("status", "analyzed")\
-                    .neq("id", draft_id)\
-                    .order("created_at", desc=True)\
-                    .limit(1)\
-                    .execute()
-
-                if prev_drafts.data:
-                    prev_draft_id = prev_drafts.data[0]["id"]
-                    print(f"[DRAFT-ANALYZE-BG-LG] Found previous analyzed draft: {prev_draft_id}")
-
-                    from app.services.draft_comparison import compare_drafts as run_compare
-                    loop2 = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop2)
-                    loop2.run_until_complete(
-                        run_compare(
-                            draft_v1_id=prev_draft_id,
-                            draft_v2_id=draft_id,
-                            project_id=project_id,
-                            user_id=user_id
-                        )
-                    )
-                    loop2.close()
-                    print(f"[DRAFT-ANALYZE-BG-LG] ✓ Auto-comparison completed")
-                else:
-                    print(f"[DRAFT-ANALYZE-BG-LG] No previous draft to compare against, skipping")
-        except Exception as cmp_err:
-            print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Auto-comparison failed: {cmp_err}")
-            # Don't fail the overall task if comparison fails
-
         print(f"[DRAFT-ANALYZE-BG-LG] ========== BACKGROUND TASK COMPLETED SUCCESSFULLY ==========")
 
     except Exception as e:
@@ -1193,7 +1178,22 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
             analysis_data = analysis_response.data[0]
             analysis_metadata = analysis_data.get("analysis_metadata") or {}
             analysis_payload = analysis_data.get("analysis") or {}
-            revision_metadata, _ = _get_latest_revision_metadata(draft_id, user_id)
+            # Fetch reviewer panel outputs (Phase 3)
+            try:
+                panel_res = supabase.table("reviewer_panel_outputs").select("*").eq("draft_id", draft_id).execute()
+                reviewer_panel = panel_res.data or []
+            except Exception:
+                reviewer_panel = []
+
+            # Fetch meta review (Phase 3)
+            try:
+                meta_res = supabase.table("meta_reviews").select("*").eq("draft_id", draft_id).limit(1).execute()
+                meta_review = meta_res.data[0] if meta_res.data else None
+            except Exception:
+                meta_review = None
+
+            revision_metadata = _get_revision_metadata(draft_id)
+
             return {
                 "status": status,
                 "draft_id": draft_id,
@@ -1202,13 +1202,20 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
                 "editing_feedback": analysis_payload.get("editing_feedback"),
                 "paper_type": draft.get("paper_type", "journal_article"),
                 "citation_style": draft.get("citation_style", "apa"),
-                "revision_metadata": revision_metadata,
                 "priority_actions": analysis_metadata.get("priority_actions", []),
                 # Enriched output fields
                 "readiness_score": analysis_metadata.get("readiness_score"),
                 "verdict": analysis_metadata.get("verdict"),
                 "score_breakdown": analysis_metadata.get("score_breakdown", {}),
                 "action_items": analysis_metadata.get("action_items", []),
+                # Phase 3 peer review panel
+                "editor_decision": analysis_metadata.get("editor_decision"),
+                "reviewer_panel": reviewer_panel,
+                "meta_review": meta_review,
+                # Phase 4 judge outputs
+                "citation_judge": analysis_metadata.get("citation_judge"),
+                "reviewer_judge": analysis_metadata.get("reviewer_judge"),
+                "revision_metadata": revision_metadata,
             }
         elif status == "processing":
             return {
@@ -1572,15 +1579,10 @@ async def get_all_feedback(
         claims = claims_response.data or []
         gaps = _filter_feedback_diagnostics(gaps_response.data or [], "description")
         feedback = _filter_feedback_diagnostics(feedback_response.data or [], "feedback_text")
-        revision_metadata, carryover_map = _get_latest_revision_metadata(draft_id, user_id)
-
         for item in feedback:
             item["reviewer_persona"] = _normalize_reviewer_persona(item.get("reviewer_persona"))
-            carryover = carryover_map.get(item.get("id"))
-            item["carryover_from_previous_version"] = carryover is not None
-            item["carryover_status"] = "carried_over" if carryover else None
-            item["previous_feedback_text"] = carryover.get("previous_feedback_text") if carryover else None
-            item["previous_feedback_id"] = carryover.get("previous_feedback_id") if carryover else None
+        revision_metadata = _get_revision_metadata(draft_id)
+        _apply_feedback_carryover_metadata(feedback, revision_metadata)
 
         # Apply actionable_only filtering
         if actionable_only:
@@ -1592,6 +1594,13 @@ async def get_all_feedback(
                 f for f in feedback
                 if f.get("feedback_type") != "strength"
             ]
+
+        claims, gaps, feedback = _enrich_feedback_payload_with_anchors(
+            draft_id,
+            claims,
+            gaps,
+            feedback,
+        )
 
         # Compute aggregated counts
         claims_needing_citation = len([c for c in claims if c.get("requires_citation") is True])

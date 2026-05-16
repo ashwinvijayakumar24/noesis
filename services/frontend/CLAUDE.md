@@ -1,35 +1,69 @@
 # Frontend Context
 
+Last updated: May 10, 2026
+
+Read `../../current_state.md` before broad frontend changes.
+
 ## Stack
-React 18.3, TypeScript 5.5, Vite 7.2, TailwindCSS 3, @heroicons/react/24/outline
 
-## Design Rules (source of truth: `tailwind.config.js`)
-- Background: `bg-bg-void` (#0F0F14), `bg-bg-surface` (#18181F)
-- Accent: `text-accent-primary` / `bg-accent-primary` (#E5484D)
-- Borders: `border border-border-default` (rgba(255,255,255,0.08))
-- Max radius: `rounded-xl` — NEVER `rounded-2xl` or `rounded-3xl`
-- Headings: `font-semibold` — NEVER `font-bold`
-- Transitions: `duration-fast` (150ms)
-- Icons: `@heroicons/react/24/outline` only
+- React 19
+- TypeScript 5.9
+- Vite 7.2
+- Tailwind package v4 with local `tailwind.config.js` tokens
+- React Router 7
+- Supabase client auth
+- `@heroicons/react/24/outline`
 
-## Component Patterns
-```tsx
-// Standard card
-<div className="bg-bg-surface border border-border-default rounded-xl p-4">
+## Current Product Surfaces
 
-// Primary button
-<button className="bg-accent-primary hover:bg-accent-hover text-white font-semibold rounded-lg px-4 py-2 transition-colors duration-fast">
+- `src/pages/ProjectDetail.tsx`: live project workspace
+- `src/pages/DraftAnalysis.tsx`: full draft review view
+- `src/pages/Pricing.tsx`: plan copy and checkout trigger; Stripe is not production-finished
+- `src/pages/Landing.tsx`: current GTM positioning
+- `src/pages/PrivacyPolicy.tsx`: privacy/no-training copy
 
-// Muted text
-<p className="text-text-muted text-sm">
+Primary tabs in the workspace:
+
+- `Literature`
+- `Literature Map`
+- `Discover`
+- `Drafts`
+
+Chat is not a core product surface.
+
+## Design Rules
+
+Source of truth: `services/frontend/tailwind.config.js`
+
+- Background: `bg-bg-void`, `bg-bg-surface`
+- Accent: `accent-primary` / `#E5484D`
+- Borders: `border-border-default`
+- Max radius: `rounded-xl`; never `rounded-2xl` or `rounded-3xl`
+- Headings: `font-semibold`; avoid `font-bold`
+- Transitions: `duration-fast`
+- Icons: `@heroicons/react/24/outline`
+
+## Component Guidance
+
+- Reuse existing UI primitives in `src/components/ui/`.
+- Keep SaaS/research UI dense, quiet, and utilitarian.
+- Do not add marketing-style hero treatment inside authenticated tools.
+- Use precise workflow language: Literature Map, Discover, Draft Analysis.
+- Keep privacy copy visible around draft/document upload contexts.
+
+## Current Frontend Priorities
+
+1. Finish Stripe pricing/checkout UX once backend production config is ready.
+2. Strengthen collaboration UX once backend shared projects exist.
+3. Add inline editing/Overleaf workflow surfaces.
+4. Improve feedback-to-document anchoring UX.
+5. Make structured errors visible for uploads, BibTeX, quotas, and analysis failures.
+
+## Verification
+
+```bash
+cd services/frontend
+npm run build
+npm run lint
+npm run test
 ```
-
-## Key Files
-- `tailwind.config.js` — source of truth for all design tokens
-- `src/lib/api.ts` — all API calls go through this
-- `src/components/` — reuse before creating new components
-
-## Rules
-- Never use inline styles for colors/spacing — always Tailwind tokens
-- All API calls use `api.` namespace from `src/lib/api.ts`
-- Auth state from Supabase via `useAuth()` hook

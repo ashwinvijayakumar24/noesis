@@ -8,16 +8,24 @@ B4: Hard output constraints to prevent generic advice.
 """
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, Feedback
+from app.workflows.draft_analysis.schemas import ReviewerFeedbackOutput
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.draft_anchor_qa import attach_feedback_qa, select_failed_feedback_for_retry
+from app.services.retry_utils import parse_chat_completion_with_retries_sync
 import json
 
 logger = get_logger(__name__)
 
-# Initialize OpenAI client
-client = get_openai_client()
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = get_openai_client()
+    return client
 
 
 # B4: Hard constraints added to require specific, anchored feedback
@@ -407,33 +415,35 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
                     context += f"    External sources found: {external_source_context}\n"
 
         # B4: B5 token limit increased to 6000 for detailed per-claim feedback
-        response = client.chat.completions.create(
+        response = parse_chat_completion_with_retries_sync(
+            _get_client(),
             model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": REVIEWER_FEEDBACK_PROMPT},
                 {"role": "user", "content": f"Generate reviewer feedback based on this analysis:\n\n{context}"}
             ],
             max_completion_tokens=6000,
+            response_format=ReviewerFeedbackOutput,
             **get_completion_params()
         )
 
-        result = json.loads(response.choices[0].message.content)
+        result = response.parsed
 
         # Convert to typed Feedback objects
         feedback_items: list[Feedback] = []
-        for item in result.get("feedback_items", []):
+        for item in result.feedback_items:
             feedback: Feedback = {
-                'feedback_type': item['feedback_type'],
-                'feedback_text': item['feedback_text'],
-                'severity': item['severity'],
-                'section_reference': item.get('section_reference', ''),
+                'feedback_type': item.feedback_type,
+                'feedback_text': item.feedback_text,
+                'severity': item.severity,
+                'section_reference': item.section_reference,
                 'reviewer_persona': 'reviewer_2',
-                'target_claim_id': item.get('target_claim_id'),
-                'target_gap_id': item.get('target_gap_id'),
-                'specific_issue': item.get('specific_issue', ''),
-                'suggestions': item.get('suggested_improvements', []),
-                'suggested_improvements': item.get('suggested_improvements', []),
-                'cited_papers': item.get('cited_papers', []),
+                'target_claim_id': item.target_claim_id,
+                'target_gap_id': item.target_gap_id,
+                'specific_issue': item.specific_issue,
+                'suggestions': item.suggested_improvements,
+                'suggested_improvements': item.suggested_improvements,
+                'cited_papers': item.cited_papers,
             }
             feedback_items.append(feedback)
 
@@ -473,7 +483,7 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
             f"questions={questions}, suggestions={suggestions}"
         )
 
-        priority_actions = result.get('priority_actions', [])
+        priority_actions = result.priority_actions
 
         # Persist priority_actions to draft_analysis.analysis_metadata
         try:
@@ -495,7 +505,7 @@ CITATION QUALITY SUMMARY (no library documents uploaded):
 
         return {
             'reviewer_feedback': feedback_items,
-            'overall_assessment': result.get('overall_assessment', ''),
+            'overall_assessment': result.overall_assessment,
             'priority_actions': priority_actions,
             'reviewer_feedback_retry_items': failed_retry_payload,
             'current_step': 'Reviewer Feedback',

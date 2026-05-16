@@ -20,6 +20,29 @@ import time
 
 logger = logging.getLogger(__name__)
 
+SENSITIVE_PATH_PATTERNS = [
+    r"(^|/)\.env([^/]*$|[/?#])",
+    r"(^|/)\.git($|/)",
+    r"(^|/)\.aws($|/)",
+    r"(^|/)\.DS_Store$",
+    r"(^|/)wp-admin($|/)",
+    r"(^|/)wp-login\.php$",
+    r"(^|/)xmlrpc\.php$",
+    r"(^|/)phpmyadmin($|/)",
+    r"(^|/)vendor/phpunit($|/)",
+    r"(^|/)actuator($|/)",
+    r"\.php$",
+]
+
+SENSITIVE_PATH_RE = re.compile("|".join(SENSITIVE_PATH_PATTERNS), re.IGNORECASE)
+
+
+def is_sensitive_probe_path(path: str) -> bool:
+    """Return true for common bot/scanner probes that should never reach app routes."""
+    normalized = (path or "").split("?", 1)[0]
+    return bool(SENSITIVE_PATH_RE.search(normalized))
+
+
 # ============================================
 # SECURITY HEADERS MIDDLEWARE
 # ============================================
@@ -147,10 +170,25 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.pattern = re.compile("|".join(self.SUSPICIOUS_PATTERNS), re.IGNORECASE)
 
+    def _error_response(self, status_code: int, detail: str) -> JSONResponse:
+        return JSONResponse(
+            status_code=status_code,
+            content={"detail": detail},
+        )
+
     async def dispatch(self, request: Request, call_next: Callable):
         # Skip validation for health checks and static files
         if request.url.path in ["/health", "/docs", "/openapi.json", "/redoc"]:
             return await call_next(request)
+
+        if is_sensitive_probe_path(request.url.path):
+            logger.info(
+                f"Sensitive path probe detected from {request.client.host}: {request.url.path[:100]}"
+            )
+            return self._error_response(
+                status.HTTP_400_BAD_REQUEST,
+                "Invalid request",
+            )
 
         # Validate query parameters
         if request.url.query:
@@ -159,9 +197,9 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
                 logger.warning(
                     f"Query string too long from {request.client.host}: {len(request.url.query)} chars"
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Query string too long"
+                return self._error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    "Query string too long",
                 )
 
             # Check for suspicious patterns
@@ -169,9 +207,9 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
                 logger.warning(
                     f"Suspicious query pattern detected from {request.client.host}: {request.url.query[:100]}"
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid request"
+                return self._error_response(
+                    status.HTTP_400_BAD_REQUEST,
+                    "Invalid request",
                 )
 
         # Validate request body size (for POST/PUT requests)
@@ -181,9 +219,9 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
                 logger.warning(
                     f"Request body too large from {request.client.host}: {content_length} bytes"
                 )
-                raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail="Request body too large"
+                return self._error_response(
+                    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    "Request body too large",
                 )
 
         response = await call_next(request)

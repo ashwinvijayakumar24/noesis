@@ -8,6 +8,8 @@ from typing import Any
 
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_completion_params, get_openai_client
+from app.services.retry_utils import parse_chat_completion_with_retries_sync
+from app.workflows.draft_analysis.schemas import Reviewer1StrengthsOutput
 
 logger = get_logger(__name__)
 
@@ -75,30 +77,52 @@ async def generate_reviewer1_feedback(
     )
 
     def _sync_call() -> list[dict[str, Any]]:
-        response = client.chat.completions.create(
+        response = parse_chat_completion_with_retries_sync(
+            client,
             model="gpt-5.2",
             messages=[
                 {"role": "system", "content": REVIEWER_1_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ],
             max_completion_tokens=1500,
+            response_format=Reviewer1StrengthsOutput,
             **get_completion_params(),
         )
-        parsed = _extract_json_object(response.choices[0].message.content or "")
-        strengths = parsed.get("strengths", [])
+        strengths = response.parsed.strengths
+        if not isinstance(strengths, list):
+            legacy_response = client.chat.completions.create(
+                model="gpt-5.2",
+                messages=[
+                    {"role": "system", "content": REVIEWER_1_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_completion_tokens=1500,
+                **get_completion_params(),
+            )
+            strengths = _extract_json_object(
+                legacy_response.choices[0].message.content or ""
+            ).get("strengths", [])
+
         items: list[dict[str, Any]] = []
         for strength in strengths[:8]:
-            aspect = (strength.get("aspect") or "Notable strength").strip()
-            detail = (strength.get("detail") or "").strip()
+            if isinstance(strength, dict):
+                aspect = (strength.get("aspect") or "Notable strength").strip()
+                detail = (strength.get("detail") or "").strip()
+                significance = (strength.get("significance") or "medium").lower()
+                section_reference = strength.get("section_reference") or "Overall"
+            else:
+                aspect = (strength.aspect or "Notable strength").strip()
+                detail = (strength.detail or "").strip()
+                significance = (strength.significance or "medium").lower()
+                section_reference = strength.section_reference or "Overall"
             if not detail:
                 continue
-            significance = (strength.get("significance") or "medium").lower()
             items.append(
                 {
                     "feedback_type": "strength",
                     "feedback_text": f"{aspect}: {detail}",
                     "severity": "suggestion",
-                    "section_reference": strength.get("section_reference") or "Overall",
+                    "section_reference": section_reference,
                     "reviewer_persona": "reviewer_1",
                     "suggestions": [],
                     "confidence_level": "high" if significance == "high" else "medium",

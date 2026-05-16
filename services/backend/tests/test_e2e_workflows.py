@@ -60,21 +60,22 @@ class TestReviewerFeedbackNodeE2E:
         mock_supabase.table.return_value.select.return_value\
             .eq.return_value.execute.return_value.data = []
 
-        # GPT response
-        mock_response = MagicMock()
-        mock_response.choices[0].message.content = """{
-            "feedback_items": [
-                {
-                    "feedback_type": "weakness",
-                    "feedback_text": "The claim about BERT lacks citation support. Consider citing 'Attention Is All You Need' (Vaswani et al., 2017) which directly supports this.",
-                    "severity": "major",
-                    "section_reference": "Methods"
-                }
+        # GPT response — mock beta.chat.completions.parse (structured outputs)
+        from types import SimpleNamespace
+        from app.workflows.draft_analysis.schemas import ReviewerFeedbackOutput, FeedbackItem
+        fake_parsed = ReviewerFeedbackOutput(
+            feedback_items=[
+                FeedbackItem(
+                    feedback_type="weakness",
+                    feedback_text="The claim about BERT lacks citation support. Consider citing 'Attention Is All You Need' (Vaswani et al., 2017) which directly supports this.",
+                    severity="major",
+                    section_reference="Methods",
+                )
             ],
-            "overall_assessment": "Strong paper with minor gaps.",
-            "priority_actions": ["Add citations for key claims", "Expand methodology section"]
-        }"""
-        mock_client.chat.completions.create.return_value = mock_response
+            overall_assessment="Strong paper with minor gaps.",
+            priority_actions=["Add citations for key claims", "Expand methodology section"],
+        )
+        mock_client.beta.chat.completions.parse.return_value = SimpleNamespace(parsed=fake_parsed)
 
         state = {
             "draft_id": "draft-123",
@@ -110,8 +111,8 @@ class TestReviewerFeedbackNodeE2E:
         assert len(result["reviewer_feedback"]) == 1
 
         # Verify literature context was sent to GPT
-        call_args = mock_client.chat.completions.create.call_args
-        messages = call_args.kwargs.get("messages") or call_args.args[0] if call_args.args else None
+        call_args = mock_client.beta.chat.completions.parse.call_args
+        messages = call_args.kwargs.get("messages") or (call_args.args[0] if call_args.args else None)
         if messages is None and call_args.kwargs:
             messages = call_args.kwargs.get("messages", [])
 

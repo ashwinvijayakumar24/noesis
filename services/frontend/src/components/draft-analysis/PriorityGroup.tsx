@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import UnifiedFeedbackCard from './UnifiedFeedbackCard'
+import type { PdfCoordinates } from '../DocumentViewer'
 
 interface PriorityGroupProps {
   items: Array<{
@@ -10,8 +11,17 @@ interface PriorityGroupProps {
     content: any
   }>
   onStatusChange: (feedbackId: string, feedbackType: 'claim' | 'gap' | 'feedback', newStatus: 'new' | 'saved' | 'dismissed') => void
-  onViewInDocument?: (lineNumber: number) => void
+  onViewInDocument?: (payload: {
+    line_number?: number
+    content_text?: string
+    text_snippet?: string
+    section_type?: string
+    section_location?: string
+    pdf_coordinates?: PdfCoordinates
+    match_confidence?: number
+  }) => void
   currentStatus: 'new' | 'saved' | 'dismissed'
+  fileType: string
 }
 
 // Plain text divider headers — no colored fills, no borders
@@ -25,7 +35,8 @@ export default function PriorityGroup({
   items,
   onStatusChange,
   onViewInDocument,
-  currentStatus
+  currentStatus,
+  fileType,
 }: PriorityGroupProps) {
   const groupedItems = useMemo(() => ({
     high:   items.filter(item => item.priority === 'high'),
@@ -76,6 +87,7 @@ export default function PriorityGroup({
                 onStatusChange={onStatusChange}
                 onViewInDocument={onViewInDocument}
                 currentStatus={currentStatus}
+                fileType={fileType}
               />
             ))}
           </div>

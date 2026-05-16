@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import type { PdfCoordinates } from '../DocumentViewer'
 import UnifiedFeedbackCard from './UnifiedFeedbackCard'
+import EditorDecisionCard from './EditorDecisionCard'
+import MetaReviewCard from './MetaReviewCard'
+import ReviewerPanelTabs from './ReviewerPanelTabs'
 
 interface Claim {
   id: string
@@ -55,8 +58,8 @@ interface FeedbackItem {
 
 type ItemType = 'claim' | 'gap' | 'feedback'
 type Priority = 'high' | 'medium' | 'low'
-type StatusFilter = 'new' | 'saved' | 'dismissed'
-type CategoryKey =
+export type StatusFilter = 'new' | 'saved' | 'dismissed'
+export type CategoryKey =
   | 'all'
   | 'missing_citations'
   | 'weak_arguments'
@@ -81,7 +84,7 @@ interface ReviewerFeedbackListProps {
   statusFilter: StatusFilter
   onStatusFilterChange: (status: StatusFilter) => void
   onStatusChange: (id: string, type: ItemType, status: 'new' | 'saved' | 'dismissed') => void
-  onViewInDocument: (item: {
+  onViewInDocument?: (item: {
     line_number?: number
     content_text?: string
     text_snippet?: string
@@ -91,7 +94,18 @@ interface ReviewerFeedbackListProps {
     match_confidence?: number
   }) => void
   fileType: string
-  onOpenEditingReview?: () => void
+  initialCategory?: CategoryKey
+  maxVisibleItems?: number
+  compactPreview?: boolean
+  editorDecision?: {
+    proceed_to_review: boolean
+    fatal_flaws: string[]
+    scope_appropriate: boolean
+    writing_quality: 'publishable' | 'needs_revision' | 'major_revision'
+    notes: string
+  } | null
+  reviewerPanel?: any[]
+  metaReview?: any | null
 }
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 }
@@ -192,9 +206,18 @@ export default function ReviewerFeedbackList({
   onStatusChange,
   onViewInDocument,
   fileType,
-  onOpenEditingReview,
+  initialCategory = 'all',
+  maxVisibleItems,
+  compactPreview = false,
+  editorDecision,
+  reviewerPanel,
+  metaReview,
 }: ReviewerFeedbackListProps) {
-  const [category, setCategory] = useState<CategoryKey>('all')
+  const [category, setCategory] = useState<CategoryKey>(initialCategory)
+
+  useEffect(() => {
+    setCategory(initialCategory)
+  }, [initialCategory])
 
   const allItems = useMemo(() => buildItems(claims, gaps, feedback), [claims, gaps, feedback])
 
@@ -256,82 +279,101 @@ export default function ReviewerFeedbackList({
     low: visibleItems.filter((item) => item.priority === 'low'),
   }), [visibleItems])
 
+  const renderedItems = useMemo(() => {
+    if (!maxVisibleItems) return groupedItems
+
+    let remaining = maxVisibleItems
+    const take = (items: ListItem[]) => {
+      if (remaining <= 0) return []
+      const next = items.slice(0, remaining)
+      remaining -= next.length
+      return next
+    }
+
+    return {
+      high: take(groupedItems.high),
+      medium: take(groupedItems.medium),
+      low: take(groupedItems.low),
+    }
+  }, [groupedItems, maxVisibleItems])
+
   return (
     <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-border-default bg-bg-surface">
-        <div className="flex items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-3">
-            {readinessScore !== null && (
-              <div className="flex items-baseline gap-1">
-                <span className="text-base font-semibold text-text-primary tabular-nums">
-                  {Math.round(readinessScore)}/100
-                </span>
-                <span className="text-[10px] uppercase tracking-wide text-text-muted">readiness</span>
-              </div>
-            )}
-            <span className="text-xs text-text-muted">
-              {addressedCount} of {totalCount} addressed
-            </span>
-          </div>
-          {onOpenEditingReview && (
-            <button
-              onClick={onOpenEditingReview}
-              className="text-xs text-text-muted hover:text-accent-primary transition-colors duration-150"
-            >
-              Editing Review →
-            </button>
-          )}
-        </div>
-
-        <div className="px-4 pb-3">
-          <div className="flex flex-wrap gap-1.5">
-            {(Object.keys(CATEGORY_CONFIG) as CategoryKey[]).map((key) => (
-              <button
-                key={key}
-                onClick={() => setCategory(key)}
-                className={`min-h-10 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
-                  category === key
-                    ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
-                    : 'border-border-default bg-bg-elevated text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {CATEGORY_CONFIG[key].label}
-                {categoryCounts[key] > 0 && <span className="ml-1.5 opacity-70">{categoryCounts[key]}</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex space-x-1 border-t border-border-default px-4">
-          {(['new', 'saved', 'dismissed'] as StatusFilter[]).map((status) => {
-            const isActive = statusFilter === status
-            return (
-              <button
-                key={status}
-              onClick={() => onStatusFilterChange(status)}
-                className={`min-h-11 border-b-2 px-4 py-2 text-sm font-semibold transition-all duration-150 ${
-                  isActive
-                    ? 'border-accent-primary text-text-primary'
-                    : 'border-transparent text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-                {statusCounts[status] > 0 && (
-                  <span className={`ml-1.5 rounded-full border px-2 py-0.5 text-xs ${
-                    isActive
-                      ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
-                      : 'border-border-default bg-bg-elevated text-text-muted'
-                  }`}>
-                    {statusCounts[status]}
+      {!compactPreview && (
+        <div className="shrink-0 border-b border-border-default bg-bg-surface">
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <div className="flex items-center gap-3">
+              {readinessScore !== null && (
+                <div className="flex items-baseline gap-1">
+                  <span className="text-base font-semibold text-text-primary tabular-nums">
+                    {Math.round(readinessScore)}/100
                   </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+                  <span className="text-[10px] uppercase tracking-wide text-text-muted">readiness</span>
+                </div>
+              )}
+              <span className="text-xs text-text-muted">
+                {addressedCount} of {totalCount} addressed
+              </span>
+            </div>
+          </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="px-4 pb-3">
+            <div className="flex flex-wrap gap-1.5">
+              {(Object.keys(CATEGORY_CONFIG) as CategoryKey[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setCategory(key)}
+                  className={`min-h-10 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
+                    category === key
+                      ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
+                      : 'border-border-default bg-bg-elevated text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {CATEGORY_CONFIG[key].label}
+                  {categoryCounts[key] > 0 && <span className="ml-1.5 opacity-70">{categoryCounts[key]}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex space-x-1 border-t border-border-default px-4">
+            {(['new', 'saved', 'dismissed'] as StatusFilter[]).map((status) => {
+              const isActive = statusFilter === status
+              return (
+                <button
+                  key={status}
+                  onClick={() => onStatusFilterChange(status)}
+                  className={`min-h-11 border-b-2 px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                    isActive
+                      ? 'border-accent-primary text-text-primary'
+                      : 'border-transparent text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {statusCounts[status] > 0 && (
+                    <span className={`ml-1.5 rounded-full border px-2 py-0.5 text-xs ${
+                      isActive
+                        ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
+                        : 'border-border-default bg-bg-elevated text-text-muted'
+                    }`}>
+                      {statusCounts[status]}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className={`flex-1 overflow-y-auto px-4 ${compactPreview ? 'py-3' : 'py-4'}`}>
+        {!compactPreview && (editorDecision || metaReview || (reviewerPanel && reviewerPanel.length > 0)) && (
+          <div className="mb-5 space-y-3">
+            {editorDecision && <EditorDecisionCard decision={editorDecision} />}
+            {metaReview && <MetaReviewCard metaReview={metaReview} />}
+            {reviewerPanel && reviewerPanel.length > 0 && <ReviewerPanelTabs reviewers={reviewerPanel} />}
+          </div>
+        )}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-accent-primary border-r-transparent mb-3" />
@@ -347,7 +389,7 @@ export default function ReviewerFeedbackList({
         ) : (
           <div className="space-y-5">
             {(['high', 'medium', 'low'] as const).map((priority) => {
-              const group = groupedItems[priority]
+              const group = renderedItems[priority]
               if (group.length === 0) return null
               const config = PRIORITY_HEADER_CONFIG[priority]
               return (

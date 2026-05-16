@@ -1,8 +1,10 @@
-# Noesis Next Steps — Strategic Plan
+# Noesis Next Steps - Historical Strategic Plan
+
+> May 10, 2026 note: This document is historical. It includes old roadmap, pricing, and Stripe assumptions that are no longer authoritative. Use `../../current_state.md` for the live state. Current caveat: Stripe production pricing/checkout is not finished, and lab outreach should start now while product hardening continues.
 
 ## Context
 
-The product is technically complete: draft analysis, paper discovery, citation management, BibTeX import/export, Stripe payments, referral system, and quota management are all built and deployed. The problem is zero market contact — no paying customers, no validated users, and Sprint 01 changes not yet deployed to production.
+Historical premise at the time this was written: the product was treated as technically complete and the biggest gap was market contact. Current correction: Stripe production pricing/checkout is not finished, collaboration is not built, and PDF/claim quality still needs hardening. Outreach should still start now.
 
 The founder has correctly identified outreach as the #1 priority. This plan addresses the full stack of next steps across 6 areas, sequenced by dependency and impact, with explicit go/kill conditions at each stage.
 
@@ -140,7 +142,7 @@ team_members: team_owner_id, member_user_id, role (owner/admin/member), status (
 
 ## Phase 4: Stripe/Pricing Finalization (Days 15-30)
 
-**Current state:** Stripe fully implemented for single users. Team billing routes exist. Lab tier backend missing (checkout works, member provisioning doesn't).
+**Historical state from this plan:** Stripe was assumed mostly implemented for single users. Current correction: production price IDs, webhook verification, pricing-page checkout, billing portal, and checkout-to-quota-upgrade testing remain unfinished.
 
 ### What's Needed
 

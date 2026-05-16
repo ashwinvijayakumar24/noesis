@@ -197,7 +197,7 @@ def generate_rag_answer(
     Args:
         project_id: UUID of the project
         query: User's question
-        model: OpenAI model to use for generation (default: gpt-4o)
+        model: OpenAI model to use for generation (default: gpt-5.2-chat-latest)
         max_chunks: Maximum number of chunks to use as context
         document_id: Optional UUID to search within a single document only
         include_drafts: Whether to include draft content in search (default: False for backwards compatibility)

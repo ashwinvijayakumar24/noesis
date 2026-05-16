@@ -1,4 +1,8 @@
-# Noesis — Architecture Alignment & Refinement Audit
+# Noesis - Historical Architecture Alignment & Refinement Audit
+
+> **May 10, 2026 update.** This audit is now historical. It was the problem-finding source for the mini-plan implementation pass, but many findings have since changed. For live state, use `current_state.md`. For updated mini-plan progress, use `mini-plans/00_INDEX.md`.
+>
+> Major deltas since this audit: Literature Map quota/staleness/progress were implemented; product copy moved from Insights to Literature Map; Discover moved to the `paper_recommendations` route family with 5/day Free and 50/day Pro quota; Pro project limit is now 10; plan-aware quota helpers and Stripe quota sync exist; draft upload context, Stage 1 editing, Reviewer 1 strengths, external source discovery, privacy copy, and anchoring/QA helpers were added. Stripe production pricing remains unfinished and must still be connected/tested end to end.
 
 > **Purpose.** You provided a full, hand-written architecture flow for Noesis (auth → projects → literature → insights → discovery → draft analysis). This document walks each stage end-to-end, compares your intended flow against what the codebase actually does, explains the tech behind each part, calls out the value to a researcher, and lists every misalignment, dead piece of code, and stale doc I found. Answers to your inline TODOs and open questions are woven into the relevant sections and consolidated at the end.
 >

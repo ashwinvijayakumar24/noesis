@@ -5,8 +5,9 @@ Defines the state structure for the draft analysis workflow.
 The state is passed through all nodes and updated as the workflow progresses.
 """
 
-from typing import TypedDict, List, Dict, Any, Optional
+from typing import TypedDict, List, Dict, Any, Optional, Annotated
 from typing_extensions import NotRequired
+from operator import add
 
 
 class Claim(TypedDict):
@@ -102,6 +103,9 @@ class DraftAnalysisState(TypedDict):
     project_id: str
     user_id: str
     draft_content: str
+    paper_type: NotRequired[str]
+    citation_style: NotRequired[str]
+    analysis: NotRequired[Dict[str, Any]]
 
     # Structure analysis
     structure: NotRequired[DraftStructure]
@@ -148,6 +152,23 @@ class DraftAnalysisState(TypedDict):
     needs_human_review: NotRequired[bool]
     search_iterations: NotRequired[int]
     max_search_iterations: NotRequired[int]
+
+    # Phase 3 — peer review panel
+    # reviewer_type is injected per-node by LangGraph Send API
+    reviewer_type: NotRequired[str]
+    editor_decision: NotRequired[Dict[str, Any]]
+    # Annotated at top level (not inside NotRequired) so LangGraph recognises the reducer.
+    # Each parallel reviewer_panel_node appends its output; reducer accumulates them.
+    reviewer_outputs: Annotated[List[Dict[str, Any]], add]
+    meta_review: NotRequired[Dict[str, Any]]
+
+    # Phase 4 — LLM-as-a-judge
+    citation_judge_output: NotRequired[Dict[str, Any]]
+    reviewer_judge_output: NotRequired[Dict[str, Any]]
+    # Judged/retried reviewer outputs written by reviewer_judge_node.
+    # Separate from reviewer_outputs (which uses an additive reducer) so we can
+    # replace/store the final set without double-appending via the reducer.
+    judged_reviewer_outputs: NotRequired[List[Dict[str, Any]]]
 
 
 class ValidationState(TypedDict):
