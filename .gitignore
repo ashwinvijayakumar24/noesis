@@ -84,6 +84,10 @@ exports/
 **/exports/
 
 # Database
+infra/db-migrations/
+services/backend/migrations/
+**/db-migrations/
+**/migrations/
 *.db
 *.sqlite
 *.sqlite3
