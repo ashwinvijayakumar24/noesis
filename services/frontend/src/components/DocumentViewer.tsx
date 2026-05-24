@@ -2,7 +2,14 @@ import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useMemo, 
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
 import 'react-pdf/dist/esm/Page/TextLayer.css'
-import { MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  MagnifyingGlassIcon,
+  MagnifyingGlassPlusIcon,
+  MagnifyingGlassMinusIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
@@ -53,6 +60,31 @@ interface ExtractedPage {
 interface PdfPageDimensions {
   width: number
   height: number
+}
+
+interface SearchMatch {
+  page: number
+  occurrenceIndex: number
+}
+
+interface PdfTextContent {
+  items: unknown[]
+}
+
+interface PdfViewport {
+  width: number
+  height: number
+}
+
+interface PdfPageProxyLike {
+  pageNumber: number
+  getTextContent: () => Promise<PdfTextContent>
+  getViewport: (options: { scale: number }) => PdfViewport
+}
+
+interface PdfDocumentProxyLike {
+  numPages: number
+  getPage: (pageNumber: number) => Promise<PdfPageProxyLike>
 }
 
 // ─── Client-side search ───────────────────────────────────────────────────────
@@ -158,6 +190,77 @@ function scrollToMarkAcrossPages(divs: (HTMLDivElement | null)[], maxMs = 3500) 
   }, 80)
 }
 
+function scrollToSearchMatch(
+  pageDiv: HTMLDivElement | null,
+  occurrenceIndex: number,
+  maxMs = 2500,
+) {
+  if (!pageDiv) return
+  const t0 = Date.now()
+  const id = setInterval(() => {
+    const marks = Array.from(pageDiv.querySelectorAll('mark'))
+    const mark = marks[occurrenceIndex] ?? marks[0]
+    if (mark) {
+      clearInterval(id)
+      mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else if (Date.now() - t0 > maxMs) {
+      clearInterval(id)
+    }
+  }, 80)
+}
+
+function countOccurrences(text: string, query: string): number {
+  if (!query) return 0
+  let count = 0
+  let index = text.indexOf(query)
+  while (index !== -1) {
+    count += 1
+    index = text.indexOf(query, index + Math.max(query.length, 1))
+  }
+  return count
+}
+
+function buildPdfSearchMatches(pages: ExtractedPage[], query: string): SearchMatch[] {
+  const target = normalizeForSearch(query)
+  if (!target) return []
+
+  return pages.flatMap((page, pageIndex) => {
+    let pageOccurrence = 0
+    const matches: SearchMatch[] = []
+
+    page.items.forEach((item) => {
+      const count = countOccurrences(normalizeForSearch(item), target)
+      for (let i = 0; i < count; i++) {
+        matches.push({ page: pageIndex + 1, occurrenceIndex: pageOccurrence })
+        pageOccurrence += 1
+      }
+    })
+
+    if (matches.length === 0 && page.concat.includes(target)) {
+      matches.push({ page: pageIndex + 1, occurrenceIndex: 0 })
+    }
+
+    return matches
+  })
+}
+
+function wrapMatchesInMark(text: string, normalizedQuery: string, style: string): string {
+  if (!normalizedQuery) return text
+  const normalizedText = normalizeForSearch(text)
+  let cursor = 0
+  let result = ''
+  let index = normalizedText.indexOf(normalizedQuery)
+
+  while (index !== -1) {
+    result += text.slice(cursor, index)
+    result += `<mark style="${style}">${text.slice(index, index + normalizedQuery.length)}</mark>`
+    cursor = index + normalizedQuery.length
+    index = normalizedText.indexOf(normalizedQuery, cursor)
+  }
+
+  return cursor > 0 ? result + text.slice(cursor) : text
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
   { fileUrl, fileType, annotation, onLineClick, authToken, initialScale = 1.0 },
@@ -177,6 +280,10 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
   const [highlightedLines, setHighlightedLines] = useState<Set<number>>(new Set())
   const [activeRegion, setActiveRegion] = useState<PdfCoordinates | null>(null)
   const [pageDimensions, setPageDimensions] = useState<Record<number, PdfPageDimensions>>({})
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [paperSearchQuery, setPaperSearchQuery] = useState('')
+  const [paperSearchMatches, setPaperSearchMatches] = useState<SearchMatch[]>([])
+  const [selectedSearchMatchIndex, setSelectedSearchMatchIndex] = useState(-1)
 
   // Client-side extracted page text (same extractor as the renderer → perfect match)
   const [extractedPages, setExtractedPages] = useState<ExtractedPage[]>([])
@@ -185,20 +292,123 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
 
   const lineRefs = useRef<(HTMLDivElement | null)[]>([])
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const paperSearchMatchesRef = useRef<SearchMatch[]>([])
 
   useEffect(() => {
     setScale(initialScale)
   }, [initialScale])
 
+  const focusPaperSearch = useCallback(() => {
+    setSearchOpen(true)
+    window.setTimeout(() => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    }, 0)
+  }, [])
+
+  const clearPaperSearch = useCallback(() => {
+    setPaperSearchQuery('')
+    paperSearchMatchesRef.current = []
+    setPaperSearchMatches([])
+    setSelectedSearchMatchIndex(-1)
+    setActiveSnippet(null)
+    setActiveSearchTarget('')
+    setSearchAllPages(false)
+    setHeadingSearchMode(false)
+  }, [])
+
+  const goToSearchMatch = useCallback((index: number, matches = paperSearchMatchesRef.current) => {
+    if (matches.length === 0) return
+    const boundedIndex = ((index % matches.length) + matches.length) % matches.length
+    const match = matches[boundedIndex]
+    setSelectedSearchMatchIndex(boundedIndex)
+    setCurrentPage(match.page)
+    setTimeout(() => {
+      const div = pageRefs.current[match.page - 1]
+      div?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      scrollToSearchMatch(div, match.occurrenceIndex)
+    }, 120)
+  }, [])
+
+  const runPaperSearch = useCallback((query: string) => {
+    const target = normalizeForSearch(query)
+    if (!target) {
+      clearPaperSearch()
+      return
+    }
+
+    setActiveRegion(null)
+    setActiveSnippet(query)
+    setActiveSearchTarget(target)
+    setSearchAllPages(true)
+    setHeadingSearchMode(false)
+
+    if (fileType === 'application/pdf' || fileType === 'pdf') {
+      const matches = buildPdfSearchMatches(extractedPages, query)
+      paperSearchMatchesRef.current = matches
+      setPaperSearchMatches(matches)
+      if (matches.length > 0) {
+        goToSearchMatch(0, matches)
+      } else {
+        setSelectedSearchMatchIndex(-1)
+      }
+      return
+    }
+
+    const textMatches = lines.flatMap((line, index) => (
+      normalizeForSearch(line).includes(target)
+        ? [{ page: index + 1, occurrenceIndex: 0 }]
+        : []
+    ))
+    paperSearchMatchesRef.current = textMatches
+    setPaperSearchMatches(textMatches)
+    if (textMatches.length > 0) {
+      const firstLine = textMatches[0].page
+      setSelectedSearchMatchIndex(0)
+      setTimeout(() => {
+        lineRefs.current[firstLine - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 80)
+    } else {
+      setSelectedSearchMatchIndex(-1)
+    }
+  }, [clearPaperSearch, extractedPages, fileType, goToSearchMatch, lines])
+
+  useEffect(() => {
+    if (!searchOpen) return
+    const trimmed = paperSearchQuery.trim()
+    if (!trimmed) {
+      clearPaperSearch()
+      return
+    }
+    runPaperSearch(trimmed)
+  }, [clearPaperSearch, paperSearchQuery, runPaperSearch, searchOpen])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault()
+        focusPaperSearch()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [focusPaperSearch])
+
   // ── Extract text from all pages using pdf.js (same engine as the renderer) ──
-  const extractPageTexts = useCallback(async (pdf: any) => {
+  const extractPageTexts = useCallback(async (pdf: PdfDocumentProxyLike) => {
     const pages: ExtractedPage[] = []
     for (let i = 1; i <= pdf.numPages; i++) {
       try {
         const page = await pdf.getPage(i)
         const content = await page.getTextContent()
         const items: string[] = content.items
-          .map((item: any) => (item.str as string) ?? '')
+          .map((item) => (
+            typeof item === 'object' && item !== null && 'str' in item && typeof item.str === 'string'
+              ? item.str
+              : ''
+          ))
           .filter(Boolean)
         pages.push({ concat: items.map(s => normalizeForSearch(s)).join(' '), items })
       } catch {
@@ -215,7 +425,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onDocumentLoadSuccess = useCallback((pdf: any) => {
+  const onDocumentLoadSuccess = useCallback((pdf: PdfDocumentProxyLike) => {
     setNumPages(pdf.numPages)
     setLoading(false)
     extractPageTexts(pdf)
@@ -226,7 +436,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     setLoading(false)
   }
 
-  const onPageLoadSuccess = useCallback((page: any) => {
+  const onPageLoadSuccess = useCallback((page: PdfPageProxyLike) => {
     const viewport = page.getViewport({ scale: 1 })
     const pageNumber = page.pageNumber
     setPageDimensions(prev => {
@@ -352,6 +562,10 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
       setActiveRegion(coordinates)
       setActiveSnippet(null)
       setActiveSearchTarget('')
+      setPaperSearchQuery('')
+      paperSearchMatchesRef.current = []
+      setPaperSearchMatches([])
+      setSelectedSearchMatchIndex(-1)
       setSearchAllPages(false)
       setHeadingSearchMode(false)
       setCurrentPage(page)
@@ -363,6 +577,10 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     clearHighlight: () => {
       setActiveSnippet(null)
       setActiveSearchTarget('')
+      setPaperSearchQuery('')
+      paperSearchMatchesRef.current = []
+      setPaperSearchMatches([])
+      setSelectedSearchMatchIndex(-1)
       setSearchAllPages(false)
       setHeadingSearchMode(false)
       setActiveRegion(null)
@@ -376,6 +594,10 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
     } else if (!annotation) {
       setActiveSnippet(null)
       setActiveSearchTarget('')
+      setPaperSearchQuery('')
+      paperSearchMatchesRef.current = []
+      setPaperSearchMatches([])
+      setSelectedSearchMatchIndex(-1)
       setSearchAllPages(false)
       setHeadingSearchMode(false)
       setActiveRegion(null)
@@ -388,7 +610,8 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
   const customTextRenderer = useMemo(() => {
     if (!activeSnippet || !activeSearchTarget) return undefined
     const target = activeSearchTarget // already normalized
-    if (target.length < 4) return undefined
+    const isPaperSearch = paperSearchQuery.trim().length > 0
+    if (target.length < (isPaperSearch ? 1 : 4)) return undefined
     const HL = 'background-color:rgba(253,224,71,0.65);border-radius:2px;padding:0 1px;color:inherit'
 
     return ({ str }: { str: string }) => {
@@ -410,14 +633,9 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
       // Substring mode: find target within this span
       const idx = lStr.indexOf(target)
       if (idx === -1) return str
-      // Map back to original string offsets (normalizeForSearch may differ in length
-      // only due to soft hyphens; safe to use idx directly for typical content)
-      const before = str.slice(0, idx)
-      const matched = str.slice(idx, idx + target.length)
-      const after = str.slice(idx + target.length)
-      return `${before}<mark style="${HL}">${matched}</mark>${after}`
+      return wrapMatchesInMark(str, target, HL)
     }
-  }, [activeSnippet, activeSearchTarget, searchAllPages, headingSearchMode])
+  }, [activeSnippet, activeSearchTarget, paperSearchQuery, searchAllPages, headingSearchMode])
 
   const fileConfig = useMemo(() => ({
     url: fileUrl,
@@ -432,6 +650,22 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
 
   const zoomIn = () => setScale(p => Math.min(2.0, p + 0.1))
   const zoomOut = () => setScale(p => Math.max(0.5, p - 0.1))
+  const hasSearchQuery = paperSearchQuery.trim().length > 0
+  const searchStatus = hasSearchQuery
+    ? paperSearchMatches.length > 0
+      ? `${selectedSearchMatchIndex + 1}/${paperSearchMatches.length}`
+      : '0/0'
+    : ''
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      goToSearchMatch(selectedSearchMatchIndex + (event.shiftKey ? -1 : 1))
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      setSearchOpen(false)
+      clearPaperSearch()
+    }
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
@@ -448,9 +682,46 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
   if (fileType === 'text/plain' || fileType === 'txt') {
     return (
       <div className="h-full flex flex-col bg-white rounded-lg border border-border-default">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border-default bg-surface">
+        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border-default bg-surface">
           <span className="text-xs text-text-tertiary font-mono">TXT Document ({lines.length} lines)</span>
           <div className="flex items-center gap-2">
+            {searchOpen ? (
+              <div className="flex items-center gap-1 rounded-lg border border-border-default bg-white px-2 py-1">
+                <MagnifyingGlassIcon className="h-4 w-4 text-text-muted" />
+                <input
+                  ref={searchInputRef}
+                  value={paperSearchQuery}
+                  onChange={(event) => setPaperSearchQuery(event.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search draft"
+                  className="w-28 bg-transparent text-xs text-text-primary placeholder:text-text-muted outline-none sm:w-40"
+                />
+                {searchStatus && <span className="w-10 text-right font-mono text-[11px] text-text-muted">{searchStatus}</span>}
+                <button
+                  onClick={() => goToSearchMatch(selectedSearchMatchIndex - 1)}
+                  disabled={paperSearchMatches.length === 0}
+                  className="p-0.5 text-text-muted hover:text-text-primary disabled:opacity-40"
+                  aria-label="Previous match"
+                >
+                  <ChevronUpIcon className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => goToSearchMatch(selectedSearchMatchIndex + 1)}
+                  disabled={paperSearchMatches.length === 0}
+                  className="p-0.5 text-text-muted hover:text-text-primary disabled:opacity-40"
+                  aria-label="Next match"
+                >
+                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => { setSearchOpen(false); clearPaperSearch() }} className="p-0.5 text-text-muted hover:text-text-primary" aria-label="Close search">
+                  <XMarkIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button onClick={focusPaperSearch} className="p-1 text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded transition-colors" aria-label="Search draft">
+                <MagnifyingGlassIcon className="h-4 w-4" />
+              </button>
+            )}
             <button onClick={zoomOut} className="p-1 text-text-tertiary hover:text-text-primary hover:bg-surface-hover rounded transition-colors">
               <MagnifyingGlassMinusIcon className="h-4 w-4" />
             </button>
@@ -482,10 +753,10 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
               >
                 <span className="px-4 py-1 text-text-muted select-none min-w-[60px] text-right font-mono text-xs">{lineNumber}</span>
                 <span className="px-4 py-1 flex-1 font-mono text-sm">
-                  {hlRange && annotation ? (
+                  {hlRange ? (
                     <>
                       {line.substring(0, hlRange.start)}
-                      <mark className={annotation.color ? `bg-${annotation.color}-200 ring-2 ring-${annotation.color}-400 rounded px-0.5` : 'bg-yellow-200 ring-2 ring-yellow-400 rounded px-0.5'}>
+                      <mark className={annotation?.color ? `bg-${annotation.color}-200 ring-2 ring-${annotation.color}-400 rounded px-0.5` : 'bg-yellow-200 ring-2 ring-yellow-400 rounded px-0.5'}>
                         {line.substring(hlRange.start, hlRange.end)}
                       </mark>
                       {line.substring(hlRange.end)}
@@ -503,7 +774,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
   if (fileType === 'application/pdf' || fileType === 'pdf') {
     return (
       <div className="h-full flex flex-col bg-bg-surface border border-border-default rounded-lg overflow-hidden">
-        <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-border-default bg-bg-elevated">
+        <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-b border-border-default bg-bg-elevated">
           <div className="flex items-center gap-3">
             <span className="text-xs text-text-secondary font-mono">
               {numPages > 0 ? `${numPages} pages` : 'Loading...'}
@@ -514,8 +785,7 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
             {(activeSnippet || activeRegion) && (
               <button
                 onClick={() => {
-                  setActiveSnippet(null)
-                  setActiveSearchTarget('')
+                  clearPaperSearch()
                   setActiveRegion(null)
                 }}
                 className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors duration-150 border border-border-default rounded px-1.5 py-0.5"
@@ -526,6 +796,43 @@ const DocumentViewer = forwardRef<DocumentViewerRef, DocumentViewerProps>((
             )}
           </div>
           <div className="flex items-center gap-2">
+            {searchOpen ? (
+              <div className="flex items-center gap-1 rounded-lg border border-border-default bg-bg-surface px-2 py-1">
+                <MagnifyingGlassIcon className="h-4 w-4 text-text-muted" />
+                <input
+                  ref={searchInputRef}
+                  value={paperSearchQuery}
+                  onChange={(event) => setPaperSearchQuery(event.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search draft"
+                  className="w-28 bg-transparent text-xs text-text-primary placeholder:text-text-muted outline-none sm:w-44"
+                />
+                {searchStatus && <span className="w-10 text-right font-mono text-[11px] text-text-muted">{searchStatus}</span>}
+                <button
+                  onClick={() => goToSearchMatch(selectedSearchMatchIndex - 1)}
+                  disabled={paperSearchMatches.length === 0}
+                  className="p-0.5 text-text-muted hover:text-text-primary disabled:opacity-40"
+                  aria-label="Previous match"
+                >
+                  <ChevronUpIcon className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => goToSearchMatch(selectedSearchMatchIndex + 1)}
+                  disabled={paperSearchMatches.length === 0}
+                  className="p-0.5 text-text-muted hover:text-text-primary disabled:opacity-40"
+                  aria-label="Next match"
+                >
+                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => { setSearchOpen(false); clearPaperSearch() }} className="p-0.5 text-text-muted hover:text-text-primary" aria-label="Close search">
+                  <XMarkIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button onClick={focusPaperSearch} className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors duration-fast" aria-label="Search draft">
+                <MagnifyingGlassIcon className="h-4 w-4" />
+              </button>
+            )}
             <button onClick={zoomOut} className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors duration-fast">
               <MagnifyingGlassMinusIcon className="h-4 w-4" />
             </button>

@@ -39,12 +39,12 @@ def test_stripe_keys():
     print("=" * 60)
 
     if settings.STRIPE_SECRET_KEY:
-        print(f"✅ STRIPE_SECRET_KEY: {settings.STRIPE_SECRET_KEY[:15]}...")
+        print("✅ STRIPE_SECRET_KEY: Configured")
     else:
         print("❌ STRIPE_SECRET_KEY: Not configured")
 
     if settings.STRIPE_WEBHOOK_SECRET:
-        print(f"✅ STRIPE_WEBHOOK_SECRET: {settings.STRIPE_WEBHOOK_SECRET[:15]}...")
+        print("✅ STRIPE_WEBHOOK_SECRET: Configured")
     else:
         print("❌ STRIPE_WEBHOOK_SECRET: Not configured")
 

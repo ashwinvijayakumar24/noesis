@@ -1,5 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate, Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import {
   LightBulbIcon,
   BeakerIcon,
@@ -40,8 +39,6 @@ const FAQ_ITEMS = [
 ]
 
 function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null)
-
   return (
     <section className="py-24 px-6 sm:px-8 bg-bg-surface" aria-label="Frequently asked questions about the Noesis research feedback workflow">
       <div className="max-w-3xl mx-auto">
@@ -70,34 +67,15 @@ function FAQ() {
               transition={{ delay: index * 0.06, duration: 0.3 }}
               className="bg-bg-void border border-border-default rounded-xl overflow-hidden"
             >
-              <button
-                onClick={() => setOpenIndex(openIndex === index ? null : index)}
-                className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-bg-surface/50 transition-colors duration-150"
-                aria-expanded={openIndex === index}
-              >
+              <div className="w-full flex items-center justify-between px-6 py-5 text-left">
                 <span className="text-base font-semibold text-text-primary pr-4">{item.question}</span>
-                <span className={`shrink-0 w-5 h-5 flex items-center justify-center text-accent-primary transition-transform duration-150 ${openIndex === index ? 'rotate-45' : ''}`}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
+                <span className="shrink-0 rounded-md border border-accent-primary/30 px-2 py-1 text-xs font-mono text-accent-primary">
+                  Available
                 </span>
-              </button>
-              <AnimatePresence initial={false}>
-                {openIndex === index && (
-                  <motion.div
-                    key="content"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                    className="overflow-hidden"
-                  >
-                    <p className="px-6 pb-5 text-text-secondary leading-relaxed text-sm">
-                      {item.answer}
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              </div>
+              <p className="px-6 pb-5 text-text-secondary leading-relaxed text-sm">
+                {item.answer}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -116,7 +94,6 @@ interface Testimonial {
 }
 
 export default function Landing() {
-  const navigate = useNavigate()
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
 
   useEffect(() => {
@@ -135,6 +112,8 @@ export default function Landing() {
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5, ease: 'easeOut' }
   }
+
+  const disabledButtonClass = 'opacity-60 cursor-not-allowed hover:shadow-none hover:-translate-y-0'
 
   const features = [
     {
@@ -192,17 +171,19 @@ export default function Landing() {
             </div>
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate('/login')}
-                className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors duration-150"
+                type="button"
+                disabled
+                className="px-4 py-2 text-sm font-medium text-text-muted cursor-not-allowed opacity-70"
               >
-                Sign In
+                Sign In Paused
               </button>
               <Button
-                onClick={() => navigate('/signup')}
+                disabled
                 variant="primary"
                 size="sm"
+                className={disabledButtonClass}
               >
-                Get Started
+                Beta Coming Soon
               </Button>
             </div>
           </div>
@@ -228,6 +209,13 @@ export default function Landing() {
                 <span className="text-accent-primary">Before Submission</span>
               </motion.h1>
 
+              <motion.div
+                variants={fadeIn}
+                className="mx-auto inline-flex items-center rounded-lg border border-accent-primary bg-accent-primary px-4 py-2 text-sm font-semibold text-white shadow-sm lg:mx-0"
+              >
+                Beta access is paused while Noesis is being reworked. A new version is coming soon.
+              </motion.div>
+
               <motion.p
                 variants={fadeIn}
                 className="mx-auto max-w-3xl text-lg leading-body-large tracking-normal text-text-secondary sm:text-xl lg:mx-0 lg:max-w-2xl"
@@ -240,13 +228,13 @@ export default function Landing() {
                 className="flex flex-col items-center justify-center gap-4 sm:flex-row lg:justify-start"
               >
                 <Button
-                  onClick={() => navigate('/signup')}
+                  disabled
                   variant="primary"
                   size="lg"
-                  className="flex items-center gap-2 group"
+                  className={`flex items-center gap-2 group ${disabledButtonClass}`}
                 >
-                  Get Started Free
-                  <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  Beta Coming Soon
+                  <ArrowRightIcon className="h-5 w-5" />
                 </Button>
               </motion.div>
 
@@ -256,11 +244,11 @@ export default function Landing() {
               >
                 <div className="flex items-center gap-2">
                   <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
-                  <span>No credit card required</span>
+                  <span>Beta paused</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
-                  <span>Free tier</span>
+                  <span>New version coming soon</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckBadgeIcon className="h-5 w-5 text-accent-primary" />
@@ -690,7 +678,7 @@ export default function Landing() {
                     disabled
                     className="w-full py-3 px-4 bg-surface border-2 border-accent-primary text-text-primary font-semibold rounded-lg cursor-not-allowed text-center"
                   >
-                    Active Plan
+                    Beta Coming Soon
                   </button>
 
                 </div>
@@ -767,7 +755,7 @@ export default function Landing() {
                     disabled
                     className="block w-full py-3 px-4 bg-accent-primary text-white font-semibold rounded-lg text-center opacity-50 cursor-not-allowed"
                   >
-                    Get Started
+                    Beta Coming Soon
                   </button>
                 </div>
               </div>
@@ -831,7 +819,7 @@ export default function Landing() {
                     disabled
                     className="block w-full py-3 px-4 bg-accent-primary text-white font-semibold rounded-lg text-center opacity-50 cursor-not-allowed"
                   >
-                    Get Started
+                    Beta Coming Soon
                   </button>
                 </div>
               </div>
@@ -894,7 +882,7 @@ export default function Landing() {
                     disabled
                     className="block w-full py-3 px-4 border-2 border-accent-primary text-accent-primary font-semibold rounded-lg text-center opacity-50 cursor-not-allowed"
                   >
-                    Contact Sales
+                    Beta Coming Soon
                   </button>
                 </div>
               </div>
@@ -921,21 +909,23 @@ export default function Landing() {
               <span className="text-accent-primary">your research?</span>
             </h2>
             <p className="text-xl sm:text-2xl text-text-secondary max-w-2xl mx-auto tracking-normal">
-              Join researchers who are submitting stronger papers with confidence
+              Beta access is paused while the product is being reworked. The research workflow details remain available here.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <Button
-                onClick={() => navigate('/signup')}
+                disabled
                 variant="primary"
                 size="lg"
+                className={disabledButtonClass}
               >
-                Get Started Free
+                Beta Coming Soon
               </Button>
               <button
-                onClick={() => navigate('/login')}
-                className="px-8 py-4 border border-border-default text-text-secondary font-semibold rounded-md hover:border-accent-primary/30 hover:text-text-primary transition-all duration-150 text-lg"
+                type="button"
+                disabled
+                className="px-8 py-4 border border-border-default text-text-muted font-semibold rounded-md opacity-60 cursor-not-allowed text-lg"
               >
-                Sign In
+                Sign In Paused
               </button>
             </div>
 
@@ -943,11 +933,11 @@ export default function Landing() {
             <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 pt-8 text-sm text-text-muted font-mono">
               <div className="flex items-center gap-2">
                 <CheckBadgeIcon className="h-4 w-4 text-accent-primary" />
-                <span>No credit card required</span>
+                <span>Beta paused</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckBadgeIcon className="h-4 w-4 text-accent-primary" />
-                <span>Free tier available</span>
+                <span>New version coming soon</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckBadgeIcon className="h-4 w-4 text-accent-primary" />
@@ -969,8 +959,8 @@ export default function Landing() {
               © 2026 Noesis. All rights reserved.
             </div>
             <div className="flex items-center gap-6 text-text-muted text-sm">
-              <Link to="/privacy" className="hover:text-accent-primary transition-colors duration-150">Privacy</Link>
-              <a href="#" className="hover:text-accent-primary transition-colors duration-150">Terms</a>
+              <span className="cursor-not-allowed opacity-70">Privacy</span>
+              <span className="cursor-not-allowed opacity-70">Terms</span>
               <a href="mailto:privacy@noesis.app" className="hover:text-accent-primary transition-colors duration-150">Contact</a>
             </div>
           </div>

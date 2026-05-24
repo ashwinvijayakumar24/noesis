@@ -10,8 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -37,13 +37,13 @@ dist-ssr/
 
 # Environment variables
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.template
 **/.env
-.env.production
-.env.development
-.env.staging
-.env.prod
+**/.env.*
+!**/.env.example
+!**/.env.template
 
 # AWS deployment
 *.pem
@@ -54,6 +54,7 @@ infra/.env
 # Logs
 *.log
 logs/
+**/logs/
 
 # IDE
 .vscode/
@@ -71,14 +72,29 @@ Thumbs.db
 emails.csv
 *.csv
 test_import.bib
+*.bib
+uploads/
+**/uploads/
+pdfs/
+**/pdfs/
+storage/
+**/storage/
+exports/
+**/exports/
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
+*.dump
+*.sql.gz
 
 # Redis
 dump.rdb
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
 
 # Pytest
 .pytest_cache/

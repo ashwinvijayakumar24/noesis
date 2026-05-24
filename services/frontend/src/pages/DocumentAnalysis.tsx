@@ -80,19 +80,15 @@ export default function DocumentAnalysis() {
 
     try {
       setLoading(true)
-      console.log('[DOCUMENT-ANALYSIS-PAGE] Loading document data for documentId:', documentId)
 
       const documentData = await api.documents.get(token, documentId)
-      console.log('[DOCUMENT-ANALYSIS-PAGE] Document data:', documentData)
 
       setDocument(documentData)
 
       // Auto-trigger analysis if not analyzed yet
       if (!documentData.analysis && documentData.status !== 'analyzing' && documentData.status !== 'failed') {
-        console.log('[DOCUMENT-ANALYSIS-PAGE] Analysis not found, auto-triggering analysis...')
         try {
           await api.documents.analyze(token, documentId)
-          console.log('[DOCUMENT-ANALYSIS-PAGE] Analysis triggered successfully')
           // Update status to analyzing
           setDocument({ ...documentData, status: 'analyzing' })
         } catch (analyzeError: any) {
@@ -117,16 +113,13 @@ export default function DocumentAnalysis() {
   useEffect(() => {
     if (!document || document.status !== 'analyzing') return
 
-    console.log('[DOCUMENT-ANALYSIS-PAGE] Starting polling for analysis completion...')
     const pollInterval = setInterval(async () => {
       try {
         const documentData = await api.documents.get(token!, documentId!)
-        console.log('[DOCUMENT-ANALYSIS-PAGE] Poll result:', documentData.status, documentData.analysis ? 'has analysis' : 'no analysis')
         setDocument(documentData)
 
         // Stop polling when analysis is complete or failed
         if (documentData.status === 'analyzed' || documentData.status === 'failed') {
-          console.log('[DOCUMENT-ANALYSIS-PAGE] Analysis complete, stopping poll')
           clearInterval(pollInterval)
         }
       } catch (error) {
@@ -135,7 +128,6 @@ export default function DocumentAnalysis() {
     }, 3000) // Poll every 3 seconds
 
     return () => {
-      console.log('[DOCUMENT-ANALYSIS-PAGE] Cleaning up poll interval')
       clearInterval(pollInterval)
     }
   }, [document?.status, documentId, token])

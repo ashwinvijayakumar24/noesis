@@ -64,9 +64,9 @@ export const SHOWCASE_TABS: Array<{ id: ShowcaseTabId; label: string }> = [
 ]
 
 export const SHOWCASE_DOCUMENT = {
-  title: 'Deployment of machine learning algorithms to predict sepsis',
-  subtitle: 'Systematic review and application of the SALIENT clinical AI implementation framework',
-  fileUrl: '/demo/sepsis_deployment_review.txt',
+  title: 'Example deployment study of a clinical risk prediction tool',
+  subtitle: 'Synthetic sample manuscript for public demo and UI testing',
+  fileUrl: '/demo/synthetic_deployment_review.txt',
   fileType: 'txt',
 }
 
@@ -79,8 +79,8 @@ export const SHOWCASE_DRAFT_META = {
 }
 
 export const SHOWCASE_ACTION_ITEMS = [
-  'Add primary evidence before claiming deployed models improve mortality outcomes.',
-  'Clarify that SALIENT is useful for synthesis, but not fully validated against competing implementation frameworks.',
+  'Add primary evidence before claiming deployed models improve clinical outcomes.',
+  'Clarify that the selected framework is useful for synthesis, but not fully validated against competing implementation frameworks.',
   'Strengthen the manuscript with prospective deployment evidence and broader non-ICU validation coverage.',
 ]
 
@@ -100,7 +100,7 @@ export const SHOWCASE_COUNTS = {
 export const SHOWCASE_CLAIMS: ShowcaseClaim[] = [
   {
     id: 'claim-outcomes',
-    claim_text: 'The manuscript argues that machine learning deployment in sepsis care may improve outcomes, but the strength of that claim depends on study design and implementation context.',
+    claim_text: 'The manuscript argues that deployment may improve operational outcomes, but the strength of that claim depends on study design and implementation context.',
     claim_type: 'empirical',
     section_location: 'Abstract',
     section_type: 'abstract',
@@ -110,18 +110,18 @@ export const SHOWCASE_CLAIMS: ShowcaseClaim[] = [
     existing_citations: [],
     supporting_literature: [
       {
-        display: 'Anton H. van der Vegt et al. (2023)',
+        display: 'Example Implementation Study A (2023)',
         source: 'manual_upload',
         similarity: 0.93,
       },
       {
-        display: 'Fernando S. M. et al. (2018)',
+        display: 'Example Clinical AI Review B (2018)',
         source: 'openalex',
         similarity: 0.84,
       },
     ],
     line_number: 5,
-    text_snippet: 'machine learning deployment in sepsis care may improve outcomes',
+    text_snippet: 'deployment may improve operational outcomes',
     status: 'new',
   },
   {
@@ -136,12 +136,12 @@ export const SHOWCASE_CLAIMS: ShowcaseClaim[] = [
     existing_citations: [],
     supporting_literature: [
       {
-        display: 'van der Vegt et al. (2023)',
+        display: 'Example Implementation Study A (2023)',
         source: 'manual_upload',
         similarity: 0.91,
       },
       {
-        display: 'Greenhalgh et al. (2017)',
+        display: 'Example Implementation Framework Review (2017)',
         source: 'openalex',
         similarity: 0.77,
       },
@@ -162,12 +162,12 @@ export const SHOWCASE_CLAIMS: ShowcaseClaim[] = [
     existing_citations: [],
     supporting_literature: [
       {
-        display: 'Rudd K. E. et al. (2020)',
+        display: 'Example Outcomes Review C (2020)',
         source: 'openalex',
         similarity: 0.74,
       },
       {
-        display: 'Parsons C. et al. (2025)',
+        display: 'Example Prospective Evaluation D (2025)',
         source: 'openalex',
         similarity: 0.7,
       },
@@ -182,20 +182,20 @@ export const SHOWCASE_GAPS: ShowcaseGap[] = [
   {
     id: 'gap-framework-comparison',
     gap_type: 'missing_perspectives',
-    description: 'No comparison to or extension of prior AI implementation frameworks such as CFIR or NASSS, despite claiming SALIENT covers deployment factors comprehensively.',
+    description: 'No comparison to or extension of prior AI implementation frameworks, despite claiming the selected framework covers deployment factors comprehensively.',
     priority: 'high' as const,
     section_type: 'methodology',
     suggested_papers: [
       {
-        title: 'The NASSS framework to evaluate, scale, and sustain health technology',
-        authors: ['Greenhalgh', 'Wherton'],
+        title: 'Frameworks for evaluating, scaling, and sustaining health technology',
+        authors: ['Example Author', 'Example Coauthor'],
         year: '2017',
         source: 'openalex',
         external: true,
       },
       {
-        title: 'Consolidated Framework for Implementation Research overview',
-        authors: ['Damschroder', 'Aron'],
+        title: 'Implementation research framework overview',
+        authors: ['Example Author', 'Example Coauthor'],
         year: '2009',
         source: 'openalex',
         external: true,
@@ -203,7 +203,7 @@ export const SHOWCASE_GAPS: ShowcaseGap[] = [
     ],
     has_relevant_literature: true,
     line_number: 29,
-    text_snippet: 'It does not yet compare SALIENT directly with CFIR, NASSS, or other digital health implementation models.',
+    text_snippet: 'It does not yet compare the selected framework directly with competing implementation models.',
     status: 'new',
   },
   {
@@ -221,8 +221,8 @@ export const SHOWCASE_GAPS: ShowcaseGap[] = [
         external: true,
       },
       {
-        title: 'Early sepsis deployment studies with stronger real-time evaluation',
-        authors: ['Gao', 'Huang'],
+        title: 'Early clinical deployment studies with stronger real-time evaluation',
+        authors: ['Example Author', 'Example Coauthor'],
         year: '2023',
         source: 'openalex',
         external: true,
@@ -241,15 +241,15 @@ export const SHOWCASE_GAPS: ShowcaseGap[] = [
     section_type: 'discussion',
     suggested_papers: [
       {
-        title: 'External validation of sepsis prediction outside ICU settings',
-        authors: ['Wei', 'Patel'],
+        title: 'External validation of prediction tools outside specialized settings',
+        authors: ['Example Author', 'Example Coauthor'],
         year: '2025',
         source: 'openalex',
         external: true,
       },
       {
         title: 'Transportability of clinical ML systems across hospitals',
-        authors: ['Kovács', 'Lipskiy'],
+        authors: ['Example Author', 'Example Coauthor'],
         year: '2026',
         source: 'openalex',
         external: true,
@@ -277,7 +277,7 @@ export const SHOWCASE_FEEDBACK: ShowcaseFeedbackItem[] = [
     ],
     section_reference: 'Abstract',
     line_number: 5,
-    text_snippet: 'machine learning deployment in sepsis care may improve outcomes',
+    text_snippet: 'deployment may improve operational outcomes',
     status: 'new',
   },
   {
@@ -287,10 +287,10 @@ export const SHOWCASE_FEEDBACK: ShowcaseFeedbackItem[] = [
     priority: 'medium' as const,
     reviewer_persona: 'reviewer_2',
     section_type: 'methodology',
-    feedback_text: 'The framing around SALIENT is stronger than the comparative evidence supports. Readers need a clearer distinction between organizing a synthesis and validating a framework against alternatives.',
+    feedback_text: 'The framing around the selected framework is stronger than the comparative evidence supports. Readers need a clearer distinction between organizing a synthesis and validating a framework against alternatives.',
     suggestions: [
       'Replace “can account for” with narrower language such as “helps organize”.',
-      'Add one short paragraph positioning SALIENT against CFIR and NASSS rather than implying replacement.',
+      'Add one short paragraph positioning the selected framework against alternatives rather than implying replacement.',
     ],
     section_reference: 'Methods',
     line_number: 28,

@@ -1,0 +1,50 @@
+Title: Example deployment study of a clinical risk prediction tool
+
+Abstract
+This synthetic sample manuscript evaluates deployed clinical risk prediction studies and examines how implementation choices affect usefulness.
+The manuscript argues that deployment may improve operational outcomes, but the strength of that claim depends on study design and implementation context.
+The review applies an implementation framework to map barriers, enablers, and operational decisions.
+The abstract notes that evidence is strongest for workflow mapping and weakest for prospective outcome validation.
+
+Introduction
+Clinical risk prediction models are now widely discussed in the applied AI literature.
+Many manuscripts present model performance as a proxy for clinical usefulness.
+That shortcut becomes problematic when implementation outcomes are not measured directly.
+Prior work has described implementation barriers, but cross-framework comparison remains limited.
+The manuscript positions its chosen framework as an end-to-end structure for deployed prediction systems.
+
+Background
+Several studies report care-improvement outcomes after deployment.
+However, only a small subset of studies evaluate real-world effects prospectively.
+Many papers rely on retrospective evaluation after recognition or treatment begins.
+This can inflate the apparent value of prediction models in practice.
+The manuscript states that deployed prediction algorithms demonstrate potential for improving care but reveal persisting gaps in implementation guidance.
+
+Methods
+The review includes studies of clinically applied prediction algorithms in adult hospital settings.
+Data extraction was performed independently by two reviewers using a structured abstraction template.
+Study metadata included implementation stage, setting, model details, alert timing, and reported outcomes.
+Barrier and enabler themes were mapped to implementation stages.
+The manuscript claims that the framework can account for the key factors that warrant attention in successful deployment.
+It does not yet compare the selected framework directly with competing implementation models.
+
+Results
+Thirty studies were identified for synthesis.
+Five studies reported improved operational outcomes after implementation, but endpoints and designs varied.
+Only two studies provided evidence from stronger prospective or quasi-experimental deployment settings.
+Eight groups of algorithms were identified, each sharing a common deployment goal.
+The review identified implementation barriers, enabling factors, and decision points that map to the framework stages.
+The manuscript argues that deployed models improve outcomes and resource use, but the available evidence is uneven and context-dependent.
+
+Discussion
+The evidence base for deployment is still narrow outside specialized settings.
+General inpatient wards and lower-resource settings remain underrepresented.
+The review highlights persistent gaps between technical performance and real-world operational impact.
+It suggests that prospective trials and stronger external validation are needed before stronger causal claims can be made.
+The manuscript concludes that the framework offers a useful structure for understanding deployed prediction workflows.
+It also suggests that the framework extends earlier implementation models, though direct comparison is not fully developed here.
+
+Conclusion
+This review provides a structured synthesis of deployed prediction studies.
+It supports cautious use of implementation frameworks to organize evidence and open questions.
+Future work should test whether framework-guided deployment improves measurable clinical outcomes.

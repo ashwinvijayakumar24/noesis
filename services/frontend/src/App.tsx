@@ -1,24 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { lazy, Suspense } from 'react'
-import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpgradeModal from './components/UpgradeModal'
 
 // Lazy load page components for code splitting
 const Landing = lazy(() => import('./pages/Landing'))
-const Demo = lazy(() => import('./pages/Demo'))
 const Login = lazy(() => import('./pages/Login'))
-const SignUp = lazy(() => import('./pages/SignUp'))
-const ConfirmEmail = lazy(() => import('./pages/ConfirmEmail'))
-const AuthCallback = lazy(() => import('./pages/AuthCallback'))
-const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
-const Pricing = lazy(() => import('./pages/Pricing'))
-const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'))
-const Projects = lazy(() => import('./pages/Projects'))
-const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
-const DraftAnalysis = lazy(() => import('./pages/DraftAnalysis'))
-const DocumentAnalysis = lazy(() => import('./pages/DocumentAnalysis'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 // Loading fallback component
 function PageLoader() {
@@ -63,67 +52,16 @@ function App() {
           }}
         />
         {/* Global upgrade modal — triggered by quota 429 errors anywhere in the app */}
-      <UpgradeModal />
+        <UpgradeModal />
 
-      <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoader />}>
           <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/demo" element={<Demo />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/auth/confirm" element={<ConfirmEmail />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-
-        {/* Protected routes */}
-        <Route
-          path="/projects"
-          element={
-            <ProtectedRoute>
-              <Projects />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:projectId"
-          element={
-            <ProtectedRoute>
-              <ProjectDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:projectId/drafts/:draftId"
-          element={
-            <ProtectedRoute>
-              <DraftAnalysis />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:projectId/documents/:documentId"
-          element={
-            <ProtectedRoute>
-              <DocumentAnalysis />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/analytics"
-          element={
-            <ProtectedRoute>
-              <AnalyticsDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Fallback redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      </Suspense>
-    </BrowserRouter>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     </ErrorBoundary>
   )
 }

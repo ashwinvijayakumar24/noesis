@@ -3,7 +3,7 @@
 **Last updated:** May 12, 2026
 **Purpose:** Executable task list. Feed this file as a prompt to Claude Code or Codex to implement each phase. Each task has exact file paths, what to change, and dependencies.
 
-**Repo root:** `/Applications/Ashwin/Programming/Personal Projects/startup/noesis`
+**Repo root:** repository root
 **Backend root:** `services/backend/app`
 **Frontend root:** `services/frontend/src`
 
