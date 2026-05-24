@@ -4,9 +4,15 @@ Noesis was a draft-aware research intelligence platform for academics. It analyz
 
 ## Status
 
-This project has been discontinued. It is published as a technical portfolio piece documenting a full-stack AI agentic system built and tested in a real startup context through Georgia Tech CREATE-X Startup Launch in 2026.
+This project has been discontinued. It is published as a technical portfolio piece documenting a full-stack AI agentic system built and tested in a real startup context throughout Spring 2026 and Georgia Tech CREATE-X Startup Launch in 2026.
+
+Beta recieved around 30 researchers utilizing Noesis at 4 universities.
 
 The public deployment was converted to a paused-beta landing page. Backend infrastructure, production billing, and Supabase data were shut down separately.
+
+Legacy Link: https://noesis.is
+
+
 
 ## Technical Architecture
 
