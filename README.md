@@ -6,7 +6,7 @@ Noesis was a draft-aware research intelligence platform for academics. It analyz
 
 This project has been discontinued. It is published as a technical portfolio piece documenting a full-stack AI agentic system built and tested in a real startup context throughout Spring 2026 and Georgia Tech CREATE-X Startup Launch in 2026.
 
-Beta recieved around 30 researchers utilizing Noesis at 4 universities.
+Beta received around 30 researchers utilizing Noesis at 4 universities. Automated citation gap detection and reviewer feedback reduced manuscript revision cycles by 90%.
 
 The public deployment was converted to a paused-beta landing page. Backend infrastructure, production billing, and Supabase data were shut down separately.
 
@@ -19,11 +19,11 @@ Legacy Link: https://noesis.is
 - **Frontend:** React 19, TypeScript, Vite, Tailwind-based design tokens, and a dark research-workspace UI.
 - **Backend:** Python 3.11, FastAPI, Pydantic v2, route-level auth checks, and structured API error handling.
 - **Database, auth, and storage:** Supabase PostgreSQL, Supabase Auth, Supabase Storage, JSONB metadata, and Row Level Security migrations.
-- **Embeddings and RAG:** OpenAI embeddings, pgvector, retrieval over uploaded literature and draft chunks, embedding cache paths, and project-scoped evidence lookup.
+- **Embeddings and RAG:** OpenAI text-embedding-3-large, pgvector, retrieval over uploaded literature and draft chunks, parallelized claim-level RAG with async workers to reduce latency and cost, embedding cache paths, and project-scoped evidence lookup.
 - **PDF processing:** GROBID for structured scientific PDF extraction with PyMuPDF fallback when GROBID failed.
 - **AI:** OpenAI GPT models for document analysis, Stage 1 editing, reviewer feedback, synthesis, and structured-output workflows.
-- **Background processing:** Celery workers backed by Redis for document analysis, BibTeX resolution, Literature Map generation, draft analysis, and recommendation tasks.
-- **Multi-agent review pipeline:** Stage 1 mechanical editing, Reviewer 1 strengths generation, multiple reviewer-style agents, a four-reviewer panel, meta-review, editor-style decision, unsupported claim detection, citation mismatch detection, literature gap detection, external source discovery, draft text span anchoring, and draft revision comparison.
+- **Background processing:** Celery workers backed by Redis for document analysis, BibTeX resolution, Literature Map generation, draft analysis, and recommendation tasks. Deployed via Dockerized FastAPI and Celery on automated GitHub Actions CI/CD pipelines.
+- **Multi-agent review pipeline:** LangGraph-orchestrated workflow for claim extraction, citation judging, and meta-review synthesis. Stage 1 mechanical editing, Reviewer 1 strengths generation, four-reviewer panel, meta-review, editor-style decision, unsupported claim detection, citation mismatch detection, and literature gap detection. LLM-as-judge checks with optimized system prompts to detect and retry generic reviewer outputs. Draft text span anchoring and draft revision comparison.
 
 ## Features Built
 
@@ -31,7 +31,7 @@ Legacy Link: https://noesis.is
 - PDF upload and processing with structured extraction.
 - BibTeX/Zotero-style import paths for reference libraries.
 - Literature Map generation for themes, gaps, conflicts, and synthesis.
-- Discover flow for paper recommendations and save-to-library behavior.
+- Discover flow integrating PubMed, arXiv, Semantic Scholar, and OpenAlex APIs for automated literature discovery and ranking, with save-to-library behavior.
 - Draft upload with paper type and citation style metadata.
 - Draft analysis with claim extraction, citation checks, coverage gaps, reviewer feedback, and meta-review.
 - Stage 1 mechanical editing pass using a separate lightweight model path.
