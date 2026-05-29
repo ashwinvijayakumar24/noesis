@@ -23,6 +23,7 @@ from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_async_openai_client, get_completion_params
 from app.services.draft_anchor_qa import locate_text_snippet
+from app.workflows.draft_analysis.citation_rules import extract_citations_from_text as extract_citation_tokens
 import datetime
 
 logger = get_logger(__name__)
@@ -339,40 +340,17 @@ def extract_citations_from_text(text: str) -> List[Dict[str, Any]]:
         List of citation dictionaries with author, year, and context
     """
     citations = []
-
-    # Pattern 1: Author (Year) or Author et al. (Year)
-    pattern1 = r'\b([A-Z][a-z]+(?:\s+et\s+al\.)?)\s+\((\d{4})\)'
-
-    # Pattern 2: (Author, Year) or (Author et al., Year)
-    pattern2 = r'\(([A-Z][a-z]+(?:\s+et\s+al\.)?)(?:,\s+)?(\d{4})\)'
-
-    # Pattern 3: [1], [Author2023], etc.
-    pattern3 = r'\[(\d+|[A-Z][a-z]+\d{4})\]'
-
-    for pattern in [pattern1, pattern2, pattern3]:
-        matches = re.finditer(pattern, text)
-
-        for match in matches:
-            if pattern == pattern3:
-                # Numerical or compact citation
-                ref = match.group(1)
-                citation = {
-                    "citation_string": f"[{ref}]",
-                    "authors": ["Ref " + ref],
-                    "year": ref[-4:] if len(ref) > 4 else "Unknown",
-                    "context": text[max(0, match.start() - 50):min(len(text), match.end() + 50)]
-                }
-            else:
-                author = match.group(1)
-                year = match.group(2)
-                citation = {
-                    "citation_string": f"{author} ({year})",
-                    "authors": [author],
-                    "year": year,
-                    "context": text[max(0, match.start() - 50):min(len(text), match.end() + 50)]
-                }
-
-            citations.append(citation)
+    for token in extract_citation_tokens(text):
+        context_start = max(0, text.find(token) - 50) if token in text else 0
+        context_end = min(len(text), context_start + 120)
+        year_match = re.search(r"\b(19|20)\d{2}[a-z]?\b", token)
+        is_numeric = bool(re.fullmatch(r"\d{1,3}(?:-\d{1,3})?", token))
+        citations.append({
+            "citation_string": f"[{token}]" if is_numeric else token,
+            "authors": [f"Ref {token}"] if is_numeric else [token],
+            "year": year_match.group(0) if year_match else "Unknown",
+            "context": text[context_start:context_end],
+        })
 
     logger.info(f"Extracted {len(citations)} citations from text")
     return citations

@@ -6,13 +6,14 @@ Docs: https://info.arxiv.org/help/api/index.html
 """
 
 import requests
-import time
+import logging
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
-from urllib.parse import quote
 from datetime import datetime
+from app.core.privacy import safe_exception
 
-BASE_URL = "http://export.arxiv.org/api/query"
+BASE_URL = "https://export.arxiv.org/api/query"
+logger = logging.getLogger(__name__)
 
 # arXiv categories that indicate STEM fields
 STEM_CATEGORIES = {
@@ -48,7 +49,7 @@ class ArXivAPI:
         Returns:
             List of paper dictionaries
         """
-        print(f"[ARXIV] Searching for: {query[:50]}...")
+        logger.info("[ARXIV] Searching papers")
 
         # Build search query
         search_query = f"all:{query}"
@@ -83,12 +84,12 @@ class ArXivAPI:
             if year_min or year_max:
                 papers = self._filter_by_year(papers, year_min, year_max)
 
-            print(f"[ARXIV] Found {len(papers)} papers")
+            logger.info("[ARXIV] Found %s papers", len(papers))
 
             return papers[:limit]
 
         except Exception as e:
-            print(f"[ARXIV] ERROR: {type(e).__name__}: {str(e)}")
+            logger.warning("[ARXIV] Search failed: %s", safe_exception(e))
             return []
 
     def is_stem_relevant(self, keywords: List[str]) -> bool:
@@ -161,7 +162,7 @@ class ArXivAPI:
                 paper_url = None
                 if id_elem is not None:
                     paper_url = id_elem.text.strip()
-                    # Extract ID from URL: http://arxiv.org/abs/2301.12345 -> 2301.12345
+                    # Extract ID from URL: https://arxiv.org/abs/2301.12345 -> 2301.12345
                     arxiv_id = paper_url.split("/abs/")[-1]
 
                 # Extract publication date
@@ -183,7 +184,7 @@ class ArXivAPI:
                         categories.append(term)
 
                 # PDF URL - always available on arXiv
-                pdf_url = f"http://arxiv.org/pdf/{arxiv_id}" if arxiv_id else None
+                pdf_url = f"https://arxiv.org/pdf/{arxiv_id}" if arxiv_id else None
 
                 # DOI if available
                 doi = None
@@ -212,7 +213,7 @@ class ArXivAPI:
                 papers.append(paper)
 
         except Exception as e:
-            print(f"[ARXIV] XML parsing error: {type(e).__name__}: {str(e)}")
+            logger.warning("[ARXIV] XML parsing error: %s", safe_exception(e))
 
         return papers
 

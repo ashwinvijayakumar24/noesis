@@ -31,6 +31,7 @@ interface UploadDraftModalProps {
   onSuccess: () => void
   token: string
   projectId: string
+  hasExistingDraft?: boolean
 }
 
 export default function UploadDraftModal({
@@ -39,6 +40,7 @@ export default function UploadDraftModal({
   onSuccess,
   token,
   projectId,
+  hasExistingDraft = false,
 }: UploadDraftModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
@@ -116,7 +118,9 @@ export default function UploadDraftModal({
 
       // Enhanced progress notification
       toast.success(
-        'Draft uploaded! Analysis will complete in 2-3 minutes. Citation suggestions will appear when ready.',
+        hasExistingDraft
+          ? 'New draft version uploaded. Analysis will complete in 2-3 minutes.'
+          : 'Draft uploaded! Analysis will complete in 2-3 minutes. Citation suggestions will appear when ready.',
         { duration: 5000 }
       )
 
@@ -125,7 +129,7 @@ export default function UploadDraftModal({
 
       onClose()
       onSuccess()
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (!handleQuotaError(error)) {
         const detail = getApiErrorDetail(error)
         setInlineError({
@@ -173,25 +177,25 @@ export default function UploadDraftModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-2xl transition-all">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-border-default">
+                <div className="border-b border-border-default px-5 py-4">
                   <div className="flex items-center justify-between">
-                    <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
-                      Upload Draft
+                    <Dialog.Title className="text-base font-semibold text-text-primary">
+                      {hasExistingDraft ? 'Upload New Version' : 'Upload Draft'}
                     </Dialog.Title>
                     <button
                       onClick={handleClose}
                       disabled={loading}
-                      className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
+                      className="rounded-md p-1.5 text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                     >
-                      <XMarkIcon className="h-6 w-6" />
+                      <XMarkIcon className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-4 p-5">
                   {inlineError && (
                     <InlineAlert
                       title={inlineError.title}
@@ -200,52 +204,38 @@ export default function UploadDraftModal({
                     />
                   )}
                   {/* Privacy Notice */}
-                  <div className="mb-4 rounded-md bg-bg-elevated p-4 border border-border-default">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <ShieldCheckIcon className="h-5 w-5 text-teal-primary" aria-hidden="true" />
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <h3 className="text-sm font-medium text-text-primary tracking-normal">
-                          Your research is private and secure
-                        </h3>
-                        <div className="mt-2 text-sm text-text-secondary tracking-normal">
-                          <ul className="list-disc space-y-1 pl-5">
-                            <li>Your drafts are never shared with other users</li>
-                            <li>Your files stay inside your workspace by default</li>
-                            <li>Your work is isolated to your account only</li>
-                            <li>No data is used for model training or indexing</li>
-                          </ul>
-                          <button
-                            type="button"
-                            onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-                            className="mt-2 text-sm font-medium text-accent-primary hover:text-accent-hover transition-colors duration-150"
-                          >
-                            {showPrivacyInfo ? 'Hide details' : 'Learn more about our privacy practices'}
-                          </button>
-                          {showPrivacyInfo && (
-                            <div className="mt-3 text-xs text-text-tertiary tracking-normal space-y-2 border-t border-border-default pt-2">
-                              <p><strong>Database Security:</strong> Row-Level Security ensures your data is isolated by user ID.</p>
-                              <p><strong>AI Processing:</strong> Your content is sent only to the providers needed to run analysis, and it is not used to train models.</p>
-                              <p><strong>Storage:</strong> Files are stored in private buckets with user-specific access controls.</p>
-                              <p><strong>No Internal Reuse:</strong> Noesis does not cross-reference your work with other projects or users.</p>
-                            </div>
-                          )}
-                        </div>
+                  <div className="rounded-lg border border-border-default bg-bg-void/45 px-3 py-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-accent-primary" aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-text-primary">Private by default</p>
+                        <p className="mt-0.5 text-xs leading-5 text-text-secondary">
+                          Files stay in your workspace and are not used to train models.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                          className="mt-1 text-xs font-semibold text-accent-primary transition-colors duration-150 hover:text-accent-hover"
+                        >
+                          {showPrivacyInfo ? 'Hide details' : 'View details'}
+                        </button>
+                        {showPrivacyInfo && (
+                          <div className="mt-2 space-y-1.5 border-t border-border-default pt-2 text-xs leading-5 text-text-secondary">
+                            <p><strong className="text-text-primary">Database:</strong> Row-Level Security isolates data by user ID.</p>
+                            <p><strong className="text-text-primary">AI Processing:</strong> Content is sent only to providers needed for analysis.</p>
+                            <p><strong className="text-text-primary">Storage:</strong> Files are stored in private buckets with user-specific access controls.</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-
-                  <p className="text-xs text-text-muted">
-                    Private by default. Your files stay in your workspace and are not used to train models.
-                  </p>
 
                   {/* File Picker */}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label
                         htmlFor="draft-paper-type"
-                        className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
+                        className="mb-1.5 block text-xs font-bold uppercase tracking-[0.1em] text-text-secondary"
                       >
                         Paper Type
                       </label>
@@ -254,7 +244,7 @@ export default function UploadDraftModal({
                         value={paperType}
                         onChange={(e) => setPaperType(e.target.value)}
                         disabled={loading}
-                        className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
+                        className="w-full rounded-lg border border-border-default bg-bg-void px-3 py-2.5 text-sm text-text-primary transition-colors focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
                       >
                         {PAPER_TYPES.map((type) => (
                           <option key={type.value} value={type.value}>
@@ -267,7 +257,7 @@ export default function UploadDraftModal({
                     <div>
                       <label
                         htmlFor="draft-citation-style"
-                        className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
+                        className="mb-1.5 block text-xs font-bold uppercase tracking-[0.1em] text-text-secondary"
                       >
                         Citation Style
                       </label>
@@ -276,7 +266,7 @@ export default function UploadDraftModal({
                         value={citationStyle}
                         onChange={(e) => setCitationStyle(e.target.value)}
                         disabled={loading}
-                        className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
+                        className="w-full rounded-lg border border-border-default bg-bg-void px-3 py-2.5 text-sm text-text-primary transition-colors focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
                       >
                         {CITATION_STYLES.map((style) => (
                           <option key={style.value} value={style.value}>
@@ -287,15 +277,15 @@ export default function UploadDraftModal({
                     </div>
                   </div>
 
-                  <p className="text-xs text-text-muted -mt-2">
+                  <p className="-mt-2 text-xs font-medium text-text-secondary">
                     These answers tune the editing pass and reviewer expectations before analysis starts.
                   </p>
 
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-2 tracking-normal">
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.1em] text-text-secondary">
                       Draft File
                     </label>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 rounded-xl border border-dashed border-border-default bg-bg-void/35 p-3 transition-colors hover:border-accent-primary/40 hover:bg-bg-hover">
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -307,20 +297,20 @@ export default function UploadDraftModal({
                       />
                       <label
                         htmlFor="draft-file-upload"
-                        className="flex items-center gap-2 px-4 py-3 border border-border-default rounded-md hover:border-accent-primary/30 hover:bg-bg-hover transition-all duration-150 cursor-pointer disabled:opacity-50"
+                        className="flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary"
                       >
-                        <DocumentArrowUpIcon className="h-5 w-5 text-text-tertiary" />
-                        <span className="text-sm text-text-secondary font-medium tracking-normal">
+                        <DocumentArrowUpIcon className="h-4 w-4 text-text-secondary" />
+                        <span>
                           {selectedFile ? 'Change File' : 'Choose File'}
                         </span>
                       </label>
                       {selectedFile && (
-                        <span className="text-sm text-text-tertiary truncate flex-1 tracking-normal">
+                        <span className="flex-1 truncate text-sm font-medium text-text-secondary">
                           {selectedFile.name}
                         </span>
                       )}
                     </div>
-                    <p className="mt-2 text-xs font-mono text-text-muted">
+                    <p className="mt-2 font-mono text-xs font-medium text-text-secondary">
                       PDF, DOCX, or TXT files, max 100MB
                     </p>
                   </div>
@@ -329,7 +319,7 @@ export default function UploadDraftModal({
                   <div>
                     <label
                       htmlFor="draft-title"
-                      className="block text-sm font-medium text-text-secondary mb-2 tracking-normal"
+                      className="mb-1.5 block text-xs font-bold uppercase tracking-[0.1em] text-text-secondary"
                     >
                       Title
                     </label>
@@ -338,27 +328,27 @@ export default function UploadDraftModal({
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-3 bg-bg-surface border border-border-default rounded-md text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors tracking-normal"
-                      placeholder="My Research Draft v1"
+                      className="w-full rounded-lg border border-border-default bg-bg-void px-3 py-2.5 text-sm text-text-primary transition-colors placeholder:text-text-muted focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
+                      placeholder={hasExistingDraft ? 'My Research Draft v2' : 'My Research Draft'}
                       disabled={loading}
                       required
                     />
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-2">
+                  <div className="flex gap-2 border-t border-border-default pt-4">
                     <button
                       type="button"
                       onClick={handleClose}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 border border-border-default text-text-secondary font-medium rounded-md hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-hover transition-all duration-150 disabled:opacity-50"
+                      className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading || !selectedFile || !title.trim()}
-                      className="flex-1 px-4 py-3 bg-accent-primary text-white font-semibold rounded-md hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-md bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {loading ? (
                         <>
@@ -366,7 +356,7 @@ export default function UploadDraftModal({
                           Uploading...
                         </>
                       ) : (
-                        'Upload Draft'
+                        hasExistingDraft ? 'Upload New Version' : 'Upload Draft'
                       )}
                     </button>
                   </div>

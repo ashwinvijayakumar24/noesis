@@ -40,32 +40,32 @@ export default function UploadSuccessModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
-                <div className="text-center space-y-6 p-8">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-2xl transition-all">
+                <div className="space-y-5 p-5 text-center">
                   {/* Success Icon */}
-                  <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-accent-primary/10">
-                    <CheckCircleIcon className="h-10 w-10 text-accent-primary" />
+                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg border border-border-default bg-bg-elevated">
+                    <CheckCircleIcon className="h-6 w-6 text-accent-primary" />
                   </div>
 
                   {/* Title */}
                   <div>
-                    <h3 className="text-2xl font-semibold text-text-primary mb-2 tracking-normal">
+                    <h3 className="mb-1 text-base font-semibold text-text-primary">
                       Uploading & analyzing
                     </h3>
-                    <p className="text-text-secondary tracking-normal">
+                    <p className="text-sm font-medium text-text-secondary">
                       This may take a few minutes
                     </p>
                   </div>
 
                   {/* Processing Message */}
-                  <p className="text-text-muted text-sm tracking-normal">
+                  <p className="text-sm leading-6 text-text-secondary">
                     {uploadedCount > 1 ? `${uploadedCount} papers are` : 'Your paper is'} being processed and analyzed automatically.
                     You can close this window — the cards will update when done.
                   </p>
 
                   {/* Note */}
-                  <div className="bg-bg-elevated border border-border-default rounded-lg p-4">
-                    <p className="text-sm text-text-tertiary tracking-normal">
+                  <div className="rounded-lg border border-border-default bg-bg-void/45 p-3 text-left">
+                    <p className="text-xs leading-5 text-text-secondary">
                       <strong>Note:</strong> You can close this window and continue working.
                       The document card{uploadedCount > 1 ? 's' : ''} will update automatically when processing is complete.
                     </p>
@@ -74,7 +74,7 @@ export default function UploadSuccessModal({
                   {/* Close Button */}
                   <button
                     onClick={onClose}
-                    className="w-full bg-accent-primary text-white py-3 rounded-lg hover:bg-accent-hover hover:shadow-sm hover:-translate-y-px transition-all duration-150 font-semibold tracking-normal"
+                    className="w-full rounded-md bg-accent-primary py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover"
                   >
                     Got it, thanks!
                   </button>

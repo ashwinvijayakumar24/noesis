@@ -123,7 +123,7 @@ async def search_arxiv(state: PaperDiscoveryState) -> PaperDiscoveryState:
     try:
         async with aiohttp.ClientSession() as session:
             # arXiv API (free, no key required)
-            url = "http://export.arxiv.org/api/query"
+            url = "https://export.arxiv.org/api/query"
             params = {
                 "search_query": f"all:{query}",
                 "start": 0,

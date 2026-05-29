@@ -1,62 +1,51 @@
-import { ApiError } from './api'
-
-export type ApiDetail = {
+export interface ApiErrorDetail {
   code?: string
   title?: string
   message?: string
-  details?: string[] | Record<string, unknown>
-  next_action?: 'retry' | 'upgrade' | 'fix_file' | 'refresh' | 'sign_in' | 'contact_support'
+  details?: unknown
+  next_action?: string
   retryable?: boolean
-  [key: string]: unknown
+  error?: string
+  quota_type?: string
+  limit?: number
+  current?: number
+  validation_errors?: unknown
+  suggestions?: unknown
 }
 
-export function normalizeApiDetail(payload: any): ApiDetail | undefined {
-  const detail = payload?.detail
-  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
-    return undefined
+export function getApiErrorDetail(error: unknown): ApiErrorDetail | null {
+  const maybeError = error as { detail?: unknown; data?: { detail?: unknown }; message?: string } | null
+  const rawDetail = maybeError?.detail ?? maybeError?.data?.detail
+
+  if (rawDetail && typeof rawDetail === 'object') {
+    return rawDetail as ApiErrorDetail
   }
 
-  return detail as ApiDetail
+  if (typeof rawDetail === 'string') {
+    return { message: rawDetail }
+  }
+
+  if (maybeError?.message) {
+    return { message: maybeError.message }
+  }
+
+  return null
 }
 
-export function getApiErrorDetail(error: unknown): ApiDetail | undefined {
-  if (!(error instanceof ApiError)) {
-    return undefined
+export function getApiErrorDetailsList(detail: ApiErrorDetail | null): string[] {
+  if (!detail) return []
+
+  const details = detail.details ?? detail.validation_errors ?? detail.suggestions
+  if (Array.isArray(details)) {
+    return details.map((item) => {
+      if (typeof item === 'string') return item
+      if (item && typeof item === 'object') return JSON.stringify(item)
+      return String(item)
+    })
   }
 
-  return normalizeApiDetail(error.data)
-}
+  if (typeof details === 'string') return [details]
+  if (details && typeof details === 'object') return [JSON.stringify(details)]
 
-export function getApiErrorMessage(error: unknown, fallback: string): string {
-  const detail = getApiErrorDetail(error)
-  if (detail?.message) {
-    return detail.message
-  }
-
-  if (error instanceof ApiError) {
-    return error.message || fallback
-  }
-
-  if (error instanceof Error) {
-    return error.message || fallback
-  }
-
-  return fallback
-}
-
-export function getApiErrorDetailsList(detail?: ApiDetail): string[] {
-  if (!detail?.details) {
-    return []
-  }
-
-  if (Array.isArray(detail.details)) {
-    return detail.details.filter(Boolean).map(String)
-  }
-
-  return Object.entries(detail.details).map(([key, value]) => {
-    if (Array.isArray(value)) {
-      return `${key}: ${value.join(', ')}`
-    }
-    return `${key}: ${String(value)}`
-  })
+  return []
 }

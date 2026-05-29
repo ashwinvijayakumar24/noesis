@@ -22,6 +22,7 @@ from app.core.supabase_client import supabase
 from app.core.config import settings
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_completion_params
+from app.core.privacy import safe_exception, strip_manuscript_content_from_structure
 from app.services.grobid_client import get_grobid_client
 from app.services.draft_errors import (
     DraftProcessingError,
@@ -139,8 +140,8 @@ def extract_text_from_pdf_fallback(file_bytes: bytes) -> str:
     except FileEmptyError:
         raise  # Re-raise our custom error
     except Exception as e:
-        logger.error(f"PDF extraction failed: {str(e)}")
-        raise PDFExtractionError(str(e))
+        logger.error("PDF extraction failed: %s", safe_exception(e))
+        raise PDFExtractionError("PDF extraction failed")
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
@@ -181,8 +182,8 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     except FileEmptyError:
         raise  # Re-raise our custom error
     except Exception as e:
-        logger.error(f"DOCX extraction failed: {str(e)}")
-        raise DOCXExtractionError(str(e))
+        logger.error("DOCX extraction failed: %s", safe_exception(e))
+        raise DOCXExtractionError("DOCX extraction failed")
 
 
 def extract_text_from_txt(file_bytes: bytes) -> str:
@@ -221,8 +222,8 @@ def extract_text_from_txt(file_bytes: bytes) -> str:
     except FileEmptyError:
         raise  # Re-raise our custom error
     except Exception as e:
-        logger.error(f"Text extraction failed: {str(e)}")
-        raise TextEncodingError(str(e))
+        logger.error("Text extraction failed: %s", safe_exception(e))
+        raise TextEncodingError("Text extraction failed")
 
 
 async def extract_text(file_bytes: bytes, file_type: str) -> Dict[str, Any]:
@@ -368,12 +369,12 @@ def analyze_document_structure(draft_text: str) -> Dict[str, Any]:
         return structure
 
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse structure analysis JSON: {e}")
-        raise StructureAnalysisError(f"Invalid JSON response: {e}")
+        logger.error("Failed to parse structure analysis JSON: %s", safe_exception(e))
+        raise StructureAnalysisError("Invalid JSON response")
 
     except Exception as e:
-        logger.error(f"Structure analysis failed: {e}")
-        raise StructureAnalysisError(str(e))
+        logger.error("Structure analysis failed: %s", safe_exception(e))
+        raise StructureAnalysisError("Structure analysis failed")
 
 
 def calculate_word_count(text: str) -> int:
@@ -450,20 +451,19 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         logger.info(f"[INGEST] Step 3: Downloading file from Supabase Storage...")
         try:
             # Extract storage path from URL
-            # URL format: https://.../storage/v1/object/public/drafts/{user_id}/{filename}
             path_parts = file_url.split("/drafts/")
             if len(path_parts) < 2:
-                raise ValueError(f"Invalid file URL format: {file_url}")
+                raise ValueError("Invalid file URL format")
 
             storage_path = path_parts[1]
-            logger.info(f"[INGEST] Downloading from path: {storage_path}")
+            logger.info("[INGEST] Downloading draft file from storage")
 
             file_bytes = supabase.storage.from_("drafts").download(storage_path)
             logger.info(f"[INGEST] ✓ Downloaded {len(file_bytes)} bytes")
 
         except Exception as e:
-            logger.error(f"[INGEST] ✗ Download failed: {str(e)}")
-            raise ValueError(f"Failed to download file from storage: {str(e)}")
+            logger.error("[INGEST] ✗ Download failed: %s", safe_exception(e))
+            raise ValueError("Failed to download file from storage")
 
         # 3. Extract text based on file type (structured data for PDFs via GROBID)
         logger.info(f"[INGEST] Step 4: Extracting text from {file_type} file...")
@@ -536,7 +536,7 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         logger.info(f"[INGEST] Step 7: Storing analysis in database...")
         analysis_record = {
             "draft_id": draft_id,
-            "structure": structure,
+            "structure": strip_manuscript_content_from_structure(structure),
             "word_count": word_count,
             "analysis": {},
             "analysis_metadata": {
@@ -546,10 +546,6 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
                 "model_used": "gpt-5.2-chat-latest" if file_type != 'pdf' else "grobid",
                 "paper_type": paper_type,
                 "citation_style": citation_style,
-                # Store GROBID metadata for PDFs
-                "grobid_title": extracted_data.get("title", ""),
-                "grobid_authors": extracted_data.get("authors", []),
-                "grobid_references": extracted_data.get("references", []),
                 "grobid_sections_count": len(extracted_data.get("sections", [])),
                 "grobid_references_count": len(extracted_data.get("references", []))
             }
@@ -606,7 +602,7 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error(f"Draft ingestion failed: {str(e)}")
+        logger.error("Draft ingestion failed: %s", safe_exception(e))
         # Status is managed by the Celery task (only set 'failed' after all retries exhausted).
         # Just raise so the caller can handle retries and status updates.
         raise

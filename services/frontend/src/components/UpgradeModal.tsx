@@ -8,15 +8,13 @@ const QUOTA_LABELS: Record<string, string> = {
   drafts: 'monthly draft analysis',
   documents: 'monthly PDF or BibTeX import',
   chat_messages: 'monthly chat message',
-  paper_discovery: 'daily Discover search',
+  paper_discovery: 'paper recommendation search',
 }
 
 const PRO_HIGHLIGHTS = [
   '20 draft analyses per month',
   '100 PDF uploads per month total',
   '100 BibTeX references per month total',
-  '50 Discover searches per day',
-  'Unlimited Literature Map refreshes',
   'Priority processing',
 ]
 

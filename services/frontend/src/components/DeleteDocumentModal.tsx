@@ -64,16 +64,16 @@ export default function DeleteDocumentModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-bg-surface border border-border-default shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-2xl transition-all">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-border-default">
+                <div className="border-b border-border-default px-5 py-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <div className="shrink-0">
-                        <ExclamationTriangleIcon className="h-6 w-6 text-red-500" />
+                        <ExclamationTriangleIcon className="h-5 w-5 text-error" />
                       </div>
                       <div>
-                        <Dialog.Title className="text-2xl font-sans font-semibold text-text-primary tracking-normal">
+                        <Dialog.Title className="text-base font-semibold text-text-primary">
                           Delete Document
                         </Dialog.Title>
                       </div>
@@ -81,33 +81,33 @@ export default function DeleteDocumentModal({
                     <button
                       onClick={onClose}
                       disabled={loading}
-                      className="text-text-tertiary hover:text-accent-primary hover:bg-accent-light rounded-md p-2 transition-all duration-150"
+                      className="rounded-md p-1.5 text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                     >
-                      <XMarkIcon className="h-6 w-6" />
+                      <XMarkIcon className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
 
                 {/* Content */}
-                <div className="p-6">
-                  <div className="ml-9 mb-6">
-                    <p className="text-text-secondary mb-2 tracking-normal">
+                <div className="p-5">
+                  <div className="mb-5">
+                    <p className="mb-2 text-sm font-medium text-text-secondary">
                       Are you sure you want to delete{' '}
                       <span className="font-semibold text-text-primary">{documentTitle}</span>?
                     </p>
-                    <p className="text-sm text-text-tertiary tracking-normal">
+                    <p className="text-sm leading-6 text-text-secondary">
                       This will permanently delete the document, its file, and all associated
                       embeddings. This action cannot be undone.
                     </p>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-2 border-t border-border-default pt-4">
                     <button
                       type="button"
                       onClick={onClose}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 border border-border-default text-text-secondary font-medium rounded-md hover:border-accent-primary/30 hover:text-text-primary hover:bg-bg-hover transition-all duration-150 disabled:opacity-50"
+                      className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -115,7 +115,7 @@ export default function DeleteDocumentModal({
                       type="button"
                       onClick={handleDelete}
                       disabled={loading}
-                      className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 hover:shadow-sm hover:-translate-y-px transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 rounded-md bg-error px-3 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-error/90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {loading ? 'Deleting...' : 'Delete Document'}
                     </button>

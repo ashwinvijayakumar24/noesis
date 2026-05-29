@@ -6,7 +6,7 @@ Phase 3.2: Production-ready draft analysis task with retry logic and error handl
 
 from celery import Task
 from app.celery_app import celery_app
-import traceback
+from app.core.privacy import safe_exception
 import os
 
 _DEV = os.environ.get("ENVIRONMENT", "development") != "production"
@@ -79,8 +79,7 @@ def analyze_draft_task(self, draft_id: str, project_id: str):
         print(f"[CELERY-DRAFT] ERROR: {type(e).__name__}")
         print(f"[CELERY-DRAFT] Attempt {self.request.retries + 1}/{self.max_retries + 1}")
         if _DEV:
-            print(f"[CELERY-DRAFT] Detail: {str(e)}")
-            print(f"[CELERY-DRAFT] Traceback:\n{traceback.format_exc()}")
+            print(f"[CELERY-DRAFT] Detail: {safe_exception(e)}")
 
         is_last_attempt = self.request.retries >= self.max_retries
         if is_last_attempt:
@@ -93,7 +92,7 @@ def analyze_draft_task(self, draft_id: str, project_id: str):
                     "status": "failed",
                     "updated_at": datetime.datetime.utcnow().isoformat(),
                     "metadata": {
-                        "error": str(e),
+                        "error": safe_exception(e),
                         "error_type": type(e).__name__,
                         "task_id": self.request.id,
                         "retries": self.request.retries,

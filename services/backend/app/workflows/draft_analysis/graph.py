@@ -9,16 +9,19 @@ from langgraph.types import Send
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.checkpoints import get_checkpoint_saver
 from app.core.logging_config import get_logger
+from app.core.privacy import safe_exception
 from app.services.progress_publisher import publish_progress
 
 # Import all workflow nodes
 from app.workflows.draft_analysis.nodes.structure_extraction import extract_structure_node
+from app.workflows.draft_analysis.nodes.manuscript_profile import manuscript_profile_node
 from app.workflows.draft_analysis.nodes.claim_extraction import extract_claims_node
 from app.workflows.draft_analysis.nodes.claim_categorization import categorize_claims_node
 from app.workflows.draft_analysis.nodes.literature_search import literature_search_node
 from app.workflows.draft_analysis.nodes.citation_mapping import citation_mapping_node
 from app.workflows.draft_analysis.nodes.gap_detection import detect_gaps_node
 from app.workflows.draft_analysis.nodes.structural_checks import structural_checks_node
+from app.workflows.draft_analysis.nodes.diagnostic_findings import diagnostic_findings_node
 from app.workflows.draft_analysis.nodes.editor_pass import editor_pass_node
 from app.workflows.draft_analysis.nodes.reviewer_panel import reviewer_panel_node
 from app.workflows.draft_analysis.nodes.meta_reviewer import meta_reviewer_node
@@ -40,6 +43,16 @@ async def _extract_structure_node_with_progress(state: DraftAnalysisState) -> Dr
     result = extract_structure_node(state)
     if draft_id:
         await publish_progress(draft_id, "extract_structure", 10, "Draft structure analyzed")
+    return result
+
+
+async def _manuscript_profile_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "manuscript_profile_start", 10, "Profiling manuscript type...")
+    result = manuscript_profile_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "manuscript_profile", 12, "Manuscript profile identified")
     return result
 
 
@@ -127,9 +140,9 @@ async def _external_source_discovery_node_with_progress(state: DraftAnalysisStat
             "progress_percentage": 76,
         }
     except Exception as exc:
-        logger.warning(f"[Workflow] External source discovery failed (non-fatal): {exc}")
+        logger.warning("[Workflow] External source discovery failed (non-fatal): %s", safe_exception(exc))
         warnings = state.get("warnings", [])
-        warnings.append(f"External source discovery failed: {str(exc)}")
+        warnings.append(f"External source discovery failed: {safe_exception(exc)}")
         result = {
             "warnings": warnings,
             "current_step": "External Source Discovery (Skipped)",
@@ -168,6 +181,16 @@ async def _structural_checks_node_with_progress(state: DraftAnalysisState) -> Dr
     result = await structural_checks_node(state)
     if draft_id:
         await publish_progress(draft_id, "structural_checks", 78, "Structural checks complete")
+    return result
+
+
+async def _diagnostic_findings_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "diagnostic_findings_start", 77, "Running manuscript-specific diagnostics...")
+    result = diagnostic_findings_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "diagnostic_findings", 78, "Manuscript-specific diagnostics complete")
     return result
 
 
@@ -270,7 +293,7 @@ def route_after_literature_search(state: DraftAnalysisState) -> str:
 # PEER REVIEW PANEL ROUTING
 # ============================================
 
-REVIEWER_TYPES = ["novelty", "methodology", "coverage", "clarity"]
+REVIEWER_TYPES = ["methodology", "literature_positioning", "clarity"]
 
 
 def route_to_reviewer_panel(state: DraftAnalysisState):
@@ -283,7 +306,7 @@ def route_to_reviewer_panel(state: DraftAnalysisState):
         logger.info("[Routing] Editor desk-rejected — skipping reviewer panel")
         return "synthesize_report"
 
-    logger.info("[Routing] Editor approved — dispatching 4 parallel reviewers")
+    logger.info("[Routing] Editor approved — dispatching 3 parallel reviewers")
     return [
         Send("reviewer_panel_node", {**state, "reviewer_type": rt})
         for rt in REVIEWER_TYPES
@@ -323,6 +346,7 @@ def create_draft_analysis_workflow() -> StateGraph:
     # ============================================
 
     workflow.add_node("extract_structure", _extract_structure_node_with_progress)
+    workflow.add_node("profile_manuscript", _manuscript_profile_node_with_progress)
     workflow.add_node("extract_claims", _extract_claims_node_with_progress)
     workflow.add_node("categorize_claims", _categorize_claims_node_with_progress)
     workflow.add_node("search_literature", _literature_search_node_with_progress)
@@ -330,6 +354,7 @@ def create_draft_analysis_workflow() -> StateGraph:
     workflow.add_node("detect_gaps", _detect_gaps_node_with_progress)
     workflow.add_node("discover_external_sources", _external_source_discovery_node_with_progress)
     workflow.add_node("citation_judge_node", _citation_judge_node_with_progress)
+    workflow.add_node("run_quality_diagnostics", _diagnostic_findings_node_with_progress)
     workflow.add_node("structural_checks", _structural_checks_node_with_progress)
     workflow.add_node("editor_pass_node", _editor_pass_node_with_progress)
     workflow.add_node("reviewer_panel_node", _reviewer_panel_node_with_progress)
@@ -345,7 +370,8 @@ def create_draft_analysis_workflow() -> StateGraph:
     workflow.set_entry_point("extract_structure")
 
     # Linear flow for most steps
-    workflow.add_edge("extract_structure", "extract_claims")
+    workflow.add_edge("extract_structure", "profile_manuscript")
+    workflow.add_edge("profile_manuscript", "extract_claims")
 
     # Conditional routing after claim extraction
     workflow.add_conditional_edges(
@@ -370,11 +396,12 @@ def create_draft_analysis_workflow() -> StateGraph:
         }
     )
 
-    # citation mapping → gap detection → external sources → citation judge → structural checks → editor pass
+    # citation mapping → gap detection → external sources → citation judge → diagnostics → structural checks → editor pass
     workflow.add_edge("map_citations", "detect_gaps")
     workflow.add_edge("detect_gaps", "discover_external_sources")
     workflow.add_edge("discover_external_sources", "citation_judge_node")
-    workflow.add_edge("citation_judge_node", "structural_checks")
+    workflow.add_edge("citation_judge_node", "run_quality_diagnostics")
+    workflow.add_edge("run_quality_diagnostics", "structural_checks")
     workflow.add_edge("structural_checks", "editor_pass_node")
 
     # Editor pass → fan-out to 4 parallel reviewers OR desk-reject → synthesis
@@ -442,9 +469,7 @@ async def run_draft_analysis_workflow(
         workflow = create_draft_analysis_workflow()
         logger.info(f"[Workflow] Workflow graph created successfully")
     except Exception as e:
-        logger.error(f"[Workflow] FATAL: Failed to create workflow graph: {type(e).__name__}: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error("[Workflow] FATAL: Failed to create workflow graph: %s", safe_exception(e))
         raise
 
     # Initialize state
@@ -477,7 +502,8 @@ async def run_draft_analysis_workflow(
                 thread_id=draft_id,
                 checkpoint_data=initial_state,
                 node_name="start",
-                status="in_progress"
+                status="in_progress",
+                user_id=user_id,
             )
             logger.info(f"[Workflow] Initial checkpoint saved")
 
@@ -502,9 +528,12 @@ async def run_draft_analysis_workflow(
                 thread_id=draft_id,
                 checkpoint_data=final_state,
                 node_name="end",
-                status="completed"
+                status="completed",
+                user_id=user_id,
             )
             logger.info(f"[Workflow] Final checkpoint saved")
+            checkpoint_saver.delete_checkpoints(draft_id)
+            logger.info("[Workflow] Completed checkpoints deleted for privacy minimization")
 
         logger.info(f"[Workflow] ========== WORKFLOW COMPLETE ==========")
         logger.info(f"[Workflow] Final state keys: {list(final_state.keys())}")
@@ -514,10 +543,7 @@ async def run_draft_analysis_workflow(
     except Exception as e:
         logger.error(f"[Workflow] ========== WORKFLOW FAILED ==========")
         logger.error(f"[Workflow] Error type: {type(e).__name__}")
-        logger.error(f"[Workflow] Error message: {str(e)}")
-        import traceback
-        logger.error(f"[Workflow] Full traceback:")
-        logger.error(traceback.format_exc())
+        logger.error("[Workflow] Error message: %s", safe_exception(e))
 
         # Save error checkpoint
         if checkpoint_enabled:
@@ -557,6 +583,10 @@ async def resume_draft_analysis_workflow(draft_id: str) -> DraftAnalysisState:
 
     # Get the saved state
     saved_state = checkpoint["state"]
+    if saved_state.get("privacy_minimized") and not saved_state.get("draft_content"):
+        raise Exception(
+            "Checkpoint state is privacy-minimized and cannot be resumed directly; restart analysis from the draft file."
+        )
 
     logger.info(
         f"[Workflow] Resuming from checkpoint: "

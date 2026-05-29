@@ -16,6 +16,7 @@ from app.services.draft_export import export_draft_analysis_as_pdf
 from app.services.draft_errors import DraftProcessingError
 from app.services.draft_anchor_qa import locate_text_snippet
 from app.core.security_middleware import SecureAuthValidator, limiter
+from app.core.privacy import safe_exception
 from typing import Any, Optional
 import datetime
 import uuid
@@ -107,6 +108,26 @@ def _get_revision_metadata(draft_id: str) -> dict[str, Any]:
         "gap_carryover": gap_carryover,
     })
     return metadata
+
+
+def _fetch_revision_tasks(draft_id: str, status: str | None = None) -> list[dict[str, Any]] | None:
+    """
+    Return durable canonical revision tasks when migration 023 is present.
+
+    None means the table/query is unavailable, allowing callers to fall back to
+    analysis_metadata for compatibility with databases that have not yet run
+    the migration.
+    """
+    try:
+        query = supabase.table("draft_revision_tasks").select("*").eq("draft_id", draft_id)
+        if status:
+            status_filter = f"status.eq.{status},status.is.null" if status == "new" else f"status.eq.{status}"
+            query = query.or_(status_filter)
+        result = query.execute()
+        return result.data or []
+    except Exception as exc:
+        logger.warning(f"Durable revision task query unavailable for draft {draft_id}: {exc}")
+        return None
 
 
 def _apply_feedback_carryover_metadata(feedback: list[dict[str, Any]], revision_metadata: dict[str, Any]) -> None:
@@ -330,7 +351,11 @@ def generate_signed_url_for_draft(file_url: str, draft_id: str) -> Optional[dict
             return None
 
     except Exception as e:
-        logger.error(f"Error generating signed URL for draft {draft_id}: {e}")
+        logger.error(
+            "Error generating signed URL for draft %s: %s",
+            draft_id,
+            safe_exception(e),
+        )
         return None
 
 
@@ -345,7 +370,7 @@ def get_current_user(authorization: str = Header(None)):
     try:
         return SecureAuthValidator.get_user_id(authorization, supabase)
     except Exception as e:
-        logger.warning(f"Token validation failed: {str(e)}")
+        logger.warning("Token validation failed: %s", safe_exception(e))
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired token"  # Don't expose error details
@@ -453,9 +478,12 @@ async def upload_draft(
     Returns:
         Draft metadata with ID for subsequent analysis
     """
-    print(
-        f"[DRAFT-UPLOAD] Received: file={file.filename}, project_id={project_id}, title={title}, "
-        f"user_id={user_id}, paper_type={paper_type}, citation_style={citation_style}"
+    logger.info(
+        "[DRAFT-UPLOAD] Received upload user_id=%s project_id=%s paper_type=%s citation_style=%s",
+        user_id,
+        project_id,
+        paper_type,
+        citation_style,
     )
 
     try:
@@ -483,7 +511,7 @@ async def upload_draft(
             )
 
         # Validate file before upload
-        print(f"[DRAFT-UPLOAD] Validating {file_extension} file ({file_size} bytes)")
+        logger.info("[DRAFT-UPLOAD] Validating %s file (%s bytes)", file_extension, file_size)
         validation_result = await validate_file_format(file_content, file_extension)
 
         if not validation_result["valid"]:
@@ -497,7 +525,10 @@ async def upload_draft(
                 }
             )
 
-        print(f"[DRAFT-UPLOAD] Validation passed, can_extract_text={validation_result['can_extract_text']}")
+        logger.info(
+            "[DRAFT-UPLOAD] Validation passed can_extract_text=%s",
+            validation_result["can_extract_text"],
+        )
 
         # Generate unique filename to avoid conflicts
         base_name = file.filename.rsplit('.', 1)[0] if '.' in file.filename else file.filename
@@ -508,23 +539,32 @@ async def upload_draft(
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                print(f"[DRAFT-UPLOAD] Attempting upload (try {attempt + 1}/{max_retries}) to path: {storage_path}")
+                logger.info(
+                    "[DRAFT-UPLOAD] Attempting storage upload try=%s/%s",
+                    attempt + 1,
+                    max_retries,
+                )
                 storage_response = supabase.storage.from_("drafts").upload(
                     path=storage_path,
                     file=file_content,
                     file_options={"content-type": file.content_type or "application/octet-stream"}
                 )
-                print(f"[DRAFT-UPLOAD] Upload successful: {storage_response}")
+                logger.info("[DRAFT-UPLOAD] Upload successful")
                 break
             except Exception as upload_error:
-                print(f"[DRAFT-UPLOAD] Upload attempt {attempt + 1} failed: {type(upload_error).__name__}: {str(upload_error)}")
+                logger.warning(
+                    "[DRAFT-UPLOAD] Upload attempt %s/%s failed: %s",
+                    attempt + 1,
+                    max_retries,
+                    safe_exception(upload_error),
+                )
                 if attempt < max_retries - 1:
                     import time, random
                     time.sleep(1 + random.random())  # Wait 1-2 seconds before retry
                 else:
                     raise HTTPException(
                         status_code=500,
-                        detail=f"Failed to upload file to storage after {max_retries} attempts: {str(upload_error)}"
+                        detail="Failed to upload file to storage"
                     )
 
         # Get public URL for the file
@@ -573,12 +613,21 @@ async def upload_draft(
 
         draft = db_response.data[0]
         draft_id = draft['id']
-        print(f"[DRAFT-UPLOAD] Draft created: id={draft_id}, version={draft.get('version')}, project_id={draft.get('project_id')}")
+        logger.info(
+            "[DRAFT-UPLOAD] Draft created id=%s version=%s project_id=%s",
+            draft_id,
+            draft.get("version"),
+            draft.get("project_id"),
+        )
 
         # Phase 2.3 & 3.3: Auto-trigger analysis using Celery task
         from app.tasks.draft_analysis import analyze_draft_task
         task_result = analyze_draft_task.delay(draft_id, project_id or "")
-        print(f"[DRAFT-UPLOAD] ✓ Auto-analysis triggered for draft_id={draft_id} (task_id={task_result.id})")
+        logger.info(
+            "[DRAFT-UPLOAD] Auto-analysis triggered draft_id=%s task_id=%s",
+            draft_id,
+            task_result.id,
+        )
 
         return {
             "message": "Draft uploaded successfully. Analysis will complete in about 60 seconds.",
@@ -591,8 +640,8 @@ async def upload_draft(
         # Handle our custom draft processing errors
         raise HTTPException(status_code=400, detail=e.to_dict())
     except Exception as e:
-        print(f"[DRAFT-UPLOAD] ERROR: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        logger.error("[DRAFT-UPLOAD] Upload failed: %s", safe_exception(e))
+        raise HTTPException(status_code=500, detail="Upload failed")
 
 
 @router.get("/")
@@ -742,8 +791,8 @@ def get_draft_signed_url(
             "expires_in": 3600
         }
     except Exception as e:
-        logger.error(f"Failed to create signed URL for draft {draft_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to create signed URL: {str(e)}")
+        logger.error("Failed to create signed URL for draft %s: %s", draft_id, safe_exception(e))
+        raise HTTPException(status_code=500, detail="Failed to create signed URL")
 
 
 @router.get("/{draft_id}")
@@ -812,7 +861,7 @@ def delete_draft(draft_id: str, user_id: str = Depends(get_current_user)):
     - Draft chunks from vector database
     - Claims, gaps, and feedback (cascade delete)
     """
-    print(f"[DRAFT-DELETE] Starting deletion for draft_id={draft_id}, user_id={user_id}")
+    logger.info("[DRAFT-DELETE] Starting deletion draft_id=%s user_id=%s", draft_id, user_id)
 
     # First, get the draft to find the file path
     draft_response = supabase.table("drafts").select("*").eq("id", draft_id).eq("user_id", user_id).execute()
@@ -821,7 +870,7 @@ def delete_draft(draft_id: str, user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Draft not found")
 
     draft = draft_response.data[0]
-    print(f"[DRAFT-DELETE] Found draft: title={draft.get('title')}, file_url={draft.get('file_url')}")
+    logger.info("[DRAFT-DELETE] Found draft record draft_id=%s", draft_id)
 
     # Extract storage path from file_url
     file_url = draft.get("file_url", "")
@@ -831,36 +880,44 @@ def delete_draft(draft_id: str, user_id: str = Depends(get_current_user)):
         path_parts = file_url.split("/drafts/")
         if len(path_parts) >= 2:
             storage_path = path_parts[1]
-            print(f"[DRAFT-DELETE] Extracted storage path: {storage_path}")
+            logger.info("[DRAFT-DELETE] Extracted storage path for draft_id=%s", draft_id)
 
     # Delete from storage if we have a valid path
     if storage_path:
         try:
-            print(f"[DRAFT-DELETE] Attempting to delete file from storage: {storage_path}")
+            logger.info("[DRAFT-DELETE] Attempting storage deletion draft_id=%s", draft_id)
             supabase.storage.from_("drafts").remove([storage_path])
-            print(f"[DRAFT-DELETE] Successfully deleted file from storage")
+            logger.info("[DRAFT-DELETE] Storage file deleted draft_id=%s", draft_id)
         except Exception as e:
-            print(f"[DRAFT-DELETE] Warning: Failed to delete file from storage: {type(e).__name__}: {str(e)}")
+            logger.warning(
+                "[DRAFT-DELETE] Storage deletion failed draft_id=%s error=%s",
+                draft_id,
+                safe_exception(e),
+            )
     else:
-        print(f"[DRAFT-DELETE] Warning: Could not extract storage path from file_url: {file_url}")
+        logger.warning("[DRAFT-DELETE] Could not extract storage path draft_id=%s", draft_id)
 
     # Delete draft chunks from vector database (cascading should handle this)
     try:
-        print(f"[DRAFT-DELETE] Deleting draft chunks for draft_id={draft_id}")
+        logger.info("[DRAFT-DELETE] Deleting draft chunks draft_id=%s", draft_id)
         chunks_response = supabase.table("draft_chunks").delete().eq("draft_id", draft_id).execute()
         chunks_count = len(chunks_response.data) if chunks_response.data else 0
-        print(f"[DRAFT-DELETE] Deleted {chunks_count} draft chunks")
+        logger.info("[DRAFT-DELETE] Deleted %s draft chunks draft_id=%s", chunks_count, draft_id)
     except Exception as e:
-        print(f"[DRAFT-DELETE] Warning: Failed to delete draft chunks: {type(e).__name__}: {str(e)}")
+        logger.warning(
+            "[DRAFT-DELETE] Failed to delete draft chunks draft_id=%s error=%s",
+            draft_id,
+            safe_exception(e),
+        )
 
     # Delete from database (CASCADE will delete draft_analysis, draft_claims, coverage_gaps, reviewer_feedback)
-    print(f"[DRAFT-DELETE] Deleting draft record from database")
+    logger.info("[DRAFT-DELETE] Deleting draft record draft_id=%s", draft_id)
     db_response = supabase.table("drafts").delete().eq("id", draft_id).eq("user_id", user_id).execute()
 
     if not db_response.data:
         raise HTTPException(status_code=404, detail="Failed to delete draft")
 
-    print(f"[DRAFT-DELETE] Successfully deleted draft {draft_id}")
+    logger.info("[DRAFT-DELETE] Successfully deleted draft_id=%s", draft_id)
     return {"message": "Draft deleted successfully"}
 
 
@@ -895,7 +952,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         draft = draft_response.data[0]
         user_id = draft["user_id"]
         file_url = draft.get("file_url")
-        print(f"[DRAFT-ANALYZE-BG-LG] Found draft: user_id={user_id}, file_url={file_url}")
+        print(f"[DRAFT-ANALYZE-BG-LG] Found draft record for user_id={user_id}")
 
         # Download and extract text from draft
         # First, ingest the draft to get the text content
@@ -910,8 +967,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         except Exception as ingest_error:
             print(f"[DRAFT-ANALYZE-BG-LG] ✗ INGEST FAILED: {type(ingest_error).__name__}")
             if _DEV:
-                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(ingest_error)}")
-                print(traceback.format_exc())
+                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {safe_exception(ingest_error)}")
             raise
 
         # Get the extracted content
@@ -928,7 +984,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
 
         if not storage_path:
             print(f"[DRAFT-ANALYZE-BG-LG] ✗ ERROR: Could not extract storage path from file_url")
-            raise ValueError(f"Could not extract storage path from file_url: {file_url}")
+            raise ValueError("Could not extract storage path from file_url")
 
         # Download file bytes
         print(f"[DRAFT-ANALYZE-BG-LG] Downloading file from storage...")
@@ -939,7 +995,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
             print(f"[DRAFT-ANALYZE-BG-LG] ✓ Downloaded {len(file_bytes)} bytes")
         except Exception as download_error:
             print(f"[DRAFT-ANALYZE-BG-LG] ✗ DOWNLOAD FAILED: {type(download_error).__name__}")
-            raise ValueError(f"Failed to download draft file: {str(download_error)}")
+            raise ValueError("Failed to download draft file")
 
         # Extract text based on file type
         file_type = draft.get("file_type", "").lower()
@@ -962,8 +1018,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         except Exception as extract_error:
             print(f"[DRAFT-ANALYZE-BG-LG] ✗ TEXT EXTRACTION FAILED: {type(extract_error).__name__}")
             if _DEV:
-                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(extract_error)}")
-                print(traceback.format_exc())
+                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {safe_exception(extract_error)}")
             raise
 
         # Run the LangGraph workflow
@@ -981,13 +1036,12 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         except Exception as langgraph_error:
             print(f"[DRAFT-ANALYZE-BG-LG] ✗ LANGGRAPH WORKFLOW FAILED: {type(langgraph_error).__name__}")
             if _DEV:
-                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(langgraph_error)}")
-                print(traceback.format_exc())
+                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {safe_exception(langgraph_error)}")
 
             # CRITICAL: Update draft status to 'failed' since LangGraph workflow failed
             # ingest_draft succeeded (status='analyzed'), but LangGraph failed
             print(f"[DRAFT-ANALYZE-BG-LG] Updating draft status to 'failed'...")
-            print(f"[DRAFT-ANALYZE-BG-LG] Error: {str(langgraph_error)}")
+            print(f"[DRAFT-ANALYZE-BG-LG] Error: {safe_exception(langgraph_error)}")
             try:
                 supabase.table("drafts").update({
                     "status": "failed",
@@ -995,7 +1049,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
                 }).eq("id", draft_id).execute()
                 print(f"[DRAFT-ANALYZE-BG-LG] ✓ Draft status updated to 'failed'")
             except Exception as update_error:
-                print(f"[DRAFT-ANALYZE-BG-LG] ✗ Failed to update draft status: {update_error}")
+                print(f"[DRAFT-ANALYZE-BG-LG] ✗ Failed to update draft status: {safe_exception(update_error)}")
 
             raise
 
@@ -1036,20 +1090,19 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
                     ))
                     print(f"[DRAFT-ANALYZE-BG-LG] ✓ OpenAI usage tracked")
             except Exception as tracking_error:
-                print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Failed to track OpenAI usage: {tracking_error}")
+                print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Failed to track OpenAI usage: {safe_exception(tracking_error)}")
                 # Don't fail on tracking errors
 
         except Exception as tracking_error:
             # Don't fail the analysis if tracking fails
-            print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Failed to track quota/usage: {tracking_error}")
+            print(f"[DRAFT-ANALYZE-BG-LG] WARNING: Failed to track quota/usage: {safe_exception(tracking_error)}")
 
         print(f"[DRAFT-ANALYZE-BG-LG] ========== BACKGROUND TASK COMPLETED SUCCESSFULLY ==========")
 
     except Exception as e:
         print(f"[DRAFT-ANALYZE-BG-LG] ========== BACKGROUND TASK FAILED: {type(e).__name__} ==========")
         if _DEV:
-            print(f"[DRAFT-ANALYZE-BG-LG] Detail: {str(e)}")
-            print(traceback.format_exc())
+            print(f"[DRAFT-ANALYZE-BG-LG] Detail: {safe_exception(e)}")
 
         # Status lifecycle is owned by the Celery task (draft_analysis.py).
         # It sets 'failed' only after all retries are exhausted, so we just log here.
@@ -1086,7 +1139,7 @@ async def analyze_draft(draft_id: str, user_id: str = Depends(get_current_user))
             await check_quota(user_id, "draft")
             print(f"[DRAFT-ANALYZE] Quota check passed for user_id={user_id}")
         except QuotaExceededError as qe:
-            print(f"[DRAFT-ANALYZE] Quota exceeded for user_id={user_id}: {qe}")
+            print(f"[DRAFT-ANALYZE] Quota exceeded for user_id={user_id}")
             raise HTTPException(
                 status_code=429,
                 detail={
@@ -1105,7 +1158,7 @@ async def analyze_draft(draft_id: str, user_id: str = Depends(get_current_user))
             raise HTTPException(status_code=404, detail="Draft not found")
 
         draft = draft_response.data[0]
-        print(f"[DRAFT-ANALYZE] Found draft: {draft.get('title')}")
+        print(f"[DRAFT-ANALYZE] Found draft record")
 
         # Check if already analyzed
         analysis_response = supabase.table("draft_analysis").select("*").eq("draft_id", draft_id).execute()
@@ -1149,12 +1202,16 @@ async def analyze_draft(draft_id: str, user_id: str = Depends(get_current_user))
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DRAFT-ANALYZE] ERROR: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to start analysis: {str(e)}")
+        print(f"[DRAFT-ANALYZE] ERROR: {safe_exception(e)}")
+        raise HTTPException(status_code=500, detail="Failed to start analysis")
 
 
 @router.get("/{draft_id}/analysis")
-def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
+def get_draft_analysis(
+    draft_id: str,
+    user_id: str = Depends(get_current_user),
+    debug: bool = Query(False, description="Include raw internal analysis arrays and judge outputs"),
+):
     """
     Get the structural analysis for a draft.
     Returns the analysis if available, or status if still processing.
@@ -1193,12 +1250,17 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
                 meta_review = None
 
             revision_metadata = _get_revision_metadata(draft_id)
+            durable_revision_tasks = _fetch_revision_tasks(draft_id)
+            revision_tasks = (
+                durable_revision_tasks
+                if durable_revision_tasks is not None
+                else analysis_metadata.get("revision_tasks", [])
+            )
 
-            return {
+            response = {
                 "status": status,
                 "draft_id": draft_id,
                 "draft_title": draft.get("title"),
-                "analysis": analysis_data,
                 "editing_feedback": analysis_payload.get("editing_feedback"),
                 "paper_type": draft.get("paper_type", "journal_article"),
                 "citation_style": draft.get("citation_style", "apa"),
@@ -1212,11 +1274,18 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
                 "editor_decision": analysis_metadata.get("editor_decision"),
                 "reviewer_panel": reviewer_panel,
                 "meta_review": meta_review,
-                # Phase 4 judge outputs
-                "citation_judge": analysis_metadata.get("citation_judge"),
-                "reviewer_judge": analysis_metadata.get("reviewer_judge"),
+                "manuscript_profile": analysis_metadata.get("manuscript_profile"),
+                "revision_tasks": revision_tasks,
                 "revision_metadata": revision_metadata,
             }
+            if debug:
+                response.update({
+                    "analysis": analysis_data,
+                    "citation_judge": analysis_metadata.get("citation_judge"),
+                    "reviewer_judge": analysis_metadata.get("reviewer_judge"),
+                    "diagnostic_findings": analysis_metadata.get("diagnostic_findings", []),
+                })
+            return response
         elif status == "processing":
             return {
                 "status": "processing",
@@ -1242,8 +1311,8 @@ def get_draft_analysis(draft_id: str, user_id: str = Depends(get_current_user)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DRAFT-GET-ANALYSIS] ERROR: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch analysis: {str(e)}")
+        print(f"[DRAFT-GET-ANALYSIS] ERROR: {safe_exception(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch analysis")
 
 
 @router.get("/{draft_id}/claims")
@@ -1258,7 +1327,6 @@ def get_draft_claims(draft_id: str, user_id: str = Depends(get_current_user)):
 
     # Verify draft belongs to user
     draft_response = supabase.table("drafts").select("id").eq("id", draft_id).eq("user_id", user_id).execute()
-    print(f"[DRAFT-CLAIMS] Draft verification: {draft_response.data}")
     if not draft_response.data:
         raise HTTPException(status_code=404, detail="Draft not found")
 
@@ -1397,8 +1465,8 @@ async def export_draft_analysis_pdf(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"PDF export failed for draft {draft_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to export PDF: {str(e)}")
+        logger.error("PDF export failed for draft %s: %s", draft_id, safe_exception(e))
+        raise HTTPException(status_code=500, detail="Failed to export PDF")
 
 
 # ============================================
@@ -1509,8 +1577,8 @@ async def get_feedback_by_section(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to fetch section feedback for draft {draft_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch section feedback: {str(e)}")
+        logger.error("Failed to fetch section feedback for draft %s: %s", draft_id, safe_exception(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch section feedback")
 
 
 @router.get("/{draft_id}/all-feedback")
@@ -1518,7 +1586,8 @@ async def get_all_feedback(
     draft_id: str,
     actionable_only: bool = Query(True, description="Filter to only actionable items"),
     status: str = Query('new', description="Feedback status: new, saved, dismissed"),
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_current_user),
+    debug: bool = Query(False, description="Include raw legacy feedback arrays and diagnostics"),
 ):
     """
     Get all feedback items across all sections in one call.
@@ -1581,6 +1650,14 @@ async def get_all_feedback(
         feedback = _filter_feedback_diagnostics(feedback_response.data or [], "feedback_text")
         for item in feedback:
             item["reviewer_persona"] = _normalize_reviewer_persona(item.get("reviewer_persona"))
+        durable_revision_tasks_all = _fetch_revision_tasks(draft_id)
+        durable_revision_tasks = None
+        canonical_tasks_available = bool(durable_revision_tasks_all)
+        if durable_revision_tasks_all is not None:
+            durable_revision_tasks = [
+                task for task in durable_revision_tasks_all
+                if (task.get("status") or "new") == status
+            ]
         revision_metadata = _get_revision_metadata(draft_id)
         _apply_feedback_carryover_metadata(feedback, revision_metadata)
 
@@ -1602,6 +1679,11 @@ async def get_all_feedback(
             feedback,
         )
 
+        if not debug:
+            claims = []
+            gaps = []
+            feedback = []
+
         # Compute aggregated counts
         claims_needing_citation = len([c for c in claims if c.get("requires_citation") is True])
         critical_gaps = len([g for g in gaps if g.get("priority") == "high"])
@@ -1616,16 +1698,30 @@ async def get_all_feedback(
         readiness_score = None
         verdict = None
         score_breakdown = {}
+        manuscript_profile = None
+        diagnostic_findings = []
+        revision_tasks = []
         if analysis_response.data:
             metadata = analysis_response.data[0].get("analysis_metadata") or {}
             readiness_score = metadata.get("readiness_score")
             verdict = metadata.get("verdict")
             score_breakdown = metadata.get("score_breakdown", {})
+            manuscript_profile = metadata.get("manuscript_profile")
+            diagnostic_findings = metadata.get("diagnostic_findings", [])
+            revision_tasks = (
+                durable_revision_tasks
+                if durable_revision_tasks is not None
+                else metadata.get("revision_tasks", [])
+            )
 
-        return {
+        if durable_revision_tasks is None and status != "new":
+            revision_tasks = []
+
+        response = {
             "claims": claims,
             "gaps": gaps,
             "feedback": feedback,
+            "revision_tasks": revision_tasks,
             "status": status,
             "actionable_only": actionable_only,
             "counts": {
@@ -1633,20 +1729,24 @@ async def get_all_feedback(
                 "claims_needing_citation": claims_needing_citation,
                 "total_gaps": len(gaps),
                 "critical_gaps": critical_gaps,
-                "total_feedback": len(feedback),
-                "critical_feedback": critical_feedback,
+                "total_feedback": len(revision_tasks) if revision_tasks else len(feedback),
+                "critical_feedback": len([t for t in revision_tasks if t.get("severity") in ("critical", "major")]) if revision_tasks else critical_feedback,
             },
             "readiness_score": readiness_score,
             "verdict": verdict,
             "score_breakdown": score_breakdown,
+            "manuscript_profile": manuscript_profile,
             "revision_metadata": revision_metadata,
         }
+        if debug:
+            response["diagnostic_findings"] = diagnostic_findings
+        return response
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to fetch all feedback for draft {draft_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch all feedback: {str(e)}")
+        logger.error("Failed to fetch all feedback for draft %s: %s", draft_id, safe_exception(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch all feedback")
 
 
 @router.post("/{draft_id}/gaps/{gap_id}/find-papers")
@@ -1740,7 +1840,7 @@ async def find_papers_for_gap(
 async def update_feedback_status(
     draft_id: str,
     feedback_id: str,
-    feedback_type: str = Query(..., description="Feedback type: claim, gap, feedback"),
+    feedback_type: str = Query(..., description="Feedback type: claim, gap, feedback, task"),
     status: str = Query(..., description="New status: new, saved, dismissed"),
     user_id: str = Depends(get_current_user)
 ):
@@ -1753,7 +1853,7 @@ async def update_feedback_status(
     Args:
         draft_id: Draft UUID
         feedback_id: UUID of the claim, gap, or feedback item
-        feedback_type: Type of feedback (claim, gap, feedback)
+        feedback_type: Type of feedback (claim, gap, feedback, task)
         status: New status (new, saved, dismissed)
         user_id: Current user ID from auth token
 
@@ -1777,7 +1877,7 @@ async def update_feedback_status(
             raise HTTPException(status_code=404, detail="Draft not found")
 
         # Validate feedback_type
-        valid_types = ['claim', 'gap', 'feedback']
+        valid_types = ['claim', 'gap', 'feedback', 'task']
         if feedback_type not in valid_types:
             raise HTTPException(
                 status_code=400,
@@ -1796,7 +1896,8 @@ async def update_feedback_status(
         table_mapping = {
             'claim': 'draft_claims',
             'gap': 'coverage_gaps',
-            'feedback': 'reviewer_feedback'
+            'feedback': 'reviewer_feedback',
+            'task': 'draft_revision_tasks',
         }
         table_name = table_mapping[feedback_type]
 
@@ -1825,8 +1926,8 @@ async def update_feedback_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to update feedback status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to update feedback status: {str(e)}")
+        logger.error("Failed to update feedback status: %s", safe_exception(e))
+        raise HTTPException(status_code=500, detail="Failed to update feedback status")
 
 
 @router.get("/{draft_id}/section-summary")
@@ -1889,24 +1990,33 @@ async def get_section_summary(
             .eq("draft_id", draft_id)\
             .execute()
 
+        task_rows = _fetch_revision_tasks(draft_id) or []
+
         # Aggregate in Python
         from collections import defaultdict
         counts: dict = defaultdict(lambda: {"new": 0, "saved": 0, "dismissed": 0})
 
-        for row in (claims_res.data or []) + (gaps_res.data or []):
-            section = row.get("section_type") or "introduction"
-            status = row.get("status") or "new"
-            if status in ("new", "saved", "dismissed"):
-                counts[section][status] += 1
+        if task_rows:
+            for row in task_rows:
+                section = row.get("section") or "introduction"
+                status = row.get("status") or "new"
+                if status in ("new", "saved", "dismissed"):
+                    counts[section][status] += 1
+        else:
+            for row in (claims_res.data or []) + (gaps_res.data or []):
+                section = row.get("section_type") or "introduction"
+                status = row.get("status") or "new"
+                if status in ("new", "saved", "dismissed"):
+                    counts[section][status] += 1
 
-        # A2: Strengths are shown in a read-only accordion — exclude from badge count
-        for row in (feedback_res.data or []):
-            if row.get("feedback_type") == "strength":
-                continue  # strengths don't count toward actionable badge
-            section = row.get("section_type") or "introduction"
-            status = row.get("status") or "new"
-            if status in ("new", "saved", "dismissed"):
-                counts[section][status] += 1
+            # A2: Strengths are shown in a read-only accordion — exclude from badge count
+            for row in (feedback_res.data or []):
+                if row.get("feedback_type") == "strength":
+                    continue  # strengths don't count toward actionable badge
+                section = row.get("section_type") or "introduction"
+                status = row.get("status") or "new"
+                if status in ("new", "saved", "dismissed"):
+                    counts[section][status] += 1
 
         section_summaries = []
         total_new = total_saved = total_dismissed = 0
@@ -1934,8 +2044,8 @@ async def get_section_summary(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get section summary for draft {draft_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to get section summary: {str(e)}")
+        logger.error("Failed to get section summary for draft %s: %s", draft_id, safe_exception(e))
+        raise HTTPException(status_code=500, detail="Failed to get section summary")
 
 
 @router.post("/{draft_id}/assign-sections")
@@ -1998,8 +2108,8 @@ async def assign_sections(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to assign sections for draft {draft_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to assign sections: {str(e)}")
+        logger.error("Failed to assign sections for draft %s: %s", draft_id, safe_exception(e))
+        raise HTTPException(status_code=500, detail="Failed to assign sections")
 
 
 class FeedbackReactionBody(BaseModel):

@@ -80,6 +80,8 @@ services:
     container_name: noesis-frontend
     environment:
       VITE_API_URL: http://localhost:8000
+      VITE_SUPABASE_URL: https://ufnaadgdrraqnatvgarq.supabase.co
+      VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmbmFhZGdkcnJhcW5hdHZnYXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MDE5OTYsImV4cCI6MjA3NTQ3Nzk5Nn0.YenRMtTC6pT-jEaJIJ9DteIpQpDXAfnE90PjJznuIkk
     ports:
       - "5173:5173"
     depends_on:

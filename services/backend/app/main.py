@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.supabase_client import supabase
 from app.core.config import settings
+from app.core.privacy import safe_exception, sanitize_for_persistence
 from app.api.routes import (
     auth, projects, documents, drafts, rag, search, tags, compass,
     research_questions, methodology_recommendations, paper_recommendations,
@@ -82,27 +83,7 @@ if settings.SENTRY_DSN:
         if should_drop_sentry_event(event):
             return None
 
-        # Sensitive keys to redact
-        sensitive_keys = [
-            'claim_text', 'draft_text', 'content', 'document_text',
-            'file_content', 'chunk_content', 'analysis', 'feedback_text',
-            'citation_text', 'description', 'methodology', 'findings',
-            'abstract', 'summary', 'text', 'message', 'body'
-        ]
-
-        # Scrub request data
-        if 'request' in event and 'data' in event['request']:
-            data = event['request']['data']
-            if isinstance(data, dict):
-                for key in sensitive_keys:
-                    if key in data:
-                        data[key] = '[REDACTED]'
-
-        # Scrub extra context
-        if 'extra' in event:
-            for key in sensitive_keys:
-                if key in event['extra']:
-                    event['extra'][key] = '[REDACTED]'
+        event = sanitize_for_persistence(event)
 
         # Truncate long messages in breadcrumbs
         if 'breadcrumbs' in event and 'values' in event['breadcrumbs']:
@@ -212,7 +193,7 @@ def test_supabase_route():
             "client_initialized": supabase is not None
         }
     except Exception as e:
-        return {"connection": "error", "message": str(e)}
+        return {"connection": "error", "message": safe_exception(e)}
 
 @app.get("/sentry-config")
 def sentry_config():
@@ -223,7 +204,6 @@ def sentry_config():
 
     return {
         "sentry_dsn_set": bool(settings.SENTRY_DSN),
-        "sentry_dsn_preview": settings.SENTRY_DSN[:50] + "..." if settings.SENTRY_DSN else None,
         "environment": settings.ENVIRONMENT,
         "sentry_initialized": sentry_sdk.Hub.current.client is not None,
         "will_send_errors": settings.ENVIRONMENT != "development"

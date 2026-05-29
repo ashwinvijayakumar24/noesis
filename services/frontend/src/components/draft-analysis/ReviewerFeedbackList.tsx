@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PdfCoordinates } from '../DocumentViewer'
 import UnifiedFeedbackCard from './UnifiedFeedbackCard'
 import EditorDecisionCard from './EditorDecisionCard'
@@ -56,7 +55,29 @@ interface FeedbackItem {
   status: 'new' | 'saved' | 'dismissed'
 }
 
-type ItemType = 'claim' | 'gap' | 'feedback'
+interface RevisionTask {
+  id: string
+  source_type: string
+  task_type: string
+  severity: string
+  priority: Priority
+  section?: string
+  anchor_text?: string
+  problem: string
+  why_it_matters?: string
+  suggested_action: string
+  source_ids?: string[]
+  line_number?: number
+  page_number?: number
+  paragraph_index?: number
+  suggested_sources?: any[]
+  text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
+  match_confidence?: number
+  status: 'new' | 'saved' | 'dismissed'
+}
+
+type ItemType = 'claim' | 'gap' | 'feedback' | 'task'
 type Priority = 'high' | 'medium' | 'low'
 export type StatusFilter = 'new' | 'saved' | 'dismissed'
 export type CategoryKey =
@@ -72,13 +93,14 @@ interface ListItem {
   type: ItemType
   priority: Priority
   issueCategory: CategoryKey
-  content: Claim | Gap | FeedbackItem
+  content: Claim | Gap | FeedbackItem | RevisionTask
 }
 
 interface ReviewerFeedbackListProps {
   claims: Claim[]
   gaps: Gap[]
   feedback: FeedbackItem[]
+  revisionTasks?: RevisionTask[]
   readinessScore: number | null
   loading?: boolean
   statusFilter: StatusFilter
@@ -91,6 +113,7 @@ interface ReviewerFeedbackListProps {
     section_type?: string
     section_location?: string
     pdf_coordinates?: PdfCoordinates
+    page_number?: number
     match_confidence?: number
   }) => void
   fileType: string
@@ -161,11 +184,33 @@ function classifyFeedback(item: FeedbackItem): CategoryKey {
   return 'weak_arguments'
 }
 
+function classifyTask(item: RevisionTask): CategoryKey {
+  if (item.task_type === 'citation') return 'missing_citations'
+  if (item.task_type === 'literature_positioning') return 'coverage_gaps'
+  if (['methodology', 'causal_claim', 'framework_validation', 'deployment', 'reproducibility'].includes(item.task_type)) {
+    return 'methodology'
+  }
+  return 'weak_arguments'
+}
+
 function buildItems(
   claims: Claim[],
   gaps: Gap[],
   feedback: FeedbackItem[],
+  revisionTasks: RevisionTask[] = [],
 ): ListItem[] {
+  if (revisionTasks.length > 0) {
+    return revisionTasks
+      .map((item) => ({
+        id: item.id,
+        type: 'task' as const,
+        priority: item.priority,
+        issueCategory: classifyTask(item),
+        content: item,
+      }))
+      .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
+  }
+
   return [
     ...claims
       .map((item) => ({
@@ -199,6 +244,7 @@ export default function ReviewerFeedbackList({
   claims,
   gaps,
   feedback,
+  revisionTasks = [],
   readinessScore,
   loading = false,
   statusFilter,
@@ -214,12 +260,13 @@ export default function ReviewerFeedbackList({
   metaReview,
 }: ReviewerFeedbackListProps) {
   const [category, setCategory] = useState<CategoryKey>(initialCategory)
+  const feedbackScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setCategory(initialCategory)
   }, [initialCategory])
 
-  const allItems = useMemo(() => buildItems(claims, gaps, feedback), [claims, gaps, feedback])
+  const allItems = useMemo(() => buildItems(claims, gaps, feedback, revisionTasks), [claims, gaps, feedback, revisionTasks])
 
   const statusFilteredItems = useMemo(
     () => allItems.filter((item) => item.content.status === statusFilter),
@@ -234,29 +281,31 @@ export default function ReviewerFeedbackList({
   )
 
   const addressedCount = useMemo(
-    () => [...claims, ...gaps, ...feedback].filter((item) => item.status === 'saved').length,
-    [claims, gaps, feedback],
+    () => revisionTasks.length > 0
+      ? revisionTasks.filter((item) => item.status === 'saved').length
+      : [...claims, ...gaps, ...feedback].filter((item) => item.status === 'saved').length,
+    [claims, gaps, feedback, revisionTasks],
   )
   const totalCount = useMemo(
-    () => buildItems(claims, gaps, feedback).length,
-    [claims, gaps, feedback],
+    () => buildItems(claims, gaps, feedback, revisionTasks).length,
+    [claims, gaps, feedback, revisionTasks],
   )
 
   const statusCounts = useMemo(() => ({
-    new: buildItems(
+    new: revisionTasks.length > 0 ? revisionTasks.filter((item) => item.status === 'new').length : buildItems(
       claims.filter((item) => item.status === 'new'),
       gaps.filter((item) => item.status === 'new'),
       feedback.filter((item) => item.status === 'new'),
     ).length,
-    saved: buildItems(
+    saved: revisionTasks.length > 0 ? revisionTasks.filter((item) => item.status === 'saved').length : buildItems(
       claims.filter((item) => item.status === 'saved'),
       gaps.filter((item) => item.status === 'saved'),
       feedback.filter((item) => item.status === 'saved'),
     ).length,
-    dismissed: claims.filter((item) => item.status === 'dismissed').length
+    dismissed: revisionTasks.length > 0 ? revisionTasks.filter((item) => item.status === 'dismissed').length : claims.filter((item) => item.status === 'dismissed').length
       + gaps.filter((item) => item.status === 'dismissed').length
       + feedback.filter((item) => item.status === 'dismissed' && item.feedback_type !== 'strength').length,
-  }), [claims, gaps, feedback])
+  }), [claims, gaps, feedback, revisionTasks])
 
   const categoryCounts = useMemo(() => {
     const counts: Record<CategoryKey, number> = {
@@ -297,6 +346,24 @@ export default function ReviewerFeedbackList({
     }
   }, [groupedItems, maxVisibleItems])
 
+  const visibleCategories = useMemo(
+    () => (Object.keys(CATEGORY_CONFIG) as CategoryKey[])
+      .filter((key) => key === 'all' || categoryCounts[key] > 0),
+    [categoryCounts],
+  )
+
+  useEffect(() => {
+    if (!visibleCategories.includes(category)) {
+      setCategory('all')
+    }
+  }, [category, visibleCategories])
+
+  useEffect(() => {
+    feedbackScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [category, statusFilter])
+
+  const hasDecisionContext = !compactPreview && (editorDecision || metaReview || (reviewerPanel && reviewerPanel.length > 0))
+
   return (
     <div className="flex h-full flex-col">
       {!compactPreview && (
@@ -319,18 +386,18 @@ export default function ReviewerFeedbackList({
 
           <div className="px-4 pb-3">
             <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(CATEGORY_CONFIG) as CategoryKey[]).map((key) => (
+              {visibleCategories.map((key) => (
                 <button
                   key={key}
                   onClick={() => setCategory(key)}
                   className={`min-h-10 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
                     category === key
-                      ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
-                      : 'border-border-default bg-bg-elevated text-text-secondary hover:text-text-primary'
+                      ? 'border-border-strong bg-bg-surface text-text-primary'
+                      : 'border-transparent bg-transparent text-text-secondary hover:border-border-default hover:bg-bg-surface hover:text-text-primary'
                   }`}
                 >
                   {CATEGORY_CONFIG[key].label}
-                  {categoryCounts[key] > 0 && <span className="ml-1.5 opacity-70">{categoryCounts[key]}</span>}
+                  {categoryCounts[key] > 0 && <span className="ml-1.5 text-text-muted">{categoryCounts[key]}</span>}
                 </button>
               ))}
             </div>
@@ -353,8 +420,8 @@ export default function ReviewerFeedbackList({
                   {statusCounts[status] > 0 && (
                     <span className={`ml-1.5 rounded-full border px-2 py-0.5 text-xs ${
                       isActive
-                        ? 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
-                        : 'border-border-default bg-bg-elevated text-text-muted'
+                        ? 'border-border-strong text-text-secondary'
+                        : 'border-border-default text-text-muted'
                     }`}>
                       {statusCounts[status]}
                     </span>
@@ -366,14 +433,7 @@ export default function ReviewerFeedbackList({
         </div>
       )}
 
-      <div className={`flex-1 overflow-y-auto px-4 ${compactPreview ? 'py-3' : 'py-4'}`}>
-        {!compactPreview && (editorDecision || metaReview || (reviewerPanel && reviewerPanel.length > 0)) && (
-          <div className="mb-5 space-y-3">
-            {editorDecision && <EditorDecisionCard decision={editorDecision} />}
-            {metaReview && <MetaReviewCard metaReview={metaReview} />}
-            {reviewerPanel && reviewerPanel.length > 0 && <ReviewerPanelTabs reviewers={reviewerPanel} />}
-          </div>
-        )}
+      <div ref={feedbackScrollRef} className={`flex-1 overflow-y-auto px-4 ${compactPreview ? 'py-3' : 'py-4'}`}>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-accent-primary border-r-transparent mb-3" />
@@ -392,12 +452,13 @@ export default function ReviewerFeedbackList({
               const group = renderedItems[priority]
               if (group.length === 0) return null
               const config = PRIORITY_HEADER_CONFIG[priority]
+              const label = priority === 'high' ? 'Top priorities' : config.label
               return (
                 <div key={priority}>
                   <div className="mb-3 flex items-center gap-2 py-1">
                     <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
                     <span className={`text-xs font-semibold uppercase tracking-wider ${config.text}`}>
-                      {config.label}
+                      {label}
                     </span>
                     <span className="text-xs text-text-muted">{group.length}</span>
                     <div className="ml-1 h-px flex-1 bg-border-default" />
@@ -418,14 +479,19 @@ export default function ReviewerFeedbackList({
               )
             })}
 
-            {statusFilter === 'new' && categoryCounts.missing_citations === 0 && (
-              <div className="rounded-lg border border-border-default bg-bg-elevated/40 p-3">
-                <div className="flex items-start gap-2">
-                  <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 text-text-muted" />
-                  <p className="text-xs text-text-secondary">
-                    Recommendation papers only appear when the analysis found a concrete citation issue or gap with candidate support.
+            {hasDecisionContext && (
+              <div className="space-y-3 border-t border-border-default pt-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Decision Letter & Reviewer Context
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    Supporting reviewer detail is collapsed here so the revision queue stays primary.
                   </p>
                 </div>
+                {editorDecision && <EditorDecisionCard decision={editorDecision} />}
+                {metaReview && <MetaReviewCard metaReview={metaReview} />}
+                {reviewerPanel && reviewerPanel.length > 0 && <ReviewerPanelTabs reviewers={reviewerPanel} />}
               </div>
             )}
           </div>

@@ -201,6 +201,24 @@ class GrobidClient:
         if pub_date is not None and pub_date.get('when'):
             metadata["publication_date"] = pub_date.get('when')
 
+        source_bibl = header.find('.//tei:sourceDesc//tei:biblStruct', TEI_NAMESPACE)
+        if source_bibl is not None:
+            # GROBID often stores DOI and journal/venue in the source biblStruct.
+            doi = source_bibl.find('.//tei:idno[@type="DOI"]', TEI_NAMESPACE)
+            if doi is not None and doi.text:
+                metadata["doi"] = doi.text.strip()
+
+            journal = source_bibl.find('.//tei:monogr/tei:title', TEI_NAMESPACE)
+            if journal is not None and journal.text:
+                metadata["journal"] = journal.text.strip()
+
+            imprint_date = source_bibl.find('.//tei:monogr/tei:imprint/tei:date', TEI_NAMESPACE)
+            if imprint_date is not None:
+                if imprint_date.get("when"):
+                    metadata["publication_date"] = imprint_date.get("when")
+                elif imprint_date.text:
+                    metadata["publication_date"] = imprint_date.text.strip()
+
         return metadata
 
     def _extract_abstract(self, root: ET.Element) -> str:

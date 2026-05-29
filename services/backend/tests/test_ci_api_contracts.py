@@ -183,6 +183,55 @@ def test_invalid_token_is_rejected(client: TestClient, path: str):
 
 
 @pytest.mark.unit
+def test_project_list_includes_document_and_draft_counts(monkeypatch: pytest.MonkeyPatch):
+    projects_routes = importlib.import_module("app.api.routes.projects")
+
+    class FakeQuery:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def select(self, *args, **kwargs):
+            return self
+
+        def eq(self, *args, **kwargs):
+            return self
+
+        def order(self, *args, **kwargs):
+            return self
+
+        def execute(self):
+            return types.SimpleNamespace(data=self.rows)
+
+    class FakeSupabase:
+        def table(self, table_name: str):
+            rows_by_table = {
+                "projects": [
+                    {"id": "project-a", "title": "Project A", "user_id": "user-1"},
+                    {"id": "project-b", "title": "Project B", "user_id": "user-1"},
+                ],
+                "documents": [
+                    {"project_id": "project-a"},
+                    {"project_id": "project-a"},
+                    {"project_id": "external-project"},
+                ],
+                "drafts": [
+                    {"project_id": "project-b"},
+                    {"project_id": "external-project"},
+                ],
+            }
+            return FakeQuery(rows_by_table[table_name])
+
+    monkeypatch.setattr(projects_routes, "supabase", FakeSupabase())
+
+    response = projects_routes.get_projects(user_id="user-1")
+
+    assert response[0]["document_count"] == 2
+    assert response[0]["draft_count"] == 0
+    assert response[1]["document_count"] == 0
+    assert response[1]["draft_count"] == 1
+
+
+@pytest.mark.unit
 def test_subscription_plans_endpoint_is_public_and_current(client: TestClient):
     response = client.get("/api/subscriptions/plans")
 

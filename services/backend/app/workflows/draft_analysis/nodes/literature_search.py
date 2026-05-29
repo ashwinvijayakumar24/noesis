@@ -6,6 +6,7 @@ Uses the improved RAG retrieval system with adaptive chunking.
 """
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, Claim
+from app.workflows.draft_analysis.citation_rules import needs_missing_citation_task
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from typing import List, Dict, Any
@@ -34,7 +35,7 @@ async def search_literature_for_claim(
     Returns:
         Dictionary with claim and found literature, including match metadata
     """
-    from app.services.rag_retrieval import retrieve_relevant_chunks
+    from app.services.rag_retrieval import retrieve_relevant_chunks_hybrid
     from app.services.claim_analysis import find_supporting_claims
 
     try:
@@ -70,10 +71,11 @@ async def search_literature_for_claim(
         logger.info(
             f"[Literature Search] No claim matches found, falling back to RAG chunks (BROAD)"
         )
-        results = retrieve_relevant_chunks(
+        results = retrieve_relevant_chunks_hybrid(
             project_id=project_id,
             query=query,
-            limit=max_results
+            limit=max_results,
+            use_reranking=True,
         )
 
         return {
@@ -201,7 +203,10 @@ async def literature_search_node(state: DraftAnalysisState) -> DraftAnalysisStat
     try:
         # Limit search to primary claims to save time/cost
         # Can be made configurable later
-        primary_claims = state.get("primary_claims", claims)
+        primary_claims = [
+            claim for claim in state.get("primary_claims", claims)
+            if needs_missing_citation_task(claim)
+        ]
 
         # If too many primary claims, limit to top 20 by importance
         if len(primary_claims) > 20:

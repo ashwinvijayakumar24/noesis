@@ -1,6 +1,8 @@
 """
 Centralized OpenAI client with privacy-first configuration.
-Ensures zero data retention for all API calls.
+Routes all AI calls through the OpenAI API and applies no-store defaults where
+the endpoint supports them. Organization-level zero data retention must still
+be enabled with the provider.
 """
 
 from openai import OpenAI, AsyncOpenAI
@@ -81,6 +83,10 @@ def get_completion_params(enable_zero_retention: bool = True) -> dict:
     params = {}
 
     if enable_zero_retention and settings.OPENAI_ZERO_DATA_RETENTION:
+        # Prevent eligible Chat Completions responses from being retained for
+        # optional stored-output product surfaces, distillation, or evals.
+        params["store"] = False
+
         # Note: OpenAI's zero data retention is controlled via organization settings
         # and API tier (API data is not used for training by default for API customers).
         # We add organization header for explicit association.

@@ -53,15 +53,15 @@ function QuotaBar({ used, limit, label }: { used: number; limit: number; label: 
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
   const isWarning = pct >= 80
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-text-muted shrink-0 w-20">{label}</span>
-      <div className="flex-1 h-1 bg-bg-elevated rounded-full overflow-hidden">
+    <div className="flex items-center gap-3 rounded-lg border border-border-default bg-bg-void/45 px-3 py-2">
+      <span className="w-20 shrink-0 text-xs font-semibold text-text-secondary">{label}</span>
+      <div className="h-1 flex-1 overflow-hidden rounded-full bg-bg-elevated">
         <div
           className={`h-full rounded-full transition-all duration-300 ${isWarning ? 'bg-amber-400' : 'bg-accent-primary'}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className={`text-xs font-mono shrink-0 ${isWarning ? 'text-amber-400' : 'text-text-muted'}`}>
+      <span className={`shrink-0 font-mono text-xs font-semibold ${isWarning ? 'text-amber-300' : 'text-text-secondary'}`}>
         {used}/{limit}
       </span>
     </div>
@@ -458,17 +458,17 @@ export default function UploadDocumentModal({
               enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100"
               leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-xl bg-bg-surface border border-border-default shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-2xl transition-all">
 
                 {/* ── Header ─────────────────────────────────────────── */}
-                <div className="px-6 py-5 border-b border-border-default">
+                <div className="border-b border-border-default px-5 py-4">
                   <div className="flex items-center justify-between">
-                    <Dialog.Title className="text-lg font-semibold text-text-primary">
+                    <Dialog.Title className="text-base font-semibold text-text-primary">
                       {mode === 'pdf' ? 'Upload PDFs' : mode === 'import' ? 'Import References' : 'Add Papers'}
                     </Dialog.Title>
                     <button
                       onClick={handleClose}
-                      className="text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded-lg p-1.5 transition-all duration-150"
+                      className="rounded-md p-1.5 text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary"
                     >
                       <XMarkIcon className="h-5 w-5" />
                     </button>
@@ -476,7 +476,7 @@ export default function UploadDocumentModal({
 
                   {/* Tab switcher — only when mode is unset (all tabs) or import (bib+zotero) */}
                   {bibPhase !== 'resolving' && mode !== 'pdf' && (
-                    <div className="flex gap-0.5 mt-4 bg-bg-elevated rounded-lg p-1 border border-border-default">
+                    <div className="mt-4 flex gap-0.5 rounded-lg border border-border-default bg-bg-void/45 p-0.5">
                       {([
                         mode !== 'import' ? { id: 'pdf', label: 'Upload PDF' } : null,
                         { id: 'bibtex', label: 'BibTeX' },
@@ -488,10 +488,10 @@ export default function UploadDocumentModal({
                             key={tab.id}
                             type="button"
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition-all duration-150 ${
+                            className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition-all duration-150 ${
                               activeTab === tab.id
-                                ? 'bg-bg-surface text-text-primary border border-border-default shadow-xs'
-                                : 'text-text-muted hover:text-text-secondary'
+                                ? 'bg-bg-elevated text-text-primary ring-1 ring-inset ring-border-default'
+                                : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
                             }`}
                           >
                             {tab.label}
@@ -501,7 +501,7 @@ export default function UploadDocumentModal({
                   )}
                 </div>
 
-                <div className="px-6 pt-4 space-y-3">
+                <div className="space-y-3 px-5 pt-4">
                   {inlineError && (
                     <InlineAlert
                       title={inlineError.title}
@@ -510,23 +510,21 @@ export default function UploadDocumentModal({
                     />
                   )}
                   {activeTab === 'pdf' && (
-                    <InlineAlert
-                      title="Faster batch uploads"
-                      message={UPLOAD_GUIDANCE}
-                      details={[
-                        'This keeps PDF analysis responsive while the worker processes each paper in the background.',
-                        'If you have a larger batch, upload the next set after the current four start processing.',
-                      ]}
-                    />
+                    <div className="rounded-lg border border-border-default bg-bg-void/45 px-3 py-2">
+                      <p className="text-xs font-semibold text-text-primary">Faster batch uploads</p>
+                      <p className="mt-0.5 text-xs leading-5 text-text-secondary">
+                        {UPLOAD_GUIDANCE} Upload the next set after these start processing.
+                      </p>
+                    </div>
                   )}
-                  <p className="text-xs text-text-muted">
+                  <p className="text-xs font-medium text-text-secondary">
                     Private by default. Your files stay in your workspace and are not used to train models.
                   </p>
                 </div>
 
                 {/* ── PDF Tab ────────────────────────────────────────── */}
                 {activeTab === 'pdf' && bibPhase === 'select' && mode !== 'import' && (
-                  <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                  <form onSubmit={handleSubmit} className="space-y-4 p-5">
 
                     {/* Quota bar */}
                     {quota && (
@@ -538,10 +536,10 @@ export default function UploadDocumentModal({
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
-                      className={`relative border-2 border-dashed rounded-xl p-8 transition-all duration-150 text-center ${
+                      className={`relative rounded-xl border border-dashed p-6 text-center transition-all duration-150 ${
                         isDragging
                           ? 'border-accent-primary bg-bg-elevated'
-                          : 'border-border-default hover:border-accent-primary/40 hover:bg-bg-hover'
+                          : 'border-border-default bg-bg-void/35 hover:border-accent-primary/40 hover:bg-bg-hover'
                       } ${loading ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}
                     >
                       <input
@@ -555,20 +553,20 @@ export default function UploadDocumentModal({
                         id="file-upload"
                       />
                       <label htmlFor="file-upload" className="cursor-pointer block">
-                        <DocumentArrowUpIcon className={`h-8 w-8 mx-auto mb-2 ${isDragging ? 'text-accent-primary' : 'text-text-tertiary'}`} />
+                        <DocumentArrowUpIcon className={`mx-auto mb-2 h-7 w-7 ${isDragging ? 'text-accent-primary' : 'text-text-secondary'}`} />
                         {selectedFiles.length > 0 ? (
                           <>
                             <p className="text-sm font-semibold text-text-primary">
                               {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
                             </p>
-                            <p className="text-xs text-text-muted mt-0.5">Click or drag to change</p>
+                            <p className="mt-0.5 text-xs font-medium text-text-secondary">Click or drag to change</p>
                           </>
                         ) : (
                           <>
-                            <p className="text-sm font-semibold text-text-secondary">
+                            <p className="text-sm font-semibold text-text-primary">
                               {isDragging ? 'Drop files here' : 'Drag & drop or click to browse'}
                             </p>
-                            <p className="text-xs text-text-muted mt-0.5 font-mono">
+                            <p className="mt-0.5 font-mono text-xs font-medium text-text-secondary">
                               PDF only · max {MAX_SIZE_MB}MB each · up to {MAX_FILES} files per batch
                             </p>
                           </>
@@ -580,16 +578,16 @@ export default function UploadDocumentModal({
                     {selectedFiles.length > 0 && (
                       <div className="space-y-1.5 max-h-40 overflow-y-auto">
                         {selectedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between gap-2 px-3 py-2 bg-bg-elevated border border-border-default rounded-lg group">
+                          <div key={index} className="group flex items-center justify-between gap-2 rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-text-primary truncate">{file.name}</p>
-                              <p className="text-xs text-text-muted font-mono">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
+                              <p className="font-mono text-xs font-medium text-text-secondary">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
                             </div>
                             <button
                               type="button"
                               onClick={() => removeFile(index)}
                               disabled={loading}
-                              className="text-text-muted hover:text-error transition-colors p-0.5"
+                              className="p-0.5 text-text-secondary transition-colors hover:text-error"
                             >
                               <XMarkIcon className="h-3.5 w-3.5" />
                             </button>
@@ -599,19 +597,19 @@ export default function UploadDocumentModal({
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex gap-2 border-t border-border-default pt-4">
                       <button
                         type="button"
                         onClick={handleClose}
                         disabled={loading}
-                        className="flex-1 px-4 py-2.5 border border-border-default text-text-secondary text-sm font-semibold rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 hover:text-text-primary transition-all duration-150 disabled:opacity-50"
+                        className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={loading || selectedFiles.length === 0}
-                        className="flex-1 px-4 py-2.5 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-md bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {loading ? (
                           <>
@@ -628,8 +626,8 @@ export default function UploadDocumentModal({
 
                 {/* ── BibTeX Tab — Phase A: file selection ─────────── */}
                 {activeTab === 'bibtex' && bibPhase === 'select' && mode !== 'pdf' && (
-                  <form onSubmit={handleBibtexSubmit} className="p-6 space-y-4">
-                    <p className="text-sm text-text-secondary leading-relaxed">
+                  <form onSubmit={handleBibtexSubmit} className="space-y-4 p-5">
+                    <p className="text-sm font-medium leading-6 text-text-secondary">
                       Import references from Zotero, Mendeley, or Endnote. We'll search for open-access PDFs and analyze them automatically.
                     </p>
 
@@ -640,10 +638,10 @@ export default function UploadDocumentModal({
 
                     {/* .bib file picker */}
                     <div
-                      className={`relative border-2 border-dashed rounded-xl p-8 transition-all duration-150 text-center ${
+                      className={`relative rounded-xl border border-dashed p-6 text-center transition-all duration-150 ${
                         bibtexFile
                           ? 'border-accent-primary/50 bg-bg-elevated'
-                          : 'border-border-default hover:border-accent-primary/40 hover:bg-bg-hover'
+                          : 'border-border-default bg-bg-void/35 hover:border-accent-primary/40 hover:bg-bg-hover'
                       } ${loading ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}
                     >
                       <input
@@ -656,34 +654,34 @@ export default function UploadDocumentModal({
                         id="bibtex-upload"
                       />
                       <label htmlFor="bibtex-upload" className="cursor-pointer block">
-                        <BookOpenIcon className={`h-8 w-8 mx-auto mb-2 ${bibtexFile ? 'text-accent-primary' : 'text-text-tertiary'}`} />
+                        <BookOpenIcon className={`mx-auto mb-2 h-7 w-7 ${bibtexFile ? 'text-accent-primary' : 'text-text-secondary'}`} />
                         {bibtexFile ? (
                           <>
                             <p className="text-sm font-semibold text-text-primary">{bibtexFile.name}</p>
-                            <p className="text-xs text-text-muted mt-0.5">Click to change file</p>
+                            <p className="mt-0.5 text-xs font-medium text-text-secondary">Click to change file</p>
                           </>
                         ) : (
                           <>
-                            <p className="text-sm font-semibold text-text-secondary">Click to select .bib file</p>
-                            <p className="text-xs text-text-muted mt-0.5 font-mono">Exported from Zotero, Mendeley, Endnote</p>
+                            <p className="text-sm font-semibold text-text-primary">Click to select .bib file</p>
+                            <p className="mt-0.5 font-mono text-xs font-medium text-text-secondary">Exported from Zotero, Mendeley, Endnote</p>
                           </>
                         )}
                       </label>
                     </div>
 
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex gap-2 border-t border-border-default pt-4">
                       <button
                         type="button"
                         onClick={handleClose}
                         disabled={loading}
-                        className="flex-1 px-4 py-2.5 border border-border-default text-text-secondary text-sm font-semibold rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 hover:text-text-primary transition-all duration-150 disabled:opacity-50"
+                        className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={loading || !bibtexFile}
-                        className="flex-1 px-4 py-2.5 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-md bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {loading ? (
                           <>
@@ -698,7 +696,7 @@ export default function UploadDocumentModal({
 
                 {/* ── BibTeX Tab — Phase B: live resolution panel ────── */}
                 {bibPhase === 'resolving' && (
-                  <div className="p-6 space-y-4">
+                  <div className="space-y-4 p-5">
                     {/* Header */}
                     <div className="flex items-start justify-between">
                       <div>
@@ -711,7 +709,7 @@ export default function UploadDocumentModal({
                                 : `Done — ${bibResolved} processed, ${bibUnresolved} metadata-only`
                             : `Finding open-access PDFs…`}
                         </p>
-                        <p className="text-xs text-text-muted mt-0.5">
+                        <p className="mt-0.5 text-xs font-medium leading-5 text-text-secondary">
                           {bibAllDone
                             ? bibUnresolved === 0
                               ? 'Papers are ready in your literature tab.'
@@ -722,7 +720,7 @@ export default function UploadDocumentModal({
                         </p>
                       </div>
                       {!bibAllDone && (
-                        <span className="text-xs font-mono text-text-muted bg-bg-elevated px-2 py-1 rounded border border-border-default">
+                        <span className="rounded border border-border-default bg-bg-elevated px-2 py-1 font-mono text-xs font-semibold text-text-secondary">
                           {bibCompleted}/{bibEntries.length}
                         </span>
                       )}
@@ -730,7 +728,7 @@ export default function UploadDocumentModal({
 
                     {/* Progress bar */}
                     {bibEntries.length > 0 && (
-                      <div className="h-1 bg-bg-elevated rounded-full overflow-hidden">
+                      <div className="h-1 overflow-hidden rounded-full bg-bg-elevated">
                         <div
                           className="h-full bg-accent-primary rounded-full transition-all duration-500"
                           style={{ width: `${(bibCompleted / bibEntries.length) * 100}%` }}
@@ -740,17 +738,17 @@ export default function UploadDocumentModal({
 
                     {bibAllDone && bibUnresolved > 0 && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+                        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300">
                           Fully processed: <span className="font-semibold text-emerald-200">{bibResolved}</span>
                         </div>
-                        <div className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs text-sky-300">
+                        <div className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-300">
                           Metadata only: <span className="font-semibold text-sky-200">{bibUnresolved}</span>
                         </div>
                       </div>
                     )}
 
                     {(importResult?.skipped ?? 0) > 0 && importResult?.entry_errors && (
-                      <div className="mt-3 p-3 rounded-lg border border-amber-500/30 bg-[#2C1A06] text-amber-400 text-xs">
+                      <div className="mt-3 rounded-lg border border-amber-500/30 bg-[#2C1A06] p-3 text-xs font-medium text-amber-300">
                         <p className="font-semibold mb-1">
                           {importResult.skipped} {importResult.skipped === 1 ? 'entry' : 'entries'} skipped
                         </p>
@@ -765,34 +763,34 @@ export default function UploadDocumentModal({
                               </li>
                             ))}
                           {importResult.skipped > 5 && (
-                            <li className="text-text-muted">...and {importResult.skipped - 5} more</li>
+                            <li className="text-text-secondary">...and {importResult.skipped - 5} more</li>
                           )}
                         </ul>
                       </div>
                     )}
 
                     {/* Per-entry list */}
-                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                    <div className="max-h-64 space-y-1 overflow-y-auto">
                       {bibEntries.slice(0, 20).map(entry => (
-                        <div key={entry.id} className="flex items-center justify-between gap-3 py-1.5 px-3 bg-bg-elevated rounded-lg border border-border-default">
-                          <BookOpenIcon className={`h-4 w-4 shrink-0 ${entry.resolution_status === 'resolved' ? 'text-success' : 'text-text-tertiary'}`} />
+                        <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-elevated px-3 py-1.5">
+                          <BookOpenIcon className={`h-4 w-4 shrink-0 ${entry.resolution_status === 'resolved' ? 'text-success' : 'text-text-secondary'}`} />
                           <p className="flex-1 text-xs text-text-primary truncate">{entry.title}</p>
                           <EntryStatusIcon status={entry.resolution_status} />
                         </div>
                       ))}
                       {bibEntries.length > 20 && (
-                        <p className="text-xs text-text-muted text-center py-1">
+                        <p className="py-1 text-center text-xs font-medium text-text-secondary">
                           + {bibEntries.length - 20} more entries…
                         </p>
                       )}
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex gap-2 border-t border-border-default pt-4">
                       <button
                         type="button"
                         onClick={handleBibContinue}
-                        className="flex-1 px-4 py-2.5 border border-border-default text-text-secondary text-sm font-semibold rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 hover:text-text-primary transition-all duration-150"
+                        className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary"
                       >
                         Continue to Literature
                       </button>
@@ -800,7 +798,7 @@ export default function UploadDocumentModal({
                         <button
                           type="button"
                           onClick={handleBibContinue}
-                          className="flex-1 px-4 py-2.5 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-all duration-150 flex items-center justify-center gap-2"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-md bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover"
                         >
                           <CheckIcon className="h-4 w-4" />
                           Done — View Papers
@@ -816,7 +814,7 @@ export default function UploadDocumentModal({
                             setBibPollTimer(null)
                             handleClose()
                           }}
-                          className="text-sm text-text-secondary hover:text-text-primary transition-colors duration-150 underline"
+                          className="text-sm font-semibold text-text-secondary underline transition-colors duration-150 hover:text-text-primary"
                         >
                           Close — resolving in background
                         </button>
@@ -827,9 +825,9 @@ export default function UploadDocumentModal({
 
                 {/* ── Zotero Tab ─────────────────────────────────────── */}
                 {activeTab === 'zotero' && bibPhase === 'select' && mode !== 'pdf' && (
-                  <div className="p-6 space-y-4">
-                    <div className="rounded-xl bg-bg-elevated p-4 border border-border-default">
-                      <p className="text-sm text-text-secondary leading-relaxed">
+                  <div className="space-y-4 p-5">
+                    <div className="rounded-lg border border-border-default bg-bg-void/45 px-3 py-2.5">
+                      <p className="text-sm font-medium leading-6 text-text-secondary">
                         Connect your <span className="font-semibold text-text-primary">Zotero library</span>.
                         Get your API key at{' '}
                         <a
@@ -848,22 +846,22 @@ export default function UploadDocumentModal({
                     {!zoteroValidated ? (
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-xs font-medium text-text-secondary mb-1.5">Zotero API Key</label>
+                          <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.1em] text-text-secondary">Zotero API Key</label>
                           <input
                             type="password"
                             value={zoteroKey}
                             onChange={e => setZoteroKey(e.target.value)}
                             placeholder="Paste your API key…"
                             disabled={zoteroValidating}
-                            className="w-full px-3 py-2.5 bg-bg-void border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors font-mono text-sm"
+                            className="w-full rounded-lg border border-border-default bg-bg-void px-3 py-2.5 font-mono text-sm text-text-primary transition-colors placeholder:text-text-muted focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
                           />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 border-t border-border-default pt-4">
                           <button
                             type="button"
                             onClick={handleClose}
                             disabled={zoteroValidating}
-                            className="flex-1 px-4 py-2.5 border border-border-default text-text-secondary text-sm font-semibold rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 hover:text-text-primary transition-all duration-150 disabled:opacity-50"
+                            className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                           >
                             Cancel
                           </button>
@@ -871,7 +869,7 @@ export default function UploadDocumentModal({
                             type="button"
                             onClick={handleZoteroValidate}
                             disabled={zoteroValidating || !zoteroKey.trim()}
-                            className="flex-1 px-4 py-2.5 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {zoteroValidating ? (
                               <>
@@ -889,14 +887,14 @@ export default function UploadDocumentModal({
                           Connected as {zoteroUsername}
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                            Collection <span className="text-text-muted font-mono">(optional)</span>
+                          <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.1em] text-text-secondary">
+                            Collection <span className="font-mono text-[11px] normal-case tracking-normal text-text-secondary">(optional)</span>
                           </label>
                           <select
                             value={zoteroSelectedCollection}
                             onChange={e => setZoteroSelectedCollection(e.target.value)}
                             disabled={loading}
-                            className="w-full px-3 py-2.5 bg-bg-void border border-border-default rounded-lg text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-colors text-sm"
+                            className="w-full rounded-lg border border-border-default bg-bg-void px-3 py-2.5 text-sm text-text-primary transition-colors focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
                           >
                             <option value="">Entire Library</option>
                             {zoteroCollections.map(col => (
@@ -906,19 +904,19 @@ export default function UploadDocumentModal({
                             ))}
                           </select>
                         </div>
-                        <div className="flex gap-2 pt-1">
+                        <div className="flex gap-2 border-t border-border-default pt-4">
                           <button
                             type="button"
                             onClick={() => { setZoteroValidated(false); setZoteroCollections([]) }}
                             disabled={loading}
-                            className="flex-1 px-4 py-2.5 border border-border-default text-text-secondary text-sm font-semibold rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 hover:text-text-primary transition-all duration-150 disabled:opacity-50"
+                            className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                           >
                             Change Key
                           </button>
                           <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-2.5 bg-accent-primary text-white text-sm font-semibold rounded-lg hover:bg-accent-hover transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {loading ? (
                               <>

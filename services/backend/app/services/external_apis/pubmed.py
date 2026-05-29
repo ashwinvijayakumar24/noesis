@@ -6,11 +6,13 @@ Docs: https://www.ncbi.nlm.nih.gov/books/NBK25501/
 """
 
 import requests
-import time
+import logging
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
+from app.core.privacy import safe_exception
 
 EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+logger = logging.getLogger(__name__)
 
 # Biomedical keywords that indicate PubMed relevance
 BIOMEDICAL_KEYWORDS = {
@@ -55,25 +57,25 @@ class PubMedAPI:
         Returns:
             List of paper dictionaries
         """
-        print(f"[PUBMED] Searching for: {query[:50]}...")
+        logger.info("[PUBMED] Searching papers")
 
         try:
             # Step 1: Search to get PMIDs
             pmids = self._search_pmids(query, limit, year_min, year_max)
 
             if not pmids:
-                print("[PUBMED] No results found")
+                logger.info("[PUBMED] No results found")
                 return []
 
             # Step 2: Fetch paper details for PMIDs
             papers = self._fetch_paper_details(pmids)
 
-            print(f"[PUBMED] Found {len(papers)} papers")
+            logger.info("[PUBMED] Found %s papers", len(papers))
 
             return papers
 
         except Exception as e:
-            print(f"[PUBMED] ERROR: {type(e).__name__}: {str(e)}")
+            logger.warning("[PUBMED] Search failed: %s", safe_exception(e))
             return []
 
     def is_biomedical_relevant(self, keywords: List[str]) -> bool:
@@ -275,6 +277,6 @@ class PubMedAPI:
                 papers.append(paper)
 
         except Exception as e:
-            print(f"[PUBMED] XML parsing error: {type(e).__name__}: {str(e)}")
+            logger.warning("[PUBMED] XML parsing error: %s", safe_exception(e))
 
         return papers

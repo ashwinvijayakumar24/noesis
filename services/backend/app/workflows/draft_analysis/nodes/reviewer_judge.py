@@ -1,7 +1,7 @@
 """
 Reviewer Judge Node
 
-Runs after all 4 reviewer_panel_node calls fan-in, before meta_reviewer_node.
+Runs after reviewer_panel_node calls fan-in, before meta_reviewer_node.
 
 For each reviewer output:
   - Scores specificity: does the feedback name actual sections, figures, equations,
@@ -27,6 +27,7 @@ from app.workflows.draft_analysis.nodes.reviewer_panel import (
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_async_openai_client, get_completion_params
 from app.core.supabase_client import supabase
+from app.core.privacy import safe_exception
 from app.services.retry_utils import parse_chat_completion_with_retries
 
 logger = get_logger(__name__)
@@ -83,6 +84,11 @@ def _format_reviewer_for_judge(ro: dict) -> str:
         lines.append(f"  QUESTION: {q}")
     for l in (ro.get("limitations_to_address") or []):
         lines.append(f"  LIMITATION: {l}")
+    for issue in (ro.get("issues") or []):
+        lines.append(
+            f"  STRUCTURED ISSUE: {issue.get('section_reference', '')}: "
+            f"{issue.get('problem', '')} Action: {issue.get('suggested_action', '')}"
+        )
     return "\n".join(lines)
 
 
@@ -112,6 +118,10 @@ async def _retry_reviewer(state: DraftAnalysisState, reviewer_id: str) -> dict |
         )
 
         output = response.parsed
+        for issue in output.issues:
+            if issue.problem and issue.problem not in output.weaknesses:
+                output.weaknesses.append(issue.problem)
+
         new_row = {
             "draft_id": draft_id,
             "reviewer_id": reviewer_id,
@@ -120,6 +130,7 @@ async def _retry_reviewer(state: DraftAnalysisState, reviewer_id: str) -> dict |
             "weaknesses": output.weaknesses,
             "questions_to_authors": output.questions_to_authors,
             "limitations_to_address": output.limitations_to_address,
+            "issues": [issue.model_dump() for issue in output.issues],
             "rating": output.rating,
             "confidence": output.confidence,
             "recommendation": output.recommendation,
@@ -132,7 +143,14 @@ async def _retry_reviewer(state: DraftAnalysisState, reviewer_id: str) -> dict |
                 .eq("draft_id", draft_id) \
                 .eq("reviewer_id", reviewer_id) \
                 .execute()
-            supabase.table("reviewer_panel_outputs").insert(new_row).execute()
+            try:
+                supabase.table("reviewer_panel_outputs").insert(new_row).execute()
+            except Exception as issues_err:
+                if "issues" not in str(issues_err).lower():
+                    raise
+                fallback_row = dict(new_row)
+                fallback_row.pop("issues", None)
+                supabase.table("reviewer_panel_outputs").insert(fallback_row).execute()
         except Exception as db_err:
             logger.warning(f"[ReviewerJudge] Retry DB overwrite failed for {reviewer_id}: {db_err}")
 
@@ -146,7 +164,7 @@ async def _retry_reviewer(state: DraftAnalysisState, reviewer_id: str) -> dict |
 
 async def reviewer_judge_node(state: DraftAnalysisState) -> dict:
     """
-    Judge the 4 reviewer outputs for specificity.
+    Judge the reviewer outputs for specificity.
     Retry any that fall below threshold, then pass all to meta_reviewer_node.
     """
     draft_id = state.get("draft_id", "")
@@ -236,9 +254,9 @@ async def reviewer_judge_node(state: DraftAnalysisState) -> dict:
         }
 
     except Exception as exc:
-        logger.warning(f"[ReviewerJudge] Failed (non-fatal, passing through): {exc}")
+        logger.warning("[ReviewerJudge] Failed (non-fatal, passing through): %s", safe_exception(exc))
         return {
-            "reviewer_judge_output": {"error": str(exc), "panel_quality": "medium"},
+            "reviewer_judge_output": {"error": safe_exception(exc), "panel_quality": "medium"},
             "current_step": "Reviewer Judge (Failed)",
             "progress_percentage": 88,
         }

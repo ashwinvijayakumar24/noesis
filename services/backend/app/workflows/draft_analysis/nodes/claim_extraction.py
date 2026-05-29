@@ -7,12 +7,16 @@ Each claim is categorized by type (empirical, theoretical, methodological) and i
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, Claim
 from app.workflows.draft_analysis.schemas import ClaimExtractionOutput
+from app.workflows.draft_analysis.citation_rules import (
+    apply_existing_citation_gate,
+    citations_near_claim,
+)
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.retry_utils import parse_chat_completion_with_retries_sync
-import json
 import uuid
+import re
 
 logger = get_logger(__name__)
 
@@ -24,6 +28,75 @@ def _get_client():
     if client is None:
         client = get_openai_client()
     return client
+
+
+INTERNAL_SYNTHESIS_ROLES = {"result_finding", "discussion_synthesis", "conclusion_summary"}
+def _infer_rhetorical_role(claim_text: str, section_location: str) -> str:
+    """Heuristic backstop for cached/older claims that lack rhetorical-role metadata."""
+    text = (claim_text or "").strip().lower()
+    section = (section_location or "").strip().lower()
+
+    if any(label in section for label in ("result", "finding")):
+        return "result_finding"
+    if any(label in section for label in ("discussion", "conclusion")):
+        if re.search(r"\b(our|this)\s+(study|review|analysis|findings|results|systematic review)\b", text):
+            return "conclusion_summary" if "conclusion" in section else "discussion_synthesis"
+        if re.search(r"\b(we found|we show|we demonstrate|we observed|we identified|indicates that)\b", text):
+            return "conclusion_summary" if "conclusion" in section else "discussion_synthesis"
+    if any(label in section for label in ("method", "materials")):
+        return "method_claim"
+    if re.search(r"\b(prior|previous|existing|recent|literature|studies have|has been shown)\b", text):
+        return "prior_work_claim"
+    return "background_claim"
+
+
+def _claim_requires_external_citation(
+    claim_text: str,
+    section_location: str,
+    rhetorical_role: str | None,
+    model_requires_citation: bool = True,
+) -> bool:
+    """
+    Decide whether the claim should be sent down the citation-support pipeline.
+
+    Authors' own findings/conclusions should still be eligible for reviewer critique,
+    but they should not be labeled "unsupported because no external citation was found."
+    """
+    role = rhetorical_role or _infer_rhetorical_role(claim_text, section_location)
+    text = (claim_text or "").lower()
+
+    causal_overstatement = bool(
+        re.search(r"\b(causes?|caused|causal|definitive|proves?|leads? to|resulted in)\b", text)
+    )
+    if role in INTERNAL_SYNTHESIS_ROLES and not causal_overstatement:
+        return False
+
+    return bool(model_requires_citation)
+
+
+def _inline_citations_near_claim(
+    claim_text: str,
+    draft_content: str,
+    *,
+    char_start: int | None = None,
+    char_end: int | None = None,
+) -> list[str]:
+    """
+    Detect nearby inline citations after an extracted claim.
+
+    PDF extraction often strips superscript styling, so this accepts bracketed
+    numeric ranges, author-year citations, and compact numeric runs immediately
+    after the sentence.
+    """
+    if not claim_text or not draft_content:
+        return []
+
+    return citations_near_claim(
+        claim_text,
+        draft_content,
+        char_start=char_start,
+        char_end=char_end,
+    )
 
 
 CLAIM_EXTRACTION_PROMPT = """You are an expert academic reviewer. Analyze this research draft and ONLY extract claims that appear WEAK, UNSUPPORTED, or PROBLEMATIC in the context of the paper.
@@ -46,10 +119,18 @@ For each WEAK claim, determine:
    - "empirical": Claims about observed data or experimental results
    - "theoretical": Claims about theories, models, or conceptual frameworks
    - "methodological": Claims about methods, approaches, or techniques
-3. Section location (e.g., "Introduction", "Methods", "Results")
-4. Importance score (0.0-1.0): How central is this claim to the paper's contribution?
-5. Confidence (0.0-1.0): How confidently stated is this claim (paradoxically, overconfident claims are often weak)
-6. Why it's weak (brief explanation)
+3. Rhetorical role:
+   - "background_claim": field/context statements that need prior-work support
+   - "prior_work_claim": statements about what existing studies/literature show
+   - "method_claim": claims about the paper's methods or workflow
+   - "result_finding": the authors' own reported findings/results
+   - "discussion_synthesis": the authors' own interpretation of their results
+   - "conclusion_summary": the authors' own conclusion from this paper/review
+4. Whether the claim requires an EXTERNAL citation. Do not require external citations for the authors' own results, discussion synthesis, or conclusion summaries unless they make an overbroad general field claim or a causal claim stronger than their evidence supports.
+5. Section location (e.g., "Introduction", "Methods", "Results")
+6. Importance score (0.0-1.0): How central is this claim to the paper's contribution?
+7. Confidence (0.0-1.0): How confidently stated is this claim (paradoxically, overconfident claims are often weak)
+8. Why it's weak (brief explanation)
 
 Return ONLY a valid JSON object with this structure:
 {
@@ -57,9 +138,11 @@ Return ONLY a valid JSON object with this structure:
     {
       "claim_text": "The exact claim as stated in the draft",
       "claim_type": "empirical" | "theoretical" | "methodological",
+      "rhetorical_role": "background_claim" | "prior_work_claim" | "method_claim" | "result_finding" | "discussion_synthesis" | "conclusion_summary",
       "section_location": "Section name",
       "importance_score": 0.0 to 1.0,
       "confidence": 0.0 to 1.0,
+      "requires_citation": true | false,
       "weakness_reason": "Brief explanation of why this claim is weak"
     }
   ],
@@ -93,7 +176,7 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
     # OPTIMIZATION: Check if claims already exist in database (from Phase 1)
     try:
         existing_claims_res = supabase.table("draft_claims")\
-            .select("id, claim_text, claim_type, section_location, importance_score, confidence_score, requires_citation, line_number, char_start, char_end, text_snippet, match_confidence")\
+            .select("id, claim_text, claim_type, section_location, importance_score, confidence_score, requires_citation, existing_citations, line_number, char_start, char_end, text_snippet, match_confidence")\
             .eq("draft_id", draft_id)\
             .execute()
 
@@ -103,6 +186,10 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
             # Convert database records to Claim objects
             claims: list[Claim] = []
             for db_claim in existing_claims_res.data:
+                role = db_claim.get("rhetorical_role") or _infer_rhetorical_role(
+                    db_claim.get("claim_text", ""),
+                    db_claim.get("section_location", "Unknown"),
+                )
                 claim: Claim = {
                     "id": db_claim["id"],
                     "claim_text": db_claim["claim_text"],
@@ -110,11 +197,27 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
                     "section_location": db_claim.get("section_location", "Unknown"),
                     "importance_score": db_claim.get("importance_score", 0.5),
                     "confidence": db_claim.get("confidence_score", 0.8),
-                    "requires_citation": db_claim.get("requires_citation", True)
+                    "requires_citation": _claim_requires_external_citation(
+                        db_claim.get("claim_text", ""),
+                        db_claim.get("section_location", "Unknown"),
+                        role,
+                        db_claim.get("requires_citation", True),
+                    ),
+                    "rhetorical_role": role,
                 }
                 for key in ("line_number", "char_start", "char_end", "text_snippet", "match_confidence"):
                     if db_claim.get(key) is not None:
                         claim[key] = db_claim[key]
+                existing_citations = db_claim.get("existing_citations") or _inline_citations_near_claim(
+                    db_claim.get("claim_text", ""),
+                    state.get("draft_content", ""),
+                    char_start=db_claim.get("char_start"),
+                    char_end=db_claim.get("char_end"),
+                )
+                if existing_citations:
+                    claim["existing_citations"] = existing_citations
+                    claim["has_inline_citation"] = True
+                apply_existing_citation_gate(claim)
                 claims.append(claim)
 
             logger.info(
@@ -157,6 +260,10 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
         # Convert to typed Claim objects with unique IDs
         claims: list[Claim] = []
         for claim_data in result.claims:
+            role = claim_data.rhetorical_role or _infer_rhetorical_role(
+                claim_data.claim_text,
+                claim_data.section_location,
+            )
             claim: Claim = {
                 "id": str(uuid.uuid4()),
                 "claim_text": claim_data.claim_text,
@@ -164,7 +271,14 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
                 "section_location": claim_data.section_location,
                 "importance_score": claim_data.importance_score,
                 "confidence": claim_data.confidence,
-                "requires_citation": True  # All extracted claims should have citation support checked
+                "requires_citation": _claim_requires_external_citation(
+                    claim_data.claim_text,
+                    claim_data.section_location,
+                    role,
+                    claim_data.requires_citation,
+                ),
+                "rhetorical_role": role,
+                "weakness_reason": claim_data.weakness_reason,
             }
             claims.append(claim)
 
@@ -193,6 +307,16 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
                     ):
                         if key in anchor:
                             claim[key] = anchor[key]
+                    existing_citations = _inline_citations_near_claim(
+                        claim.get("claim_text", ""),
+                        draft_content,
+                        char_start=anchor.get("char_start"),
+                        char_end=anchor.get("char_end"),
+                    )
+                    if existing_citations:
+                        claim["existing_citations"] = existing_citations
+                        claim["has_inline_citation"] = True
+                        apply_existing_citation_gate(claim)
         except Exception as anchor_error:
             logger.warning(f"[Claim Extraction] Claim anchoring failed (non-fatal): {anchor_error}")
 

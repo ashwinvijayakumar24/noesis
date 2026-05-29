@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.core.api_errors import build_error_detail, raise_api_error
 from app.core.security_middleware import SecureAuthValidator, limiter
 from app.core.supabase_client import supabase
-from app.schemas.projects import ProjectBundle, Dataset, Document
+from app.schemas.projects import ProjectBundle, Dataset, Document, ProjectCreate, ProjectUpdate
 from app.services.citation_management import format_citation_bibtex, parse_bibtex_file
 from app.services.progress_tracking import (
     clear_progress_snapshot,
@@ -200,7 +200,7 @@ def _group_recommendations_by_context(recommendations: List[Dict[str, Any]]) -> 
 
 # CREATE
 @router.post("/")
-def create_project(title: str, description: Optional[str] = None, user_id: str = Depends(get_current_user)):
+def create_project(payload: ProjectCreate, user_id: str = Depends(get_current_user)):
     # Enforce per-plan project limit
     quota_res = supabase.table('user_quotas').select('plan_tier').eq('user_id', user_id).execute()
     plan_tier = quota_res.data[0]['plan_tier'] if quota_res.data else 'free'
@@ -223,8 +223,8 @@ def create_project(title: str, description: Optional[str] = None, user_id: str =
 
     data = {
         "user_id": user_id,
-        "title": title,
-        "description": description,
+        "title": payload.title,
+        "description": payload.description,
         "created_at": datetime.datetime.utcnow().isoformat(),
         "updated_at": datetime.datetime.utcnow().isoformat(),
     }
@@ -243,18 +243,26 @@ def get_projects(user_id: str = Depends(get_current_user)):
     if not projects:
         return []
 
-    # Batch-load document project_ids once instead of issuing one count query per project.
+    # Batch-load related project_ids once instead of issuing one count query per project.
     project_ids = {project["id"] for project in projects}
     document_counts: dict[str, int] = {project_id: 0 for project_id in project_ids}
+    draft_counts: dict[str, int] = {project_id: 0 for project_id in project_ids}
     documents_res = supabase.table("documents").select("project_id").eq("user_id", user_id).execute()
+    drafts_res = supabase.table("drafts").select("project_id").eq("user_id", user_id).execute()
 
     for document in documents_res.data or []:
         project_id = document.get("project_id")
         if project_id in document_counts:
             document_counts[project_id] += 1
 
+    for draft in drafts_res.data or []:
+        project_id = draft.get("project_id")
+        if project_id in draft_counts:
+            draft_counts[project_id] += 1
+
     for project in projects:
         project["document_count"] = document_counts.get(project["id"], 0)
+        project["draft_count"] = draft_counts.get(project["id"], 0)
 
     return projects
 
@@ -268,12 +276,12 @@ def get_project(project_id: str, user_id: str = Depends(get_current_user)):
 
 # UPDATE
 @router.put("/{project_id}")
-def update_project(project_id: str, title: Optional[str] = None, description: Optional[str] = None, user_id: str = Depends(get_current_user)):
+def update_project(project_id: str, payload: ProjectUpdate, user_id: str = Depends(get_current_user)):
     updates = {"updated_at": datetime.datetime.utcnow().isoformat()}
-    if title:
-        updates["title"] = title
-    if description:
-        updates["description"] = description
+    if payload.title is not None:
+        updates["title"] = payload.title
+    if "description" in payload.model_fields_set:
+        updates["description"] = payload.description
     res = supabase.table("projects").update(updates).eq("id", project_id).eq("user_id", user_id).execute()
     if not res.data:
         raise HTTPException(status_code=400, detail="Failed to update project")

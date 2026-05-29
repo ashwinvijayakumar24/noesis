@@ -19,6 +19,13 @@ class Claim(TypedDict):
     importance_score: float
     confidence: NotRequired[float]
     requires_citation: NotRequired[bool]  # Whether this claim needs citation support
+    rhetorical_role: NotRequired[str]  # background_claim, result_finding, discussion_synthesis, etc.
+    weakness_reason: NotRequired[str]
+    existing_citations: NotRequired[List[str]]
+    has_inline_citation: NotRequired[bool]
+    page_number: NotRequired[int]
+    paragraph_index: NotRequired[int]
+    suggested_sources: NotRequired[List[Dict[str, Any]]]
 
 
 class ClaimWithCitation(TypedDict):
@@ -109,6 +116,7 @@ class DraftAnalysisState(TypedDict):
 
     # Structure analysis
     structure: NotRequired[DraftStructure]
+    manuscript_profile: NotRequired[Dict[str, Any]]
 
     # Claim extraction and categorization
     claims: NotRequired[List[Claim]]
@@ -136,6 +144,8 @@ class DraftAnalysisState(TypedDict):
 
     # Structural checks feedback (merged into reviewer_feedback table with feedback_type='structural')
     structural_feedback: NotRequired[List[Dict[str, Any]]]
+    diagnostic_findings: NotRequired[List[Dict[str, Any]]]
+    revision_tasks: NotRequired[List[Dict[str, Any]]]
 
     # Final report
     synthesis_report: NotRequired[Dict[str, Any]]

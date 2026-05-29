@@ -15,12 +15,12 @@ import MarkdownText from './MarkdownText'
 interface UnifiedFeedbackCardProps {
   item: {
     id: string
-    type: 'claim' | 'gap' | 'feedback'
+    type: 'claim' | 'gap' | 'feedback' | 'task'
     priority: 'high' | 'medium' | 'low'
     issueCategory?: string
     content: any
   }
-  onStatusChange: (feedbackId: string, feedbackType: 'claim' | 'gap' | 'feedback', newStatus: 'new' | 'saved' | 'dismissed') => void
+  onStatusChange: (feedbackId: string, feedbackType: 'claim' | 'gap' | 'feedback' | 'task', newStatus: 'new' | 'saved' | 'dismissed') => void
   onViewInDocument?: (payload: {
     line_number?: number
     content_text?: string
@@ -28,23 +28,24 @@ interface UnifiedFeedbackCardProps {
     section_type?: string
     section_location?: string
     pdf_coordinates?: PdfCoordinates
+    page_number?: number
     match_confidence?: number
   }) => void
   currentStatus: 'new' | 'saved' | 'dismissed'
   fileType: string
 }
 
-// Left border accent — the card border communicates priority
 const PRIORITY_CONFIG = {
-  high:   { accentBorder: 'border-l-2 border-l-error',         label: 'High',   labelColor: 'text-error' },
-  medium: { accentBorder: 'border-l-2 border-l-warning',       label: 'Medium', labelColor: 'text-warning' },
-  low:    { accentBorder: 'border-l-2 border-l-border-subtle', label: 'Low',    labelColor: 'text-text-muted' },
+  high:   { label: 'High',   labelColor: 'text-error' },
+  medium: { label: 'Medium', labelColor: 'text-warning' },
+  low:    { label: 'Low',    labelColor: 'text-text-muted' },
 }
 
 const TYPE_CONFIG = {
   claim:    { icon: InformationCircleIcon, label: 'Claim',    color: 'text-text-secondary' },
   gap:      { icon: ExclamationTriangleIcon, label: 'Gap',    color: 'text-text-secondary' },
   feedback: { icon: BeakerIcon,            label: 'Feedback', color: 'text-text-secondary' },
+  task:     { icon: BeakerIcon,            label: 'Revision Task', color: 'text-text-secondary' },
 }
 
 // Human-readable labels for feedback_type
@@ -59,19 +60,21 @@ const FEEDBACK_TYPE_LABEL: Record<string, string | null> = {
 
 // Human-readable labels for severity
 const SEVERITY_CONFIG: Record<string, { label: string; className: string; badgeClass: string } | null> = {
-  critical:   { label: 'Critical', className: 'text-error font-semibold', badgeClass: 'bg-error/10 text-error border-error/20' },
-  major:      { label: 'Major',    className: 'text-warning font-semibold', badgeClass: 'bg-warning/10 text-warning border-warning/20' },
-  minor:      { label: 'Minor',    className: 'text-info', badgeClass: 'bg-info/10 text-info border-info/20' },
+  critical:   { label: 'Critical', className: 'text-error font-semibold', badgeClass: 'border-border-strong text-error' },
+  major:      { label: 'Major',    className: 'text-warning font-semibold', badgeClass: 'border-border-strong text-warning' },
+  minor:      { label: 'Minor',    className: 'text-info', badgeClass: 'border-border-default text-text-secondary' },
   suggestion: null,
 }
 
-// Citation source color coding
-const CITATION_SOURCE_CONFIG: Record<string, { bg: string; text: string; label: string }> = {
-  library:           { bg: 'bg-teal-500/15',   text: 'text-teal-400',   label: 'Library' },
-  manual_upload:     { bg: 'bg-teal-500/15',   text: 'text-teal-400',   label: 'Library' },
-  bibtex_import:     { bg: 'bg-violet-500/15',  text: 'text-violet-400', label: 'BibTeX' },
-  semantic_scholar:  { bg: 'bg-indigo-500/15', text: 'text-indigo-400', label: 'Semantic Scholar' },
-  openalex:          { bg: 'bg-amber-500/15',  text: 'text-amber-400',  label: 'OpenAlex' },
+// Source labels stay neutral; provenance matters more than decorative color here.
+const CITATION_SOURCE_CONFIG: Record<string, { text: string; label: string }> = {
+  library:           { text: 'text-text-secondary', label: 'Library' },
+  manual_upload:     { text: 'text-text-secondary', label: 'Library' },
+  bibtex_import:     { text: 'text-text-secondary', label: 'BibTeX' },
+  semantic_scholar:  { text: 'text-text-secondary', label: 'Semantic Scholar' },
+  openalex:          { text: 'text-text-secondary', label: 'OpenAlex' },
+  pubmed:            { text: 'text-text-secondary', label: 'PubMed' },
+  arxiv:             { text: 'text-text-secondary', label: 'arXiv' },
 }
 
 const META_LABEL_CLASS = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted'
@@ -112,7 +115,7 @@ export default function UnifiedFeedbackCard({
   currentStatus,
   fileType,
 }: UnifiedFeedbackCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(item.type === 'task')
 
   const priorityConfig = PRIORITY_CONFIG[item.priority]
   const typeConfig = TYPE_CONFIG[item.type]
@@ -120,11 +123,6 @@ export default function UnifiedFeedbackCard({
 
   // Detect strength items — they get special treatment
   const isStrength = item.type === 'feedback' && item.content.feedback_type === 'strength'
-
-  // Strengths get green left border instead of priority-based border
-  const borderAccentClass = isStrength
-    ? 'border-l-2 border-l-success'
-    : priorityConfig.accentBorder
 
   // Detect unsupported claims
   const isUnsupportedClaim = item.type === 'claim' &&
@@ -134,12 +132,14 @@ export default function UnifiedFeedbackCard({
   const getContentText = () => {
     if (item.type === 'claim') return item.content.claim_text
     if (item.type === 'gap') return item.content.description
+    if (item.type === 'task') return item.content.problem
     return item.content.feedback_text
   }
 
   const getSuggestions = () => {
     if (item.type === 'claim') return item.content.existing_citations || []
     if (item.type === 'gap') return item.content.suggested_papers || []
+    if (item.type === 'task') return []
     return item.content.suggestions || []
   }
 
@@ -152,6 +152,10 @@ export default function UnifiedFeedbackCard({
     if (item.type === 'gap') return {
       gapType: item.content.gap_type as string,
       hasLiterature: item.content.has_relevant_literature as boolean,
+    }
+    if (item.type === 'task') return {
+      feedbackType: item.content.task_type as string,
+      severity: item.content.severity as string,
     }
     return {
       feedbackType: item.content.feedback_type as string,
@@ -166,28 +170,53 @@ export default function UnifiedFeedbackCard({
 
   // Citation chips from supporting_literature
   const suggestedCitations = item.type === 'claim' ? parseSuggestedCitations(item.content) : []
+  const suggestedSources = item.type === 'task' && Array.isArray(item.content.suggested_sources)
+    ? item.content.suggested_sources
+    : []
   const isPdf = fileType === 'application/pdf' || fileType === 'pdf'
-  const hasReliablePdfAnchor = Boolean(item.content.pdf_coordinates)
+  const hasReliablePdfAnchor = Boolean(item.content.pdf_coordinates || item.content.page_number)
   const canOpenDocument = Boolean(onViewInDocument) && (isPdf ? hasReliablePdfAnchor : Boolean(item.content.line_number))
   const viewPayload = {
     line_number: item.content.line_number,
     content_text: contentText,
-    text_snippet: item.content.text_snippet,
-    section_type: item.content.section_type ?? item.content.section_reference,
+    text_snippet: item.content.text_snippet ?? item.content.anchor_text,
+    section_type: item.content.section_type ?? item.content.section_reference ?? item.content.section,
     section_location: item.content.section_location,
     pdf_coordinates: item.content.pdf_coordinates,
+    page_number: item.content.page_number,
     match_confidence: item.content.match_confidence,
+  }
+  const locationLabel = isPdf
+    ? item.content.pdf_coordinates?.page || item.content.page_number
+      ? `Page ${item.content.pdf_coordinates?.page ?? item.content.page_number}`
+      : null
+    : item.content.line_number
+      ? `Line ${item.content.line_number}`
+      : null
+  const anchorText = item.content.anchor_text ?? item.content.text_snippet
+
+  const renderLocationButton = (className = META_STATUS_READY_CLASS) => {
+    if (!canOpenDocument || !locationLabel) return null
+    return (
+      <button
+        onClick={() => onViewInDocument?.(viewPayload)}
+        className={`inline-flex items-center gap-1 ${className} transition-colors duration-150`}
+      >
+        <span>{locationLabel}</span>
+        <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+      </button>
+    )
   }
 
   return (
-    <div className={`bg-bg-surface rounded-lg border border-border-default ${borderAccentClass} p-4 transition-colors duration-150 hover:border-border-subtle`}>
+    <div className="rounded-lg border border-border-default bg-bg-surface p-4 transition-colors duration-150 hover:border-border-strong">
 
       {/* Header: type badge + severity badge + priority */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Type badge */}
           {isUnsupportedClaim ? (
-            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-error/10 text-error border border-error/20">
+            <span className="rounded border border-border-strong px-2 py-0.5 text-xs font-semibold text-error">
               Unsupported Claim
             </span>
           ) : (
@@ -198,11 +227,11 @@ export default function UnifiedFeedbackCard({
           )}
 
           {/* Severity badge for feedback */}
-          {item.type === 'feedback' && !isStrength && (() => {
+          {(item.type === 'feedback' || item.type === 'task') && !isStrength && (() => {
             const severityInfo = metadata.severity ? SEVERITY_CONFIG[metadata.severity as string] : null
             if (!severityInfo) return null
             return (
-              <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${severityInfo.badgeClass}`}>
+              <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${severityInfo.badgeClass}`}>
                 {severityInfo.label}
               </span>
             )
@@ -219,11 +248,11 @@ export default function UnifiedFeedbackCard({
 
         {/* Metadata summary */}
         <div className="flex items-start gap-4 shrink-0 ml-3 border-l border-border-default pl-4">
-          {item.content.section_type && (
+          {(item.content.section_type || item.content.section) && (
             <div className="min-w-[92px]">
               <div className={META_LABEL_CLASS}>Section</div>
               <div className={`${META_VALUE_CLASS} mt-1 capitalize`}>
-                {(item.content.section_type || '').replace(/_/g, ' ')}
+                {(item.content.section_type || item.content.section || '').replace(/_/g, ' ')}
               </div>
             </div>
           )}
@@ -231,31 +260,83 @@ export default function UnifiedFeedbackCard({
             <div className="min-w-[148px]">
               <div className={META_LABEL_CLASS}>Location</div>
               <div className="mt-1">
-                <button
-                  onClick={() => onViewInDocument?.(viewPayload)}
-                  className={`inline-flex items-center gap-1 ${META_STATUS_READY_CLASS} transition-colors duration-150`}
-                >
-                  <span>
-                    {isPdf
-                      ? `Page ${item.content.pdf_coordinates?.page}`
-                      : `Line ${item.content.line_number}`}
-                  </span>
-                  <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
-                </button>
+                {renderLocationButton()}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Content text */}
-      <div className="mb-3">
-        <MarkdownText
-          as="p"
-          text={contentText}
-          className={`text-sm text-text-primary leading-relaxed ${!isExpanded && hasLongContent ? 'line-clamp-3' : ''}`}
-        />
-      </div>
+      {item.type === 'task' ? (
+        <div className="mb-3 space-y-3">
+          <div>
+            <div className={META_LABEL_CLASS}>Problem</div>
+            <MarkdownText
+              as="p"
+              text={item.content.problem || contentText}
+              className="mt-1 text-sm text-text-primary leading-relaxed"
+            />
+          </div>
+
+          {item.content.why_it_matters && (
+            <div>
+              <div className={META_LABEL_CLASS}>Why it matters</div>
+              <MarkdownText
+                as="p"
+                text={item.content.why_it_matters}
+                className="mt-1 text-sm text-text-secondary leading-relaxed"
+              />
+            </div>
+          )}
+
+          {item.content.suggested_action && (
+            <div className="border-t border-border-default pt-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
+                Suggested Action
+              </div>
+              <MarkdownText
+                as="p"
+                text={item.content.suggested_action}
+                className="mt-1 text-sm text-text-primary leading-relaxed"
+              />
+            </div>
+          )}
+
+          <div className="grid gap-3 border-t border-border-default pt-3 sm:grid-cols-2">
+            {anchorText && (
+              <div>
+                <div className={META_LABEL_CLASS}>Anchor</div>
+                <MarkdownText
+                  as="p"
+                  text={anchorText}
+                  className="mt-1 text-xs text-text-secondary leading-relaxed line-clamp-4"
+                />
+              </div>
+            )}
+            <div>
+              <div className={META_LABEL_CLASS}>Location</div>
+              <div className="mt-1">
+                {renderLocationButton('text-xs font-medium text-accent-primary hover:text-accent-primary/80') ?? (
+                  <span className="text-xs text-text-muted">Location unavailable</span>
+                )}
+              </div>
+              {typeof item.content.match_confidence === 'number' && (
+                <p className="mt-1 text-[11px] text-text-muted">
+                  Anchor confidence: {Math.round(item.content.match_confidence * 100)}%
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-3">
+          <MarkdownText
+            as="p"
+            text={contentText}
+            className={`text-sm text-text-primary leading-relaxed ${!isExpanded && hasLongContent ? 'line-clamp-3' : ''}`}
+          />
+        </div>
+      )}
 
       {/* Metadata row */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3 text-xs text-text-muted">
@@ -283,24 +364,24 @@ export default function UnifiedFeedbackCard({
           </>
         )}
 
-        {item.type === 'feedback' && (() => {
+        {(item.type === 'feedback' || item.type === 'task') && (() => {
           const typeLabel = FEEDBACK_TYPE_LABEL[metadata.feedbackType as string] ?? metadata.feedbackType
           if (!typeLabel) return null
           return <span className="text-text-secondary">{typeLabel}</span>
         })()}
       </div>
 
-      {/* Citation chips with source color coding */}
+      {/* Citation support */}
       {item.type === 'claim' && suggestedCitations.length > 0 && (
-        <div className="mb-3 pl-3 border-l border-accent-primary/30">
-          <span className="text-xs text-accent-primary font-medium block mb-1.5">Recommended support</span>
+        <div className="mb-3 border-t border-border-default pt-3">
+          <span className="mb-1.5 block text-xs font-medium text-text-secondary">Recommended support</span>
           <div className="space-y-2">
             {suggestedCitations.slice(0, 2).map((cit, i) => {
               const sourceConfig = CITATION_SOURCE_CONFIG[cit.source] || CITATION_SOURCE_CONFIG['library']
               return (
                 <div
                   key={i}
-                  className="flex items-start justify-between gap-3 rounded-md border border-border-default bg-bg-elevated px-3 py-2"
+                  className="flex items-start justify-between gap-3 rounded-md border border-border-default px-3 py-2"
                   title={`${sourceConfig.label}${cit.similarity ? ` · ${Math.round(cit.similarity * 100)}% match` : ''}`}
                 >
                   <span className="text-xs font-medium leading-snug text-text-primary">{cit.display}</span>
@@ -320,8 +401,8 @@ export default function UnifiedFeedbackCard({
       )}
 
       {item.type === 'claim' && metadata.requiresCitation && suggestions.length === 0 && suggestedCitations.length === 0 && (
-        <div className="mb-3 pl-3 border-l border-warning">
-          <span className="text-xs text-warning font-medium block mb-1.5">Citation needed</span>
+        <div className="mb-3 border-t border-border-default pt-3">
+          <span className="mb-1.5 block text-xs font-medium text-warning">Citation needed</span>
           <span className="text-xs text-text-muted italic">
             No citation match found in your library.
           </span>
@@ -329,14 +410,14 @@ export default function UnifiedFeedbackCard({
       )}
 
       {/* Suggestions / Citations */}
-      {suggestions.length > 0 && (
+      {item.type !== 'task' && suggestions.length > 0 && (
         <div className="mb-3">
           <button
             className="flex items-center gap-1.5 mb-2 group/toggle"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             <h4 className="text-xs font-semibold text-text-secondary group-hover/toggle:text-text-primary transition-colors">
-              {item.type === 'claim' ? 'Existing citations' : 'Suggestions'}
+              {item.type === 'claim' ? 'Existing citations' : 'Action'}
             </h4>
             <span className="text-text-muted text-xs">({suggestions.length})</span>
             {hasLongContent && (
@@ -349,7 +430,7 @@ export default function UnifiedFeedbackCard({
           {(isExpanded || !hasLongContent) && (
             <ul className="space-y-2">
               {suggestions.slice(0, isExpanded ? undefined : 2).map((suggestion: any, idx: number) => (
-                <li key={idx} className="pl-3 border-l border-border-subtle">
+                <li key={idx} className="border-t border-border-subtle pt-2 first:border-t-0 first:pt-0">
                   {typeof suggestion === 'string' ? (
                     <MarkdownText text={suggestion} className="text-xs text-text-secondary" />
                   ) : (
@@ -400,8 +481,46 @@ export default function UnifiedFeedbackCard({
         </div>
       )}
 
+      {suggestedSources.length > 0 && (
+        <div className="mb-3 border-t border-border-default pt-3">
+          <div className={META_LABEL_CLASS}>Suggested Sources</div>
+          <ul className="mt-2 space-y-2">
+          {suggestedSources.slice(0, 3).map((source: any, idx: number) => (
+            <li key={`${source.document_id || source.doi || source.url || idx}`} className="text-xs text-text-secondary">
+              <span className="font-medium text-text-primary">
+                {source.display || source.document_title || source.title || 'Source'}
+              </span>
+              {(source.source || source.provider) && (() => {
+                const sourceKey = source.source || source.provider
+                const sourceConfig = CITATION_SOURCE_CONFIG[sourceKey] || CITATION_SOURCE_CONFIG['library']
+                return (
+                  <span className={`ml-2 text-[11px] font-semibold uppercase tracking-wide ${sourceConfig.text}`}>
+                    {sourceConfig.label}
+                  </span>
+                )
+              })()}
+                {typeof source.similarity === 'number' && (
+                  <span className="ml-1 text-text-muted">({Math.round(source.similarity * 100)}% match)</span>
+                )}
+                {(source.open_access_url || source.url || source.external_url) && (
+                  <a
+                    href={source.open_access_url || source.url || source.external_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-2 inline-flex items-center gap-1 text-accent-primary hover:underline"
+                  >
+                    View
+                    <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                  </a>
+                )}
+            </li>
+          ))}
+        </ul>
+        </div>
+      )}
+
       {/* Expand/collapse for long content without suggestions */}
-      {hasLongContent && !suggestions.length && (
+      {item.type !== 'task' && hasLongContent && !suggestions.length && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="text-xs text-text-muted hover:text-text-primary mb-3 flex items-center gap-1 transition-colors duration-150"

@@ -113,7 +113,7 @@ export default function DraftAnalysisShowcase({
 
   const handleStatusChange = (
     id: string,
-    type: 'claim' | 'gap' | 'feedback',
+    type: 'claim' | 'gap' | 'feedback' | 'task',
     nextStatus: 'new' | 'saved' | 'dismissed',
   ) => {
     if (type === 'claim') {

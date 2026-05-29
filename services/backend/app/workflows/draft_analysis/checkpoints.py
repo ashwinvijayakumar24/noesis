@@ -17,6 +17,7 @@ import json
 import datetime
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
+from app.core.privacy import minimize_workflow_checkpoint, safe_exception
 
 logger = get_logger(__name__)
 
@@ -84,10 +85,12 @@ class PostgresCheckpointSaver:
 
             checkpoint_id = f"{thread_id}_{node_name}_{int(datetime.datetime.utcnow().timestamp())}"
 
+            minimized_checkpoint = minimize_workflow_checkpoint(checkpoint_data)
+
             checkpoint_record = {
                 "id": checkpoint_id,
                 "thread_id": thread_id,
-                "checkpoint_data": json.dumps(checkpoint_data),
+                "checkpoint_data": json.dumps(minimized_checkpoint),
                 "node_name": node_name,
                 "status": status,
                 "user_id": user_id,  # Required for RLS isolation
@@ -103,7 +106,11 @@ class PostgresCheckpointSaver:
                 raise Exception("Failed to save checkpoint: no data returned")
 
         except Exception as e:
-            logger.error(f"Failed to save checkpoint for thread {thread_id}: {e}")
+            logger.error(
+                "Failed to save checkpoint for thread %s: %s",
+                thread_id,
+                safe_exception(e),
+            )
             raise
 
     def load_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
@@ -146,7 +153,11 @@ class PostgresCheckpointSaver:
                 return None
 
         except Exception as e:
-            logger.error(f"Failed to load checkpoint for thread {thread_id}: {e}")
+            logger.error(
+                "Failed to load checkpoint for thread %s: %s",
+                thread_id,
+                safe_exception(e),
+            )
             return None
 
     def list_checkpoints(self, thread_id: str) -> list[Dict[str, Any]]:
@@ -173,7 +184,11 @@ class PostgresCheckpointSaver:
                 return []
 
         except Exception as e:
-            logger.error(f"Failed to list checkpoints for thread {thread_id}: {e}")
+            logger.error(
+                "Failed to list checkpoints for thread %s: %s",
+                thread_id,
+                safe_exception(e),
+            )
             return []
 
     def delete_checkpoints(self, thread_id: str) -> int:
@@ -199,7 +214,11 @@ class PostgresCheckpointSaver:
             return deleted_count
 
         except Exception as e:
-            logger.error(f"Failed to delete checkpoints for thread {thread_id}: {e}")
+            logger.error(
+                "Failed to delete checkpoints for thread %s: %s",
+                thread_id,
+                safe_exception(e),
+            )
             return 0
 
     def update_status(self, thread_id: str, status: str) -> bool:
@@ -238,7 +257,11 @@ class PostgresCheckpointSaver:
             return False
 
         except Exception as e:
-            logger.error(f"Failed to update checkpoint status for thread {thread_id}: {e}")
+            logger.error(
+                "Failed to update checkpoint status for thread %s: %s",
+                thread_id,
+                safe_exception(e),
+            )
             return False
 
 

@@ -91,7 +91,14 @@ def _build_judge_context(state: DraftAnalysisState) -> tuple[str, list[dict], li
 
     for src in external_sources:
         title = src.get("title") or src.get("document_title") or "Untitled"
-        gap_desc = str(src.get("gap_description") or src.get("claim_text") or "")[:80]
+        context = src.get("recommendation_context") or {}
+        gap_desc = str(
+            src.get("gap_description")
+            or src.get("claim_text")
+            or context.get("target_text")
+            or context.get("target_type")
+            or ""
+        )[:80]
         external_items.append({"source_title": title, "supports_which": gap_desc, "obj": src})
         lines.append(f"GAP/CLAIM: {gap_desc}")
         lines.append(f"  SOURCE: {title}\n")
@@ -131,8 +138,8 @@ def _apply_verdicts(
         for sc in suggested:
             title = sc.get("title") or sc.get("display") or "Untitled"
             key = (claim_snippet, title)
-            # If no verdict, default keep=True
-            if citation_lookup.get(key, True):
+            # Fail closed: if the judge omitted an item, do not show it.
+            if citation_lookup.get(key, False):
                 kept.append(sc)
             else:
                 removed_citations += 1
@@ -146,7 +153,8 @@ def _apply_verdicts(
     removed_sources = 0
     for src in external_sources:
         title = src.get("title") or src.get("document_title") or "Untitled"
-        if external_lookup.get(title, True):
+        # Fail closed: no verdict means no display.
+        if external_lookup.get(title, False):
             filtered_ext.append(src)
         else:
             removed_sources += 1
@@ -211,9 +219,21 @@ async def citation_judge_node(state: DraftAnalysisState) -> dict:
         }
 
     except Exception as exc:
-        logger.warning(f"[CitationJudge] Failed (non-fatal, passing through unfiltered): {exc}")
+        logger.warning(f"[CitationJudge] Failed; suppressing unverified citation/source suggestions: {exc}")
+        fail_closed_cwc = []
+        for cwc in state.get("claims_with_citations") or []:
+            new_cwc = dict(cwc)
+            new_cwc["suggested_citations"] = []
+            new_cwc["external_sources"] = []
+            fail_closed_cwc.append(new_cwc)
         return {
-            "citation_judge_output": {"error": str(exc), "overall_citation_quality": "medium"},
+            "claims_with_citations": fail_closed_cwc,
+            "external_sources": [],
+            "citation_judge_output": {
+                "error": str(exc),
+                "overall_citation_quality": "low",
+                "fail_closed": True,
+            },
             "current_step": "Citation Judge (Failed)",
             "progress_percentage": 77,
         }

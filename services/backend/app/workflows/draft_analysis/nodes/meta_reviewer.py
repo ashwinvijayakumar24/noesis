@@ -1,7 +1,7 @@
 """
 Meta-Reviewer Node (Area Chair)
 
-Runs after all 4 parallel reviewer_panel_node calls complete (LangGraph fan-in).
+Runs after all parallel reviewer_panel_node calls complete (LangGraph fan-in).
 Synthesizes ReviewerOutput objects into a decisive MetaReviewOutput.
 
 Also writes a flat list to reviewer_feedback table for backwards compatibility
@@ -18,6 +18,16 @@ from app.core.supabase_client import supabase
 from app.services.retry_utils import parse_chat_completion_with_retries
 
 logger = get_logger(__name__)
+
+VALID_REVIEWER_PERSONAS = {"reviewer_1", "reviewer_2"}
+
+
+def _normalize_reviewer_persona(value: str | None, fallback: str = "reviewer_2") -> str:
+    if value in VALID_REVIEWER_PERSONAS:
+        return value
+    if fallback in VALID_REVIEWER_PERSONAS:
+        return fallback
+    return "reviewer_2"
 client = None
 
 
@@ -27,12 +37,13 @@ def _get_client():
         client = get_async_openai_client()
     return client
 
-META_REVIEWER_PROMPT = """You are an Area Chair (meta-reviewer) synthesizing the reports of four specialist reviewers.
+META_REVIEWER_PROMPT = """You are an Area Chair (meta-reviewer) synthesizing the reports of three specialist reviewers.
 
 Your job: produce a decisive recommendation that the authors can act on.
 
 Guidelines:
 - Do NOT average ratings — synthesize qualitatively
+- Use manuscript profile and diagnostic findings as first-class evidence when they reveal paper-type-specific review risks
 - Explicitly surface reviewer conflicts ("Reviewer A rates novelty strong; Reviewer C flags a key missing citation that undermines this claim")
 - must_address = blocking items that, if fixed, could change the recommendation
 - nice_to_address = non-blocking suggestions
@@ -72,6 +83,17 @@ def _format_reviewer_outputs_for_context(reviewer_outputs: list[dict]) -> str:
             for w in weaknesses:
                 lines.append(f"  - {w}")
 
+        issues = ro.get("issues") or []
+        if issues:
+            lines.append("Structured issues:")
+            for issue in issues[:5]:
+                lines.append(
+                    "  ! "
+                    f"{issue.get('section_reference', 'Unknown')}: "
+                    f"{issue.get('problem', '')} "
+                    f"Action: {issue.get('suggested_action', '')}"
+                )
+
         questions = ro.get("questions_to_authors") or []
         if questions:
             lines.append("Questions to authors:")
@@ -95,7 +117,8 @@ def _synthesize_legacy_feedback(meta: MetaReviewOutput, reviewer_outputs: list[d
             "feedback_text": item,
             "severity": "critical",
             "section_reference": "",
-            "reviewer_persona": "area_chair",
+            "reviewer_persona": "reviewer_2",
+            "reviewer_id": "area_chair",
             "suggestions": [],
         })
 
@@ -106,7 +129,8 @@ def _synthesize_legacy_feedback(meta: MetaReviewOutput, reviewer_outputs: list[d
             "feedback_text": s,
             "severity": "suggestion",
             "section_reference": "",
-            "reviewer_persona": "area_chair",
+            "reviewer_persona": "reviewer_1",
+            "reviewer_id": "area_chair",
             "suggestions": [],
         })
 
@@ -117,7 +141,8 @@ def _synthesize_legacy_feedback(meta: MetaReviewOutput, reviewer_outputs: list[d
             "feedback_text": item,
             "severity": "minor",
             "section_reference": "",
-            "reviewer_persona": "area_chair",
+            "reviewer_persona": "reviewer_2",
+            "reviewer_id": "area_chair",
             "suggestions": [],
         })
 
@@ -129,7 +154,8 @@ def _synthesize_legacy_feedback(meta: MetaReviewOutput, reviewer_outputs: list[d
                 "feedback_text": q,
                 "severity": "major",
                 "section_reference": "",
-                "reviewer_persona": ro.get("reviewer_id", "reviewer"),
+                "reviewer_persona": _normalize_reviewer_persona(ro.get("reviewer_persona")),
+                "reviewer_id": ro.get("reviewer_id", "reviewer"),
                 "suggestions": [],
             })
 
@@ -150,31 +176,8 @@ async def meta_reviewer_node(state: DraftAnalysisState) -> dict:
         f"reviewer_outputs received: {len(reviewer_outputs)}"
     )
 
-    # Idempotency
-    try:
-        existing = (
-            supabase.table("meta_reviews")
-            .select("id")
-            .eq("draft_id", draft_id)
-            .execute()
-        )
-        if existing.data:
-            logger.info(f"[MetaReviewer] Meta review already in DB — skipping")
-            meta_data = (
-                supabase.table("meta_reviews")
-                .select("*")
-                .eq("draft_id", draft_id)
-                .single()
-                .execute()
-            )
-            if meta_data.data:
-                return {
-                    "meta_review": meta_data.data,
-                    "current_step": "Meta Review (Cached)",
-                    "progress_percentage": 93,
-                }
-    except Exception:
-        pass
+    # Quality-v2 regenerates meta-review rows on each analysis run because
+    # diagnostic findings and reviewer retries can change for the same draft_id.
 
     if not reviewer_outputs:
         logger.warning(f"[MetaReviewer] No reviewer outputs — skipping meta review")
@@ -184,12 +187,25 @@ async def meta_reviewer_node(state: DraftAnalysisState) -> dict:
             "progress_percentage": 93,
         }
 
+    profile = state.get("manuscript_profile") or {}
+    diagnostics = state.get("diagnostic_findings") or []
+    diagnostic_lines = []
+    for finding in diagnostics[:10]:
+        diagnostic_lines.append(
+            f"- [{finding.get('severity', 'major')}] {finding.get('finding_type', 'diagnostic')}: "
+            f"{finding.get('problem', '')} Action: {finding.get('suggested_action', '')}"
+        )
+
     context = f"""PAPER TYPE: {state.get('paper_type', 'unknown')}
+MANUSCRIPT PROFILE: {profile}
+
+PROFILE-AWARE DIAGNOSTIC FINDINGS:
+{chr(10).join(diagnostic_lines) if diagnostic_lines else "None"}
 
 REVIEWER REPORTS:
 {_format_reviewer_outputs_for_context(reviewer_outputs)}
 
-Based on these four specialist reviews, produce your area chair meta-review."""
+Based on these specialist reviews and the canonical diagnostics, produce your area chair meta-review."""
 
     try:
         response = await parse_chat_completion_with_retries(
@@ -219,6 +235,7 @@ Based on these four specialist reviews, produce your area chair meta-review."""
 
         # Persist meta_review
         try:
+            supabase.table("meta_reviews").delete().eq("draft_id", draft_id).execute()
             supabase.table("meta_reviews").insert({
                 "draft_id": draft_id,
                 **meta_dict,

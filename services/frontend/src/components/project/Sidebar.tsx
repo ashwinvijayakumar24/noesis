@@ -8,7 +8,7 @@ import {
   PencilSquareIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
-import { Badge, type BadgeVariant as _BadgeVariant } from '../ui/Badge'
+import { Badge } from '../ui/Badge'
 import DocumentListItem from './DocumentListItem'
 import { useAuthStore } from '../../stores/authStore'
 import { api } from '../../lib/api'
@@ -55,7 +55,7 @@ export default function Sidebar({
   draftRefreshTrigger = 0
 }: SidebarProps) {
   const { session } = useAuthStore()
-  const [isDraftsCollapsed, setIsDraftsCollapsed] = useState(false)
+  const [isDraftCollapsed, setIsDraftCollapsed] = useState(false)
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [draftsLoading, setDraftsLoading] = useState(false)
 
@@ -131,36 +131,31 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Drafts Section (Collapsible) */}
+      {/* Draft Section (Collapsible) */}
       <div className="flex-shrink-0 border-b border-border-subtle">
         <button
-          onClick={() => setIsDraftsCollapsed(!isDraftsCollapsed)}
+          onClick={() => setIsDraftCollapsed(!isDraftCollapsed)}
           className="w-full p-4 flex items-center justify-between hover:bg-surface-hover transition-colors"
         >
           <div className="flex items-center gap-2">
             <PencilSquareIcon className="h-5 w-5 text-text-tertiary" />
-            <h3 className="text-sm font-semibold text-text-primary">Drafts</h3>
-            {drafts.length > 0 && (
-              <span className="px-2 py-0.5 text-xs bg-purple-500/10 text-purple-400 rounded-full font-mono">
-                {drafts.length}
-              </span>
-            )}
+            <h3 className="text-sm font-semibold text-text-primary">Your Draft</h3>
           </div>
-          {isDraftsCollapsed ? (
+          {isDraftCollapsed ? (
             <ChevronRightIcon className="h-4 w-4 text-text-tertiary" />
           ) : (
             <ChevronDownIcon className="h-4 w-4 text-text-tertiary" />
           )}
         </button>
 
-        {!isDraftsCollapsed && (
+        {!isDraftCollapsed && (
           <div className="px-4 pb-4">
             <button
               onClick={onUploadDraft}
               className="w-full py-2 mb-3 bg-purple-500/10 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/20 flex items-center justify-center gap-2 border border-dashed border-purple-400 transition-colors"
             >
               <PlusIcon className="h-4 w-4" />
-              Upload Draft
+              {drafts.length > 0 ? 'Upload New Version' : 'Upload Draft'}
             </button>
 
             {draftsLoading ? (
@@ -173,7 +168,10 @@ export default function Sidebar({
               </p>
             ) : (
               <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-border-base scrollbar-track-transparent">
-                {drafts.map((draft) => (
+                {[...drafts]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .slice(0, 1)
+                  .map((draft) => (
                   <button
                     key={draft.id}
                     onClick={() => onDraftClick?.(draft.id)}

@@ -146,18 +146,18 @@ async def search_works(
             url = f"{OPENALEX_BASE}/works"
             async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                 if resp.status != 200:
-                    logger.warning(f"[OpenAlex] Search returned {resp.status} for query: {query[:80]}")
+                    logger.warning("[OpenAlex] Search returned %s", resp.status)
                     return []
 
                 data = await resp.json()
                 results = data.get("results", [])
 
                 papers = [_format_paper(w) for w in results]
-                logger.info(f"[OpenAlex] Found {len(papers)} results for: {query[:60]}")
+                logger.info("[OpenAlex] Found %s results", len(papers))
                 return papers
 
     except asyncio.TimeoutError:
-        logger.warning(f"[OpenAlex] Timeout searching for: {query[:60]}")
+        logger.warning("[OpenAlex] Search timed out")
         return []
     except Exception as e:
         logger.error(f"[OpenAlex] Search error: {e}")

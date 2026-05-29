@@ -369,18 +369,20 @@ def keyword_search(
         List of matching chunks with keyword relevance scores
     """
     # Use PostgreSQL full-text search (ts_rank)
-    response = supabase.rpc(
-        "keyword_search_chunks",
-        {
-            "proj_id": project_id,
-            "search_query": query,
-            "match_count": limit
-        }
-    ).execute()
-
-    chunks = response.data if response.data else []
-
-    return chunks
+    try:
+        response = supabase.rpc(
+            "keyword_search_chunks",
+            {
+                "proj_id": project_id,
+                "search_query": query,
+                "match_count": limit
+            }
+        ).execute()
+        return response.data if response.data else []
+    except Exception:
+        # Some deployed schemas only have vector search RPCs. Hybrid retrieval
+        # should degrade to semantic search rather than fail the draft analysis.
+        return []
 
 
 def semantic_search(

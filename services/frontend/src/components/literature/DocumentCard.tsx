@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom'
 import { DocumentTextIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { Badge, type BadgeVariant } from '../ui/Badge'
 
@@ -10,7 +9,6 @@ interface DocumentCardProps {
     created_at: string
     file_type?: string
   }
-  projectId: string
   onDelete: (id: string, title: string) => void
 }
 
@@ -69,18 +67,11 @@ const getBorderColor = (status: string): string => {
   }
 }
 
-export default function DocumentCard({ document, projectId, onDelete }: DocumentCardProps) {
-  const navigate = useNavigate()
+export default function DocumentCard({ document, onDelete }: DocumentCardProps) {
   const statusBadge = getStatusBadge(document.status)
   const iconColor = getIconColor(document.status)
   const borderColor = getBorderColor(document.status)
   const isAnalyzed = document.status.toLowerCase() === 'analyzed'
-
-  const handleClick = () => {
-    if (isAnalyzed) {
-      navigate(`/projects/${projectId}/documents/${document.id}`)
-    }
-  }
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -89,18 +80,17 @@ export default function DocumentCard({ document, projectId, onDelete }: Document
 
   return (
     <div
-      onClick={handleClick}
       className={`group bg-bg-surface rounded-lg border-2 border-border-default p-6 transition-all duration-150 ${
         isAnalyzed
-          ? 'hover:border-accent-primary/30 hover:-translate-y-1 hover:shadow-card-lift cursor-pointer'
-          : 'cursor-default'
+          ? 'hover:border-accent-primary/30'
+          : ''
       }`}
     >
       <div className="flex items-start gap-4">
         {/* Document Icon */}
         <div className="shrink-0">
           <div className={`h-16 w-16 bg-bg-hover rounded-xl flex items-center justify-center border-2 transition-all duration-150 ${borderColor}`}>
-            <DocumentTextIcon className={`h-9 w-9 transition-all duration-150 ${iconColor} ${isAnalyzed ? 'group-hover:scale-110' : ''}`} />
+            <DocumentTextIcon className={`h-9 w-9 transition-all duration-150 ${iconColor}`} />
           </div>
         </div>
 
@@ -165,15 +155,6 @@ export default function DocumentCard({ document, projectId, onDelete }: Document
             <div className="mt-3 pt-3 border-t border-error/30">
               <p className="text-sm text-error">
                 Failed to process document. Please try uploading again.
-              </p>
-            </div>
-          )}
-
-          {/* Click hint for analyzed documents */}
-          {isAnalyzed && (
-            <div className="mt-3 pt-3 border-t border-border-default opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-              <p className="text-sm text-accent-primary font-medium">
-                Click to view analysis →
               </p>
             </div>
           )}

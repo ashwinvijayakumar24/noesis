@@ -13,8 +13,8 @@ export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps)
     },
     {
       icon: <LightBulbIcon className="h-6 w-6 text-accent-primary" />,
-      title: 'Identify research gaps',
-      description: 'Discover missing themes and literature in your field'
+      title: 'Check draft coverage',
+      description: 'Use uploaded sources to find weak or unsupported areas in your manuscript'
     },
     {
       icon: <BeakerIcon className="h-6 w-6 text-accent-primary" />,
@@ -36,7 +36,7 @@ export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps)
             Get Started
           </h2>
           <p className="text-lg text-text-secondary max-w-2xl mx-auto">
-            Upload research papers to build your knowledge base and unlock powerful analysis features
+            Upload research papers to build the source library for draft review
           </p>
         </div>
 
@@ -93,7 +93,7 @@ export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps)
               <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>Cross-paper insights need multiple documents</span>
+              <span>Draft-grounded feedback improves with multiple relevant papers</span>
             </li>
             <li className="flex items-start gap-2">
               <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

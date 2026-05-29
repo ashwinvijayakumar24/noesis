@@ -6,11 +6,11 @@ import type { PdfCoordinates } from '../DocumentViewer'
 interface PriorityGroupProps {
   items: Array<{
     id: string
-    type: 'claim' | 'gap' | 'feedback'
+    type: 'claim' | 'gap' | 'feedback' | 'task'
     priority: 'high' | 'medium' | 'low'
     content: any
   }>
-  onStatusChange: (feedbackId: string, feedbackType: 'claim' | 'gap' | 'feedback', newStatus: 'new' | 'saved' | 'dismissed') => void
+  onStatusChange: (feedbackId: string, feedbackType: 'claim' | 'gap' | 'feedback' | 'task', newStatus: 'new' | 'saved' | 'dismissed') => void
   onViewInDocument?: (payload: {
     line_number?: number
     content_text?: string
@@ -18,6 +18,7 @@ interface PriorityGroupProps {
     section_type?: string
     section_location?: string
     pdf_coordinates?: PdfCoordinates
+    page_number?: number
     match_confidence?: number
   }) => void
   currentStatus: 'new' | 'saved' | 'dismissed'

@@ -120,7 +120,7 @@ export default function EmailCaptureModal({ isOpen, onClose, onSubmit }: EmailCa
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                    <span>5 Discover searches and 5 Literature Map refreshes per day</span>
+                    <span>Literature-grounded draft review</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0" />

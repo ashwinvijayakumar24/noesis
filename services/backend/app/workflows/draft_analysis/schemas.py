@@ -62,8 +62,17 @@ class ExtractedClaim(StrictOutputModel):
     claim_text: str
     claim_type: Literal["empirical", "theoretical", "methodological"]
     section_location: str
+    rhetorical_role: Literal[
+        "background_claim",
+        "prior_work_claim",
+        "method_claim",
+        "result_finding",
+        "discussion_synthesis",
+        "conclusion_summary",
+    ] = "background_claim"
     importance_score: float = Field(ge=0.0, le=1.0)
     confidence: float = Field(ge=0.0, le=1.0)
+    requires_citation: bool = True
     weakness_reason: str = ""
 
 
@@ -71,6 +80,84 @@ class ClaimExtractionOutput(StrictOutputModel):
     claims: list[ExtractedClaim] = Field(default_factory=list)
     total_claims: int = 0
     extraction_notes: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Manuscript profile and diagnostic findings
+# ---------------------------------------------------------------------------
+
+class ManuscriptProfileOutput(StrictOutputModel):
+    genre: Literal[
+        "systematic_review",
+        "empirical_study",
+        "methods_paper",
+        "theory_framework",
+        "case_study",
+        "review_article",
+        "unknown",
+    ] = "unknown"
+    study_design: str = ""
+    domain_tags: list[str] = Field(default_factory=list)
+    contribution_types: list[str] = Field(default_factory=list)
+    review_lenses: list[str] = Field(default_factory=list)
+    retrieval_domains: list[str] = Field(default_factory=list)
+    high_risk_checks: list[str] = Field(default_factory=list)
+    rationale: str = ""
+
+
+class DiagnosticFinding(StrictOutputModel):
+    finding_type: Literal[
+        "systematic_review",
+        "clinical_ai",
+        "framework_validation",
+        "causal_inference",
+        "literature_positioning",
+        "reproducibility",
+    ]
+    severity: Literal["critical", "major", "minor"]
+    section_reference: str = ""
+    anchor_text: str = ""
+    problem: str
+    why_it_matters: str
+    suggested_action: str
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+
+
+class DiagnosticFindingsOutput(StrictOutputModel):
+    findings: list[DiagnosticFinding] = Field(default_factory=list)
+    summary: str = ""
+
+
+class RevisionTask(StrictOutputModel):
+    id: str
+    source_type: Literal["diagnostic", "reviewer_issue", "claim", "gap", "structural"]
+    task_type: Literal[
+        "citation",
+        "methodology",
+        "literature_positioning",
+        "causal_claim",
+        "framework_validation",
+        "clarity",
+        "reproducibility",
+        "deployment",
+        "other",
+    ] = "other"
+    severity: Literal["critical", "major", "minor", "suggestion"] = "major"
+    priority: Literal["high", "medium", "low"] = "medium"
+    section: str = ""
+    anchor_text: str = ""
+    line_number: Optional[int] = None
+    page_number: Optional[int] = None
+    paragraph_index: Optional[int] = None
+    char_start: Optional[int] = None
+    char_end: Optional[int] = None
+    problem: str
+    why_it_matters: str = ""
+    suggested_action: str
+    source_ids: list[str] = Field(default_factory=list)
+    suggested_sources: list[dict] = Field(default_factory=list)
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    status: Literal["new", "saved", "dismissed"] = "new"
 
 
 # ---------------------------------------------------------------------------
@@ -173,13 +260,40 @@ class EditorPassOutput(StrictOutputModel):
     notes: str = ""
 
 
+class ReviewerIssue(StrictOutputModel):
+    issue_type: Literal[
+        "methodology",
+        "coverage",
+        "causal_claim",
+        "positioning",
+        "framework_validation",
+        "reproducibility",
+        "clarity",
+        "deployment",
+        "other",
+    ] = "other"
+    section_reference: str = ""
+    anchor_text: str = ""
+    problem: str
+    why_it_matters: str
+    suggested_action: str
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+
+
 class ReviewerOutput(StrictOutputModel):
-    reviewer_id: Literal["novelty", "methodology", "coverage", "clarity"]
+    reviewer_id: Literal[
+        "methodology",
+        "clarity",
+        "literature_positioning",
+        "novelty",
+        "coverage",
+    ]
     summary: str = Field(description="2-3 sentence summary from this reviewer's POV")
     strengths: list[str] = Field(default_factory=list, description="Genuine strengths, not filler praise")
     weaknesses: list[str] = Field(default_factory=list, description="Specific weaknesses with section references")
     questions_to_authors: list[str] = Field(default_factory=list, description="Questions reviewer NEEDS answered")
     limitations_to_address: list[str] = Field(default_factory=list)
+    issues: list[ReviewerIssue] = Field(default_factory=list, description="Structured, anchored, actionable reviewer issues")
     rating: int = Field(ge=1, le=10, description="ICLR scale: 1-2=strong reject, 3-4=weak reject, 5=borderline, 6-7=weak accept, 8-9=strong accept, 10=award")
     confidence: int = Field(ge=1, le=5, description="1=not my area, 5=expert in this exact area")
     recommendation: Literal["accept", "minor_revision", "major_revision", "reject"] = "major_revision"

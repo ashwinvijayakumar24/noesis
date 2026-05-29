@@ -55,7 +55,7 @@ class TestPhase34Schemas:
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ReviewerOutput(
-                reviewer_id="novelty",
+                reviewer_id="literature_positioning",
                 summary="test",
                 rating=11,  # out of range
                 confidence=3,
@@ -71,7 +71,7 @@ class TestPhase34Schemas:
 
     def test_reviewer_judge_output_retry_ids_default_empty(self):
         from app.workflows.draft_analysis.schemas import ReviewerJudgeOutput, ReviewerJudgeScore
-        score = ReviewerJudgeScore(reviewer_id="novelty", specificity_score=0.8, quality_pass=True)
+        score = ReviewerJudgeScore(reviewer_id="literature_positioning", specificity_score=0.8, quality_pass=True)
         out = ReviewerJudgeOutput(reviewer_scores=[score])
         assert out.retry_reviewer_ids == []
         assert out.panel_quality == "medium"
@@ -173,7 +173,7 @@ class TestEditorPassNode:
 
 class TestReviewerPanelNode:
 
-    def _make_reviewer_output(self, reviewer_id="novelty"):
+    def _make_reviewer_output(self, reviewer_id="literature_positioning"):
         from app.workflows.draft_analysis.schemas import ReviewerOutput
         return ReviewerOutput(
             reviewer_id=reviewer_id,
@@ -198,7 +198,7 @@ class TestReviewerPanelNode:
             = MagicMock(data=[])
         mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[{}])
 
-        fake_output = self._make_reviewer_output("novelty")
+        fake_output = self._make_reviewer_output("literature_positioning")
         mock_client.beta.chat.completions.parse = AsyncMock(
             return_value=SimpleNamespace(parsed=fake_output)
         )
@@ -206,34 +206,32 @@ class TestReviewerPanelNode:
         state = {
             "draft_id": "d1", "project_id": "p1", "user_id": "u1",
             "draft_content": "Paper text here.",
-            "reviewer_type": "novelty",
+            "reviewer_type": "literature_positioning",
             "current_step": "reviewer_panel", "progress_percentage": 82,
         }
         result = asyncio.run(reviewer_panel_node(state))
 
         assert len(result["reviewer_outputs"]) == 1
         ro = result["reviewer_outputs"][0]
-        assert ro["reviewer_id"] == "novelty"
+        assert ro["reviewer_id"] == "literature_positioning"
         assert ro["rating"] == 6
         assert ro["recommendation"] == "minor_revision"
 
     @pytest.mark.unit
     @patch("app.workflows.draft_analysis.nodes.reviewer_panel.supabase")
     @patch("app.workflows.draft_analysis.nodes.reviewer_panel.client")
-    def test_reviewer_panel_idempotency_returns_cached(self, mock_client, mock_supabase):
+    def test_reviewer_panel_regenerates_existing_output(self, mock_client, mock_supabase):
         from app.workflows.draft_analysis.nodes.reviewer_panel import reviewer_panel_node
 
-        # Existing row found → idempotency path
-        existing = MagicMock(data=[{"id": "row-1"}])
-        cached_row = MagicMock(data={
-            "reviewer_id": "methodology", "rating": 7, "recommendation": "accept",
-            "summary": "Cached", "strengths": [], "weaknesses": [],
-            "questions_to_authors": [], "limitations_to_address": [], "confidence": 4,
-        })
+        fake_output = self._make_reviewer_output("methodology")
+        fake_output.rating = 5
+        fake_output.recommendation = "major_revision"
+        mock_client.beta.chat.completions.parse = AsyncMock(
+            return_value=SimpleNamespace(parsed=fake_output)
+        )
         table_mock = mock_supabase.table.return_value
-        table_mock.select.return_value.eq.return_value.eq.return_value.execute.return_value = existing
-        table_mock.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value \
-            = cached_row
+        table_mock.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        table_mock.insert.return_value.execute.return_value = MagicMock(data=[{}])
 
         state = {
             "draft_id": "d1", "project_id": "p1", "user_id": "u1",
@@ -243,9 +241,10 @@ class TestReviewerPanelNode:
         }
         result = asyncio.run(reviewer_panel_node(state))
 
-        # Should NOT call GPT
-        mock_client.beta.chat.completions.parse.assert_not_called()
+        mock_client.beta.chat.completions.parse.assert_called_once()
         assert len(result["reviewer_outputs"]) == 1
+        assert result["reviewer_outputs"][0]["summary"] == fake_output.summary
+        assert result["reviewer_outputs"][0]["rating"] == 5
 
     @pytest.mark.unit
     @patch("app.workflows.draft_analysis.nodes.reviewer_panel.supabase")
@@ -259,7 +258,7 @@ class TestReviewerPanelNode:
 
         state = {
             "draft_id": "d1", "project_id": "p1", "user_id": "u1",
-            "draft_content": "text", "reviewer_type": "coverage",
+            "draft_content": "text", "reviewer_type": "literature_positioning",
             "current_step": "reviewer_panel", "progress_percentage": 82,
         }
         result = asyncio.run(reviewer_panel_node(state))
@@ -268,9 +267,9 @@ class TestReviewerPanelNode:
         assert result["reviewer_outputs"] == []
 
     @pytest.mark.unit
-    def test_all_four_reviewer_types_have_prompts(self):
+    def test_three_reviewer_types_have_prompts(self):
         from app.workflows.draft_analysis.nodes.reviewer_panel import REVIEWER_PROMPTS
-        for rt in ("novelty", "methodology", "coverage", "clarity"):
+        for rt in ("methodology", "literature_positioning", "clarity"):
             assert rt in REVIEWER_PROMPTS
             assert len(REVIEWER_PROMPTS[rt]) > 100
 
@@ -283,7 +282,7 @@ class TestReviewerPanelNode:
             "paper_type": "empirical",
             "structure": {"sections": [{"type": "introduction"}], "word_count": 3500},
         }
-        ctx = build_reviewer_context(state, "novelty")
+        ctx = build_reviewer_context(state, "literature_positioning")
         assert "empirical" in ctx
         assert "3500" in ctx
 
@@ -294,7 +293,7 @@ class TestMetaReviewerNode:
 
     def _reviewer_outputs(self):
         return [
-            {"reviewer_id": "novelty", "rating": 6, "confidence": 3,
+            {"reviewer_id": "literature_positioning", "rating": 6, "confidence": 3,
              "recommendation": "minor_revision", "summary": "Novel enough.",
              "strengths": ["Clear contribution"], "weaknesses": ["Section 3 weak"],
              "questions_to_authors": ["Clarify RQ1?"], "limitations_to_address": []},
@@ -364,14 +363,25 @@ class TestMetaReviewerNode:
     @pytest.mark.unit
     @patch("app.workflows.draft_analysis.nodes.meta_reviewer.supabase")
     @patch("app.workflows.draft_analysis.nodes.meta_reviewer.client")
-    def test_meta_reviewer_idempotency(self, mock_client, mock_supabase):
+    def test_meta_reviewer_regenerates_existing_output(self, mock_client, mock_supabase):
         from app.workflows.draft_analysis.nodes.meta_reviewer import meta_reviewer_node
+        from app.workflows.draft_analysis.schemas import MetaReviewOutput
 
-        # Existing meta review in DB
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value \
-            = MagicMock(data=[{"id": "meta-1"}])
-        mock_supabase.table.return_value.select.return_value.eq.return_value.single.return_value \
-            .execute.return_value = MagicMock(data={"overall_recommendation": "accept"})
+        fake_meta = MetaReviewOutput(
+            overall_recommendation="major_revision",
+            decision_rationale="Regenerated from current reviewer panel.",
+            must_address=["Fix current issue"],
+            nice_to_address=[],
+            consensus_strengths=[],
+            consensus_weaknesses=["Current weakness"],
+            reviewer_agreement_level="medium",
+        )
+        mock_client.beta.chat.completions.parse = AsyncMock(
+            return_value=SimpleNamespace(parsed=fake_meta)
+        )
+        table_mock = mock_supabase.table.return_value
+        table_mock.delete.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        table_mock.insert.return_value.execute.return_value = MagicMock(data=[{}])
 
         state = {
             "draft_id": "d1", "project_id": "p1", "user_id": "u1",
@@ -380,7 +390,8 @@ class TestMetaReviewerNode:
         }
         result = asyncio.run(meta_reviewer_node(state))
 
-        mock_client.beta.chat.completions.parse.assert_not_called()
+        mock_client.beta.chat.completions.parse.assert_called_once()
+        assert result["meta_review"]["overall_recommendation"] == "major_revision"
 
     def test_synthesize_legacy_feedback_generates_rows(self):
         from app.workflows.draft_analysis.nodes.meta_reviewer import _synthesize_legacy_feedback
@@ -401,7 +412,8 @@ class TestMetaReviewerNode:
         assert "weakness" in types
         assert "strength" in types
         personas = {r["reviewer_persona"] for r in rows}
-        assert "area_chair" in personas
+        assert personas <= {"reviewer_1", "reviewer_2"}
+        assert any(r.get("reviewer_id") == "area_chair" for r in rows)
         # Must-address items map to critical weakness
         critical = [r for r in rows if r["severity"] == "critical"]
         assert len(critical) == 2
@@ -533,12 +545,16 @@ class TestCitationJudgeNode:
         }
         result = asyncio.run(citation_judge_node(state))
 
-        # Failure must be non-fatal — original data passes through unchanged
+        # Failure must be non-fatal, but unverified suggestions fail closed.
         assert "Failed" in result["current_step"]
         assert "error" in result["citation_judge_output"]
+        assert result["citation_judge_output"]["overall_citation_quality"] == "low"
+        assert result["citation_judge_output"]["fail_closed"] is True
+        assert result["external_sources"] == []
+        assert result["claims_with_citations"][0]["suggested_citations"] == []
 
-    def test_citation_judge_keeps_all_when_no_verdicts_returned(self):
-        """If judge returns no verdicts, default is keep=True for everything."""
+    def test_citation_judge_drops_items_when_no_verdicts_returned(self):
+        """If judge omits verdicts, default is fail-closed for display quality."""
         from app.workflows.draft_analysis.nodes.citation_judge import _apply_verdicts
         from app.workflows.draft_analysis.schemas import CitationJudgeOutput
 
@@ -553,9 +569,8 @@ class TestCitationJudgeNode:
             "external_sources": [{"title": "External Y"}],
         }
         filtered_cwc, filtered_ext = _apply_verdicts(state, empty_output, [], [])
-        # Default keep=True — nothing removed
-        assert len(filtered_cwc[0]["suggested_citations"]) == 1
-        assert len(filtered_ext) == 1
+        assert filtered_cwc[0]["suggested_citations"] == []
+        assert filtered_ext == []
 
 
 # ── Reviewer Judge Node ───────────────────────────────────────────────────────
@@ -565,8 +580,8 @@ class TestReviewerJudgeNode:
     def _reviewer_outputs(self):
         return [
             {
-                "reviewer_id": "novelty",
-                "summary": "Good novelty overall.",
+                "reviewer_id": "literature_positioning",
+                "summary": "Good literature positioning overall.",
                 "strengths": ["Clear contribution in Section 2"],
                 "weaknesses": ["The authors should clarify methodology"],  # vague
                 "questions_to_authors": ["Can you provide more details?"],  # vague
@@ -593,7 +608,7 @@ class TestReviewerJudgeNode:
 
         fake_judge = ReviewerJudgeOutput(
             reviewer_scores=[
-                ReviewerJudgeScore(reviewer_id="novelty", specificity_score=0.8, quality_pass=True),
+                ReviewerJudgeScore(reviewer_id="literature_positioning", specificity_score=0.8, quality_pass=True),
                 ReviewerJudgeScore(reviewer_id="methodology", specificity_score=0.9, quality_pass=True),
             ],
             panel_quality="high",
@@ -625,17 +640,17 @@ class TestReviewerJudgeNode:
         fake_judge = ReviewerJudgeOutput(
             reviewer_scores=[
                 ReviewerJudgeScore(
-                    reviewer_id="novelty",
+                    reviewer_id="literature_positioning",
                     specificity_score=0.2,
                     vague_items=["The authors should clarify", "more details needed"],
                     quality_pass=False,
                 ),
             ],
             panel_quality="low",
-            retry_reviewer_ids=["novelty"],
+            retry_reviewer_ids=["literature_positioning"],
         )
         retried_output = ReviewerOutput(
-            reviewer_id="novelty",
+            reviewer_id="literature_positioning",
             summary="Section 2.1 contribution over Smith et al. 2022 is clear.",
             strengths=["Theorem 1 proof is rigorous"],
             weaknesses=["Equation 3 has no ablation in Section 4"],
@@ -656,7 +671,7 @@ class TestReviewerJudgeNode:
         state = {
             "draft_id": "d1", "project_id": "p1", "user_id": "u1",
             "draft_content": "text", "current_step": "reviewer_judge", "progress_percentage": 85,
-            "reviewer_outputs": self._reviewer_outputs()[:1],  # only novelty
+            "reviewer_outputs": self._reviewer_outputs()[:1],  # only literature_positioning
         }
         result = asyncio.run(reviewer_judge_node(state))
 
@@ -664,7 +679,7 @@ class TestReviewerJudgeNode:
         assert mock_client.beta.chat.completions.parse.call_count == 2
         # Updated output stored in judged_reviewer_outputs (not reviewer_outputs — that has additive reducer)
         assert result["judged_reviewer_outputs"][0]["summary"] == retried_output.summary
-        assert result["reviewer_judge_output"]["retry_reviewer_ids"] == ["novelty"]
+        assert result["reviewer_judge_output"]["retry_reviewer_ids"] == ["literature_positioning"]
 
     @pytest.mark.unit
     @patch("app.workflows.draft_analysis.nodes.reviewer_judge.client")
@@ -708,10 +723,10 @@ class TestReviewerJudgeNode:
 
         fake_judge = ReviewerJudgeOutput(
             reviewer_scores=[
-                ReviewerJudgeScore(reviewer_id="novelty", specificity_score=0.1, quality_pass=False),
+                ReviewerJudgeScore(reviewer_id="literature_positioning", specificity_score=0.1, quality_pass=False),
             ],
             panel_quality="low",
-            retry_reviewer_ids=["novelty"],
+            retry_reviewer_ids=["literature_positioning"],
         )
         mock_client.beta.chat.completions.parse = AsyncMock(side_effect=[
             SimpleNamespace(parsed=fake_judge),
@@ -751,14 +766,15 @@ class TestGraphTopology:
         workflow = create_draft_analysis_workflow()
         assert "reviewer_judge_node" in workflow.get_graph().nodes
 
-    def test_citation_judge_between_external_sources_and_structural_checks(self):
-        """citation_judge_node must sit between discover_external_sources and structural_checks."""
+    def test_citation_judge_before_diagnostics_and_structural_checks(self):
+        """citation_judge_node must sit before diagnostics and structural_checks."""
         from app.workflows.draft_analysis.graph import create_draft_analysis_workflow
         workflow = create_draft_analysis_workflow()
         graph = workflow.get_graph()
         edges = {(e.source, e.target) for e in graph.edges}
         assert ("discover_external_sources", "citation_judge_node") in edges
-        assert ("citation_judge_node", "structural_checks") in edges
+        assert ("citation_judge_node", "run_quality_diagnostics") in edges
+        assert ("run_quality_diagnostics", "structural_checks") in edges
 
     def test_reviewer_judge_between_reviewer_panel_and_meta_reviewer(self):
         """reviewer_judge_node must sit between reviewer_panel_node and meta_reviewer_node."""
@@ -776,7 +792,7 @@ class TestGraphTopology:
         state = {"editor_decision": {"proceed_to_review": True}, "draft_id": "d1"}
         result = route_to_reviewer_panel(state)
         assert isinstance(result, list)
-        assert len(result) == 4
+        assert len(result) == 3
         assert all(isinstance(s, Send) for s in result)
         sent_types = [s.node for s in result]
         assert all(n == "reviewer_panel_node" for n in sent_types)
@@ -794,7 +810,7 @@ class TestGraphTopology:
         state = {}
         result = route_to_reviewer_panel(state)
         assert isinstance(result, list)
-        assert len(result) == 4
+        assert len(result) == 3
 
 
 # ── API response fields ───────────────────────────────────────────────────────

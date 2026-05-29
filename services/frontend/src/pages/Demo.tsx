@@ -101,7 +101,7 @@ export default function Demo() {
             <div className="rounded-xl border border-accent-primary/20 bg-gradient-to-br from-accent-primary/10 to-accent-primary/5 p-8 text-center">
               <h3 className="text-2xl font-semibold text-text-primary">Want to analyze your own draft?</h3>
               <p className="mx-auto mt-3 max-w-2xl text-text-secondary">
-                Sign up to build a project library, generate a Literature Map, discover missing papers, and run the full two-pass draft analysis workflow on your own manuscript.
+                Sign up to upload your literature, analyze your draft, and run the full two-pass review workflow on your own manuscript.
               </p>
               <div className="mt-6 flex items-center justify-center gap-4">
                 <Button onClick={handleSignup} variant="primary" size="lg" className="flex items-center gap-2">

@@ -19,6 +19,7 @@ import asyncio
 logger = get_logger(__name__)
 
 client = None
+ENABLE_CITATION_MAPPING_DISCOVERY = False
 
 
 def _get_client():
@@ -309,6 +310,7 @@ async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState
                 cwc for cwc in claims_with_citations
                 if cwc.get('citation_quality') in ['none', 'weak']
                 and cwc.get('claim', {}).get('importance_score', 0) >= 0.6
+                and cwc.get('claim', {}).get('requires_citation') is not False
             ]
             discovery_candidates.sort(
                 key=lambda c: c.get('claim', {}).get('importance_score', 0),
@@ -316,7 +318,7 @@ async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState
             )
             top_candidates = discovery_candidates[:10]
 
-            if top_candidates:
+            if top_candidates and ENABLE_CITATION_MAPPING_DISCOVERY:
                 logger.info(
                     f"[Citation Mapping] Phase 2: Discovering papers for "
                     f"{len(top_candidates)} weak/none high-importance claims..."
@@ -343,7 +345,7 @@ async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState
                 except Exception as e:
                     logger.warning(f"[Citation Mapping] Phase 2 discovery failed (non-fatal): {e}")
             else:
-                logger.info("[Citation Mapping] Phase 2: No weak/none high-importance claims to discover for")
+                logger.info("[Citation Mapping] Phase 2: old claim-level paper discovery disabled or no eligible claims")
 
         return {
             'claims_with_citations': claims_with_citations,

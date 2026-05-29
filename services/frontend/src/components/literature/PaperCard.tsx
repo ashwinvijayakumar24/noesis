@@ -1,5 +1,4 @@
-import { useNavigate } from 'react-router-dom'
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   DocumentTextIcon,
   BookOpenIcon,
@@ -32,12 +31,15 @@ export interface PaperDocument {
     doi?: string
     url?: string
     import_source?: string
+    extracted_title?: string
+    title?: string
+    original_filename?: string
+    metadata_status?: string
   }
 }
 
 interface PaperCardProps {
   document: PaperDocument
-  projectId: string
   onDelete: (id: string, title: string) => void
   token?: string
   onRefresh?: () => void | Promise<void>
@@ -185,7 +187,7 @@ function DocumentTagRow({ docId, initialTags, token }: { docId: string; initialT
     return (
       <button
         onClick={(e) => { e.stopPropagation(); setInputVisible(true); setTimeout(() => inputRef.current?.focus(), 0) }}
-        className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-tertiary transition-colors duration-150 mt-1.5"
+        className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-text-secondary transition-colors duration-150 hover:text-text-primary"
       >
         <TagIcon className="h-3 w-3" />
         <span>add tag</span>
@@ -196,10 +198,10 @@ function DocumentTagRow({ docId, initialTags, token }: { docId: string; initialT
   return (
     <div className="flex flex-wrap items-center gap-1 mt-1.5" onClick={e => e.stopPropagation()}>
       {tags.map(tag => (
-        <span key={tag} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border bg-bg-elevated text-text-secondary border-border-default group/tag">
+        <span key={tag} className="group/tag inline-flex items-center gap-1 rounded border border-border-default bg-bg-elevated px-1.5 py-0.5 text-xs font-medium text-text-secondary">
           {tag}
           <button onClick={() => removeTag(tag)} className="opacity-0 group-hover/tag:opacity-100 transition-opacity">
-            <XMarkIcon className="h-2.5 w-2.5 text-text-muted hover:text-error" />
+            <XMarkIcon className="h-2.5 w-2.5 text-text-secondary hover:text-error" />
           </button>
         </span>
       ))}
@@ -217,7 +219,7 @@ function DocumentTagRow({ docId, initialTags, token }: { docId: string; initialT
       ) : tags.length < 10 && (
         <button
           onClick={() => { setInputVisible(true); setTimeout(() => inputRef.current?.focus(), 0) }}
-          className="inline-flex items-center justify-center h-5 w-5 rounded border border-dashed border-border-default text-text-muted hover:border-accent-primary/40 hover:text-text-secondary transition-colors duration-150"
+          className="inline-flex h-5 w-5 items-center justify-center rounded border border-dashed border-border-default text-text-secondary transition-colors duration-150 hover:border-accent-primary/40 hover:text-text-primary"
         >
           <PlusIcon className="h-3 w-3" />
         </button>
@@ -228,13 +230,41 @@ function DocumentTagRow({ docId, initialTags, token }: { docId: string; initialT
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function PaperCard({ document, projectId, onDelete, token, onRefresh }: PaperCardProps) {
-  const navigate = useNavigate()
+function isFilenameLikeTitle(title: string, originalFilename?: string) {
+  const normalized = title.trim()
+  if (!normalized) return true
+  const withoutExtension = normalized.replace(/\.(pdf|docx?|txt)$/i, '').trim()
+  const originalWithoutExtension = originalFilename?.replace(/\.(pdf|docx?|txt)$/i, '').trim()
+  if (originalWithoutExtension && withoutExtension.toLowerCase() === originalWithoutExtension.toLowerCase()) {
+    return true
+  }
+  if (withoutExtension !== normalized) return true
+  if (/^[a-z]?\d{3,}[-_.]\d{2,}[-_.]\d{2,}/i.test(withoutExtension)) return true
+  return withoutExtension.includes('_') && !withoutExtension.includes(' ')
+}
+
+function getDisplayTitle(document: PaperDocument) {
+  const metadataTitle = document.metadata?.extracted_title || document.metadata?.title
+  if (metadataTitle && isFilenameLikeTitle(document.title, document.metadata?.original_filename)) {
+    return metadataTitle
+  }
+  return document.title
+}
+
+export default function PaperCard({ document, onDelete, token, onRefresh }: PaperCardProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [editTitle, setEditTitle] = useState(document.title)
+  const [editTitle, setEditTitle] = useState(getDisplayTitle(document))
   const [isRetrying, setIsRetrying] = useState(false)
-  const [displayTitle, setDisplayTitle] = useState(document.title)
+  const [displayTitle, setDisplayTitle] = useState(getDisplayTitle(document))
+  const [isAbstractExpanded, setIsAbstractExpanded] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditingTitle) return
+    const nextTitle = getDisplayTitle(document)
+    setDisplayTitle(nextTitle)
+    setEditTitle(nextTitle)
+  }, [document, isEditingTitle])
 
   const handleSaveTitle = async () => {
     const trimmed = editTitle.trim()
@@ -257,9 +287,7 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
   }
 
   const isAnalyzed = document.status.toLowerCase() === 'analyzed'
-  const isResolving = document.resolution_status === 'resolving'
   const isBibtex = document.source_type === 'bibtex_import' || document.source_type === 'zotero_import'
-  const isClickable = isAnalyzed && !isResolving
 
   // Icon selection
   const Icon = isBibtex ? BookOpenIcon : DocumentTextIcon
@@ -310,13 +338,8 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
       : `${authors[0]}, ${authors[1]} et al.`
 
   const metaLine = [authorLine, year, journal].filter(Boolean).join(' · ')
-  const showAbstract = !isAnalyzed && abstract.trim().length > 0
-
-  const handleClick = () => {
-    if (isClickable) {
-      navigate(`/projects/${projectId}/documents/${document.id}`)
-    }
-  }
+  const showAbstract = abstract.trim().length > 0
+  const cleanDoi = doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '').trim()
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -363,20 +386,16 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
 
   return (
     <div
-      onClick={handleClick}
       className={`
-        group flex items-start gap-4 bg-bg-surface rounded-xl border border-border-default
-        px-4 py-3.5 transition-all duration-150
+        group flex items-start gap-3 border-b border-border-default/70 bg-bg-surface/60
+        px-4 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-bg-elevated/60
         ${statusAccent}
-        ${isClickable
-          ? 'cursor-pointer hover:border-accent-primary/30 hover:bg-bg-hover'
-          : 'cursor-default'
-        }
+        cursor-default
       `}
     >
       {/* Left: icon zone (48px) */}
-      <div className="shrink-0 w-10 flex items-center justify-center pt-0.5">
-        <Icon className={`h-6 w-6 transition-colors duration-150 ${iconColor} ${isClickable ? 'group-hover:text-accent-primary' : ''}`} />
+      <div className="flex w-8 shrink-0 items-center justify-center pt-0.5">
+        <Icon className={`h-5 w-5 transition-colors duration-150 ${iconColor}`} />
       </div>
 
       {/* Center: content */}
@@ -396,9 +415,9 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
         ) : (
           <p
             onClick={token ? startEditTitle : undefined}
-            className={`font-semibold text-sm text-text-primary leading-snug line-clamp-1 transition-colors duration-150
+            className={`line-clamp-1 text-sm font-semibold leading-snug text-text-primary transition-colors duration-150
               ${token ? 'cursor-text hover:text-accent-primary/80 hover:underline decoration-dotted underline-offset-2' : ''}
-              ${isClickable ? 'group-hover:text-accent-primary' : ''}`}
+            `}
           >
             {displayTitle}
           </p>
@@ -406,8 +425,14 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
 
         {/* Row 2: Meta */}
         {metaLine && (
-          <p className="text-xs text-text-tertiary font-mono mt-0.5 line-clamp-1">
+          <p className="mt-0.5 line-clamp-1 font-mono text-xs font-medium text-text-secondary">
             {metaLine}
+          </p>
+        )}
+
+        {cleanDoi && (
+          <p className="mt-0.5 line-clamp-1 font-mono text-[11px] font-medium text-text-secondary">
+            doi:{cleanDoi}
           </p>
         )}
 
@@ -416,16 +441,26 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
 
         {/* Row 4: Unresolved hint */}
         {document.resolution_status === 'unresolved' && (
-          <p className="text-xs text-text-tertiary mt-1.5 italic">
+          <p className="mt-1.5 text-xs font-medium text-text-secondary">
             No open-access PDF found. Upload the PDF manually for full RAG analysis.
           </p>
         )}
 
-        {/* Row 5: Abstract preview (metadata-only entries) */}
+        {/* Row 5: Collapsible abstract */}
         {showAbstract && (
-          <p className="text-xs text-text-secondary mt-1.5 line-clamp-2 leading-relaxed">
-            {abstract}
-          </p>
+          <div className="mt-1.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsAbstractExpanded(prev => !prev) }}
+              className="text-xs font-semibold text-text-secondary transition-colors hover:text-text-primary"
+            >
+              {isAbstractExpanded ? 'Hide abstract' : 'Show abstract'}
+            </button>
+            {isAbstractExpanded && (
+              <p className="mt-1.5 max-w-4xl rounded-lg border border-border-default/70 bg-bg-void/60 p-3 text-xs leading-5 text-text-secondary">
+                {abstract}
+              </p>
+            )}
+          </div>
         )}
 
         {/* Row 6: Action buttons — View Paper, PDF */}
@@ -436,7 +471,7 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
                 href={viewPaperHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-text-secondary border border-border-default rounded-lg px-2.5 py-1 hover:text-text-primary hover:border-border-subtle transition-colors duration-150"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border-default px-2.5 py-1 text-xs font-semibold text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
               >
                 <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
                 View Paper
@@ -445,7 +480,7 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
             {hasPdf && token && (
               <button
                 onClick={handleOpenPdf}
-                className="inline-flex items-center gap-1.5 text-xs text-text-secondary border border-border-default rounded-lg px-2.5 py-1 hover:text-text-primary hover:border-border-subtle transition-colors duration-150"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border-default px-2.5 py-1 text-xs font-semibold text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
               >
                 <DocumentTextIcon className="h-3.5 w-3.5" />
                 Access PDF
@@ -456,7 +491,7 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
       </div>
 
       {/* Right: badges + delete */}
-      <div className="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
+      <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           <SourceBadge sourceType={document.source_type} resolutionStatus={document.resolution_status} status={document.status} />
           <StatusBadge
@@ -470,7 +505,7 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
             <button
               onClick={handleRetry}
               disabled={isRetrying}
-              className="p-1 rounded-md text-text-muted hover:text-accent-primary transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-md p-1 text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
               title={isRetrying ? 'Re-queueing analysis' : 'Retry analysis'}
             >
               <ArrowPathIcon className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
@@ -478,7 +513,7 @@ export default function PaperCard({ document, projectId, onDelete, token, onRefr
           )}
           <button
             onClick={handleDelete}
-            className="p-1 rounded-md text-text-muted hover:text-error transition-colors duration-150"
+            className="rounded-md p-1 text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-error"
             title="Remove paper"
           >
             <TrashIcon className="h-4 w-4" />

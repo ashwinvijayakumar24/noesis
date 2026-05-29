@@ -630,7 +630,7 @@ def _run_analysis_task(document_id: str, file_url: str):
 
     This runs in a separate thread to avoid blocking the API.
     """
-    from app.services.rag_ingest import extract_text_from_pdf_fallback, get_pdf_page_count
+    from app.services.rag_ingest import extract_structured_data_from_pdf, extract_text_from_pdf_fallback, get_pdf_page_count
     from app.workflows.document_analysis.graph import run_document_analysis_workflow
     from app.services.async_utils import run_coroutine_sync
     from app.services.quota_management import increment_quota_usage, track_openai_usage
@@ -642,11 +642,13 @@ def _run_analysis_task(document_id: str, file_url: str):
         print(f"[ANALYZE-BG-LG] document_id={document_id}")
 
         # Get document to retrieve user_id for quota tracking
-        doc_response = supabase.table("documents").select("user_id, project_id").eq("id", document_id).execute()
+        doc_response = supabase.table("documents").select("user_id, project_id, title, metadata").eq("id", document_id).execute()
         if not doc_response.data:
             raise Exception("Document not found")
         user_id = doc_response.data[0]["user_id"]
         project_id = doc_response.data[0].get("project_id")
+        document_title = doc_response.data[0].get("title") or ""
+        document_metadata = doc_response.data[0].get("metadata") or {}
         store_progress_snapshot("document", document_id, "queued", 5, "Queued for analysis")
 
         # 1. Download PDF from storage using Supabase client (authenticated)
@@ -678,10 +680,34 @@ def _run_analysis_task(document_id: str, file_url: str):
         page_count = get_pdf_page_count(pdf_bytes)
         print(f"[ANALYZE-BG-LG] ✓ PDF has {page_count} pages")
 
-        # 3. Extract text from PDF (using fallback for compatibility)
-        print(f"[ANALYZE-BG-LG] Step 3: Extracting text from PDF")
-        store_progress_snapshot("document", document_id, "extracting_structure", 30, "Extracting text and structure")
-        paper_text = extract_text_from_pdf_fallback(pdf_bytes)
+        # 3. Extract text and display metadata from PDF.
+        print(f"[ANALYZE-BG-LG] Step 3: Extracting text and metadata from PDF")
+        store_progress_snapshot("document", document_id, "extracting_structure", 30, "Extracting text and metadata")
+        try:
+            structured_data = run_coroutine_sync(extract_structured_data_from_pdf(pdf_bytes))
+            paper_text = structured_data.get("full_text") or ""
+
+            try:
+                from app.services.document_metadata import enrich_and_persist_document_metadata
+
+                store_progress_snapshot("document", document_id, "extracting_metadata", 38, "Extracting paper metadata")
+                metadata_update = run_coroutine_sync(
+                    enrich_and_persist_document_metadata(
+                        document_id,
+                        current_title=document_title,
+                        existing_metadata=document_metadata,
+                        structured_data=structured_data,
+                    )
+                )
+                document_title = metadata_update.get("title", document_title)
+                document_metadata = metadata_update.get("metadata", document_metadata)
+                print(f"[ANALYZE-BG-LG] ✓ Metadata updated for document_id={document_id}")
+            except Exception as metadata_err:
+                print(f"[ANALYZE-BG-LG] Warning: metadata enrichment failed: {metadata_err}")
+        except Exception as structured_err:
+            print(f"[ANALYZE-BG-LG] Structured extraction failed, using fallback: {structured_err}")
+            paper_text = extract_text_from_pdf_fallback(pdf_bytes)
+
         print(f"[ANALYZE-BG-LG] ✓ Extracted {len(paper_text)} characters of text")
 
         if len(paper_text) < 100:

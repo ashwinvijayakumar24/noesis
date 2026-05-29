@@ -1,11 +1,10 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DocumentTextIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, PlusIcon, LightBulbIcon, MagnifyingGlassIcon, BookOpenIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, PencilIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, PlusIcon, BookOpenIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import UploadDocumentModal from '../components/UploadDocumentModal'
 import DeleteDocumentModal from '../components/DeleteDocumentModal'
 import GlobalSearch from '../components/GlobalSearch'
@@ -13,24 +12,9 @@ import DraftsPanel from '../components/DraftsPanel'
 import UploadDraftModal from '../components/UploadDraftModal'
 import EmptyStateGuide from '../components/EmptyStateGuide'
 import PageContainer from '../components/layout/PageContainer'
-import { TabNavigation } from '../components/navigation/TabNavigation'
 import { Button } from '../components/ui/Button'
 import PaperCard from '../components/literature/PaperCard'
 import type { PaperDocument } from '../components/literature/PaperCard'
-
-// Lazy load heavy components for better performance
-const InsightsTab = lazy(() => import('../components/InsightsTab'))
-const DiscoverTab = lazy(() => import('../components/DiscoverTab'))
-
-interface TabItem {
-  id: string
-  label: string
-  icon?: ReactNode
-  badgeCount?: number
-  badgeVariant?: 'neutral' | 'primary' | 'warning' | 'success'
-  isProcessing?: boolean
-  colorScheme?: 'crimson' | 'amber' | 'emerald' | 'violet'
-}
 
 interface Project {
   id: string
@@ -59,19 +43,20 @@ interface Document {
   }
 }
 
+type ProjectBundle = Project & {
+  documents?: Document[]
+}
+
 type SourceFilter = 'all' | 'analyzed_pdf' | 'bibtex_import'
 type SortBy = 'newest' | 'oldest' | 'status' | 'source'
 
-type ActiveTab = 'literature' | 'discover' | 'insights' | 'drafts'
+type ActiveTab = 'literature' | 'drafts'
 
-// Loading component for lazy-loaded sections
-function ComponentLoader() {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-accent-primary border-r-transparent"></div>
-    </div>
-  )
-}
+const formatProjectDate = (value: string) => new Date(value).toLocaleDateString('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -107,11 +92,6 @@ export default function ProjectDetail() {
 
   // Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false)
-
-  // Insights state (used by Compass and Insights tabs)
-  const [_insights, setInsights] = useState<any | null>(null)
-  const [insightsStatus, setInsightsStatus] = useState<'not_analyzed' | 'analyzing' | 'analyzed' | 'failed'>('not_analyzed')
-  const [insightsPolling, setInsightsPolling] = useState<ReturnType<typeof window.setInterval> | null>(null)
 
   // Project editing state
   const [isEditingProject, setIsEditingProject] = useState(false)
@@ -158,7 +138,7 @@ export default function ProjectDetail() {
 
     const pollInterval = setInterval(() => {
       api.projects.getBundle(session.access_token, projectId).then(data => {
-        const { documents: updatedDocs } = data as { documents: any[] }
+        const { documents: updatedDocs } = data as ProjectBundle
         setDocuments(updatedDocs || [])
       }).catch(error => {
         console.error('Polling error:', error)
@@ -170,74 +150,6 @@ export default function ProjectDetail() {
     }
   }, [documents, session, projectId])
 
-  // Background polling for insights status (Phase 4.2)
-  useEffect(() => {
-    if (!session?.access_token || !projectId) return
-
-    const checkInsightsStatus = async () => {
-      try {
-        const data = await api.projects.getInsights(session.access_token, projectId)
-        const previousStatus = insightsStatus
-        const newStatus = data.status
-
-        setInsightsStatus(newStatus)
-
-        // Phase 4.4: Show toast when auto-regeneration completes
-        if (previousStatus === 'analyzing' && newStatus === 'analyzed') {
-          toast.success('✓ Literature Map updated with latest documents', { duration: 4000 })
-        }
-
-        // Start polling if analyzing
-        if (newStatus === 'analyzing' && !insightsPolling) {
-          const interval = setInterval(() => checkInsightsStatus(), 5000) // Poll every 5 seconds
-          setInsightsPolling(interval)
-        }
-
-        // Stop polling if not analyzing
-        if (newStatus !== 'analyzing' && insightsPolling) {
-          clearInterval(insightsPolling)
-          setInsightsPolling(null)
-        }
-
-        // Update insights data if on insights/compass tab
-        if (activeTab === 'insights' && data.insights) {
-          setInsights(data.insights)
-        }
-      } catch (error: any) {
-        console.error('Failed to check insights status:', error)
-      }
-    }
-
-    // Initial check
-    checkInsightsStatus()
-
-    // Cleanup on unmount
-    return () => {
-      if (insightsPolling) {
-        clearInterval(insightsPolling)
-      }
-    }
-  }, [session, projectId, activeTab])
-
-  // Load insights when navigating to insights or compass tabs
-  useEffect(() => {
-    if (!session?.access_token || !projectId) return
-    if (activeTab !== 'insights') return
-
-    const loadInsights = async () => {
-      try {
-        const data = await api.projects.getInsights(session.access_token, projectId)
-        setInsights(data?.insights || null)
-        setInsightsStatus(data.status)
-      } catch (error: any) {
-        console.error('Failed to load insights:', error)
-        setInsights(null)
-      }
-    }
-
-    loadInsights()
-  }, [activeTab, session, projectId])
-
   const loadProjectDetails = async () => {
     if (!session?.access_token || !projectId) {
       return
@@ -245,12 +157,12 @@ export default function ProjectDetail() {
 
     try {
       setLoading(true)
-      const data = await api.projects.getBundle(session.access_token, projectId)
+      const data = await api.projects.getBundle(session.access_token, projectId) as ProjectBundle
 
       const { documents, ...projectData } = data
       setProject(projectData as Project)
       setDocuments(documents || [])
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load project:', error)
       toast.error('Failed to load project details')
       navigate('/projects')
@@ -263,18 +175,20 @@ export default function ProjectDetail() {
   const silentRefreshDocuments = async () => {
     if (!session?.access_token || !projectId) return
     try {
-      const data = await api.projects.getBundle(session.access_token, projectId)
+      const data = await api.projects.getBundle(session.access_token, projectId) as ProjectBundle
       setDocuments(data.documents || [])
-    } catch {}
+    } catch (error) {
+      console.debug('Silent document refresh failed:', error)
+    }
   }
 
   const loadDraftCount = async () => {
     if (!session?.access_token || !projectId) return
 
     try {
-      const drafts = await api.drafts.list(session.access_token, projectId)
-      setDraftCount(drafts?.length || 0)
-    } catch (error: any) {
+      const data = await api.drafts.list(session.access_token, projectId)
+      setDraftCount(data?.drafts?.length || 0)
+    } catch (error: unknown) {
       console.error('Failed to load draft count:', error)
       // Silent fail - draft count not critical for page load
     }
@@ -318,7 +232,7 @@ export default function ProjectDetail() {
 
       setIsEditingProject(false)
       toast.success('Project updated successfully')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update project:', error)
       toast.error('Failed to update project')
     }
@@ -364,16 +278,17 @@ export default function ProjectDetail() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${project?.title?.replace(/ /g, '_')}_citations.bib` || 'citations.bib'
+      const exportTitle = project?.title?.trim()
+      a.download = exportTitle ? `${exportTitle.replace(/ /g, '_')}_citations.bib` : 'citations.bib'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
       toast.success(`BibTeX file downloaded (${documents.length} entries)`)
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss()
-      toast.error(error.message || 'Failed to export BibTeX')
+      toast.error(error instanceof Error ? error.message : 'Failed to export BibTeX')
     }
   }
 
@@ -392,43 +307,18 @@ export default function ProjectDetail() {
     return null
   }
 
-  const analyzedDocCount = documents.filter(doc => doc.status === 'analyzed').length
-
-  // Prepare tabs for TabNavigation component
-  // Order: Literature → Literature Map → Discover → Drafts
-  const tabs: TabItem[] = [
+  const tabs = [
     {
-      id: 'literature',
+      id: 'literature' as const,
       label: 'Literature',
-      icon: <DocumentTextIcon className="h-5 w-5" />,
-      badgeCount: documents.length > 0 ? documents.length : undefined,
-      badgeVariant: 'neutral',
-      colorScheme: 'crimson',
+      icon: <DocumentTextIcon className="h-4 w-4" />,
+      count: documents.length,
     },
     {
-      id: 'insights',
-      label: 'Literature Map',
-      icon: <LightBulbIcon className="h-5 w-5" />,
-      isProcessing: insightsStatus === 'analyzing',
-      colorScheme: 'amber',
-    },
-    {
-      id: 'discover',
-      label: 'Discover',
-      icon: <MagnifyingGlassIcon className="h-5 w-5" />,
-      colorScheme: 'emerald',
-    },
-    {
-      id: 'drafts',
-      label: 'Drafts',
-      icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      ),
-      badgeCount: draftCount > 0 ? draftCount : undefined,
-      badgeVariant: 'primary',
-      colorScheme: 'violet',
+      id: 'drafts' as const,
+      label: 'Your Draft',
+      icon: <PencilIcon className="h-4 w-4" />,
+      count: undefined,
     },
   ]
 
@@ -454,41 +344,44 @@ export default function ProjectDetail() {
       {!loading && project && (
         <>
           {/* Project Header */}
-          <div className="bg-bg-bg-surfacerounded-lg border border-border-default p-6 mb-8">
+          <div className="mb-7 border-b border-border-default/70 pb-6">
             {isEditingProject ? (
               /* Edit Mode */
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">Project Title</label>
+              <div className="rounded-xl border border-border-default bg-bg-surface/80 p-4">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.1em] text-text-secondary">Project Title</label>
                   <input
                     type="text"
                     value={editedTitle}
                     onChange={(e) => setEditedTitle(e.target.value)}
-                    className="w-full px-4 py-3 bg-bg-void border border-border-default rounded-lg text-text-primary text-2xl font-sans font-semibold focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-all duration-150 tracking-normal"
+                    className="w-full rounded-lg border border-border-default bg-bg-void px-3 py-2.5 text-lg font-semibold text-text-primary outline-none transition-all duration-150 placeholder:text-text-muted focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
                     placeholder="Enter project title"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">Description <span className="text-text-muted font-mono text-xs">(optional)</span></label>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.1em] text-text-secondary">Description <span className="font-mono text-[11px] normal-case tracking-normal text-text-secondary">(optional)</span></label>
                   <textarea
                     value={editedDescription}
                     onChange={(e) => setEditedDescription(e.target.value)}
-                    className="w-full px-4 py-3 bg-bg-void border border-border-default rounded-lg text-text-primary focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-all duration-150 tracking-normal"
+                    className="min-h-[42px] w-full resize-none rounded-lg border border-border-default bg-bg-void px-3 py-2.5 text-sm text-text-primary outline-none transition-all duration-150 placeholder:text-text-muted focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
                     placeholder="Enter project description"
-                    rows={3}
+                    rows={2}
                   />
                 </div>
-                <div className="flex items-center gap-3">
+                </div>
+                <div className="mt-4 flex items-center gap-2">
                   <Button
                     onClick={handleSaveProject}
                     variant="primary"
+                    size="sm"
                   >
                     <CheckIcon className="h-4 w-4" />
                     Save Changes
                   </Button>
                   <button
                     onClick={handleCancelEditProject}
-                    className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-text-primary border-2 border-border-default rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 transition-all duration-150"
+                    className="inline-flex items-center gap-2 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary active:translate-y-px"
                   >
                     <XMarkIcon className="h-4 w-4" />
                     Cancel
@@ -497,39 +390,72 @@ export default function ProjectDetail() {
               </div>
             ) : (
               /* View Mode */
-              <>
-                <div className="flex items-start justify-between mb-2">
-                  <h2 className="text-3xl font-sans font-semibold text-text-primary tracking-normal">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-text-secondary">
+                    Project
+                  </p>
+                  <h1 className="truncate text-3xl font-sans font-semibold leading-tight text-text-primary sm:text-4xl">
                     {project.title}
-                  </h2>
+                  </h1>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
+                    {project.description || 'No description'}
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-mono font-semibold text-text-secondary">
+                    <span className="inline-flex items-center gap-1.5">
+                      <DocumentTextIcon className="h-3.5 w-3.5" />
+                      {documents.length} paper{documents.length === 1 ? '' : 's'}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <PencilIcon className="h-3.5 w-3.5" />
+                      {draftCount > 0 ? 'Draft uploaded' : 'No draft'}
+                    </span>
+                    <span>Created {formatProjectDate(project.created_at)}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
                   <button
                     onClick={handleStartEditProject}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary hover:text-accent-primary border border-border-default rounded-lg hover:bg-bg-hover hover:border-accent-primary/30 transition-all duration-150"
+                    className="inline-flex items-center gap-2 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary active:translate-y-px"
                     title="Edit project details"
                   >
                     <PencilIcon className="h-4 w-4" />
                     Edit
                   </button>
                 </div>
-                <p className="text-text-secondary mb-4 leading-relaxed">
-                  {project.description || 'No description'}
-                </p>
-                <div className="flex items-center gap-4 text-sm font-mono text-text-muted">
-                  <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
-                  <span>•</span>
-                  <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-                </div>
-              </>
+              </div>
             )}
           </div>
 
           {/* Tabs Navigation */}
-          <TabNavigation
-            tabs={tabs}
-            activeTab={activeTab}
-            onTabChange={(tabId) => setActiveTab(tabId as ActiveTab)}
-            className="mb-8"
-          />
+          <div className="mb-7 grid grid-cols-2 border-b border-border-default/70">
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative -mb-px inline-flex items-center justify-center gap-2 border-b px-4 py-3 text-sm font-semibold transition-colors duration-150 ${
+                    isActive
+                      ? 'border-accent-primary text-text-primary'
+                      : 'border-transparent text-text-secondary hover:bg-bg-surface/40 hover:text-text-primary'
+                  }`}
+                >
+                  <span className={isActive ? 'text-accent-primary' : 'text-text-secondary'}>
+                    {tab.icon}
+                  </span>
+                  {tab.label}
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums ${
+                      isActive ? 'bg-accent-primary/15 text-accent-primary' : 'bg-bg-elevated text-text-secondary'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
 
           {/* Tab Content with Animations */}
           <AnimatePresence mode="wait">
@@ -541,15 +467,15 @@ export default function ProjectDetail() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="space-y-8"
+                className="space-y-6"
               >
               {/* Literature Section — unified list */}
               <div>
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+                <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <h3 className="text-2xl font-sans font-semibold text-text-primary tracking-normal">Literature</h3>
-                    <p className="text-sm text-text-tertiary mt-1">
+                    <h2 className="text-xl font-sans font-semibold text-text-primary tracking-normal">Literature</h2>
+                    <p className="mt-1 text-sm font-medium text-text-secondary">
                       {(() => {
                         const analyzedCount = documents.filter(d => d.status === 'analyzed').length
                         const resolvingCount = documents.filter(d => d.resolution_status === 'resolving').length
@@ -563,10 +489,10 @@ export default function ProjectDetail() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-2">
                     {/* Source filter pills + legend button */}
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-0.5 bg-bg-elevated/70 rounded-lg p-0.5 border border-border-default">
+                      <div className="flex items-center gap-0.5 rounded-lg border border-border-default bg-bg-surface/80 p-0.5">
                         {(['all', 'analyzed_pdf', 'bibtex_import'] as SourceFilter[]).map(filter => {
                           const labels: Record<SourceFilter, string> = {
                             all: 'All',
@@ -593,15 +519,15 @@ export default function ProjectDetail() {
                             <button
                               key={filter}
                               onClick={() => !isDisabled && setSourceFilter(filter)}
-                              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all duration-150 flex items-center gap-1.5 ${
+                              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all duration-150 ${
                                 isActive
-                                  ? 'bg-accent-primary/12 text-accent-primary ring-1 ring-inset ring-accent-primary/25'
-                                  : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
+                                  ? 'bg-bg-elevated text-text-primary ring-1 ring-inset ring-border-default'
+                                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
                               } ${isDisabled ? 'opacity-35 pointer-events-none' : 'cursor-pointer'}`}
                             >
                               {labels[filter]}
                               {filter !== 'all' && (
-                                <span className={`text-[10px] tabular-nums ${isActive ? 'text-accent-primary/70' : 'text-text-tertiary'}`}>
+                                <span className={`text-[10px] tabular-nums ${isActive ? 'text-accent-primary' : 'text-text-secondary'}`}>
                                   {count}
                                 </span>
                               )}
@@ -614,52 +540,51 @@ export default function ProjectDetail() {
                       <div className="relative">
                         <button
                           onClick={() => setShowStatusLegend(prev => !prev)}
-                          className="text-text-muted hover:text-text-secondary transition-colors duration-150 p-0.5 rounded"
+                          className="rounded-md border border-transparent p-1 text-text-secondary transition-colors duration-150 hover:border-border-default hover:bg-bg-hover hover:text-text-primary"
                           title="Status legend"
                         >
                           <InformationCircleIcon className="h-4 w-4" />
                         </button>
 
                         {showStatusLegend && (
-                          <div className="absolute right-0 top-7 z-20 w-80 bg-bg-elevated border border-border-default rounded-xl p-4 shadow-lg">
-                            <div className="flex items-center justify-between mb-3">
-                              <p className="text-xs font-semibold text-text-primary">Status Legend</p>
+                          <div className="absolute right-0 top-8 z-20 w-80 rounded-xl border border-border-default bg-bg-elevated p-3 shadow-xl">
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="text-xs font-bold uppercase tracking-[0.1em] text-text-secondary">Status Legend</p>
                               <button
                                 onClick={() => setShowStatusLegend(false)}
-                                className="text-text-muted hover:text-text-secondary transition-colors duration-150"
+                                className="rounded p-1 text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
                               >
                                 <XMarkIcon className="h-3.5 w-3.5" />
                               </button>
                             </div>
-                            <div className="space-y-3">
-                              <div className="flex items-start gap-2.5">
-                                <span className="text-emerald-400 mt-0.5 shrink-0">●</span>
-                                <div>
-                                  <span className="text-xs font-semibold text-text-primary">Processed</span>
-                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">Full RAG analysis complete. This paper can be searched, cited, and used in draft analysis.</p>
+                            <div className="space-y-2">
+                              {[
+                                {
+                                  label: 'Processed',
+                                  tone: 'text-emerald-300',
+                                  copy: 'Full RAG analysis complete. This paper can be searched, cited, and used in draft analysis.',
+                                },
+                                {
+                                  label: 'Analyzing',
+                                  tone: 'text-amber-300',
+                                  copy: 'Pipeline in progress for PDF extraction, embedding, or open-access PDF resolution.',
+                                },
+                                {
+                                  label: 'Imported',
+                                  tone: 'text-sky-300',
+                                  copy: 'Metadata saved, but no open-access PDF was found. Upload the PDF manually for full analysis.',
+                                },
+                                {
+                                  label: 'Failed',
+                                  tone: 'text-red-300',
+                                  copy: 'Document analysis failed. Try re-uploading or retrying the file.',
+                                },
+                              ].map(item => (
+                                <div key={item.label} className="rounded-lg border border-border-default/70 bg-bg-surface/70 p-2.5">
+                                  <span className={`text-xs font-semibold ${item.tone}`}>{item.label}</span>
+                                  <p className="mt-0.5 text-xs leading-5 text-text-secondary">{item.copy}</p>
                                 </div>
-                              </div>
-                              <div className="flex items-start gap-2.5">
-                                <span className="text-amber-400 mt-0.5 shrink-0">●</span>
-                                <div>
-                                  <span className="text-xs font-semibold text-text-primary">Analyzing</span>
-                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">Pipeline in progress. For PDFs: extracting text and generating embeddings. For .bib imports: searching for open-access PDF, downloading, and analyzing.</p>
-                                </div>
-                              </div>
-                              <div className="flex items-start gap-2.5">
-                                <span className="text-sky-400 mt-0.5 shrink-0">●</span>
-                                <div>
-                                  <span className="text-xs font-semibold text-text-primary">Imported</span>
-                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">.bib entry imported, but no open-access PDF was found. Metadata saved. Upload the PDF manually for full analysis.</p>
-                                </div>
-                              </div>
-                              <div className="flex items-start gap-2.5">
-                                <span className="text-red-400 mt-0.5 shrink-0">●</span>
-                                <div>
-                                  <span className="text-xs font-semibold text-text-primary">Failed</span>
-                                  <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">Document analysis failed (PDF uploads only). Try re-uploading the file.</p>
-                                </div>
-                              </div>
+                              ))}
                             </div>
                           </div>
                         )}
@@ -671,7 +596,7 @@ export default function ProjectDetail() {
                       <select
                         value={sortBy}
                         onChange={e => setSortBy(e.target.value as SortBy)}
-                        className="text-xs font-semibold bg-bg-elevated border border-border-default rounded-lg px-2.5 py-1.5 text-text-secondary focus:ring-1 focus:ring-accent-primary focus:border-accent-primary transition-colors"
+                        className="rounded-lg border border-border-default bg-bg-surface px-2.5 py-1.5 text-xs font-semibold text-text-secondary transition-colors focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
                       >
                         <option value="newest">Newest</option>
                         <option value="oldest">Oldest</option>
@@ -687,7 +612,7 @@ export default function ProjectDetail() {
                     {documents.length > 0 && (
                       <button
                         onClick={handleExportBibTeX}
-                        className="px-3 py-1.5 border border-border-default text-text-secondary text-xs font-semibold rounded-lg hover:bg-bg-elevated hover:border-accent-teal hover:text-accent-teal transition-all duration-150 flex items-center gap-1.5"
+                        className="flex items-center gap-1.5 rounded-lg border border-border-default px-3 py-1.5 text-xs font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary active:translate-y-px"
                       >
                         <ArrowDownTrayIcon className="h-3.5 w-3.5" />
                         Export .bib
@@ -697,7 +622,7 @@ export default function ProjectDetail() {
                     {/* Import References (.bib / Zotero) */}
                     <button
                       onClick={() => setIsImportModalOpen(true)}
-                      className="px-3 py-1.5 border border-border-default text-text-secondary text-xs font-semibold rounded-lg hover:bg-bg-elevated hover:border-violet-400/40 hover:text-violet-400 transition-all duration-150 flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 rounded-lg border border-border-default px-3 py-1.5 text-xs font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary active:translate-y-px"
                     >
                       <BookOpenIcon className="h-3.5 w-3.5" />
                       Import .bib
@@ -706,7 +631,7 @@ export default function ProjectDetail() {
                     {/* Upload PDF — same height as Import .bib */}
                     <button
                       onClick={() => setIsUploadModalOpen(true)}
-                      className="px-3 py-1.5 bg-accent-primary text-white text-xs font-semibold rounded-lg hover:bg-accent-hover transition-all duration-150 flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 rounded-lg bg-accent-primary px-3 py-1.5 text-xs font-semibold text-white transition-all duration-150 hover:bg-accent-hover active:translate-y-px"
                     >
                       <PlusIcon className="h-3.5 w-3.5" />
                       Upload PDF
@@ -716,16 +641,15 @@ export default function ProjectDetail() {
 
                 {/* Draft Warning Banner */}
                 {draftCount > 0 && documents.length === 0 && !isDraftWarningDismissed && (
-                  <div className="mb-5 bg-warning/10 border border-warning/40 rounded-xl p-4">
+                  <div className="mb-5 rounded-xl border border-warning/35 bg-warning/10 p-3">
                     <div className="flex items-start gap-3">
                       <svg className="h-5 w-5 text-warning shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-warning">Add papers for citation suggestions</p>
-                        <p className="text-xs text-text-secondary mt-0.5">
-                          You have {draftCount} draft{draftCount > 1 ? 's' : ''} but no papers yet.
-                          Citation suggestions require papers in your library.
+                        <p className="mt-0.5 text-xs font-medium text-text-secondary">
+                          Your draft has no papers yet. Citation suggestions require papers in your library.
                         </p>
                         <div className="flex gap-3 mt-2">
                           <button onClick={() => setIsUploadModalOpen(true)} className="text-xs font-semibold text-accent-primary underline">
@@ -778,19 +702,18 @@ export default function ProjectDetail() {
                   })
 
                   return (
-                    <div className="space-y-2">
+                    <div className="overflow-hidden rounded-xl border border-border-default bg-bg-surface/80">
                       {filtered.map(doc => (
                         <PaperCard
                           key={doc.id}
                           document={doc as PaperDocument}
-                          projectId={projectId!}
                           onDelete={(id, title) => setDeleteDocument({ id, title })}
                           token={session?.access_token}
                           onRefresh={silentRefreshDocuments}
                         />
                       ))}
                       {filtered.length === 0 && (
-                        <p className="text-sm text-text-muted text-center py-8">
+                        <p className="py-8 text-center text-sm font-medium text-text-secondary">
                           No papers match this filter.
                         </p>
                       )}
@@ -801,29 +724,7 @@ export default function ProjectDetail() {
             </motion.div>
           )}
 
-          {/* Discover Tab */}
-          {activeTab === 'discover' && projectId && (
-            <motion.div
-              key="discover"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <Suspense fallback={<ComponentLoader />}>
-                <DiscoverTab
-                  projectId={projectId}
-                  documentCount={documents.length}
-                  analyzedDocCount={analyzedDocCount}
-                  onDocumentSaved={loadProjectDetails}
-                  insightsAnalyzed={insightsStatus === 'analyzed'}
-                  onTabChange={(tab) => setActiveTab(tab as ActiveTab)}
-                />
-              </Suspense>
-            </motion.div>
-          )}
-
-          {/* Drafts Tab */}
+          {/* Your Draft Tab */}
           {activeTab === 'drafts' && session?.access_token && projectId && (
             <motion.div
               key="drafts"
@@ -832,20 +733,21 @@ export default function ProjectDetail() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h3 className="text-2xl font-sans font-semibold text-text-primary tracking-normal">Research Drafts</h3>
-                  <p className="text-sm text-text-secondary mt-1">
-                    Get AI-powered feedback and citation suggestions
+                  <h2 className="text-xl font-sans font-semibold text-text-primary tracking-normal">Your Draft</h2>
+                  <p className="mt-1 text-sm font-medium text-text-secondary">
+                    Analyze one manuscript against the literature in this project.
                   </p>
                 </div>
 
                 <Button
                   onClick={() => setIsUploadDraftModalOpen(true)}
                   variant="primary"
+                  size="sm"
                 >
                   <PlusIcon className="h-4 w-4" />
-                  Upload Draft
+                  {draftCount > 0 ? 'Upload New Version' : 'Upload Draft'}
                 </Button>
               </div>
               <DraftsPanel
@@ -854,21 +756,6 @@ export default function ProjectDetail() {
                 refreshTrigger={draftRefreshTrigger}
                 onDraftsLoaded={handleDraftsLoaded}
               />
-            </motion.div>
-          )}
-
-          {/* Literature Map Tab */}
-          {activeTab === 'insights' && projectId && (
-            <motion.div
-              key="insights"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <Suspense fallback={<ComponentLoader />}>
-                <InsightsTab projectId={projectId} onDocumentSaved={loadProjectDetails} />
-              </Suspense>
             </motion.div>
           )}
           </AnimatePresence>
@@ -910,6 +797,7 @@ export default function ProjectDetail() {
           }}
           token={session.access_token}
           projectId={projectId}
+          hasExistingDraft={draftCount > 0}
         />
       )}
 

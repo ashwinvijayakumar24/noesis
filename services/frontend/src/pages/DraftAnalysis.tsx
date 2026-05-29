@@ -13,7 +13,6 @@ import ReviewerFeedbackList from '../components/draft-analysis/ReviewerFeedbackL
 import EditingPassTab from '../components/draft-analysis/EditingPassTab'
 import { ProgressIndicator, useEstimatedProgress } from '../components/ui/ProgressIndicator'
 import { useAnalysisStream } from '../hooks/useAnalysisStream'
-import FeedbackButton from '../components/FeedbackButton'
 import toast from 'react-hot-toast'
 
 interface Claim {
@@ -60,6 +59,28 @@ interface Feedback {
   line_number?: number
   text_snippet?: string
   pdf_coordinates?: PdfCoordinates
+  status: 'new' | 'saved' | 'dismissed'
+}
+
+interface RevisionTask {
+  id: string
+  source_type: string
+  task_type: string
+  severity: string
+  priority: 'high' | 'medium' | 'low'
+  section?: string
+  anchor_text?: string
+  problem: string
+  why_it_matters?: string
+  suggested_action: string
+  source_ids?: string[]
+  line_number?: number
+  page_number?: number
+  paragraph_index?: number
+  suggested_sources?: any[]
+  text_snippet?: string
+  pdf_coordinates?: PdfCoordinates
+  match_confidence?: number
   status: 'new' | 'saved' | 'dismissed'
 }
 
@@ -168,6 +189,7 @@ export default function DraftAnalysis() {
   const [claims, setClaims] = useState<Claim[]>([])
   const [gaps, setGaps] = useState<Gap[]>([])
   const [feedback, setFeedback] = useState<Feedback[]>([])
+  const [revisionTasks, setRevisionTasks] = useState<RevisionTask[]>([])
   const [editingFeedback, setEditingFeedback] = useState<EditingFeedback>(EMPTY_EDITING_FEEDBACK)
   const [readinessScore, setReadinessScore] = useState<number | null>(null)
   const [editorDecision, setEditorDecision] = useState<any | null>(null)
@@ -177,6 +199,7 @@ export default function DraftAnalysis() {
     claims: Claim[]
     gaps: Gap[]
     feedback: Feedback[]
+    revisionTasks: RevisionTask[]
     readinessScore: number | null
   }>>>({})
   const checkAnalysisStatusRef = useRef<(() => Promise<void>) | null>(null)
@@ -196,6 +219,7 @@ export default function DraftAnalysis() {
       setClaims(cached.claims)
       setGaps(cached.gaps)
       setFeedback(cached.feedback)
+      setRevisionTasks(cached.revisionTasks)
       setReadinessScore(cached.readinessScore)
       return
     }
@@ -208,12 +232,14 @@ export default function DraftAnalysis() {
         claims: data.claims || [],
         gaps: data.gaps || [],
         feedback: data.feedback || [],
+        revisionTasks: data.revision_tasks || [],
         readinessScore: data.readiness_score ?? null,
       }
       feedbackCacheRef.current[nextStatus] = payload
       setClaims(payload.claims)
       setGaps(payload.gaps)
       setFeedback(payload.feedback)
+      setRevisionTasks(payload.revisionTasks)
       setReadinessScore(payload.readinessScore)
     } catch (error) {
       console.error('Failed to fetch all feedback:', error)
@@ -224,7 +250,7 @@ export default function DraftAnalysis() {
 
   const handleStatusChange = useCallback(async (
     feedbackId: string,
-    feedbackType: 'claim' | 'gap' | 'feedback',
+    feedbackType: 'claim' | 'gap' | 'feedback' | 'task',
     newStatus: 'new' | 'saved' | 'dismissed',
   ) => {
     if (!draftId || !token) return
@@ -246,11 +272,14 @@ export default function DraftAnalysis() {
     section_type?: string
     section_location?: string
     pdf_coordinates?: PdfCoordinates
+    page_number?: number
   }) => {
     const isPdf = draft?.file_type === 'application/pdf' || draft?.file_type === 'pdf'
     if (isPdf) {
       if (item.pdf_coordinates) {
         documentViewerRef.current?.highlightRegion(item.pdf_coordinates)
+      } else if (item.page_number) {
+        documentViewerRef.current?.scrollToPage(item.page_number)
       } else {
         toast('Exact location unavailable for this item yet. Reanalyze the draft to regenerate anchors.', {
           icon: 'ℹ️',
@@ -471,10 +500,6 @@ if (loading) {
               </div>
             </div>
           </div>
-          <FeedbackButton
-            featureType="draft_analysis"
-            contextId={draftId}
-          />
         </div>
       </header>
 
@@ -516,6 +541,7 @@ if (loading) {
                 claims={claims}
                 gaps={gaps}
                 feedback={feedback}
+                revisionTasks={revisionTasks}
                 readinessScore={readinessScore}
                 loading={feedbackLoading}
                 statusFilter={statusFilter}

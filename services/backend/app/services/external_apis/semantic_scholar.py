@@ -6,11 +6,12 @@ Docs: https://api.semanticscholar.org/api-docs/
 """
 
 import requests
-import time
+import logging
 from typing import List, Dict, Any, Optional
-from urllib.parse import quote
+from app.core.privacy import safe_exception
 
 BASE_URL = "https://api.semanticscholar.org/graph/v1"
+logger = logging.getLogger(__name__)
 
 # Fields to request from API
 PAPER_FIELDS = "paperId,title,abstract,year,authors,citationCount,referenceCount,influentialCitationCount,fieldsOfStudy,s2FieldsOfStudy,publicationTypes,publicationDate,journal,externalIds,url,openAccessPdf"
@@ -54,7 +55,7 @@ class SemanticScholarAPI:
         Returns:
             List of paper dictionaries
         """
-        print(f"[SEMANTIC-SCHOLAR] Searching for: {query[:50]}...")
+        logger.info("[SEMANTIC-SCHOLAR] Searching papers")
 
         # Build query parameters
         params = {
@@ -87,19 +88,19 @@ class SemanticScholarAPI:
 
             # Handle rate limiting — don't sleep/retry, just return empty
             if response.status_code == 429:
-                print("[SEMANTIC-SCHOLAR] Rate limited, returning empty results")
+                logger.info("[SEMANTIC-SCHOLAR] Rate limited, returning empty results")
                 return []
 
             response.raise_for_status()
             data = response.json()
 
             papers = data.get("data", [])
-            print(f"[SEMANTIC-SCHOLAR] Found {len(papers)} papers")
+            logger.info("[SEMANTIC-SCHOLAR] Found %s papers", len(papers))
 
             return self._normalize_papers(papers)
 
         except Exception as e:
-            print(f"[SEMANTIC-SCHOLAR] ERROR: {type(e).__name__}: {str(e)}")
+            logger.warning("[SEMANTIC-SCHOLAR] Search failed: %s", safe_exception(e))
             return []
 
     def get_recommendations(self, paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -113,7 +114,7 @@ class SemanticScholarAPI:
         Returns:
             List of recommended paper dictionaries
         """
-        print(f"[SEMANTIC-SCHOLAR] Getting recommendations for paper: {paper_id}")
+        logger.info("[SEMANTIC-SCHOLAR] Getting recommendations for paper")
 
         try:
             response = requests.get(
@@ -124,19 +125,19 @@ class SemanticScholarAPI:
             )
 
             if response.status_code == 429:
-                print("[SEMANTIC-SCHOLAR] Rate limited, returning empty results")
+                logger.info("[SEMANTIC-SCHOLAR] Rate limited, returning empty results")
                 return []
 
             response.raise_for_status()
             data = response.json()
 
             papers = data.get("recommendedPapers", [])
-            print(f"[SEMANTIC-SCHOLAR] Found {len(papers)} recommendations")
+            logger.info("[SEMANTIC-SCHOLAR] Found %s recommendations", len(papers))
 
             return self._normalize_papers(papers)
 
         except Exception as e:
-            print(f"[SEMANTIC-SCHOLAR] ERROR: {type(e).__name__}: {str(e)}")
+            logger.warning("[SEMANTIC-SCHOLAR] Recommendation lookup failed: %s", safe_exception(e))
             return []
 
     def _normalize_papers(self, papers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

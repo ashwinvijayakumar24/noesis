@@ -1,13 +1,18 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { lazy, Suspense } from 'react'
+import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpgradeModal from './components/UpgradeModal'
 
 // Lazy load page components for code splitting
 const Landing = lazy(() => import('./pages/Landing'))
-const Login = lazy(() => import('./pages/Login'))
-const NotFound = lazy(() => import('./pages/NotFound'))
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
+const Pricing = lazy(() => import('./pages/Pricing'))
+const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'))
+const Projects = lazy(() => import('./pages/Projects'))
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
+const DraftAnalysis = lazy(() => import('./pages/DraftAnalysis'))
 
 // Loading fallback component
 function PageLoader() {
@@ -52,16 +57,59 @@ function App() {
           }}
         />
         {/* Global upgrade modal — triggered by quota 429 errors anywhere in the app */}
-        <UpgradeModal />
+      <UpgradeModal />
 
-        <Suspense fallback={<PageLoader />}>
+      <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
+          {/* Public routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/demo" element={<Navigate to="/" replace />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/signup" element={<Navigate to="/" replace />} />
+          <Route path="/auth/confirm" element={<Navigate to="/" replace />} />
+          <Route path="/auth/callback" element={<Navigate to="/" replace />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+
+        {/* Protected routes */}
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute>
+              <Projects />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId"
+          element={
+            <ProtectedRoute>
+              <ProjectDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/drafts/:draftId"
+          element={
+            <ProtectedRoute>
+              <DraftAnalysis />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <ProtectedRoute>
+              <AnalyticsDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Fallback redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      </Suspense>
+    </BrowserRouter>
     </ErrorBoundary>
   )
 }

@@ -1,6 +1,0 @@
-{
-  "name": "noesis-extension",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Noesis Chrome extension — no build step required, load unpacked from this directory"
-}

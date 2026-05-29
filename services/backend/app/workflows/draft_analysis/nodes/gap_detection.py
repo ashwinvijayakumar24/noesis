@@ -8,8 +8,38 @@ from app.workflows.draft_analysis.state import DraftAnalysisState, Gap
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from typing import List
+import re
 
 logger = get_logger(__name__)
+
+
+GENERIC_GAP_PATTERNS = (
+    "no supporting literature found in your library",
+    "no supporting citations found",
+    "no matching evidence in library or online",
+    "no matching evidence",
+    "assessment failed:",
+)
+
+
+def _is_generic_gap_text(text: str) -> bool:
+    normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
+    if not normalized:
+        return True
+    return any(normalized == pattern or normalized.startswith(pattern) for pattern in GENERIC_GAP_PATTERNS)
+
+
+def _is_systematic_review(state: DraftAnalysisState) -> bool:
+    paper_type = (state.get("paper_type") or "").lower()
+    draft_content = (state.get("draft_content") or "")[:6000].lower()
+    return (
+        "systematic" in paper_type
+        or "review" in paper_type
+        or "systematic review" in draft_content
+        or "prisma" in draft_content
+        or "meta-analysis" in draft_content
+        or "meta analysis" in draft_content
+    )
 
 
 def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
@@ -46,10 +76,15 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             # Convert database records to Gap objects
             gaps: List[Gap] = []
             for db_gap in existing_gaps_res.data:
+                description = db_gap.get("description", "")
+                if _is_generic_gap_text(description):
+                    continue
+                if _is_systematic_review(state) and "baseline comparisons" in description.lower():
+                    continue
                 gap: Gap = {
                     "id": db_gap["id"],
                     "gap_type": db_gap["gap_type"],
-                    "description": db_gap["description"],
+                    "description": description,
                     "severity": db_gap.get("priority", "major"),  # Map priority -> severity
                     "affected_claims": [],
                     "suggested_papers": db_gap.get("suggested_papers", []),
@@ -82,11 +117,14 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
         # 1. Detect missing evidence gaps
         for claim_citation in claims_with_citations:
             claim = claim_citation['claim']
+            if claim.get("requires_citation") is False:
+                continue
+
             quality = claim_citation.get('citation_quality', 'unknown')
             claim_gaps = claim_citation.get('gaps', [])
             claim_gaps = [
                 gap_desc for gap_desc in claim_gaps
-                if isinstance(gap_desc, str) and not gap_desc.lower().startswith('assessment failed:')
+                if isinstance(gap_desc, str) and not _is_generic_gap_text(gap_desc)
             ]
 
             if quality == 'none':
@@ -123,6 +161,8 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
             # 3. Add specific gaps identified during citation quality assessment
             for gap_desc in claim_gaps:
+                if _is_generic_gap_text(gap_desc):
+                    continue
                 gap: Gap = {
                     'gap_type': 'missing_perspectives',
                     'description': gap_desc,
@@ -142,7 +182,7 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             for claim in methodological_claims
         )
 
-        if not has_baseline_comparison and methodological_claims:
+        if not _is_systematic_review(state) and not has_baseline_comparison and methodological_claims:
             gap: Gap = {
                 'gap_type': 'methodological_gaps',
                 'description': "No baseline comparisons mentioned for methodology",

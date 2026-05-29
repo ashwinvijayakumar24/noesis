@@ -132,6 +132,14 @@ interface Draft {
   updated_at: string
 }
 
+function sortDraftsByRecency(drafts: Draft[]) {
+  return [...drafts].sort((a, b) => {
+    const aTime = new Date(a.updated_at || a.created_at).getTime()
+    const bTime = new Date(b.updated_at || b.created_at).getTime()
+    return bTime - aTime
+  })
+}
+
 interface DraftsPanelProps {
   token: string
   projectId: string
@@ -165,14 +173,14 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
       console.log('[DRAFTS-PANEL] API response:', data)
       console.log('[DRAFTS-PANEL] Drafts array:', data.drafts)
       console.log('[DRAFTS-PANEL] Number of drafts:', data.drafts?.length || 0)
-      const draftsList = data.drafts || []
+      const draftsList = sortDraftsByRecency(data.drafts || [])
       setDrafts(draftsList)
 
       // Notify parent of draft count
       if (onDraftsLoaded) {
         onDraftsLoaded(draftsList.length)
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[DRAFTS-PANEL] Error loading drafts:', error)
       handleError(error, 'loading drafts')
     } finally {
@@ -183,7 +191,9 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   // Silent reload — does not trigger loading spinner, used for polling and onComplete callbacks
   const silentReloadDrafts = () => {
     api.drafts.list(token, projectId).then(data => {
-      setDrafts(data.drafts || [])
+      const draftsList = sortDraftsByRecency(data.drafts || [])
+      setDrafts(draftsList)
+      onDraftsLoaded?.(draftsList.length)
     }).catch(err => console.error('[DRAFTS-PANEL] Silent reload error:', err))
   }
 
@@ -248,7 +258,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
       toast.success('Draft deleted successfully')
       setDeleteModal({ isOpen: false, draftId: null, draftTitle: '', isDeleting: false })
       loadDrafts()
-    } catch (error: any) {
+    } catch (error: unknown) {
       handleError(error, 'deleting draft')
       setDeleteModal(prev => ({ ...prev, isDeleting: false }))
     }
@@ -269,7 +279,7 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
       setDrafts(prev => prev.map(d =>
         d.id === draftId ? { ...d, status: 'processing', updated_at: new Date().toISOString() } : d
       ))
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss()
       handleError(error, 'analyzing draft')
     }
@@ -281,17 +291,112 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
     toast.success('Invite link copied!')
   }
 
-  if (loading) {
-    return <SkeletonList count={4} ItemComponent={SkeletonListItem} />
+  const activeDraft = drafts[0]
+  const previousDrafts = drafts.slice(1)
+
+  const renderDraftCard = (draft: Draft, variant: 'current' | 'history' = 'current') => {
+    const isCurrent = variant === 'current'
+
+    return (
+      <div
+        key={draft.id}
+        onClick={() => draft.status === 'analyzed' ? handleViewAnalysis(draft.id) : undefined}
+        className={`group grid gap-4 border-b border-border-default/70 px-5 py-4 transition-colors duration-150 last:border-b-0 md:grid-cols-[minmax(0,1fr)_220px_40px] md:items-center ${
+          isCurrent ? 'bg-bg-surface/70 hover:bg-bg-elevated/60' : 'bg-bg-surface/40 hover:bg-bg-elevated/50'
+        } ${draft.status === 'analyzed' ? 'cursor-pointer' : ''}`}
+      >
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <DocumentTextIcon className="h-4 w-4 shrink-0 text-accent-primary" />
+            {editingDraftId === draft.id ? (
+              <div className="flex min-w-0 flex-1 items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                <input
+                  ref={draftTitleInputRef}
+                  value={editDraftTitle}
+                  onChange={e => setEditDraftTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveDraftTitle(draft.id); if (e.key === 'Escape') setEditingDraftId(null) }}
+                  onBlur={() => saveDraftTitle(draft.id)}
+                  className="min-w-0 flex-1 rounded border border-accent-primary/40 bg-bg-void px-2 py-1 text-sm text-text-primary outline-none"
+                />
+              </div>
+            ) : (
+              <h3
+                onClick={e => startEditDraft(e, draft)}
+                className={`truncate text-base font-semibold cursor-text transition-colors duration-150 hover:underline decoration-dotted underline-offset-2 ${
+                  isCurrent
+                    ? 'text-base text-text-primary hover:text-accent-primary'
+                    : 'text-sm text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {draft.title}
+              </h3>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs font-semibold text-text-secondary">
+            {isCurrent && <span>Current draft</span>}
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {new Date(draft.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+            {draft.version > 1 && <span>v{draft.version}</span>}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 md:justify-end" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
+            <DraftStatusBadge status={draft.status} updatedAt={draft.updated_at} />
+            {draft.status === 'uploaded' && (
+              <button
+                onClick={() => handleAnalyze(draft.id)}
+                className="rounded-md border border-border-default px-2.5 py-1 text-xs font-semibold text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+              >
+                Analyze
+              </button>
+            )}
+            {draft.status === 'failed' && (Date.now() - new Date(draft.updated_at).getTime() >= 15 * 60 * 1000) && (
+              <button
+                onClick={() => handleAnalyze(draft.id)}
+                className="rounded-md border border-border-default px-2.5 py-1 text-xs font-semibold text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            handleDelete(draft.id, draft.title)
+          }}
+          className="justify-self-start rounded-md p-2 text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-error md:justify-self-end md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
+          title="Delete Draft"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+
+        {(draft.status === 'processing' || draft.status === 'uploaded') && (
+          <div className="md:col-span-3">
+            <DraftProgressBar draftId={draft.id} onComplete={silentReloadDrafts} />
+          </div>
+        )}
+        </div>
+    )
   }
 
-  if (drafts.length === 0) {
+  if (loading) {
+    return <SkeletonList count={1} ItemComponent={SkeletonListItem} />
+  }
+
+  if (!activeDraft) {
     return (
-      <div className="text-center py-12 bg-bg-base rounded-lg border-2 border-dashed border-border-default">
-        <DocumentTextIcon className="mx-auto h-12 w-12 text-text-tertiary" />
-        <h3 className="mt-2 text-sm font-medium text-text-primary">No drafts yet</h3>
-        <p className="mt-1 text-sm text-text-tertiary">
-          Upload your research draft to get expert feedback and analysis
+      <div className="rounded-xl border border-dashed border-border-default bg-bg-surface/70 px-6 py-12 text-center">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg border border-border-default bg-bg-elevated">
+          <DocumentTextIcon className="h-5 w-5 text-accent-primary" />
+        </div>
+        <h3 className="mt-3 text-sm font-semibold text-text-primary">No draft uploaded</h3>
+        <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-text-secondary">
+          Upload the manuscript you want reviewed against this project's literature.
         </p>
       </div>
     )
@@ -300,93 +405,23 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
   return (
     <>
       <div className="space-y-3">
-        {drafts.map((draft) => {
-          return (
-            <div
-              key={draft.id}
-              onClick={() => draft.status === 'analyzed' ? handleViewAnalysis(draft.id) : undefined}
-              className={`bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/50 rounded-lg p-4 transition-all ${
-                draft.status === 'analyzed'
-                  ? 'cursor-pointer hover:border-slate-600'
-                  : ''
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                {/* Icon Box (larger, styled like document card) */}
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 rounded-lg border-2 border-purple-600 bg-purple-950/50 flex items-center justify-center">
-                    <DocumentTextIcon className="h-6 w-6 text-purple-300" />
-                  </div>
-                </div>
+        <div className="overflow-hidden rounded-xl border border-border-default bg-bg-surface/80">
+          {renderDraftCard(activeDraft)}
+        </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  {editingDraftId === draft.id ? (
-                    <div className="flex items-center gap-1.5 mb-1" onClick={e => e.stopPropagation()}>
-                      <input
-                        ref={draftTitleInputRef}
-                        value={editDraftTitle}
-                        onChange={e => setEditDraftTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveDraftTitle(draft.id); if (e.key === 'Escape') setEditingDraftId(null) }}
-                        onBlur={() => saveDraftTitle(draft.id)}
-                        className="flex-1 min-w-0 text-sm bg-slate-700 border border-purple-500/40 rounded px-2 py-0.5 text-slate-200 outline-none"
-                      />
-                    </div>
-                  ) : (
-                    <h3
-                      onClick={e => startEditDraft(e, draft)}
-                      className="text-base font-medium text-slate-200 truncate mb-1 cursor-text hover:text-purple-300 hover:underline decoration-dotted underline-offset-2 transition-colors duration-150"
-                    >
-                      {draft.title}
-                    </h3>
-                  )}
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <CalendarIcon className="h-4 w-4" />
-                    <span>{new Date(draft.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                  </div>
-                </div>
-
-                {/* Right Side Actions */}
-                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                  {/* Status Badge */}
-                  <DraftStatusBadge status={draft.status} updatedAt={draft.updated_at} />
-
-                  {/* Action Buttons */}
-                  {draft.status === 'uploaded' && (
-                    <button
-                      onClick={() => handleAnalyze(draft.id)}
-                      className="px-3 py-1 text-xs font-medium text-slate-200 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors"
-                    >
-                      Analyze
-                    </button>
-                  )}
-                  {draft.status === 'failed' && (Date.now() - new Date(draft.updated_at).getTime() >= 15 * 60 * 1000) && (
-                    <button
-                      onClick={() => handleAnalyze(draft.id)}
-                      className="px-3 py-1 text-xs font-medium text-slate-200 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors"
-                    >
-                      Retry
-                    </button>
-                  )}
-
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleDelete(draft.id, draft.title)}
-                    className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-md transition-colors"
-                    title="Delete Draft"
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Progress bar — shown for any in-progress state */}
-              {(draft.status === 'processing' || draft.status === 'uploaded') && (
-                <DraftProgressBar draftId={draft.id} onComplete={silentReloadDrafts} />
-              )}
+        {previousDrafts.length > 0 && (
+          <details className="group overflow-hidden rounded-xl border border-border-default bg-bg-surface/70">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-text-secondary transition-colors hover:bg-bg-elevated/50 hover:text-text-primary">
+              <span className="font-medium">Previous uploads</span>
+              <span className="text-xs font-mono font-semibold text-text-secondary">
+                {previousDrafts.length} kept for reference
+              </span>
+            </summary>
+            <div className="border-t border-border-default">
+              {previousDrafts.map((draft) => renderDraftCard(draft, 'history'))}
             </div>
-          )
-        })}
+          </details>
+        )}
       </div>
 
       {/* Lab Invite Modal */}
@@ -433,43 +468,43 @@ export default function DraftsPanel({ token, projectId, refreshTrigger, onDrafts
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !deleteModal.isDeleting && setDeleteModal(prev => ({ ...prev, isOpen: false }))} />
-          <div className="relative bg-bg-surface border border-border-default rounded-xl w-full max-w-md shadow-2xl">
+          <div className="relative w-full max-w-md overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-border-default">
+            <div className="flex items-center justify-between border-b border-border-default px-5 py-4">
               <div className="flex items-center gap-3">
-                <ExclamationTriangleIcon className="h-6 w-6 text-error" />
-                <h2 className="text-xl font-semibold text-text-primary">Delete Draft</h2>
+                <ExclamationTriangleIcon className="h-5 w-5 text-error" />
+                <h2 className="text-base font-semibold text-text-primary">Delete Draft</h2>
               </div>
               <button
                 onClick={() => !deleteModal.isDeleting && setDeleteModal(prev => ({ ...prev, isOpen: false }))}
-                className="p-1 text-text-secondary hover:text-text-primary rounded transition-colors duration-fast"
+                className="rounded-md p-1.5 text-text-secondary transition-colors duration-fast hover:bg-bg-hover hover:text-text-primary"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
             {/* Body */}
-            <div className="px-6 py-6">
-              <p className="text-text-secondary mb-2">Are you sure you want to delete</p>
-              <p className="font-semibold text-text-primary mb-4 break-words">"{deleteModal.draftTitle}"</p>
-              <p className="text-text-muted text-sm leading-relaxed">
+            <div className="px-5 py-5">
+              <p className="mb-2 text-sm font-medium text-text-secondary">Are you sure you want to delete</p>
+              <p className="mb-4 break-words text-sm font-semibold text-text-primary">"{deleteModal.draftTitle}"</p>
+              <p className="text-sm leading-6 text-text-secondary">
                 This will permanently delete the draft, its analysis, all claims, gaps, and feedback. This action cannot be undone.
               </p>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 px-6 pb-6">
+            <div className="flex gap-2 border-t border-border-default bg-bg-void/35 px-5 py-4">
               <button
                 onClick={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
                 disabled={deleteModal.isDeleting}
-                className="flex-1 px-4 py-3 rounded-xl border border-border-default text-text-secondary font-semibold hover:text-text-primary hover:border-border-subtle transition-all duration-fast disabled:opacity-50"
+                className="flex-1 rounded-md border border-border-default px-3 py-2 text-sm font-semibold text-text-secondary transition-all duration-fast hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={deleteModal.isDeleting}
-                className="flex-1 px-4 py-3 rounded-xl bg-error text-white font-semibold hover:bg-error/90 transition-all duration-fast disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex flex-1 items-center justify-center gap-2 rounded-md bg-error px-3 py-2 text-sm font-semibold text-white transition-all duration-fast hover:bg-error/90 disabled:opacity-50"
               >
                 {deleteModal.isDeleting ? (
                   <>

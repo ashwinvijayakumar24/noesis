@@ -1,631 +1,271 @@
-import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { NoesisLogo } from '../components/ui/NoesisLogo'
+import { useEffect, type ReactNode } from 'react'
 import {
-  ShieldCheckIcon,
-  LockClosedIcon,
-  ServerIcon,
+  ClockIcon,
   CloudIcon,
   DocumentTextIcon,
-  UserGroupIcon,
-  ClockIcon,
   GlobeAltIcon,
+  LockClosedIcon,
+  ServerIcon,
+  ShieldCheckIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline'
+import PublicLayout from '../components/layout/PublicLayout'
+
+const Section = ({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof ShieldCheckIcon
+  title: string
+  children: ReactNode
+}) => (
+  <section className="rounded-lg border border-border-default bg-bg-surface p-5 sm:p-6">
+    <div className="mb-4 flex items-center gap-3">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-default bg-bg-elevated">
+        <Icon className="h-4 w-4 text-accent-primary" />
+      </div>
+      <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+    </div>
+    <div className="space-y-4 text-sm leading-6 text-text-secondary">{children}</div>
+  </section>
+)
+
+const BulletList = ({ children }: { children: ReactNode }) => (
+  <ul className="space-y-2 pl-4">{children}</ul>
+)
+
+const Bullet = ({ children }: { children: ReactNode }) => (
+  <li className="list-disc pl-1">{children}</li>
+)
+
+const Strong = ({ children }: { children: ReactNode }) => (
+  <span className="font-semibold text-text-primary">{children}</span>
+)
 
 export default function PrivacyPolicy() {
   useEffect(() => {
-    document.title = 'Privacy Policy - Noesis'
     window.scrollTo(0, 0)
+    document.title = 'Privacy Policy | Noesis'
   }, [])
 
-  const fadeIn = {
-    initial: { opacity: 0, y: 12 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.5 }
-  }
-
-  const sections = [
-    {
-      icon: DocumentTextIcon,
-      title: 'Information We Collect',
-      id: 'information-collected',
-      content: (
-        <>
-          <p className="text-text-secondary mb-4">
-            We collect information necessary to provide our research intelligence services:
-          </p>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-semibold text-text-primary mb-2">Account Information</h4>
-              <ul className="list-disc pl-6 space-y-2 text-text-secondary">
-                <li>Email address (for authentication and communication)</li>
-                <li>Name (optional, for personalization)</li>
-                <li>Account creation date and last login</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-text-primary mb-2">Research Content</h4>
-              <ul className="list-disc pl-6 space-y-2 text-text-secondary">
-                <li>Research drafts (PDF, DOCX, TXT files)</li>
-                <li>Literature documents (PDF files)</li>
-                <li>Project titles and descriptions</li>
-                <li>Research questions, annotations, and analysis requests</li>
-                <li>Annotations and notes</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-text-primary mb-2">Usage Analytics</h4>
-              <ul className="list-disc pl-6 space-y-2 text-text-secondary">
-                <li>Feature usage patterns (documents uploaded, analyses run)</li>
-                <li>Session duration and activity timestamps</li>
-                <li>Error logs (with sensitive content redacted)</li>
-              </ul>
-            </div>
-          </div>
-        </>
-      )
-    },
-    {
-      icon: ShieldCheckIcon,
-      title: 'How We Use Your Information',
-      id: 'how-we-use',
-      content: (
-        <>
-          <p className="text-text-secondary mb-4">
-            Your data is used exclusively to provide and improve our research intelligence services:
-          </p>
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-accent-primary"></div>
-              <div>
-                <p className="font-semibold text-text-primary">Provide AI Analysis Services</p>
-                <p className="text-sm text-text-secondary">Process your drafts and documents to generate insights, identify claims, suggest citations, and provide reviewer-style feedback.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-accent-primary"></div>
-              <div>
-                <p className="font-semibold text-text-primary">Improve Platform Features</p>
-                <p className="text-sm text-text-secondary">Analyze aggregated usage patterns to enhance accuracy, speed, and user experience (no individual research content is used).</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-accent-primary"></div>
-              <div>
-                <p className="font-semibold text-text-primary">Send Service Notifications</p>
-                <p className="text-sm text-text-secondary">Notify you about analysis completion, quota limits, and critical system updates.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-accent-primary"></div>
-              <div>
-                <p className="font-semibold text-text-primary">Ensure Security & Compliance</p>
-                <p className="text-sm text-text-secondary">Monitor for abuse, maintain system integrity, and comply with legal obligations.</p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-6 p-4 bg-red-900/10 border border-red-500/20 rounded-lg">
-            <p className="text-sm font-semibold text-red-400 mb-2">What We DO NOT Do:</p>
-            <ul className="text-sm text-red-300 space-y-1 list-disc pl-5">
-              <li>We do not send marketing emails without explicit consent</li>
-              <li>We do not share your research with other users</li>
-              <li>We do not sell your data to third parties</li>
-              <li>We do not use your content for AI model training</li>
-            </ul>
-          </div>
-        </>
-      )
-    },
-    {
-      icon: CloudIcon,
-      title: 'Third-Party Services',
-      id: 'third-party',
-      content: (
-        <>
-          <p className="text-text-secondary mb-4">
-            Noesis uses the following trusted third-party services to deliver our platform:
-          </p>
-          <div className="space-y-4">
-            <div className="p-4 bg-surface border border-border-base rounded-lg">
-              <div className="flex items-start gap-3 mb-2">
-                <ServerIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-text-primary">OpenAI (AI Processing)</h4>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Purpose:</strong> Powers AI analysis and embeddings (text-embedding-3-small)
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Data Handling:</strong> Research content is sent only to the providers needed to run analysis, and it is not used to train models.
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Privacy Policy:</strong>{' '}
-                    <a
-                      href="https://openai.com/policies/privacy-policy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent-primary hover:text-accent-hover underline"
-                    >
-                      OpenAI Privacy Policy
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-surface border border-border-base rounded-lg">
-              <div className="flex items-start gap-3 mb-2">
-                <LockClosedIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-text-primary">Supabase (Database, Auth, Storage)</h4>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Purpose:</strong> PostgreSQL database, user authentication, and file storage
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Data Handling:</strong> All data encrypted at rest and in transit. Row-Level Security ensures user isolation.
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Privacy Policy:</strong>{' '}
-                    <a
-                      href="https://supabase.com/privacy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent-primary hover:text-accent-hover underline"
-                    >
-                      Supabase Privacy Policy
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-surface border border-border-base rounded-lg">
-              <div className="flex items-start gap-3 mb-2">
-                <GlobeAltIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-text-primary">Vercel (Hosting)</h4>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Purpose:</strong> Frontend application hosting and delivery
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Data Handling:</strong> No access to user research content. Only serves static frontend assets.
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Privacy Policy:</strong>{' '}
-                    <a
-                      href="https://vercel.com/legal/privacy-policy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent-primary hover:text-accent-hover underline"
-                    >
-                      Vercel Privacy Policy
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-surface border border-border-base rounded-lg">
-              <div className="flex items-start gap-3 mb-2">
-                <ServerIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-text-primary">Sentry (Error Tracking)</h4>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Purpose:</strong> Application error monitoring and debugging
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Data Handling:</strong> PII scrubbing enabled. Research content is automatically redacted from error logs.
-                  </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    <strong>Privacy Policy:</strong>{' '}
-                    <a
-                      href="https://sentry.io/privacy/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent-primary hover:text-accent-hover underline"
-                    >
-                      Sentry Privacy Policy
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )
-    },
-    {
-      icon: ClockIcon,
-      title: 'Data Retention',
-      id: 'data-retention',
-      content: (
-        <>
-          <p className="text-text-secondary mb-4">
-            We retain your data only as long as necessary to provide our services:
-          </p>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Active Account Data</h4>
-                <p className="text-sm text-text-secondary">
-                  Retained until you delete your account or specific projects/documents
-                </p>
-              </div>
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Deleted Content</h4>
-                <p className="text-sm text-text-secondary">
-                  Permanently removed within 30 days (including backups)
-                </p>
-              </div>
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Usage Analytics</h4>
-                <p className="text-sm text-text-secondary">
-                  Aggregated analytics retained indefinitely (no personal identifiers)
-                </p>
-              </div>
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Legal Compliance</h4>
-                <p className="text-sm text-text-secondary">
-                  Minimal data retained if required by law (audit logs, billing records)
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 p-4 bg-green-900/10 border border-green-500/20 rounded-lg">
-              <p className="text-sm font-semibold text-green-400 mb-2">Your Control:</p>
-              <p className="text-sm text-green-300">
-                You can delete individual documents, projects, or your entire account at any time from your dashboard. Deletion is permanent and cannot be undone.
-              </p>
-            </div>
-          </div>
-        </>
-      )
-    },
-    {
-      icon: LockClosedIcon,
-      title: 'Data Security',
-      id: 'data-security',
-      content: (
-        <>
-          <p className="text-text-secondary mb-4">
-            We implement industry-standard security measures to protect your research:
-          </p>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-semibold text-text-primary mb-3">Technical Security Measures</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 mt-2 rounded-full bg-accent-primary flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Encryption</p>
-                    <p className="text-xs text-text-muted">All data encrypted at rest (AES-256) and in transit (TLS 1.3)</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 mt-2 rounded-full bg-accent-primary flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Row-Level Security</p>
-                    <p className="text-xs text-text-muted">Database isolation ensures you can only access your own data</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 mt-2 rounded-full bg-accent-primary flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Authentication</p>
-                    <p className="text-xs text-text-muted">JWT-based authentication with secure password hashing (bcrypt)</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 mt-2 rounded-full bg-accent-primary flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Security Headers</p>
-                    <p className="text-xs text-text-muted">CSP, HSTS, X-Frame-Options protect against common attacks</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 mt-2 rounded-full bg-accent-primary flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Rate Limiting</p>
-                    <p className="text-xs text-text-muted">Prevents abuse and protects against cost explosion attacks</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 mt-2 rounded-full bg-accent-primary flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Regular Audits</p>
-                    <p className="text-xs text-text-muted">Continuous monitoring for security vulnerabilities</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-semibold text-text-primary mb-3">AI Processing Security</h4>
-              <ul className="space-y-2 text-sm text-text-secondary">
-                <li className="flex items-start gap-2">
-                  <span className="text-accent-primary">•</span>
-                  <span><strong>No Model Training:</strong> Your research content is not used to train models</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent-primary">•</span>
-                  <span><strong>No Cross-User Contamination:</strong> Your data never appears in other users' results</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent-primary">•</span>
-                  <span><strong>In-Memory Processing:</strong> No temporary files stored on disk during analysis</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </>
-      )
-    },
-    {
-      icon: UserGroupIcon,
-      title: 'Your Privacy Rights (GDPR/CCPA)',
-      id: 'user-rights',
-      content: (
-        <>
-          <p className="text-text-secondary mb-4">
-            You have comprehensive control over your data:
-          </p>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4">
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Right to Access</h4>
-                <p className="text-sm text-text-secondary mb-2">
-                  View and download all data associated with your account.
-                </p>
-                <p className="text-xs text-text-muted font-mono">
-                  Available in: Dashboard → Settings → Export Data
-                </p>
-              </div>
-
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Right to Deletion</h4>
-                <p className="text-sm text-text-secondary mb-2">
-                  Permanently delete your account and all associated data.
-                </p>
-                <p className="text-xs text-text-muted font-mono">
-                  Available in: Dashboard → Settings → Delete Account
-                </p>
-              </div>
-
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Right to Portability</h4>
-                <p className="text-sm text-text-secondary mb-2">
-                  Export your data in machine-readable formats (JSON, BibTeX, PDF).
-                </p>
-                <p className="text-xs text-text-muted font-mono">
-                  Available in: Project pages → Export options
-                </p>
-              </div>
-
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Right to Opt-Out</h4>
-                <p className="text-sm text-text-secondary mb-2">
-                  Disable optional analytics and email notifications.
-                </p>
-                <p className="text-xs text-text-muted font-mono">
-                  Available in: Dashboard → Settings → Privacy Preferences
-                </p>
-              </div>
-
-              <div className="p-4 bg-surface border border-border-base rounded-lg">
-                <h4 className="font-semibold text-text-primary mb-2">Right to Rectification</h4>
-                <p className="text-sm text-text-secondary mb-2">
-                  Correct inaccurate personal information at any time.
-                </p>
-                <p className="text-xs text-text-muted font-mono">
-                  Available in: Dashboard → Settings → Account Information
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-lg">
-              <p className="text-sm font-semibold text-blue-400 mb-2">Need Help?</p>
-              <p className="text-sm text-blue-300">
-                To exercise any of these rights or if you have questions, contact us at{' '}
-                <a href="mailto:privacy@noesis.app" className="underline hover:text-blue-200">
-                  privacy@noesis.app
-                </a>
-              </p>
-              <p className="text-xs text-blue-400 mt-2">We respond to all requests within 30 days.</p>
-            </div>
-          </div>
-        </>
-      )
-    },
-  ]
-
   return (
-    <div className="min-h-screen bg-bg-base text-text-primary">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-bg-base/80 backdrop-blur-sm border-b border-border-base">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center">
-              <NoesisLogo size="md" />
-            </Link>
-            <Link
-              to="/"
-              className="px-4 py-2 text-sm font-medium text-text-tertiary hover:text-text-primary transition-colors"
-            >
-              Back to Home
-            </Link>
+    <PublicLayout>
+      <main>
+        <section className="border-b border-border-default px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-4xl">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-secondary">
+              <ShieldCheckIcon className="h-4 w-4 text-accent-primary" />
+              Privacy Policy
+            </div>
+            <h1 className="text-4xl font-heading font-semibold leading-tight text-text-primary sm:text-5xl">
+              How Noesis handles research drafts and data.
+            </h1>
+            <p className="mt-5 max-w-3xl text-base leading-7 text-text-secondary sm:text-lg">
+              Noesis is built for unpublished academic work. This policy explains what we collect,
+              how draft analysis works, who processes data, and what is retained.
+            </p>
+            <p className="mt-4 font-mono text-xs text-text-muted">Last updated: May 27, 2026</p>
           </div>
-        </div>
-      </nav>
+        </section>
 
-      {/* Header */}
-      <section className="pt-32 pb-16 px-6 sm:px-8">
-        <div className="max-w-4xl mx-auto">
-          <motion.div {...fadeIn}>
-            <div className="flex items-center gap-3 mb-6">
-              <ShieldCheckIcon className="h-12 w-12 text-accent-primary" />
-              <h1 className="text-4xl md:text-5xl font-serif font-bold text-text-primary">
-                Privacy Policy
-              </h1>
+        <section className="px-4 py-12 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-4xl space-y-5">
+            <div className="rounded-xl border border-border-default bg-bg-surface p-5 shadow-xs sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-4 border-b border-border-default pb-4">
+                <h2 className="text-lg font-semibold text-text-primary">Plain-English Summary</h2>
+                <span className="hidden rounded-md border border-border-default bg-bg-elevated px-2.5 py-1 font-mono text-[11px] text-text-tertiary sm:inline-flex">
+                  Data handling
+                </span>
+              </div>
+              <BulletList>
+                <Bullet>
+                  <Strong>Your drafts are private to your account.</Strong> Draft files are stored in
+                  private Supabase Storage buckets, not public buckets.
+                </Bullet>
+                <Bullet>
+                  <Strong>Noesis uses provider APIs, not consumer chat products.</Strong> Draft analysis
+                  is processed through the OpenAI API and backend services.
+                </Bullet>
+                <Bullet>
+                  <Strong>We do not train Noesis models on your drafts.</Strong> We also do not sell
+                  manuscripts, projects, literature collections, or generated feedback.
+                </Bullet>
+                <Bullet>
+                  <Strong>Drafts remain available until you delete them.</Strong> This lets you reopen
+                  the PDF, revisit feedback, export reports, and compare revisions.
+                </Bullet>
+                <Bullet>
+                  <Strong>External literature services do not receive full draft files.</Strong> They
+                  receive only the search terms, identifiers, claims, or short queries needed to find
+                  relevant papers.
+                </Bullet>
+              </BulletList>
             </div>
-            <p className="text-lg text-text-secondary mb-4">
-              Your research is private and secure. This policy explains how we collect, use, and protect your data.
-            </p>
-            <p className="text-sm text-text-muted font-mono">
-              Last Updated: February 14, 2026
-            </p>
-          </motion.div>
-        </div>
-      </section>
 
-      {/* Quick Summary */}
-      <section className="pb-12 px-6 sm:px-8">
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <div className="p-6 bg-accent-primary/5 border border-accent-primary/20 rounded-xl">
-              <h2 className="text-xl font-semibold text-text-primary mb-4">Privacy Commitment (TL;DR)</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-start gap-3">
-                  <ShieldCheckIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-text-primary">Your Data is Private</p>
-                    <p className="text-text-muted">Never shared with other users or sold to third parties</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <LockClosedIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-text-primary">No Model Training</p>
-                    <p className="text-text-muted">Your research content is not used to train models</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <ServerIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-text-primary">Complete User Isolation</p>
-                    <p className="text-text-muted">Row-Level Security ensures account-level separation</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <UserGroupIcon className="h-5 w-5 text-accent-primary flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-text-primary">You Have Control</p>
-                    <p className="text-text-muted">Access, export, or delete your data anytime</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+            <Section icon={DocumentTextIcon} title="Information We Collect">
+              <p>We collect the information needed to run Noesis and analyze your research work.</p>
+              <BulletList>
+                <Bullet>
+                  <Strong>Account information:</Strong> email address, authentication identifiers,
+                  login metadata, and optional OAuth profile information if you sign in with Google.
+                </Bullet>
+                <Bullet>
+                  <Strong>Research content:</Strong> projects, project descriptions, uploaded PDFs,
+                  BibTeX references, draft manuscripts, extracted text, citation metadata, generated
+                  feedback, reviewer-style tasks, anchors, and exports you request.
+                </Bullet>
+                <Bullet>
+                  <Strong>Usage and diagnostic data:</Strong> quota usage, feature events, processing
+                  status, performance data, and error reports. We scrub logs to avoid storing raw
+                  manuscript text in diagnostics.
+                </Bullet>
+                <Bullet>
+                  <Strong>Billing data:</Strong> if you purchase a paid plan, payment and subscription
+                  metadata is handled by Stripe. We do not store full card numbers.
+                </Bullet>
+              </BulletList>
+            </Section>
 
-      {/* Main Content Sections */}
-      <section className="pb-20 px-6 sm:px-8">
-        <div className="max-w-4xl mx-auto space-y-12">
-          {sections.map((section, index) => (
-            <motion.div
-              key={section.id}
-              id={section.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 * (index + 2) }}
-              className="scroll-mt-24"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <section.icon className="h-8 w-8 text-accent-primary" />
-                <h2 className="text-2xl font-serif font-semibold text-text-primary">
-                  {section.title}
-                </h2>
-              </div>
-              <div className="pl-11">
-                {section.content}
-              </div>
-            </motion.div>
-          ))}
-
-          {/* Contact Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-            className="pt-8 border-t border-border-base"
-          >
-            <h2 className="text-2xl font-serif font-semibold text-text-primary mb-6">
-              Contact Us
-            </h2>
-            <div className="space-y-4 text-text-secondary">
+            <Section icon={ServerIcon} title="How We Use Your Data">
+              <p>We use your data to provide the product and protect the service.</p>
+              <BulletList>
+                <Bullet>Authenticate users and keep projects scoped to the correct account.</Bullet>
+                <Bullet>Store literature libraries, drafts, generated analyses, and exports.</Bullet>
+                <Bullet>
+                  Analyze manuscripts for claims, citation gaps, coverage gaps, reviewer-style
+                  critique, readiness scoring, and revision tasks.
+                </Bullet>
+                <Bullet>Search external scholarly sources for relevant citations and paper metadata.</Bullet>
+                <Bullet>Enforce quotas, prevent abuse, debug failures, and maintain security.</Bullet>
+              </BulletList>
               <p>
-                If you have questions about this Privacy Policy or our data practices, please contact us:
+                We do not use your unpublished drafts to train Noesis models, and we do not sell your
+                research content.
               </p>
-              <div className="p-4 bg-surface border border-border-base rounded-lg space-y-2">
-                <p className="text-sm">
-                  <strong className="text-text-primary">Email:</strong>{' '}
-                  <a href="mailto:privacy@noesis.app" className="text-accent-primary hover:text-accent-hover underline">
-                    privacy@noesis.app
-                  </a>
-                </p>
-                <p className="text-sm">
-                  <strong className="text-text-primary">Response Time:</strong> Within 48 hours for privacy concerns
-                </p>
-                <p className="text-sm">
-                  <strong className="text-text-primary">GDPR/CCPA Requests:</strong> Processed within 30 days
-                </p>
-              </div>
-            </div>
-          </motion.div>
+            </Section>
 
-          {/* Updates */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.9 }}
-            className="pt-8 border-t border-border-base"
-          >
-            <h2 className="text-2xl font-serif font-semibold text-text-primary mb-6">
-              Policy Updates
-            </h2>
-            <p className="text-text-secondary mb-4">
-              We may update this Privacy Policy periodically to reflect changes in our practices or legal requirements.
-            </p>
-            <div className="p-4 bg-surface border border-border-base rounded-lg">
-              <ul className="space-y-2 text-sm text-text-secondary">
-                <li className="flex items-start gap-2">
-                  <span className="text-accent-primary">•</span>
-                  <span><strong>Material Changes:</strong> We'll notify you via email at least 30 days before changes take effect</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent-primary">•</span>
-                  <span><strong>Minor Updates:</strong> Posted on this page with an updated "Last Updated" date</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-accent-primary">•</span>
-                  <span><strong>Your Options:</strong> Continued use constitutes acceptance; you may delete your account if you disagree</span>
-                </li>
-              </ul>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+            <Section icon={CloudIcon} title="Draft Analysis Data Flow">
+              <p>When you upload a draft, the current architecture works like this:</p>
+              <BulletList>
+                <Bullet>
+                  The draft file is uploaded to a private Supabase Storage bucket and associated with
+                  your authenticated user and project.
+                </Bullet>
+                <Bullet>
+                  The backend retrieves the file, extracts text and page-level context, and sends the
+                  necessary text, claims, or chunks to the OpenAI API for analysis and embeddings.
+                </Bullet>
+                <Bullet>
+                  Background workers process analysis jobs. Queue and progress records are minimized
+                  and are intended to carry job state rather than full manuscript files.
+                </Bullet>
+                <Bullet>
+                  Noesis stores the generated analysis, revision tasks, citation checks, short anchors,
+                  and metadata needed to show the results again without requiring a full rerun.
+                </Bullet>
+                <Bullet>
+                  The uploaded draft remains stored so you can reopen it, view page anchors, export
+                  results, and compare future revisions. Deleting the draft removes the stored file and
+                  associated analysis data.
+                </Bullet>
+              </BulletList>
+            </Section>
 
-      {/* Footer */}
-      <footer className="py-12 px-6 sm:px-8 border-t border-border-base">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center">
-              <NoesisLogo size="md" />
-            </div>
-            <div className="text-text-muted text-sm font-mono">
-              © 2026 Noesis. All rights reserved.
-            </div>
-            <div className="flex items-center gap-6 text-text-muted text-sm">
-              <Link to="/privacy" className="hover:text-text-secondary transition-colors">Privacy</Link>
-              <a href="#" className="hover:text-text-secondary transition-colors">Terms</a>
-              <a href="mailto:privacy@noesis.app" className="hover:text-text-secondary transition-colors">Contact</a>
-            </div>
+            <Section icon={GlobeAltIcon} title="Third-Party Processors">
+              <p>Noesis depends on a small number of infrastructure and AI providers.</p>
+              <BulletList>
+                <Bullet>
+                  <Strong>Supabase:</Strong> authentication, PostgreSQL database, and private file
+                  storage for drafts and literature uploads.
+                </Bullet>
+                <Bullet>
+                  <Strong>OpenAI API:</Strong> draft analysis, structured feedback generation, and
+                  embeddings. Noesis uses API calls from the backend, not consumer ChatGPT sessions.
+                </Bullet>
+                <Bullet>
+                  <Strong>PubMed, Semantic Scholar, OpenAlex, and arXiv:</Strong> literature search and
+                  metadata lookup. We send targeted search queries, paper identifiers, extracted claims,
+                  or citation context rather than full draft PDFs.
+                </Bullet>
+                <Bullet><Strong>Vercel and AWS:</Strong> frontend and backend hosting infrastructure.</Bullet>
+                <Bullet><Strong>Sentry:</Strong> error monitoring with sensitive-content scrubbing.</Bullet>
+                <Bullet><Strong>Stripe:</Strong> payments and subscription management for paid plans.</Bullet>
+              </BulletList>
+            </Section>
+
+            <Section icon={ClockIcon} title="Retention and Deletion">
+              <p>
+                Drafts are not automatically deleted immediately after processing because Noesis uses
+                them to support PDF viewing, page anchors, exports, reruns, and revision comparison.
+              </p>
+              <BulletList>
+                <Bullet>
+                  <Strong>Drafts:</Strong> retained while the draft exists in your project. When you
+                  delete a draft, Noesis deletes the stored draft file and associated analysis records.
+                </Bullet>
+                <Bullet>
+                  <Strong>Projects and literature:</Strong> retained until you delete the relevant
+                  project, document, or account.
+                </Bullet>
+                <Bullet>
+                  <Strong>Generated analysis:</Strong> retained so you can return to prior feedback and
+                  compare revisions, unless the draft or project is deleted.
+                </Bullet>
+                <Bullet>
+                  <Strong>Operational records:</Strong> quota, billing, security, and diagnostic
+                  records may be retained as needed to operate the service, resolve disputes, prevent
+                  abuse, and meet legal obligations.
+                </Bullet>
+              </BulletList>
+              <p>
+                If a deletion request fails or you want account-level deletion, contact us and we will
+                help remove the relevant data.
+              </p>
+            </Section>
+
+            <Section icon={LockClosedIcon} title="Security">
+              <p>We use practical security controls appropriate for a production academic SaaS.</p>
+              <BulletList>
+                <Bullet>Private storage buckets for uploaded drafts and documents.</Bullet>
+                <Bullet>Authenticated API access and user-scoped authorization checks.</Bullet>
+                <Bullet>Encrypted connections through HTTPS/TLS for hosted product traffic.</Bullet>
+                <Bullet>Provider-managed encryption at rest for database and storage services.</Bullet>
+                <Bullet>Log scrubbing to reduce the risk of manuscript text appearing in logs.</Bullet>
+                <Bullet>Secrets managed through environment configuration rather than frontend code.</Bullet>
+              </BulletList>
+              <p>
+                Noesis has not completed SOC 2 Type II certification. We are prioritizing correct
+                architecture, data minimization, and transparent claims before pursuing formal
+                compliance programs.
+              </p>
+            </Section>
+
+            <Section icon={UserGroupIcon} title="Your Choices">
+              <BulletList>
+                <Bullet>You can delete drafts and projects you no longer want stored.</Bullet>
+                <Bullet>You can export available project and analysis outputs from supported screens.</Bullet>
+                <Bullet>You can contact us to request account deletion or ask what data is associated with your account.</Bullet>
+                <Bullet>You can choose not to upload unpublished work if you are not comfortable with the processing flow above.</Bullet>
+              </BulletList>
+            </Section>
+
+            <Section icon={ShieldCheckIcon} title="Contact and Updates">
+              <p>
+                For privacy questions, deletion requests, or security concerns, contact{' '}
+                <a className="text-accent-primary transition-colors hover:text-accent-hover" href="mailto:avijayakumar41@gatech.edu">
+                  avijayakumar41@gatech.edu
+                </a>
+                .
+              </p>
+              <p>
+                We may update this policy as the product changes. When we make material changes, we
+                will update the date above and, when appropriate, notify users in the product.
+              </p>
+            </Section>
           </div>
-        </div>
-      </footer>
-    </div>
+        </section>
+      </main>
+    </PublicLayout>
   )
 }
