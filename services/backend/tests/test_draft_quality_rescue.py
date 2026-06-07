@@ -373,6 +373,49 @@ class TestExternalRetrievalQualityGates:
         assert tasks[0]["duplicate_count"] == 1
 
     @pytest.mark.unit
+    def test_same_section_same_type_platform_terms_tasks_merge(self):
+        """Two methodology tasks in the same section about restrictive platform
+        search terms must consolidate to one (the reported Tasks 7 & 9 duplicate)."""
+        from app.workflows.draft_analysis.revision_tasks import consolidate_revision_tasks
+
+        tasks = consolidate_revision_tasks([
+            {
+                "id": "t7", "task_type": "methodology", "severity": "major", "priority": "medium",
+                "section": "Methods",
+                "problem": "The search strategy appears to rely heavily on named platforms and may not include broader terms capturing adolescent digital exposure.",
+                "suggested_action": "Add platform-agnostic search terms such as social networking sites and digital media.",
+            },
+            {
+                "id": "t9", "task_type": "methodology", "severity": "major", "priority": "medium",
+                "section": "Methods/Search Strategy",
+                "problem": "The platform search terms may be too restrictive for adolescent social-media exposure.",
+                "suggested_action": "Broaden the platform search terms to capture adolescent digital exposure.",
+            },
+        ])
+        assert len(tasks) == 1, f"expected merge, got {[t['problem'][:40] for t in tasks]}"
+
+    @pytest.mark.unit
+    def test_different_type_same_section_tasks_do_not_over_merge(self):
+        """Guard: distinct task_types in the same section must NOT be force-merged."""
+        from app.workflows.draft_analysis.revision_tasks import consolidate_revision_tasks
+
+        tasks = consolidate_revision_tasks([
+            {
+                "id": "a", "task_type": "methodology", "severity": "major", "priority": "medium",
+                "section": "Methods",
+                "problem": "The search strategy omits gray literature and preprints.",
+                "suggested_action": "Search registries and preprint servers.",
+            },
+            {
+                "id": "b", "task_type": "clarity", "severity": "minor", "priority": "low",
+                "section": "Methods",
+                "problem": "Several method subsections lack clear headings and are hard to follow.",
+                "suggested_action": "Add descriptive subsection headings.",
+            },
+        ])
+        assert len(tasks) == 2
+
+    @pytest.mark.unit
     def test_parser_artifact_tasks_suppressed_for_grobid_spacing_flags(self):
         from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
 
@@ -625,6 +668,50 @@ class TestQualityV2Diagnostics:
         # No sample-paper leakage in generalized findings.
         assert "sepsis" not in problems
         assert "salient" not in problems
+
+    @pytest.mark.unit
+    def test_public_health_review_has_no_clinical_ai_text_bleed(self):
+        """Cross-domain de-hardcode: a public-health/social-media systematic review
+        must NOT emit clinical-AI/EHR/sepsis wording from the shared systematic-review
+        diagnostic checks (the reported 'clinical AI deployments' leak)."""
+        from app.workflows.draft_analysis.nodes.diagnostic_findings import diagnostic_findings_node
+
+        draft = """
+        ## Introduction
+        This systematic review examines the real-world impact of social media use on
+        adolescent mental health.
+        ## Methods
+        The systematic review followed PRISMA. We searched PubMed, Embase, and
+        PsycINFO for titles and abstracts published in English. Risk of bias was
+        assessed with the NIH Quality Assessment Tool.
+        ## Results
+        Most included studies were cross-sectional. Reported associations varied.
+        ## Discussion
+        Findings suggest social media exposure correlates with anxiety.
+        """
+        profile = {
+            "genre": "systematic_review",
+            "review_lenses": ["systematic_review_methods", "behavioral_health", "risk_of_bias"],
+            "domain_tags": ["adolescent_mental_health", "behavioral_health", "psychology", "public_health"],
+        }
+        result = diagnostic_findings_node({
+            "draft_id": "d", "project_id": "p", "user_id": "u",
+            "draft_content": draft, "paper_type": "journal_article",
+            "manuscript_profile": profile,
+            "current_step": "diagnostics", "progress_percentage": 77, "reviewer_outputs": [],
+        })
+        blob = " ".join(
+            f"{f.get('problem','')} {f.get('why_it_matters','')} {f.get('suggested_action','')}"
+            for f in result["diagnostic_findings"]
+        ).lower()
+
+        # The systematic-review checks still fire (gray-literature/source breadth),
+        # but with domain-neutral wording — no clinical-AI/EHR/sepsis bleed.
+        assert result["diagnostic_findings"], "expected systematic-review findings to fire"
+        assert "clinical ai" not in blob
+        assert "ehr" not in blob
+        assert "sepsis" not in blob
+        assert "electronic health record" not in blob
 
     @pytest.mark.unit
     def test_diagnostics_catch_english_language_search_restriction(self):

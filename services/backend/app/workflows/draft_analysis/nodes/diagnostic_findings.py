@@ -105,33 +105,34 @@ def _systematic_review_findings(text: str) -> list[dict[str, Any]]:
             section_reference="Methods/Limitations",
             anchor_text=_snippet(text, r"English.{0,160}(title|abstract|language)|title.{0,160}abstract.{0,160}English", ""),
             problem="The search appears restricted to English-language titles or abstracts, but the limitation is not sufficiently handled.",
-            why_it_matters="Language restrictions can bias systematic reviews, especially for international clinical AI deployments that may be reported outside English-language venues.",
+            why_it_matters="Language restrictions can bias systematic reviews by under-representing relevant work published in other languages or in internationally focused venues.",
             suggested_action="Explicitly acknowledge the English-language search restriction in the Limitations section and discuss how it may affect completeness and generalizability.",
         ))
 
+    # Gray-literature / source-breadth check — domain-agnostic. Applies to any
+    # applied/real-world systematic review, not just clinical ones.
     if (
-        _has_any(lower, ["systematic review", "implementation", "deployed", "real-world", "real world"])
-        and _has_any(lower, ["clinical", "hospital", "ehr", "electronic health record", "algorithm"])
-        and not _has_any(lower, ["gray literature", "grey literature", "white paper", "quality improvement report", "vendor report", "preprint"])
+        _has_any(lower, ["systematic review", "implementation", "deployed", "real-world", "real world", "applied", "in practice"])
+        and not _has_any(lower, ["gray literature", "grey literature", "white paper", "quality improvement report", "technical report", "vendor report", "preprint", "registries", "registry"])
     ):
         findings.append(_finding(
             finding_type="systematic_review",
             severity="major",
             section_reference="Methods/Search Strategy",
-            anchor_text=_snippet(text, r"database.{0,180}search|searched.{0,260}(PubMed|Embase|Scopus|Web of Science|CINAHL)|PubMed.{0,260}(Embase|Web of Science|Scopus|CINAHL)", ""),
-            problem="The search strategy does not clearly include gray literature, registries, or implementation reports for real-world clinical AI deployments.",
-            why_it_matters="Implemented clinical systems are often described in trial registries, hospital quality-improvement reports, technical white papers, or preprints rather than peer-reviewed articles alone.",
-            suggested_action="State whether gray literature, registries, preprints, vendor reports, or hospital implementation reports were searched; if not, justify this as a limitation.",
+            anchor_text=_snippet(text, r"database.{0,180}search|searched.{0,260}(PubMed|Embase|Scopus|Web of Science|CINAHL|PsycINFO)|PubMed.{0,260}(Embase|Web of Science|Scopus|CINAHL)", ""),
+            problem="The search strategy may not capture relevant sources beyond peer-reviewed journals (e.g. registries, preprints, gray literature, or reports).",
+            why_it_matters="Relevant evidence is often reported outside peer-reviewed articles — in registries, preprints, theses, or organizational/technical reports — and omitting these sources can bias a systematic review.",
+            suggested_action="State whether gray literature, registries, preprints, and other relevant reports were searched; if not, justify this as a limitation.",
         ))
 
-    if _has_any(lower, ["mortality", "effect size", "reduction"]) and not _has_any(lower, ["meta-analysis", "pooled", "i2", "heterogeneity statistic", "forest plot"]):
+    if _has_any(lower, ["mortality", "relative risk", "odds ratio", "hazard ratio", "effect estimate"]) and not _has_any(lower, ["meta-analysis", "pooled", "i2", "heterogeneity statistic", "forest plot"]):
         findings.append(_finding(
             finding_type="systematic_review",
             severity="critical",
             section_reference="Results/Discussion",
-            anchor_text=_snippet(text, r"mortality.{0,300}(reduction|reduced|decreased)|reduced.{0,200}mortality", "mortality outcome synthesis"),
-            problem="The manuscript interprets mortality reductions but does not provide a formal quantitative synthesis or a rigorous no-pooling justification.",
-            why_it_matters="A reviewer will want extracted absolute/relative effects, confidence intervals, and heterogeneity reasoning before accepting claims about mortality impact.",
+            anchor_text=_snippet(text, r"(mortality|relative risk|odds ratio|hazard ratio).{0,300}(reduction|reduced|decreased|increase|association)", "quantitative effect synthesis"),
+            problem="The manuscript interprets quantitative effect estimates (e.g. mortality or relative-risk changes) but does not provide a formal synthesis or a rigorous no-pooling justification.",
+            why_it_matters="A reviewer will want extracted absolute/relative effects, confidence intervals, and heterogeneity reasoning before accepting quantitative impact or mortality claims.",
             suggested_action="Either perform a meta-analysis where defensible, or add a no-pooling justification with a forest plot or structured table of effect sizes, study design, adjustment, and risk of bias.",
         ))
 
@@ -210,7 +211,7 @@ def _clinical_ai_findings(text: str) -> list[dict[str, Any]]:
             section_reference="Discussion/Conclusion",
             anchor_text=_snippet(text, r"potential to reduce mortality|reduced mortality|confounding bias", "mortality causal claim"),
             problem="The mortality benefit claim remains vulnerable to causal overstatement despite acknowledged observational confounding.",
-            why_it_matters="Clinical reviewers will separate algorithm effect from concurrent sepsis-awareness campaigns, care bundles, staffing, and baseline patient differences.",
+            why_it_matters="Clinical reviewers will separate the algorithm's effect from concurrent care-process changes, awareness campaigns, staffing, and baseline patient differences.",
             suggested_action="Rewrite the conclusion around association and plausibility, and add a causal chain table separating algorithm performance, clinician adoption, process change, and patient outcomes.",
         ))
 

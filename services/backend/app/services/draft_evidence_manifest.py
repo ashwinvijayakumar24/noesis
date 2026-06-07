@@ -289,6 +289,61 @@ def build_evidence_manifest(full_text: str, *, extra_text: str = "") -> dict[str
     }
 
 
+def stale_search_task(
+    manifest: dict[str, Any] | None,
+    reference_year: int | None,
+    *,
+    max_gap_years: int = 2,
+) -> dict[str, Any] | None:
+    """Domain-agnostic stale-search-window critique.
+
+    If the manifest's latest detected search year is >= ``max_gap_years`` before
+    ``reference_year`` (e.g. the submission/current year), return a durable-task
+    dict; otherwise None. Applies to any field — the value is purely the gap
+    between the last search and now.
+    """
+    sd = (manifest or {}).get("search_dates") or {}
+    latest = sd.get("latest_year")
+    if not sd.get("present") or not latest or not reference_year:
+        return None
+    try:
+        gap = int(reference_year) - int(latest)
+    except (TypeError, ValueError):
+        return None
+    if gap < max_gap_years:
+        return None
+    snippet = (sd.get("evidence") or [""])[0][:500]
+    return {
+        "id": f"stale_search_{latest}",
+        "source_type": "evidence_manifest",
+        "task_type": "methodology",
+        "severity": "major",
+        "priority": "high",
+        "section": "Methods/Search Strategy",
+        "problem": (
+            f"The literature search appears current only through {latest}, a {gap}-year gap "
+            f"relative to {reference_year}."
+        ),
+        "why_it_matters": (
+            "A multi-year gap between the last search and submission can miss recent evidence and "
+            "weaken the review's currency, especially in fast-moving fields."
+        ),
+        "suggested_action": (
+            f"Update the search to capture literature published since {latest}, or add a prominent "
+            f"limitation explaining how the {gap}-year gap affects the review's currency and "
+            "generalizability."
+        ),
+        "anchor_text": snippet,
+        "text_snippet": snippet,
+        "status": "new",
+        "issue_family": "search_currency",
+        "dedupe_category": "search_currency",
+        "confidence": 0.9,
+        "merged_from_task_ids": [f"stale_search_{latest}"],
+        "duplicate_count": 0,
+    }
+
+
 def manifest_summary(manifest: dict[str, Any] | None) -> dict[str, Any]:
     """Compact present/absent view for logging and prompt injection."""
     manifest = manifest or {}

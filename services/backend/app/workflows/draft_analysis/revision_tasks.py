@@ -101,6 +101,12 @@ def _jaccard(left: set[str], right: set[str]) -> float:
     return len(left & right) / max(1, len(left | right))
 
 
+def _section_key(task: dict[str, Any]) -> str:
+    """Normalized section identity: lowercase first segment before '/' or ';'."""
+    raw = str(task.get("section") or "").lower().strip()
+    return re.split(r"[/;,]", raw, maxsplit=1)[0].strip()
+
+
 def _fingerprint(*parts: str) -> str:
     normalized = _norm(" ".join(part for part in parts if part))[:220]
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:16]
@@ -302,6 +308,23 @@ def _should_merge_tasks(candidate: dict[str, Any], existing: dict[str, Any]) -> 
     # issues within the same section.
     if candidate.get("section") and candidate.get("section") == existing.get("section"):
         return token_overlap >= 0.42 and sequence_ratio >= 0.55
+
+    # Two tasks of the SAME task_type targeting the SAME section (normalized) are
+    # very likely the same underlying critique phrased differently (e.g. two
+    # "search terms are too restrictive" methodology tasks). The task_type+section
+    # match lets us merge at a more permissive overlap without collapsing distinct
+    # issues (different type or section will not reach here).
+    same_section = _section_key(candidate) and _section_key(candidate) == _section_key(existing)
+    same_type = candidate.get("task_type") and candidate.get("task_type") == existing.get("task_type")
+    if same_section and same_type:
+        # Use containment (shared / smaller set) rather than Jaccard: paraphrases of
+        # the same critique often differ in length, which deflates Jaccard but not
+        # containment. Distinct same-section issues share few content words, so
+        # containment stays low for them.
+        ctoks, etoks = set(candidate_text.split()), set(existing_text.split())
+        containment = len(ctoks & etoks) / max(1, min(len(ctoks), len(etoks)))
+        if containment >= 0.5 or token_overlap >= 0.34 or sequence_ratio >= 0.50:
+            return True
     return False
 
 
