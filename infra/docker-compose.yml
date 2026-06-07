@@ -45,7 +45,7 @@ services:
     environment:
       GROBID_URL: http://grobid:8070
       DOCLING_URL: http://docling-serve:5001
-      PDF_PARSER: ${PDF_PARSER:-grobid}
+      PDF_PARSER: ${PDF_PARSER:-docling}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
@@ -74,7 +74,7 @@ services:
       REDIS_DB: 0
       GROBID_URL: http://grobid:8070
       DOCLING_URL: http://docling-serve:5001
-      PDF_PARSER: ${PDF_PARSER:-grobid}
+      PDF_PARSER: ${PDF_PARSER:-docling}
     command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=3,1 --queues=default,analysis,insights
     depends_on:
       redis:
