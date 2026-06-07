@@ -15,7 +15,7 @@ class TestReferrals:
     ):
         """User can generate a referral code."""
         resp = await async_client.post(
-            "/api/referrals/generate-code",
+            "/api/referrals/generate",
             headers=auth_headers,
         )
         assert resp.status_code in (200, 201), f"Code generation failed: {resp.text}"
@@ -50,7 +50,7 @@ class TestReferrals:
     async def test_referral_code_generate_requires_auth(
         self, async_client: httpx.AsyncClient
     ):
-        resp = await async_client.post("/api/referrals/generate-code")
+        resp = await async_client.post("/api/referrals/generate")
         assert resp.status_code in (401, 403)
 
     async def test_invalid_referral_code_returns_error(
@@ -60,7 +60,7 @@ class TestReferrals:
     ):
         """Using an invalid referral code returns 400 or 404."""
         resp = await async_client.post(
-            "/api/referrals/use",
+            "/api/referrals/track",
             json={"referral_code": "INVALID_CODE_XYZ999"},
             headers=auth_headers,
         )

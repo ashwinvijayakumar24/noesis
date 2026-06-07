@@ -237,6 +237,38 @@ class TestExternalRetrievalQualityGates:
         assert "sepsis" in normalized["matched_keywords"]
 
     @pytest.mark.unit
+    def test_external_candidate_rejects_anthropology_for_crispr_task(self):
+        from app.services.draft_external_source_discovery import _normalize_candidate
+
+        target = {
+            "draft_id": "draft-1",
+            "target_type": "revision_task",
+            "target_id": "task-crispr",
+            "text": "Compare CRISPR Cas9 HbF editing in CD34 HSPCs against BCL11A enhancer editing and Exa-cel.",
+            "search_query": "crispr cas9 hbf cd34 hspc bcl11a exa-cel sickle editing safety",
+            "rank": 1.0,
+        }
+        bad_paper = {
+            "title": "Public secrets in public health: Knowing not to know while making scientific knowledge",
+            "abstract": "An anthropology study of clinical research field sites in Africa.",
+            "citation_count": 250,
+            "url": "https://example.test/anthropology",
+        }
+        good_paper = {
+            "title": "CRISPR Cas9 BCL11A enhancer editing for sickle cell disease",
+            "abstract": "Genome editing of CD34 HSPCs increases HbF expression for sickle cell disease therapy.",
+            "citation_count": 200,
+            "url": "https://example.test/crispr",
+        }
+
+        assert _normalize_candidate(bad_paper, target, "openalex") is None
+
+        normalized = _normalize_candidate(good_paper, target, "pubmed")
+        assert normalized is not None
+        assert normalized["relevance_score"] >= 0.70
+        assert "crispr" in normalized["matched_keywords"]
+
+    @pytest.mark.unit
     def test_citation_suggestion_validation_rejects_unknown_zero_similarity(self):
         from app.services.draft_analysis_langgraph import _valid_citation_result
 
@@ -269,6 +301,125 @@ class TestExternalRetrievalQualityGates:
         payload = _suggested_source_payload(candidate)
         assert payload["similarity"] == 0.74
         assert payload["source"] == "pubmed"
+
+    @pytest.mark.unit
+    def test_quality_judge_prunes_wrong_domain_suggested_source(self):
+        from app.services.draft_analysis_langgraph import sanitize_revision_task_sources
+
+        [task], metadata = sanitize_revision_task_sources(
+            [{
+                "id": "task-crispr",
+                "task_type": "literature_positioning",
+                "problem": "The manuscript should compare CRISPR Cas9 HbF editing in CD34 HSPCs with BCL11A enhancer editing.",
+                "suggested_action": "Add current sickle cell gene editing literature.",
+                "suggested_sources": [
+                    {
+                        "title": "Public secrets in public health: Knowing not to know while making scientific knowledge",
+                        "content": "An anthropology article about scientific knowledge and African public health field sites.",
+                        "source": "openalex",
+                        "similarity": 0.555,
+                    },
+                    {
+                        "title": "CRISPR Cas9 BCL11A enhancer editing for sickle cell disease",
+                        "content": "Genome editing of CD34 HSPCs increases HbF expression for sickle cell disease.",
+                        "source": "pubmed",
+                        "similarity": 0.86,
+                    },
+                ],
+            }],
+            manuscript_profile={
+                "routing_domain": "biology",
+                "secondary_domains": ["biomedical"],
+                "domain_tags": ["crispr"],
+            },
+            analysis_quality_judge={
+                "wrong_domain_flags": [
+                    "One suggested citation (anthropology article on public health 'public secrets') is irrelevant."
+                ],
+            },
+        )
+
+        assert len(task["suggested_sources"]) == 1
+        assert "CRISPR" in task["suggested_sources"][0]["title"]
+        assert metadata["source_safety_metrics"]["sources_pruned"] == 1
+        assert metadata["pruned_sources"][0]["reason"] in {"low_similarity", "judge_wrong_domain_flag", "wrong_domain_terms"}
+
+    @pytest.mark.unit
+    def test_post_enrichment_consolidation_merges_hpfh_overstatement_duplicates(self):
+        from app.workflows.draft_analysis.revision_tasks import consolidate_revision_tasks
+
+        tasks = consolidate_revision_tasks([
+            {
+                "id": "task-1",
+                "task_type": "causal_claim",
+                "severity": "major",
+                "priority": "medium",
+                "problem": "Equating naturally occurring germline HPFH with somatic CRISPR-mediated deletion in adult HSPCs overstates safety.",
+                "suggested_action": "Rephrase nature's clinical trial language as biological plausibility only.",
+                "anchor_text": "nature has already given a clinical trial demonstrating the efficacy and safety",
+            },
+            {
+                "id": "task-4",
+                "task_type": "causal_claim",
+                "severity": "major",
+                "priority": "medium",
+                "problem": "The statement that nature has already given a clinical trial overstates causal inference from observational human genotypes.",
+                "suggested_action": "Clarify that natural HPFH is rationale, not prospective therapeutic validation.",
+                "anchor_text": "nature has already given a clinical trial demonstrating the efficacy and safety",
+            },
+        ])
+
+        assert len(tasks) == 1
+        assert tasks[0]["duplicate_count"] == 1
+
+    @pytest.mark.unit
+    def test_parser_artifact_tasks_suppressed_for_grobid_spacing_flags(self):
+        from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
+
+        tasks = build_revision_tasks(
+            diagnostic_findings=[],
+            reviewer_outputs=[{
+                "reviewer_id": "reviewer_3",
+                "issues": [{
+                    "issue_type": "clarity",
+                    "problem": "Figure references are inconsistently formatted and CD34 + spacing appears malformed.",
+                    "why_it_matters": "This may confuse readers.",
+                    "suggested_action": "Fix malformed figure references and spacing inconsistencies.",
+                }],
+            }],
+            claims=[],
+            gaps=[],
+            structural_feedback=[],
+            structure={"document_metadata": {"grobid_extracted": True}},
+            parser_quality={"parser_quality_flags": ["possible_pdf_spacing_artifacts"]},
+        )
+
+        assert tasks == []
+
+    @pytest.mark.unit
+    def test_parse_artifact_coordinates_populate_page_and_pdf_coordinates(self):
+        from app.services.draft_analysis_langgraph import _apply_parse_artifact_anchors
+
+        [task] = _apply_parse_artifact_anchors(
+            "draft-1",
+            [{
+                "id": "task-1",
+                "problem": "The manuscript overstates CRISPR safety based on natural HPFH.",
+                "anchor_text": "Natural HPFH provides biological plausibility but does not prove CRISPR safety in edited HSPCs.",
+            }],
+            artifact={
+                "anchor_map": [{
+                    "section_title": "Discussion",
+                    "paragraph_index": 3,
+                    "coordinates": {"page": 4, "x": 10.0, "y": 20.0, "width": 100.0, "height": 30.0},
+                    "text_snippet": "Natural HPFH provides biological plausibility but does not prove CRISPR safety in edited HSPCs.",
+                }]
+            },
+        )
+
+        assert task["page_number"] == 4
+        assert task["paragraph_index"] == 3
+        assert task["pdf_coordinates"]["page"] == 4
 
     @pytest.mark.unit
     def test_revision_task_source_targets_include_literature_and_methodology_tasks(self):
@@ -421,12 +572,59 @@ class TestQualityV2Diagnostics:
         problems = " ".join(f["problem"] for f in result["diagnostic_findings"]).lower()
 
         assert "companion paper" in problems
-        assert "sepsis definitions" in problems
+        # De-hardcoded: definitional-heterogeneity finding is now condition-agnostic.
+        assert "heterogeneous definitions" in problems
         assert "data-pipeline" in problems
         assert "mortality" in problems
-        assert "epic sepsis model" in problems
+        assert "external validation" in problems
         assert "framework" in problems
         assert "exclusion" in problems
+
+    @pytest.mark.unit
+    def test_diagnostics_generalize_to_unseen_domain_without_sample_tokens(self):
+        """De-hardcode regression: the definitional-heterogeneity and framework
+        checks must fire on a manuscript from a different field with none of the
+        sample-paper tokens (no sepsis, no SALIENT, no CRISPR)."""
+        from app.workflows.draft_analysis.nodes.diagnostic_findings import diagnostic_findings_node
+
+        draft = """
+        ## Introduction
+        This systematic review maps teacher-burnout interventions onto the RESTORE
+        model, which is reported in a companion paper.
+        ## Methods
+        The systematic review followed PRISMA guidelines.
+        ## Results
+        Included studies used several different definitions of burnout, which
+        complicated synthesis across the evidence base.
+        ## Conclusion
+        This study validated the RESTORE framework and suggests it may apply to
+        other educational settings.
+        """
+        profile = {
+            "genre": "systematic_review",
+            "review_lenses": ["systematic_review_methods", "framework_validation"],
+            "domain_tags": ["education"],
+            "contribution_types": ["framework_mapping"],
+        }
+        result = diagnostic_findings_node({
+            "draft_id": "draft-1",
+            "project_id": "project-1",
+            "user_id": "user-1",
+            "draft_content": draft,
+            "paper_type": "journal_article",
+            "manuscript_profile": profile,
+            "current_step": "diagnostics",
+            "progress_percentage": 77,
+            "reviewer_outputs": [],
+        })
+        problems = " ".join(f["problem"] for f in result["diagnostic_findings"]).lower()
+
+        assert "heterogeneous definitions" in problems
+        assert "companion paper" in problems
+        assert "framework" in problems
+        # No sample-paper leakage in generalized findings.
+        assert "sepsis" not in problems
+        assert "salient" not in problems
 
     @pytest.mark.unit
     def test_diagnostics_catch_english_language_search_restriction(self):
@@ -775,7 +973,7 @@ class TestQualityV2Diagnostics:
         assert tasks[0]["dedupe_category"] == "framework_generalizability"
 
     @pytest.mark.unit
-    def test_epic_positioning_variants_merge_into_one_revision_task(self):
+    def test_deployment_validation_variants_merge_into_one_revision_task(self):
         from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
 
         tasks = build_revision_tasks(
@@ -795,8 +993,8 @@ class TestQualityV2Diagnostics:
                     "issue_type": "framework_validation",
                     "section_reference": "Introduction; overall discussion",
                     "anchor_text": "deployed sepsis MLAs",
-                    "problem": "The manuscript does not sharply engage with major controversies such as the Epic Sepsis Model external validation failures.",
-                    "why_it_matters": "Epic and similar cases are central to the discourse on clinical AI deployment.",
+                    "problem": "The manuscript does not sharply engage with major external validation failures and deployment controversies.",
+                    "why_it_matters": "Transportability failures are central to the discourse on clinical AI deployment.",
                     "suggested_action": "Clarify what SALIENT explains about these failures and broader deployment controversies.",
                     "confidence": 0.85,
                 }],
@@ -807,7 +1005,7 @@ class TestQualityV2Diagnostics:
         )
 
         assert len(tasks) == 1
-        assert tasks[0]["dedupe_category"] == "epic_sepsis_positioning"
+        assert tasks[0]["dedupe_category"] == "deployment_validation_positioning"
         assert tasks[0]["task_type"] == "literature_positioning"
 
     @pytest.mark.unit
@@ -988,7 +1186,7 @@ class TestQualityV2Diagnostics:
 
         assert 8 <= len(tasks) <= 10
         categories = {task["dedupe_category"] for task in tasks}
-        assert "epic_sepsis_positioning" in categories
+        assert "deployment_validation_positioning" in categories
         assert "framework_generalizability" in categories
         assert "review_reporting_transparency" in categories
         assert "search_scope_bias" in categories
@@ -1058,3 +1256,400 @@ class TestQualityV2Diagnostics:
 
         assert task["anchor_text"].endswith("...")
         assert not task["anchor_text"][:-3].endswith("strateg")
+
+    @pytest.mark.unit
+    def test_sodium_battery_duplicate_review_tasks_compact_to_issue_families(self):
+        from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
+
+        reviewer_outputs = [{
+            "reviewer_id": "literature_positioning",
+            "issues": [
+                {
+                    "issue_type": "literature_positioning",
+                    "section_reference": "Introduction",
+                    "anchor_text": "P2 and O3 layered oxides",
+                    "problem": "Degradation mechanisms for P2 and O3 layered oxides are not clearly distinguished at the outset.",
+                    "why_it_matters": "The review conflates phase families with different sodium coordination and slab-gliding behavior.",
+                    "suggested_action": "Separate P2 and O3 degradation pathways in an early organizing table.",
+                },
+                {
+                    "issue_type": "coverage",
+                    "section_reference": "Framework",
+                    "anchor_text": "layered oxide degradation",
+                    "problem": "The introduction treats layered oxide degradation monolithically before later discussing P2/O3 differences.",
+                    "why_it_matters": "P2 and O3 cathodes have different phase-transition pathways.",
+                    "suggested_action": "Add a P2 versus O3 taxonomy before surveying degradation mechanisms.",
+                },
+                {
+                    "issue_type": "methodology",
+                    "section_reference": "Methods",
+                    "anchor_text": "systematic review",
+                    "problem": "The battery manuscript calls itself a systematic review but does not report search databases or screening criteria.",
+                    "why_it_matters": "Readers cannot tell whether the materials literature was surveyed transparently.",
+                    "suggested_action": "Either add a concise search-method paragraph or rename the article as a comprehensive review.",
+                },
+                {
+                    "issue_type": "methodology",
+                    "section_reference": "Methods",
+                    "anchor_text": "review",
+                    "problem": "The sodium-ion battery review lacks transparent search strategy details and inclusion criteria.",
+                    "why_it_matters": "A systematic label requires enough method detail to be reproducible.",
+                    "suggested_action": "Report databases, query terms, and screening criteria, or soften the claim to narrative review.",
+                },
+            ],
+        }]
+
+        tasks = build_revision_tasks(
+            diagnostic_findings=[],
+            reviewer_outputs=reviewer_outputs,
+            claims=[],
+            gaps=[],
+            structural_feedback=[],
+        )
+
+        families = {task["issue_family"] for task in tasks}
+        assert len(tasks) == 2
+        assert families == {"battery_phase_taxonomy", "materials_review_methodology"}
+        assert all(task["duplicate_count"] == 1 for task in tasks)
+
+    @pytest.mark.unit
+    def test_materials_diagnostics_add_commercialization_cost_checks(self):
+        from app.workflows.draft_analysis.nodes.diagnostic_findings import diagnostic_findings_node
+
+        text = """
+        Sodium-ion layered oxide cathodes are a promising alternative because of their low cost
+        and commercial viability. However, several O3 materials remain moisture sensitive.
+        High nickel and cobalt layered oxides show strong capacity retention.
+        """
+
+        result = diagnostic_findings_node({
+            "draft_content": text,
+            "manuscript_profile": {
+                "domain_tags": ["materials_science"],
+                "review_lenses": ["materials_degradation"],
+            },
+        })
+
+        problems = " ".join(f["problem"] for f in result["diagnostic_findings"]).lower()
+        assert "manufacturing cost" in problems
+        assert "nickel and cobalt" in problems
+
+    @pytest.mark.unit
+    def test_revision_quality_metrics_track_dedupe_anchor_and_sources(self):
+        from app.services.draft_analysis_langgraph import _revision_quality_metrics
+
+        metrics = _revision_quality_metrics([
+            {
+                "task_type": "citation",
+                "anchor_text": "Specific claim",
+                "page_number": 2,
+                "suggested_sources": [{"title": "Relevant source"}],
+                "duplicate_count": 2,
+            },
+            {
+                "task_type": "literature_positioning",
+                "section": "Discussion",
+                "duplicate_count": 0,
+            },
+        ])
+
+        assert metrics["total_tasks"] == 2
+        assert metrics["merged_duplicate_tasks"] == 2
+        assert metrics["anchor_coverage"] == 1.0
+        assert metrics["page_anchor_coverage"] == 0.5
+        assert metrics["citation_source_coverage"] == 1.0
+
+    @pytest.mark.unit
+    def test_meta_review_major_revision_caps_readiness_verdict(self):
+        from app.services.draft_analysis_langgraph import apply_meta_review_readiness_guardrail
+
+        guarded = apply_meta_review_readiness_guardrail(
+            {
+                "readiness_score": 79,
+                "verdict": "Minor Revisions",
+                "score_breakdown": {"major_tasks": 7},
+            },
+            {"overall_recommendation": "major_revision"},
+        )
+
+        assert guarded["readiness_score"] == 69
+        assert guarded["verdict"] == "Major Revisions"
+        assert guarded["score_breakdown"]["base_readiness_score"] == 79
+        assert guarded["score_breakdown"]["base_verdict"] == "Minor Revisions"
+        assert guarded["score_breakdown"]["meta_review_recommendation"] == "major_revision"
+
+    @pytest.mark.unit
+    def test_meta_review_minor_revision_caps_score_but_keeps_minor_verdict(self):
+        from app.services.draft_analysis_langgraph import apply_meta_review_readiness_guardrail
+
+        guarded = apply_meta_review_readiness_guardrail(
+            {
+                "readiness_score": 91,
+                "verdict": "Strong Submission",
+                "score_breakdown": {},
+            },
+            {"overall_recommendation": "minor_revision"},
+        )
+
+        assert guarded["readiness_score"] == 84
+        assert guarded["verdict"] == "Minor Revisions"
+
+    @pytest.mark.unit
+    def test_meta_review_reject_sets_reject_verdict(self):
+        from app.services.draft_analysis_langgraph import apply_meta_review_readiness_guardrail
+
+        guarded = apply_meta_review_readiness_guardrail(
+            {
+                "readiness_score": 62,
+                "verdict": "Needs Work",
+                "score_breakdown": {},
+            },
+            {"overall_recommendation": "reject"},
+        )
+
+        assert guarded["readiness_score"] == 39
+        assert guarded["verdict"] == "Reject"
+        assert guarded["score_breakdown"]["editorial_recommendation"] == "reject"
+
+    @pytest.mark.unit
+    def test_social_justice_sources_fail_closed_for_wrong_domain_papers(self):
+        from app.services.draft_analysis_langgraph import sanitize_revision_task_sources
+
+        [task], metadata = sanitize_revision_task_sources(
+            [{
+                "id": "task-social-ai",
+                "task_type": "causal_claim",
+                "problem": "The manuscript should clarify whether social justice prompting is a pedagogical heuristic rather than an empirical claim about model behavior.",
+                "suggested_action": "Reframe the claim and add composition pedagogy or AI ethics sources.",
+                "anchor_text": "students approach generative AI through social justice",
+                "suggested_sources": [
+                    {
+                        "title": "Review of Multifunctional Separators: Stabilizing the Cathode and the Anode for Alkali Metal-Sulfur and Selenium Batteries",
+                        "content": "Layered cathodes, separators, and electrochemical battery performance.",
+                        "source": "openalex",
+                        "similarity": 0.91,
+                    },
+                    {
+                        "title": "Teaching Critical AI Literacy in the Writing Classroom",
+                        "content": "Composition pedagogy, classroom writing, social justice, generative AI, and student literacy.",
+                        "source": "semantic_scholar",
+                        "similarity": 0.81,
+                    },
+                ],
+            }],
+            manuscript_profile={
+                "routing_domain": "humanities_education",
+                "evidence_mode": "pedagogical",
+                "domain_tags": ["composition_pedagogy", "ai_ethics"],
+            },
+            analysis_quality_judge={},
+        )
+
+        assert len(task["suggested_sources"]) == 1
+        assert "Writing Classroom" in task["suggested_sources"][0]["title"]
+        assert metadata["source_safety_metrics"]["sources_pruned"] == 1
+
+    @pytest.mark.unit
+    def test_source_status_marks_pruned_all_when_all_found_sources_are_removed(self):
+        from app.services.draft_analysis_langgraph import sanitize_revision_task_sources
+
+        [task], metadata = sanitize_revision_task_sources(
+            [{
+                "id": "task-social-ai",
+                "task_type": "literature_positioning",
+                "problem": "Position the AI writing pedagogy claim in composition studies.",
+                "suggested_action": "Add composition pedagogy sources.",
+                "anchor_text": "social justice AI writing assistant",
+                "source_search_status": "found",
+                "suggested_sources": [
+                    {
+                        "title": "Sodium-Ion Battery Cathode Degradation",
+                        "content": "Layered oxide cathodes and electrolytes.",
+                        "source": "openalex",
+                        "similarity": 0.91,
+                    }
+                ],
+            }],
+            manuscript_profile={
+                "routing_domain": "humanities_education",
+                "domain_tags": ["composition_pedagogy"],
+            },
+            analysis_quality_judge={},
+        )
+
+        assert task["suggested_sources"] == []
+        assert task["source_search_status"] == "pruned_all"
+        assert metadata["source_safety_metrics"]["sources_pruned"] == 1
+
+    @pytest.mark.unit
+    def test_internal_gap_prompt_leaks_are_not_revision_tasks(self):
+        from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
+
+        tasks = build_revision_tasks(
+            diagnostic_findings=[],
+            reviewer_outputs=[],
+            claims=[],
+            gaps=[
+                {
+                    "id": "gap-1",
+                    "gap_type": "missing_evidence",
+                    "description": "Claim in Introduction: 'However, what has not been discussed...' — no supporting citations found. no matching evidence in library or online.",
+                    "reasoning": "",
+                    "severity": "critical",
+                },
+                {
+                    "id": "gap-2",
+                    "gap_type": "methodological_gaps",
+                    "description": "No baseline comparisons mentioned for methodology",
+                    "reasoning": "",
+                    "severity": "major",
+                },
+            ],
+            structural_feedback=[],
+        )
+
+        assert tasks == []
+
+    @pytest.mark.unit
+    def test_unclassified_other_tasks_do_not_all_merge(self):
+        from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
+
+        tasks = build_revision_tasks(
+            diagnostic_findings=[],
+            reviewer_outputs=[],
+            claims=[],
+            gaps=[
+                {
+                    "id": "gap-1",
+                    "gap_type": "unclassified",
+                    "description": "Add more detail on electrolyte decomposition pathways.",
+                    "reasoning": "The chemistry discussion is too thin.",
+                    "severity": "major",
+                },
+                {
+                    "id": "gap-2",
+                    "gap_type": "unclassified",
+                    "description": "Clarify the figure-caption attribution requirements.",
+                    "reasoning": "The production issue is separate from chemistry.",
+                    "severity": "major",
+                },
+            ],
+            structural_feedback=[],
+        )
+
+        assert len(tasks) == 2
+        assert all(task["duplicate_count"] == 0 for task in tasks)
+
+    @pytest.mark.unit
+    def test_parser_artifact_tasks_suppressed_when_structure_has_abstract_methods(self):
+        from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
+
+        tasks = build_revision_tasks(
+            diagnostic_findings=[],
+            reviewer_outputs=[{
+                "reviewer_id": "clarity",
+                "issues": [
+                    {
+                        "issue_type": "clarity",
+                        "section_reference": "Abstract",
+                        "anchor_text": "No abstract section indicated in structure list",
+                        "problem": "The manuscript structure provided does not list an Abstract section.",
+                        "why_it_matters": "Readers need a concise abstract.",
+                        "suggested_action": "Provide a structured abstract.",
+                    },
+                    {
+                        "issue_type": "methodology",
+                        "section_reference": "Methods",
+                        "anchor_text": "Methods",
+                        "problem": "The Methods appear truncated and incomplete.",
+                        "why_it_matters": "Readers need complete methods.",
+                        "suggested_action": "Add the missing methods.",
+                    },
+                ],
+            }],
+            claims=[],
+            gaps=[],
+            structural_feedback=[],
+            structure={"has_abstract": True, "has_methods": True, "document_metadata": {"grobid_extracted": True}},
+            parser_quality={"parser_quality_flags": ["possible_pdf_spacing_artifacts"]},
+        )
+
+        assert tasks == []
+
+    @pytest.mark.unit
+    def test_build_structure_from_grobid_adds_abstract_and_anchor_map(self):
+        from app.services.draft_parse_artifacts import (
+            assess_parse_quality,
+            build_anchor_map,
+            build_structure_from_extracted_data,
+        )
+
+        extracted = {
+            "abstract": "This abstract describes CRISPR editing in CD34 cells.",
+            "abstract_paragraphs": [
+                {
+                    "id": "abstract-para-0",
+                    "text": "This abstract describes CRISPR editing in CD34 cells.",
+                    "coordinates": {"page": 1, "x": 12.0, "y": 24.0, "width": 200.0, "height": 40.0},
+                    "sentences": [],
+                }
+            ],
+            "full_text": ("This abstract describes CRISPR editing in CD34 cells. Methods text Results text Discussion text. " * 30),
+            "sections": [
+                {
+                    "id": "section-0",
+                    "title": "Methods",
+                    "type": "methods",
+                    "content": "We edited CD34 cells using CRISPR-Cas9.",
+                    "paragraphs": [{"id": "p1", "text": "We edited CD34 cells using CRISPR-Cas9.", "coordinates": {"page": 2}}],
+                },
+                {
+                    "id": "section-1",
+                    "title": "Discussion",
+                    "type": "discussion",
+                    "content": "The findings require in vivo validation.",
+                    "paragraphs": [{"id": "p2", "text": "The findings require in vivo validation.", "coordinates": {"page": 4}}],
+                },
+            ],
+            "metadata": {"page_count": 4},
+        }
+
+        structure = build_structure_from_extracted_data(extracted)
+        anchor_map = build_anchor_map(structure)
+        quality = assess_parse_quality(
+            full_text=extracted["full_text"],
+            structure=structure,
+            anchor_map=anchor_map,
+            file_type="pdf",
+        )
+
+        assert structure["has_abstract"] is True
+        assert structure["has_methods"] is True
+        abstract_anchor = next(anchor for anchor in anchor_map if anchor["section_type"] == "abstract")
+        assert abstract_anchor["page_number"] == 1
+        assert abstract_anchor["coordinates"]["x"] == 12.0
+        assert quality["parse_blocked"] is False
+
+    @pytest.mark.unit
+    def test_literature_domain_filter_drops_mpox_for_crispr_query(self):
+        from app.workflows.draft_analysis.nodes.literature_search import _filter_domain_contamination
+
+        results = _filter_domain_contamination(
+            query="CRISPR Cas9 HbF induction sickle cell CD34 HSPC",
+            manuscript_profile={"routing_domain": "biology"},
+            results=[
+                {
+                    "document_title": "More Virulent Mpox Clade Can Be Sexually Associated, WHO and CDC Warn",
+                    "content": "Mpox outbreak infectious disease surveillance.",
+                    "similarity": 0.61,
+                },
+                {
+                    "document_title": "CRISPR-Cas9 disruption of BCL11A enhancer for fetal hemoglobin induction",
+                    "content": "CD34 hematopoietic stem progenitor cells sickle cell disease.",
+                    "similarity": 0.61,
+                },
+            ],
+        )
+
+        assert len(results) == 1
+        assert "BCL11A" in results[0]["document_title"]

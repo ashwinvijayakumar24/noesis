@@ -14,11 +14,11 @@ PROTECTED_ROUTES = [
     ("GET", "/documents/"),
     ("GET", "/drafts/"),
     ("GET", "/quota/me"),
-    ("GET", "/analytics/dashboard"),
-    ("GET", "/citations/"),
+    ("GET", "/api/analytics/dashboard"),
+    ("GET", "/citations/project/00000000-0000-0000-0000-000000000000"),
     ("GET", "/api/referrals/stats"),
-    ("GET", "/api/paper-discovery/search?q=test"),
-    ("GET", "/search?q=test"),
+    ("GET", "/api/subscriptions/usage"),
+    ("GET", "/search/?q=test"),
 ]
 
 # Routes that should be publicly accessible (no auth)

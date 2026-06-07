@@ -126,11 +126,12 @@ class TestReviewerFeedbackNodeE2E:
     @pytest.mark.unit
     @patch("app.workflows.draft_analysis.nodes.reviewer_feedback.supabase")
     @patch("app.workflows.draft_analysis.nodes.reviewer_feedback.client")
-    def test_generate_feedback_skips_if_existing(self, mock_client, mock_supabase):
-        """Feedback node skips generation if feedback already in DB."""
+    def test_generate_feedback_ignores_existing_db_rows(self, mock_client, mock_supabase):
+        """Existing reviewer_feedback rows must not short-circuit fresh generation."""
         from app.workflows.draft_analysis.nodes.reviewer_feedback import generate_reviewer_feedback_node
 
-        # Existing feedback in DB
+        # Old feedback rows may exist for the draft, but the node should not
+        # treat them as a cache.
         mock_supabase.table.return_value.select.return_value\
             .eq.return_value.execute.return_value.data = [
                 {
@@ -142,6 +143,22 @@ class TestReviewerFeedbackNodeE2E:
                 }
             ]
 
+        from types import SimpleNamespace
+        from app.workflows.draft_analysis.schemas import ReviewerFeedbackOutput, FeedbackItem
+        fake_parsed = ReviewerFeedbackOutput(
+            feedback_items=[
+                FeedbackItem(
+                    feedback_type="weakness",
+                    feedback_text="Fresh feedback generated from the current state.",
+                    severity="major",
+                    section_reference="Introduction",
+                )
+            ],
+            overall_assessment="Fresh assessment.",
+            priority_actions=["Revise the current draft"],
+        )
+        mock_client.beta.chat.completions.parse.return_value = SimpleNamespace(parsed=fake_parsed)
+
         state = {
             "draft_id": "draft-with-existing-feedback",
             "project_id": "proj-456",
@@ -149,14 +166,18 @@ class TestReviewerFeedbackNodeE2E:
             "draft_content": "...",
             "current_step": "citation_mapping",
             "progress_percentage": 75,
+            "structure": {"sections": []},
+            "claims_with_citations": [],
+            "coverage_gaps": [],
+            "literature_search_results": [],
         }
 
         result = generate_reviewer_feedback_node(state)
 
-        # Should not call GPT if feedback already exists
-        mock_client.chat.completions.create.assert_not_called()
+        mock_client.beta.chat.completions.parse.assert_called_once()
         assert "reviewer_feedback" in result
-        assert result["current_step"] == "Reviewer Feedback (Cached)"
+        assert result["current_step"] == "Reviewer Feedback"
+        assert result["reviewer_feedback"][0]["feedback_text"] == "Fresh feedback generated from the current state."
 
 
 # ── Gap Detection Node E2E Tests ──────────────────────────────────────────────
@@ -165,14 +186,9 @@ class TestGapDetectionNodeE2E:
     """End-to-end tests for the gap detection node."""
 
     @pytest.mark.unit
-    @patch("app.workflows.draft_analysis.nodes.gap_detection.supabase")
-    def test_detect_gaps_no_citation_data(self, mock_supabase):
+    def test_detect_gaps_no_citation_data(self):
         """Gap detection returns early when no citation data available."""
         from app.workflows.draft_analysis.nodes.gap_detection import detect_gaps_node
-
-        # No existing gaps
-        mock_supabase.table.return_value.select.return_value\
-            .eq.return_value.execute.return_value.data = []
 
         state = {
             "draft_id": "draft-123",
@@ -189,14 +205,9 @@ class TestGapDetectionNodeE2E:
         assert result["current_step"] == "Gap Detection (No Data)"
 
     @pytest.mark.unit
-    @patch("app.workflows.draft_analysis.nodes.gap_detection.supabase")
-    def test_detect_gaps_missing_evidence(self, mock_supabase):
+    def test_detect_gaps_missing_evidence(self):
         """Claims with no citations generate missing_evidence gaps."""
         from app.workflows.draft_analysis.nodes.gap_detection import detect_gaps_node
-
-        # No existing gaps in DB
-        mock_supabase.table.return_value.select.return_value\
-            .eq.return_value.execute.return_value.data = []
 
         state = {
             "draft_id": "draft-123",

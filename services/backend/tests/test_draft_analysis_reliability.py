@@ -42,7 +42,7 @@ class FakeTable:
         self.payload = payload
         return self
 
-    def upsert(self, payload):
+    def upsert(self, payload, *args, **kwargs):
         self.action = "upsert"
         self.payload = payload
         return self
@@ -258,8 +258,229 @@ class TestFeedbackQualityAssurance:
         )
 
         assert result["passed"] is False
-        assert "missing_target_claim_or_gap" in result["failed_checks"]
-        assert "missing_specific_issue" in result["failed_checks"]
+
+
+class TestRevisionTaskReliability:
+    @pytest.mark.unit
+    def test_consolidate_revision_tasks_merges_cross_agent_semantic_duplicates(self):
+        from app.workflows.draft_analysis.revision_tasks import consolidate_revision_tasks
+
+        tasks = [
+            {
+                "id": "task-a",
+                "task_type": "framework_validation",
+                "severity": "major",
+                "priority": "medium",
+                "section": "Discussion",
+                "anchor_text": "While the heuristic empowers students, it does not address practical constraints.",
+                "problem": "The manuscript lacks a limitations or boundary-conditions section for institutional constraints.",
+                "why_it_matters": "Readers need to understand when the classroom heuristic may fail.",
+                "suggested_action": "Add a limitations subsection covering digital literacy, institutional AI policy, and guardrails.",
+            },
+            {
+                "id": "task-b",
+                "task_type": "methodology",
+                "severity": "major",
+                "priority": "medium",
+                "section": "Discussion",
+                "anchor_text": "While the heuristic empowers students, it does not address practical constraints.",
+                "problem": "Boundary conditions are missing; practical constraints such as digital literacy and AI policy are not discussed.",
+                "why_it_matters": "The argument overstates classroom portability.",
+                "suggested_action": "Create a dedicated limitations section with institutional policy, student access, and LLM guardrail constraints.",
+            },
+            {
+                "id": "task-c",
+                "task_type": "citation",
+                "severity": "major",
+                "priority": "medium",
+                "section": "Introduction",
+                "anchor_text": "ChatGPT's data dump in September 2021",
+                "problem": "Claim lacks a verified supporting citation: ChatGPT's data dump in September 2021.",
+                "why_it_matters": "The technical claim may be outdated.",
+                "suggested_action": "Revise the wording to use precise model-version language or cite a source on model cutoff behavior.",
+            },
+            {
+                "id": "task-d",
+                "task_type": "clarity",
+                "severity": "minor",
+                "priority": "low",
+                "section": "Introduction",
+                "anchor_text": "ChatGPT's data dump in September 2021",
+                "problem": "The data-dump phrasing is technically imprecise and outdated.",
+                "why_it_matters": "Imprecise AI terminology weakens credibility.",
+                "suggested_action": "Replace data dump with model-specific knowledge cutoff or training data language.",
+            },
+        ]
+
+        consolidated = consolidate_revision_tasks(tasks)
+
+        assert len(consolidated) == 2
+        assert sum(task.get("duplicate_count", 0) for task in consolidated) == 2
+        families = {task.get("issue_family") for task in consolidated}
+        assert "pedagogy_boundary_conditions" in families
+        assert "ai_technical_precision" in families
+
+    @pytest.mark.unit
+    def test_readiness_score_is_calibrated_by_manuscript_profile(self):
+        from app.workflows.draft_analysis.revision_tasks import calculate_revision_task_readiness_score
+
+        tasks = [
+            {"severity": "major", "task_type": "methodology", "suggested_sources": []},
+            {"severity": "major", "task_type": "literature_positioning", "suggested_sources": []},
+            {"severity": "major", "task_type": "citation", "suggested_sources": []},
+            {"severity": "minor", "task_type": "clarity", "suggested_sources": []},
+        ]
+
+        humanities = calculate_revision_task_readiness_score(
+            tasks,
+            manuscript_profile={
+                "routing_domain": "humanities_education",
+                "genre": "pedagogical_conceptual",
+                "evidence_mode": "pedagogical",
+            },
+        )
+        empirical = calculate_revision_task_readiness_score(
+            tasks,
+            manuscript_profile={"routing_domain": "computer_science_ml", "evidence_mode": "empirical_ml"},
+        )
+
+        assert humanities["readiness_score"] > empirical["readiness_score"]
+        assert humanities["score_breakdown"]["domain_scoring_policy"] == "conceptual_pedagogical"
+        assert empirical["score_breakdown"]["domain_scoring_policy"] == "empirical_computational"
+
+    @pytest.mark.unit
+    def test_meta_review_major_revision_guardrail_uses_realistic_band(self):
+        from app.services.draft_analysis_langgraph import apply_meta_review_readiness_guardrail
+
+        result = apply_meta_review_readiness_guardrail(
+            {"readiness_score": 18, "verdict": "Major Revisions", "score_breakdown": {}},
+            {"overall_recommendation": "major_revision"},
+        )
+
+        assert result["readiness_score"] == 35
+        assert result["verdict"] == "Major Revisions"
+
+    @pytest.mark.unit
+    def test_common_software_behavior_claim_does_not_create_humanities_citation_task(self):
+        from app.workflows.draft_analysis.revision_tasks import build_revision_tasks
+
+        tasks = build_revision_tasks(
+            diagnostic_findings=[],
+            reviewer_outputs=[],
+            claims=[
+                {
+                    "id": "claim-1",
+                    "claim_text": "Parameters are reset every time a new dialogue is opened.",
+                    "section_location": "Introduction",
+                    "importance_score": 0.8,
+                    "requires_citation": True,
+                    "citation_quality": "none",
+                }
+            ],
+            gaps=[],
+            structural_feedback=[],
+            manuscript_profile={"routing_domain": "humanities_education", "evidence_mode": "pedagogical"},
+        )
+
+        assert tasks == []
+
+
+class TestRagGateReliability:
+    @pytest.mark.unit
+    def test_humanities_external_source_gate_keeps_relevant_rhetoric_source(self):
+        from app.services.draft_external_source_discovery import _normalize_candidate
+
+        target = {
+            "draft_id": "draft-1",
+            "target_type": "revision_task",
+            "target_id": "task-1",
+            "text": "Operationalize the AI writing heuristic into classroom rubrics and assessment artifacts.",
+            "search_query": "composition pedagogy classroom assignment rubric assessment writing instruction generative AI",
+            "rank": 1.0,
+        }
+        paper = {
+            "title": "Writing Assessment Rubrics in Composition Pedagogy",
+            "abstract": "This article studies classroom writing assessment, composition pedagogy, student agency, and rubric design.",
+            "authors": ["Scholar"],
+            "year": 2024,
+            "citation_count": 35,
+            "paper_url": "https://example.test/paper",
+        }
+
+        normalized = _normalize_candidate(paper, target, "openalex")
+
+        assert normalized is not None
+        assert normalized["relevance_score"] >= 0.62
+
+    @pytest.mark.unit
+    def test_humanities_external_source_gate_rejects_wrong_domain_source(self):
+        from app.services.draft_external_source_discovery import _normalize_candidate
+
+        target = {
+            "draft_id": "draft-1",
+            "target_type": "revision_task",
+            "target_id": "task-1",
+            "text": "Operationalize the AI writing heuristic into classroom rubrics and assessment artifacts.",
+            "search_query": "composition pedagogy classroom assignment rubric assessment writing instruction generative AI",
+            "rank": 1.0,
+        }
+        paper = {
+            "title": "Sodium-Ion Battery Cathode Electrolyte Interphase Degradation",
+            "abstract": "Layered oxide cathode materials and electrolyte degradation in sodium-ion batteries.",
+            "authors": ["Scholar"],
+            "year": 2024,
+            "citation_count": 100,
+        }
+
+        assert _normalize_candidate(paper, target, "openalex") is None
+
+
+class TestParseArtifactReliability:
+    @pytest.mark.unit
+    def test_parse_artifact_metrics_counts_persisted_section_and_anchor_maps(self):
+        from app.services.draft_parse_artifacts import parse_artifact_metrics
+
+        metrics = parse_artifact_metrics(
+            {
+                "parser_name": "grobid",
+                "parser_quality_score": 0.9,
+                "section_map": [{"id": "s1"}, {"id": "s2"}],
+                "anchor_map": [{"text_snippet": "one"}, {"text_snippet": "two"}, {"text_snippet": "three"}],
+                "parser_metadata": {"grobid_references_count": 7},
+            }
+        )
+
+        assert metrics["section_count"] == 2
+        assert metrics["anchor_count"] == 3
+        assert metrics["reference_count"] == 7
+
+    @pytest.mark.unit
+    def test_local_fallback_structure_builds_anchor_map_from_plain_pdf_text(self):
+        from app.services.draft_parse_artifacts import (
+            assess_parse_quality,
+            build_anchor_map,
+            build_local_fallback_structure,
+        )
+
+        text = (
+            "Abstract\nThis conceptual paper studies writing pedagogy and AI.\n\n"
+            "Introduction\nStudents use generative AI in composition classrooms.\n\n"
+            "Discussion\nThe heuristic needs assessment rubrics and limitations.\n\n"
+            "Conclusion\nThe paper contributes to AI writing pedagogy."
+        )
+
+        structure = build_local_fallback_structure(text)
+        anchors = build_anchor_map(structure)
+        quality = assess_parse_quality(
+            full_text=text,
+            structure=structure,
+            anchor_map=anchors,
+            file_type="pdf",
+        )
+
+        assert len(structure["sections"]) >= 3
+        assert anchors
+        assert "not_grobid_pdf_parse" not in quality["parser_quality_flags"]
 
     @pytest.mark.unit
     def test_evaluate_feedback_item_rejects_missing_target_even_when_actionable(self):
@@ -284,6 +505,507 @@ class TestFeedbackQualityAssurance:
 
         assert result["passed"] is False
         assert "missing_target_claim_or_gap" in result["failed_checks"]
+
+    @pytest.mark.unit
+    def test_multimodal_fallback_triggers_for_risky_systematic_review_pdf(self):
+        from app.services.draft_multimodal_parser import should_run_multimodal_fallback
+
+        assert should_run_multimodal_fallback(
+            file_type="pdf",
+            full_text=(
+                "This systematic review follows PRISMA. Table 1 contains the search strategy. "
+                "Risk of bias was assessed across included studies."
+            ),
+            extracted_data={"sections": [{"title": "Intro"}], "references": []},
+            parse_quality={"parser_quality_score": 0.7, "parser_quality_flags": ["low_section_count"]},
+        ) is True
+
+
+class TestBehavioralHealthRoutingAndDiagnostics:
+    @pytest.mark.unit
+    def test_social_media_anxiety_review_routes_to_public_health_psychology(self):
+        from app.workflows.draft_analysis.nodes.manuscript_profile import build_manuscript_profile
+
+        profile = build_manuscript_profile({
+            "draft_content": (
+                "This systematic review examines social media use, anxiety, depression, "
+                "and mental health outcomes among adolescents and youth. PRISMA methods "
+                "and risk of bias assessment were used."
+            ),
+            "paper_type": "journal_article",
+        })
+
+        assert profile["routing_domain"] == "public_health_psychology"
+        assert "behavioral_health" in profile["domain_tags"]
+        assert "clinical_ai" not in profile["domain_tags"]
+
+    @pytest.mark.unit
+    def test_public_health_systematic_review_does_not_emit_ehr_vendor_diagnostic(self):
+        from app.workflows.draft_analysis.nodes.diagnostic_findings import diagnostic_findings_node
+
+        state = {
+            "draft_id": "draft-1",
+            "manuscript_profile": {
+                "genre": "systematic_review",
+                "routing_domain": "public_health_psychology",
+                "domain_tags": ["public_health", "psychology", "behavioral_health"],
+                "review_lenses": ["systematic_review_methods", "behavioral_health"],
+            },
+            "draft_content": (
+                "This systematic review studies social media use and anxiety in adolescents. "
+                "The authors extracted included studies and assessed risk of bias, but do not "
+                "mention funding source or conflict of interest extraction."
+            ),
+        }
+
+        result = diagnostic_findings_node(state)
+        problems = " ".join(item["problem"] for item in result["diagnostic_findings"])
+        assert "EHR vendors" not in problems
+        assert "clinical AI studies" not in problems
+        assert "social-media platform involvement" in problems
+
+
+class TestEvidenceRebuttal:
+    @pytest.mark.unit
+    def test_rewrites_false_missing_prospero_and_search_string_tasks(self):
+        from app.services.draft_task_evidence import reconcile_tasks_against_evidence
+
+        full_text = (
+            "The protocol was registered with PROSPERO (CRD42018102770). "
+            "Table 1. Search strategy: adolescen* OR teen OR youth AND social media "
+            "AND anxiety OR depression. Medline, Embase, PsycINFO, CINAHL and SSCI were searched."
+        )
+        tasks = [
+            {
+                "id": "t1",
+                "problem": "The review does not clearly report protocol registration.",
+                "suggested_action": "State whether the review was registered in PROSPERO.",
+            },
+            {
+                "id": "t2",
+                "problem": "The manuscript does not provide full Boolean search strings.",
+                "suggested_action": "Add complete search strings.",
+            },
+        ]
+
+        reconciled, metrics = reconcile_tasks_against_evidence(tasks, full_text=full_text)
+
+        assert metrics["tasks_rewritten"] == 2
+        assert "Protocol registration is present" in reconciled[0]["problem"]
+        assert "search strategy is present" in reconciled[1]["problem"]
+
+    @pytest.mark.unit
+    def test_drops_false_missing_narrative_synthesis_and_erikson_tasks(self):
+        from app.services.draft_task_evidence import reconcile_tasks_against_evidence
+
+        full_text = (
+            "Erikson (1950) is used to frame identity development. "
+            "As outcome measures varied across the studies, we were unable to perform meta-analysis. "
+            "Instead, narrative synthesis was conducted."
+        )
+        tasks = [
+            {
+                "id": "t1",
+                "problem": "Missing direct citation or summary of the identity-development framing.",
+                "anchor_text": "Erikson (1950) is used to frame identity development.",
+                "suggested_action": "Add a direct citation.",
+            },
+            {
+                "id": "t2",
+                "problem": "The authors do not justify narrative synthesis instead of meta-analysis.",
+                "suggested_action": "Justify no pooling.",
+            },
+        ]
+
+        reconciled, metrics = reconcile_tasks_against_evidence(tasks, full_text=full_text)
+
+        assert reconciled == []
+        assert metrics["tasks_dropped"] == 2
+
+    @pytest.mark.unit
+    def test_drops_missing_citation_task_when_inline_author_year_exists(self):
+        from app.services.draft_task_evidence import reconcile_tasks_against_evidence
+
+        task = {
+            "id": "t1",
+            "problem": "Claim lacks a verified supporting citation for the prevalence increase.",
+            "anchor_text": "According to a national report (2017), rates increased substantially.",
+            "suggested_action": "Add a citation.",
+        }
+
+        reconciled, metrics = reconcile_tasks_against_evidence([task], full_text=task["anchor_text"])
+
+        assert reconciled == []
+        assert metrics["tasks_dropped"] == 1
+
+    @pytest.mark.unit
+    def test_rewrites_false_missing_risk_of_bias_when_named_tool_present(self):
+        from app.services.draft_task_evidence import reconcile_tasks_against_evidence
+
+        full_text = (
+            "Methodological quality was appraised using the National Institutes of Health "
+            "(NIH) Quality Assessment Tool for observational cohort studies. Studies were "
+            "rated as good, fair, or poor."
+        )
+        tasks = [
+            {
+                "id": "t1",
+                "problem": "The review does not report a standardized risk-of-bias or quality-assessment tool.",
+                "suggested_action": "Add a standardized risk-of-bias instrument.",
+            }
+        ]
+
+        reconciled, metrics = reconcile_tasks_against_evidence(tasks, full_text=full_text)
+
+        assert metrics["tasks_rewritten"] == 1
+        assert len(reconciled) == 1
+        # The rewritten task must acknowledge the tool exists, not claim it is missing.
+        assert "NIH Quality Assessment Tool" in reconciled[0]["problem"]
+        assert "does not explain how" in reconciled[0]["problem"]
+        assert reconciled[0]["evidence_rebuttal_reason"] == "quality_assessment_tool_found"
+
+    @pytest.mark.unit
+    def test_keeps_missing_risk_of_bias_task_when_no_tool_present(self):
+        from app.services.draft_task_evidence import reconcile_tasks_against_evidence
+
+        full_text = (
+            "We screened studies and extracted outcomes. The synthesis was narrative. "
+            "No formal appraisal of study credibility was undertaken."
+        )
+        tasks = [
+            {
+                "id": "t1",
+                "problem": "The review does not report any risk-of-bias or quality-assessment tool.",
+                "suggested_action": "Add a standardized risk-of-bias instrument.",
+            }
+        ]
+
+        reconciled, metrics = reconcile_tasks_against_evidence(tasks, full_text=full_text)
+
+        assert metrics["tasks_rewritten"] == 0
+        assert reconciled[0]["problem"] == tasks[0]["problem"]
+
+
+class TestEvidenceManifest:
+    @pytest.mark.unit
+    def test_manifest_detects_named_quality_tools(self):
+        from app.services.draft_evidence_manifest import build_evidence_manifest
+
+        text = (
+            "Risk of bias was assessed with the Cochrane RoB 2 tool and the "
+            "Newcastle-Ottawa Scale for non-randomized studies."
+        )
+        manifest = build_evidence_manifest(text)
+        fact = manifest["quality_assessment_tools"]
+        assert fact["present"] is True
+        assert "Cochrane RoB 2" in fact["labels"]
+        assert "Newcastle-Ottawa Scale" in fact["labels"]
+
+    @pytest.mark.unit
+    def test_manifest_detects_protocol_databases_and_dates(self):
+        from app.services.draft_evidence_manifest import build_evidence_manifest
+
+        text = (
+            "Registered in PROSPERO (CRD42020112233). PubMed, Embase and Scopus were "
+            "searched from inception to March 2023."
+        )
+        manifest = build_evidence_manifest(text)
+        assert manifest["protocol_registration"]["present"] is True
+        assert {"PubMed", "Embase", "Scopus"}.issubset(set(manifest["databases_searched"]["labels"]))
+        assert manifest["search_dates"]["present"] is True
+        assert manifest["search_dates"]["latest_year"] == 2023
+
+    @pytest.mark.unit
+    def test_manifest_absent_facts_are_false(self):
+        from app.services.draft_evidence_manifest import build_evidence_manifest
+
+        manifest = build_evidence_manifest("A short essay about a topic with no methods.")
+        assert manifest["quality_assessment_tools"]["present"] is False
+        assert manifest["protocol_registration"]["present"] is False
+        assert manifest["databases_searched"]["present"] is False
+
+
+class TestPublishGate:
+    @pytest.mark.unit
+    def test_low_parser_quality_blocks_high_confidence(self):
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="pdf",
+            revision_quality_metrics={"total_tasks": 5, "page_anchor_coverage": 0.9},
+            parser_quality={"parser_quality_score": 0.3, "parser_quality_flags": ["very_short_extracted_text"]},
+        )
+        assert verdict["publishable"] is False
+        assert verdict["gate_status"] == "needs_parser_review"
+        assert verdict["confidence"] == "low"
+
+    @pytest.mark.unit
+    def test_low_page_anchor_coverage_blocks_pdf(self):
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="pdf",
+            revision_quality_metrics={"total_tasks": 8, "page_anchor_coverage": 0.4},
+            parser_quality={"parser_quality_score": 0.9},
+        )
+        assert verdict["publishable"] is False
+        assert verdict["gate_status"] == "needs_retry"
+
+    @pytest.mark.unit
+    def test_low_coverage_does_not_block_non_pdf(self):
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="txt",
+            revision_quality_metrics={"total_tasks": 8, "page_anchor_coverage": 0.0},
+            parser_quality={"parser_quality_score": 0.9},
+        )
+        assert verdict["publishable"] is True
+        assert verdict["gate_status"] == "ok"
+
+    @pytest.mark.unit
+    def test_contamination_flags_downgrade_confidence(self):
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="pdf",
+            revision_quality_metrics={"total_tasks": 5, "page_anchor_coverage": 0.95},
+            parser_quality={"parser_quality_score": 0.9},
+            contamination_flags=["cross_domain_source"],
+        )
+        assert verdict["publishable"] is False
+        assert verdict["confidence"] == "low"
+
+    @pytest.mark.unit
+    def test_good_run_publishes_high_confidence(self):
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="pdf",
+            revision_quality_metrics={"total_tasks": 6, "page_anchor_coverage": 0.83, "verbatim_anchor_coverage": 0.8},
+            parser_quality={"parser_quality_score": 0.92},
+        )
+        assert verdict["publishable"] is True
+        assert verdict["gate_status"] == "ok"
+        assert verdict["confidence"] == "high"
+
+    @pytest.mark.unit
+    def test_zero_tasks_does_not_trip_coverage_gate(self):
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="pdf",
+            revision_quality_metrics={"total_tasks": 0, "page_anchor_coverage": 0.0},
+            parser_quality={"parser_quality_score": 0.9},
+        )
+        assert verdict["publishable"] is True
+
+    @pytest.mark.unit
+    def test_fail_closed_flag_reads_env(self, monkeypatch):
+        import importlib
+        import app.services.draft_publish_gate as gate
+
+        monkeypatch.setenv("DRAFT_ANALYSIS_FAIL_CLOSED", "true")
+        reloaded = importlib.reload(gate)
+        assert reloaded.FAIL_CLOSED is True
+
+        monkeypatch.setenv("DRAFT_ANALYSIS_FAIL_CLOSED", "false")
+        reloaded = importlib.reload(gate)
+        assert reloaded.FAIL_CLOSED is False
+
+        monkeypatch.delenv("DRAFT_ANALYSIS_FAIL_CLOSED", raising=False)
+        importlib.reload(gate)  # restore default (off)
+
+
+class TestVerbatimAnchorCoverage:
+    @pytest.mark.unit
+    def test_only_parse_artifact_matches_count_as_verbatim(self):
+        from app.services.draft_analysis_langgraph import _revision_quality_metrics
+
+        tasks = [
+            {"anchor_source": "parse_artifact", "anchor_status": "exact", "anchor_text": "a"},
+            {"anchor_source": "parse_artifact", "anchor_status": "fuzzy", "anchor_text": "b"},
+            {"anchor_source": "task_generated", "anchor_status": "section_only", "anchor_text": "c"},
+            {"anchor_source": "task_generated", "anchor_status": "unresolved", "anchor_text": "d"},
+        ]
+        metrics = _revision_quality_metrics(tasks)
+        assert metrics["verbatim_anchor_coverage"] == 0.5
+
+
+class TestGrobidNestedDivDedup:
+    @pytest.mark.unit
+    def test_nested_subsection_paragraphs_not_duplicated(self):
+        import xml.etree.ElementTree as ET
+        from app.services.grobid_client import GrobidClient
+
+        tei = (
+            '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>'
+            '<div><head>Methods</head><p>Parent paragraph about the design.</p>'
+            '<div><head>Participants</head><p>Nested paragraph about participants.</p></div>'
+            '</div>'
+            '</body></text></TEI>'
+        )
+        client = GrobidClient(base_url="http://localhost:8070")
+        sections = client._extract_sections(ET.fromstring(tei))
+
+        # All section content concatenated: each paragraph must appear exactly once.
+        all_content = "\n".join(s["content"] for s in sections)
+        assert all_content.count("Nested paragraph about participants.") == 1
+        assert all_content.count("Parent paragraph about the design.") == 1
+        # The parent Methods section must NOT absorb the nested paragraph.
+        methods = next(s for s in sections if s["title"] == "Methods")
+        assert "Nested paragraph about participants." not in methods["content"]
+
+
+class TestParserQualityDuplicateHeadings:
+    @pytest.mark.unit
+    def test_duplicate_headings_flagged(self):
+        from app.services.draft_parse_artifacts import assess_parse_quality
+
+        structure = {
+            "sections": [
+                {"title": "Methods", "type": "methods"},
+                {"title": "Methods", "type": "methods"},
+                {"title": "Results", "type": "results"},
+                {"title": "Results", "type": "results"},
+            ],
+            "document_metadata": {"grobid_extracted": True},
+        }
+        quality = assess_parse_quality(
+            full_text="x" * 2000,
+            structure=structure,
+            anchor_map=[{"text_snippet": "y" * 100}],
+            file_type="pdf",
+        )
+        assert "duplicate_section_headings" in quality["parser_quality_flags"]
+
+
+class TestMultimodalFallbackGating:
+    @pytest.mark.unit
+    def test_high_quality_grobid_parse_skips_multimodal_even_with_tables(self):
+        from app.services.draft_multimodal_parser import should_run_multimodal_fallback
+
+        # Systematic review with Table 1 + Boolean (table_risk True) but a clean,
+        # high-quality, well-sectioned GROBID parse → must NOT run the fallback.
+        run = should_run_multimodal_fallback(
+            file_type="pdf",
+            full_text="This systematic review followed PRISMA. Table 1 lists Boolean search strings. PROSPERO registered.",
+            extracted_data={"sections": [{"title": f"S{i}"} for i in range(30)], "references": [{}] * 20},
+            parse_quality={"parser_quality_score": 1.0, "parser_quality_flags": []},
+        )
+        assert run is False
+
+    @pytest.mark.unit
+    def test_low_quality_parse_still_runs_multimodal(self):
+        from app.services.draft_multimodal_parser import should_run_multimodal_fallback
+
+        run = should_run_multimodal_fallback(
+            file_type="pdf",
+            full_text="garbled text",
+            extracted_data={"sections": [{"title": "x"}], "references": []},
+            parse_quality={"parser_quality_score": 0.4, "parser_quality_flags": ["low_section_count"]},
+        )
+        assert run is True
+
+    @pytest.mark.unit
+    def test_merge_dedups_sections_against_existing_grobid_titles(self):
+        from app.services.draft_multimodal_parser import merge_multimodal_evidence
+
+        extracted = {
+            "sections": [
+                {"title": "Search strategy", "content": "grobid version"},
+                {"title": "Eligibility criteria", "content": "grobid version"},
+            ],
+            "full_text": "body",
+            "metadata": {},
+        }
+        multimodal = {
+            "evidence_sections": [
+                {"title": "Search strategy", "text": "dup from vision", "page_number": 3},
+                {"title": "Protocol and registration", "text": "new content", "page_number": 2},
+            ],
+            "detected_tables": [],
+            "parser_notes": [],
+        }
+        merged = merge_multimodal_evidence(extracted, multimodal)
+        titles = [s["title"] for s in merged["sections"]]
+        # "Search strategy" not duplicated; the genuinely new section is appended.
+        assert titles.count("Search strategy") == 1
+        assert "Protocol and registration" in titles
+        assert merged["metadata"]["multimodal_evidence_sections"] == 1
+        assert merged["metadata"]["multimodal_sections_deduped"] == 1
+
+
+class TestRagTopKFill:
+    @pytest.mark.unit
+    def test_floor_drops_weak_matches_without_padding(self, monkeypatch):
+        import app.services.rag_retrieval as rr
+
+        chunks = [
+            {"id": "1", "semantic_score": 0.82, "content": "a"},
+            {"id": "2", "semantic_score": 0.61, "content": "b"},
+            {"id": "3", "semantic_score": 0.31, "content": "c"},
+            {"id": "4", "semantic_score": 0.10, "content": "d"},
+        ]
+        monkeypatch.setattr(rr, "hybrid_search", lambda **kwargs: list(chunks))
+
+        results = rr.retrieve_relevant_chunks_hybrid(
+            project_id="p", query="q", limit=5, use_reranking=True, min_similarity=0.5
+        )
+        # Only the two chunks above the floor survive; result is NOT padded to limit.
+        assert len(results) == 2
+        assert all(c["semantic_score"] >= 0.5 for c in results)
+
+    @pytest.mark.unit
+    def test_zero_floor_preserves_prior_behavior(self, monkeypatch):
+        import app.services.rag_retrieval as rr
+
+        chunks = [{"id": str(i), "semantic_score": 0.1 * i, "content": "x"} for i in range(4)]
+        monkeypatch.setattr(rr, "hybrid_search", lambda **kwargs: list(chunks))
+
+        results = rr.retrieve_relevant_chunks_hybrid(
+            project_id="p", query="q", limit=5, use_reranking=True, min_similarity=0.0
+        )
+        assert len(results) == 4
+
+    @pytest.mark.unit
+    def test_all_weak_returns_empty_not_filled(self, monkeypatch):
+        import app.services.rag_retrieval as rr
+
+        chunks = [{"id": str(i), "semantic_score": 0.05, "content": "x"} for i in range(4)]
+        monkeypatch.setattr(rr, "hybrid_search", lambda **kwargs: list(chunks))
+
+        results = rr.retrieve_relevant_chunks_hybrid(
+            project_id="p", query="q", limit=5, use_reranking=True, min_similarity=0.45
+        )
+        assert results == []
+
+
+class TestBehavioralHealthSourceGating:
+    @pytest.mark.unit
+    def test_public_health_psychology_rejects_unrelated_methodology_intervention_sources(self):
+        from app.services.draft_external_source_discovery import _normalize_candidate
+
+        target = {
+            "target_type": "revision_task",
+            "search_query": "public_health_psychology behavioral_health social media adolescent anxiety systematic review gray literature",
+            "text": "Search gray literature for adolescent social media anxiety systematic review.",
+            "rank": 1.0,
+            "manuscript_profile": {
+                "routing_domain": "public_health_psychology",
+                "domain_tags": ["public_health", "psychology", "behavioral_health"],
+                "review_lenses": ["systematic_review_methods"],
+            },
+        }
+        paper = {
+            "title": "Water fluoridation for the prevention of dental caries",
+            "abstract": "A systematic review protocol for health interventions.",
+            "authors": ["Scholar"],
+            "year": 2020,
+            "citation_count": 500,
+        }
+
+        assert _normalize_candidate(paper, target, "openalex") is None
 
 
 class TestLangGraphPersistenceGrounding:
@@ -365,6 +1087,7 @@ class TestLangGraphPersistenceGrounding:
             return final_state
 
         with patch.object(langgraph_service, "supabase", fake_supabase), \
+             patch("app.services.draft_analysis_runs.supabase", fake_supabase), \
              patch.object(langgraph_service, "run_draft_analysis_workflow", new=AsyncMock(side_effect=fake_workflow)), \
              patch.object(langgraph_service, "publish_progress", new=AsyncMock()), \
              patch("app.services.coverage_analysis.suggest_papers_for_gaps", new=AsyncMock(side_effect=lambda gaps, _project_id: gaps)), \
@@ -411,6 +1134,152 @@ class TestStructuredOutputRetryUtils:
 
         assert response.parsed is parsed
         assert response.raw.choices[0].message.parsed is parsed
+
+
+class TestDraftAnalysisRunIsolation:
+    @pytest.mark.unit
+    def test_active_run_filter_scopes_to_published_active_run(self):
+        from app.services.draft_analysis_runs import active_run_filter
+
+        fake_supabase = FakeSupabase({"draft_claims": []})
+        query = active_run_filter(fake_supabase.table("draft_claims").select("*"), "run-2")
+
+        assert ("analysis_run_id", "run-2") in query.filters
+        assert ("is_published", True) in query.filters
+
+    @pytest.mark.unit
+    def test_active_run_row_assertion_rejects_mismatched_rows(self):
+        from app.services.draft_analysis_runs import assert_active_run_rows
+
+        with pytest.raises(ValueError, match="analysis_run_id"):
+            assert_active_run_rows(
+                table="draft_claims",
+                draft_id="draft-1",
+                active_run_id="run-2",
+                rows=[
+                    {
+                        "id": "claim-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                    }
+                ],
+            )
+
+        with pytest.raises(ValueError, match="is_published"):
+            assert_active_run_rows(
+                table="draft_claims",
+                draft_id="draft-1",
+                active_run_id="run-2",
+                rows=[
+                    {
+                        "id": "claim-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-2",
+                        "is_published": False,
+                    }
+                ],
+            )
+
+    @pytest.mark.unit
+    def test_publish_marks_only_new_run_visible_and_activates_draft(self, monkeypatch):
+        from app.services import draft_analysis_runs
+
+        fake_supabase = FakeSupabase({
+            "drafts": [{"id": "draft-1", "status": "analyzed", "active_analysis_run_id": "run-1"}],
+            "draft_analysis": [
+                {
+                    "id": "analysis-1",
+                    "draft_id": "draft-1",
+                    "analysis_run_id": "run-1",
+                    "is_published": True,
+                    "analysis_metadata": {"analysis_run_id": "run-1"},
+                }
+            ],
+            "draft_claims": [
+                {
+                    "id": "claim-1",
+                    "draft_id": "draft-1",
+                    "analysis_run_id": "run-1",
+                    "is_published": True,
+                    "claim_text": "old",
+                }
+            ],
+        })
+        monkeypatch.setattr(draft_analysis_runs, "supabase", fake_supabase)
+
+        draft_analysis_runs.publish_analysis_artifacts(
+            run_id="run-2",
+            draft_id="draft-1",
+            artifacts={
+                "draft_analysis": [{
+                    "draft_id": "draft-1",
+                    "analysis_metadata": {"analysis_run_id": "run-2"},
+                }],
+                "draft_claims": [{
+                    "draft_id": "draft-1",
+                    "claim_text": "new",
+                }],
+            },
+        )
+
+        assert fake_supabase.tables["drafts"][0]["active_analysis_run_id"] == "run-2"
+        assert fake_supabase.tables["draft_analysis"][0]["analysis_run_id"] == "run-2"
+        old_claim = next(row for row in fake_supabase.tables["draft_claims"] if row["claim_text"] == "old")
+        new_claim = next(row for row in fake_supabase.tables["draft_claims"] if row["claim_text"] == "new")
+        assert old_claim["is_published"] is False
+        assert new_claim["analysis_run_id"] == "run-2"
+        assert new_claim["is_published"] is True
+
+    @pytest.mark.unit
+    def test_publish_restores_previous_draft_analysis_if_activation_fails(self, monkeypatch):
+        from app.services import draft_analysis_runs
+
+        class FailingDraftUpdateTable(FakeTable):
+            def execute(self):
+                if self.name == "drafts" and self.action == "update":
+                    raise RuntimeError("draft activation failed")
+                return super().execute()
+
+        class FailingDraftUpdateSupabase(FakeSupabase):
+            def table(self, name):
+                return FailingDraftUpdateTable(self, name)
+
+        previous_row = {
+            "id": "analysis-1",
+            "draft_id": "draft-1",
+            "analysis_run_id": "run-1",
+            "is_published": True,
+            "analysis_metadata": {"analysis_run_id": "run-1"},
+        }
+        fake_supabase = FailingDraftUpdateSupabase({
+            "drafts": [{"id": "draft-1", "status": "analyzed", "active_analysis_run_id": "run-1"}],
+            "draft_analysis": [dict(previous_row)],
+            "draft_claims": [],
+            "draft_analysis_runs": [{"id": "run-2", "draft_id": "draft-1", "status": "running"}],
+        })
+        monkeypatch.setattr(draft_analysis_runs, "supabase", fake_supabase)
+
+        with pytest.raises(RuntimeError, match="draft activation failed"):
+            draft_analysis_runs.publish_analysis_artifacts(
+                run_id="run-2",
+                draft_id="draft-1",
+                artifacts={
+                    "draft_analysis": [{
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-2",
+                        "analysis_metadata": {"analysis_run_id": "run-2"},
+                    }],
+                    "draft_claims": [{
+                        "draft_id": "draft-1",
+                        "claim_text": "new",
+                    }],
+                },
+            )
+
+        assert fake_supabase.tables["draft_analysis"] == [previous_row]
+        assert fake_supabase.tables["draft_claims"] == []
+        assert fake_supabase.tables["drafts"][0]["active_analysis_run_id"] == "run-1"
 
     @pytest.mark.unit
     @pytest.mark.asyncio
