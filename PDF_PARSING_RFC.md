@@ -144,3 +144,24 @@ threshold), vs. 0.3 today.
 - AWS Textract pricing — https://aws.amazon.com/textract/pricing/
 - Google Document AI pricing — https://cloud.google.com/document-ai/pricing
 - Adobe PDF Services pricing — https://developer.adobe.com/document-services/pricing/main/
+
+---
+
+## Phase 1 spike — RESULTS (2026-06-07, decision: Docling)
+
+Benchmarked GROBID vs PyMuPDF vs Docling on 8 real PDFs (`scripts/parser_spike.py`,
+metric = fraction of text blocks carrying a usable page/bbox).
+
+| Parser | mean location coverage (n=8) | structure | duplicate headings | speed/PDF |
+|---|---|---|---|---|
+| GROBID (baseline) | **0.0** | sections only | 0 | 1–5s |
+| PyMuPDF | 1.0 | none | 0 | <0.1s |
+| **Docling** | **1.0** | sections (10/7/32…) | 0 | 2.5–18s |
+
+GROBID returned **zero usable coordinates on every PDF** — the root cause of
+`page None` / 0.09 anchor coverage. Docling delivers full coordinates + section
+structure + no duplicate headings, self-hosted at $0.
+
+**Decision: migrate body/structure/coordinate extraction to Docling** (Phase 2),
+keep GROBID for references only, PyMuPDF as an emergency fallback. Marker and other
+parsers not needed — Docling clears the ≥0.8 target at 1.0.

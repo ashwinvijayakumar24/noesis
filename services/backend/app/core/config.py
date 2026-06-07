@@ -42,6 +42,10 @@ class Settings(BaseSettings):
 
     # GROBID Configuration
     GROBID_URL: Optional[str] = None
+    # PDF body parser: "grobid" (default) or "docling". Docling gives per-block
+    # coordinates (fixes anchoring); GROBID stays as automatic fallback + references.
+    PDF_PARSER: str = "grobid"
+    DOCLING_URL: Optional[str] = None
 
     # Application Configuration
     ENVIRONMENT: str = "development"

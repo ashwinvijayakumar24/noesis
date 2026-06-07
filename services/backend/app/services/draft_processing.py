@@ -84,6 +84,30 @@ async def extract_text_from_pdf(file_bytes: bytes) -> Dict[str, Any]:
         FileEmptyError: If PDF contains no extractable text
     """
     try:
+        # Docling path (layout-faithful extraction with per-block coordinates) when
+        # enabled via PDF_PARSER=docling. GROBID emits near-zero coordinates on real
+        # PDFs (the cause of failed anchoring); Docling gives a page+bbox for every
+        # block. We keep GROBID's structured references (its genuine strength).
+        if (getattr(settings, "PDF_PARSER", "grobid") or "grobid").lower() == "docling":
+            from app.services.docling_client import extract_with_docling
+            docling_data = await extract_with_docling(file_bytes)
+            if docling_data and docling_data.get("sections") and (docling_data.get("full_text") or "").strip():
+                try:
+                    grobid_refs = (await get_grobid_client().process_pdf(file_bytes)).get("references") or []
+                    if grobid_refs:
+                        docling_data["references"] = grobid_refs
+                except Exception as ref_err:
+                    logger.info("[Docling] GROBID reference enrichment skipped: %s", safe_exception(ref_err))
+                logger.info(
+                    "Extracted via Docling: sections=%s references=%s pages=%s chars=%s",
+                    len(docling_data["sections"]),
+                    len(docling_data.get("references") or []),
+                    docling_data.get("metadata", {}).get("page_count"),
+                    len(docling_data.get("full_text") or ""),
+                )
+                return docling_data
+            logger.warning("Docling parse unavailable/empty; falling back to GROBID")
+
         # Use GROBID for structured extraction
         grobid = get_grobid_client()
         structured_data = await grobid.process_pdf(file_bytes)

@@ -23,6 +23,18 @@ services:
     # The backend handles GROBID failures gracefully
     restart: unless-stopped
 
+  # Docling layout parser (per-block coordinates). Used when PDF_PARSER=docling;
+  # GROBID stays as automatic fallback + reference extraction.
+  docling-serve:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    container_name: noesis-docling
+    platform: linux/amd64
+    ports:
+      - "5001:5001"
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+    restart: unless-stopped
+
   backend:
     build:
       context: ../services/backend
@@ -32,6 +44,8 @@ services:
       - ../services/backend/.env
     environment:
       GROBID_URL: http://grobid:8070
+      DOCLING_URL: http://docling-serve:5001
+      PDF_PARSER: ${PDF_PARSER:-grobid}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
@@ -59,6 +73,8 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0
       GROBID_URL: http://grobid:8070
+      DOCLING_URL: http://docling-serve:5001
+      PDF_PARSER: ${PDF_PARSER:-grobid}
     command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=3,1 --queues=default,analysis,insights
     depends_on:
       redis:

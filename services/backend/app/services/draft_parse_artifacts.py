@@ -120,6 +120,7 @@ def build_structure_from_extracted_data(extracted_data: Mapping[str, Any]) -> di
     section_types = {section.get("type") for section in sections}
     full_text = normalize_anchor_text(str(extracted_data.get("full_text") or ""))
     metadata = dict(extracted_data.get("metadata") or {})
+    is_docling = (metadata.get("parser") or "").lower() == "docling"
     return {
         "sections": sections,
         "word_count": len(full_text.split()),
@@ -135,8 +136,9 @@ def build_structure_from_extracted_data(extracted_data: Mapping[str, Any]) -> di
             "has_introduction": "introduction" in section_types,
             "has_conclusion": "conclusion" in section_types,
             "appears_complete": len(sections) >= 3,
-            "primary_structure": "standard",
-            "grobid_extracted": True,
+            "primary_structure": "docling" if is_docling else "standard",
+            "grobid_extracted": not is_docling,
+            "docling_extracted": is_docling,
         },
     }
 
@@ -299,7 +301,12 @@ def assess_parse_quality(
     normalized = normalize_anchor_text(full_text)
 
     metadata = structure.get("document_metadata", {}) or {}
-    if file_type == "pdf" and not metadata.get("grobid_extracted") and not metadata.get("local_text_fallback"):
+    if (
+        file_type == "pdf"
+        and not metadata.get("grobid_extracted")
+        and not metadata.get("docling_extracted")
+        and not metadata.get("local_text_fallback")
+    ):
         flags.append("not_grobid_pdf_parse")
         score -= 0.35
     if len(normalized) < 1000:
@@ -345,7 +352,7 @@ def assess_parse_quality(
         "missing_anchor_map",
     }
     return {
-        "parser_name": "grobid" if metadata.get("grobid_extracted") else "local_text_fallback" if metadata.get("local_text_fallback") else "fallback",
+        "parser_name": "docling" if metadata.get("docling_extracted") else "grobid" if metadata.get("grobid_extracted") else "local_text_fallback" if metadata.get("local_text_fallback") else "fallback",
         "parser_quality_score": score,
         "parser_quality_flags": flags,
         "parse_blocked": bool(blocking_flags & set(flags)) or score < 0.55,

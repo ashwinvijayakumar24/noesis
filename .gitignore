@@ -90,3 +90,8 @@ htmlcov/
 alembic/versions/*.pyc
 .vercel
 .env*.local
+
+# Parser spike artifacts (local only)
+pdfs/
+scripts/parser_spike_out/
+.spike-venv/
