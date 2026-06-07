@@ -188,13 +188,12 @@ export default function Landing() {
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  disabled
-                  className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-border-default bg-bg-elevated px-5 py-3 text-sm font-semibold text-text-tertiary opacity-80"
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-accent-primary/60 bg-accent-primary px-5 py-3 text-sm font-semibold text-white transition-all duration-150 hover:border-accent-hover hover:bg-accent-hover"
                 >
                   Start Free
-                </button>
+                </Link>
                 <Link
                   to="/pricing"
                   className="inline-flex items-center justify-center rounded-md border border-border-default bg-bg-surface px-5 py-3 text-sm font-semibold text-text-primary transition-all duration-150 hover:border-border-strong hover:bg-bg-elevated"
@@ -339,13 +338,12 @@ export default function Landing() {
               Noesis is built for researchers who want sharper claims, better citation coverage, and fewer avoidable reviewer objections.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <button
-                type="button"
-                disabled
-                className="inline-flex cursor-not-allowed items-center justify-center rounded-md border border-border-default bg-bg-elevated px-5 py-3 text-sm font-semibold text-text-tertiary opacity-80"
+              <Link
+                to="/signup"
+                className="inline-flex items-center justify-center rounded-md border border-accent-primary/60 bg-accent-primary px-5 py-3 text-sm font-semibold text-white transition-all duration-150 hover:border-accent-hover hover:bg-accent-hover"
               >
                 Get Started Free
-              </button>
+              </Link>
               <Link
                 to="/privacy"
                 className="inline-flex items-center justify-center rounded-md border border-border-default bg-bg-elevated px-5 py-3 text-sm font-semibold text-text-primary transition-colors duration-150 hover:border-border-strong"

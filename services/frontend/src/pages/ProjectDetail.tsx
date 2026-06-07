@@ -669,7 +669,10 @@ export default function ProjectDetail() {
 
                 {/* Empty state */}
                 {documents.length === 0 && (
-                  <EmptyStateGuide onUploadClick={() => setIsUploadModalOpen(true)} />
+                  <EmptyStateGuide
+                    onUploadClick={() => setIsUploadModalOpen(true)}
+                    onImportClick={() => setIsImportModalOpen(true)}
+                  />
                 )}
 
                 {/* Unified paper list */}

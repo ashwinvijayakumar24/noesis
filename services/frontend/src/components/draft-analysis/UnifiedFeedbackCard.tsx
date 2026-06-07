@@ -77,6 +77,11 @@ const CITATION_SOURCE_CONFIG: Record<string, { text: string; label: string }> = 
   arxiv:             { text: 'text-text-secondary', label: 'arXiv' },
 }
 
+function citationSourceConfig(source?: string) {
+  const sourceKey = String(source || 'library').trim().toLowerCase()
+  return CITATION_SOURCE_CONFIG[sourceKey] || CITATION_SOURCE_CONFIG['library']
+}
+
 const META_LABEL_CLASS = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted'
 const META_VALUE_CLASS = 'text-xs font-medium text-text-secondary'
 const META_STATUS_READY_CLASS = 'text-xs font-medium text-accent-primary hover:text-accent-primary/80'
@@ -364,7 +369,7 @@ export default function UnifiedFeedbackCard({
           </>
         )}
 
-        {(item.type === 'feedback' || item.type === 'task') && (() => {
+        {item.type === 'feedback' && (() => {
           const typeLabel = FEEDBACK_TYPE_LABEL[metadata.feedbackType as string] ?? metadata.feedbackType
           if (!typeLabel) return null
           return <span className="text-text-secondary">{typeLabel}</span>
@@ -377,7 +382,7 @@ export default function UnifiedFeedbackCard({
           <span className="mb-1.5 block text-xs font-medium text-text-secondary">Recommended support</span>
           <div className="space-y-2">
             {suggestedCitations.slice(0, 2).map((cit, i) => {
-              const sourceConfig = CITATION_SOURCE_CONFIG[cit.source] || CITATION_SOURCE_CONFIG['library']
+              const sourceConfig = citationSourceConfig(cit.source)
               return (
                 <div
                   key={i}
@@ -389,7 +394,7 @@ export default function UnifiedFeedbackCard({
                     {cit.similarity && cit.similarity >= 0.7 && (
                       <span className="text-[11px] font-medium text-text-muted">{Math.round(cit.similarity * 100)}%</span>
                     )}
-                    <span className={`text-[11px] font-semibold uppercase tracking-wide ${sourceConfig.text}`}>
+                    <span className={`text-[11px] font-semibold tracking-wide ${sourceConfig.text}`}>
                       {sourceConfig.label}
                     </span>
                   </div>
@@ -441,9 +446,9 @@ export default function UnifiedFeedbackCard({
                         </span>
                         {suggestion.external && (() => {
                           const source = suggestion.source || 'semantic_scholar'
-                          const sourceConfig = CITATION_SOURCE_CONFIG[source] || CITATION_SOURCE_CONFIG['library']
+                          const sourceConfig = citationSourceConfig(source)
                           return (
-                            <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 ${sourceConfig.text}`}>
+                            <span className={`text-[11px] font-semibold tracking-wide shrink-0 ${sourceConfig.text}`}>
                               {sourceConfig.label}
                             </span>
                           )
@@ -492,9 +497,9 @@ export default function UnifiedFeedbackCard({
               </span>
               {(source.source || source.provider) && (() => {
                 const sourceKey = source.source || source.provider
-                const sourceConfig = CITATION_SOURCE_CONFIG[sourceKey] || CITATION_SOURCE_CONFIG['library']
+                const sourceConfig = citationSourceConfig(sourceKey)
                 return (
-                  <span className={`ml-2 text-[11px] font-semibold uppercase tracking-wide ${sourceConfig.text}`}>
+                  <span className={`ml-2 text-[11px] font-semibold tracking-wide ${sourceConfig.text}`}>
                     {sourceConfig.label}
                   </span>
                 )

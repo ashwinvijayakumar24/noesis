@@ -117,7 +117,7 @@ export default function Pricing() {
       description: 'For small research groups that need higher operational caps.',
       icon: UserGroupIcon,
       highlighted: false,
-      cta: 'Coming Soon',
+      cta: 'Subscribe to Team',
       subtext: null,
       features: [
         'Everything in Pro',
@@ -136,7 +136,7 @@ export default function Pricing() {
       description: 'For departments and institutions with procurement requirements.',
       icon: BuildingOffice2Icon,
       highlighted: false,
-      cta: 'Coming Soon',
+      cta: 'Contact Us',
       subtext: null,
       features: [
         'Coming Soon',
@@ -222,9 +222,11 @@ export default function Pricing() {
                     variant={tier.highlighted ? 'primary' : 'secondary'}
                     size="md"
                     className="w-full"
-                    disabled
+                    disabled={loading && tier.name !== 'Free' && tier.name !== 'Enterprise'}
                   >
-                    {loading ? 'Processing...' : tier.cta}
+                    {loading && tier.name !== 'Free' && tier.name !== 'Enterprise'
+                      ? 'Processing...'
+                      : tier.cta}
                   </Button>
                   {tier.subtext && (
                     <p className="text-center text-xs font-mono text-text-muted">{tier.subtext}</p>

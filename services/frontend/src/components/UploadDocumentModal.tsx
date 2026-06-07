@@ -235,16 +235,57 @@ export default function UploadDocumentModal({
     try {
       setInlineError(null)
       setLoading(true)
-      const uploadPromises = selectedFiles.map(file =>
+      const filesToUpload = [...selectedFiles]
+      const uploadPromises = filesToUpload.map(file =>
         api.documents.upload(token, file, {
           project_id: projectId,
           title: file.name.replace('.pdf', ''),
           description: description.trim() || undefined,
         })
       )
-      const uploadResults = await Promise.all(uploadPromises)
-      uploadResults.forEach(r => trackEvent.documentUploaded(projectId, r.document.id))
+      const settledResults = await Promise.allSettled(uploadPromises)
+      const uploadResults = settledResults
+        .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+        .map(result => result.value)
+      const failedResults = settledResults
+        .map((result, index) => ({ result, index }))
+        .filter(({ result }) => result.status === 'rejected') as Array<{ result: PromiseRejectedResult; index: number }>
+
+      uploadResults
+        .filter(r => !r.duplicate)
+        .forEach(r => trackEvent.documentUploaded(projectId, r.document.id))
       const titles = uploadResults.map(r => r.document.title)
+
+      if (uploadResults.length > 0) {
+        onSuccess()
+      }
+
+      if (failedResults.length > 0) {
+        const failedIndexes = new Set(failedResults.map(({ index }) => index))
+        setSelectedFiles(filesToUpload.filter((_, index) => failedIndexes.has(index)))
+        if (fileInputRef.current) fileInputRef.current.value = ''
+
+        const firstError = failedResults[0].result.reason
+        if (uploadResults.length === 0 && handleQuotaError(firstError)) {
+          return
+        }
+        const detail = getApiErrorDetail(firstError)
+        setInlineError({
+          title: detail?.title || `${failedResults.length} upload${failedResults.length > 1 ? 's' : ''} failed`,
+          message: detail?.message || 'Successful files were saved. Retry only the files still listed below.',
+          details: [
+            ...getApiErrorDetailsList(detail),
+            `${uploadResults.length} file${uploadResults.length === 1 ? '' : 's'} saved successfully.`,
+            `${failedResults.length} file${failedResults.length === 1 ? '' : 's'} still need attention.`,
+          ],
+        })
+        if (uploadResults.length > 0) {
+          toast.success(`${uploadResults.length} file${uploadResults.length === 1 ? '' : 's'} saved`)
+        }
+        handleError(firstError, 'uploading documents')
+        return
+      }
+
       setSelectedFiles([])
       setDescription('')
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -252,7 +293,6 @@ export default function UploadDocumentModal({
       setUploadedCount(uploadResults.length)
       setUploadedTitles(titles)
       setShowSuccessModal(true)
-      onSuccess()
     } catch (error: any) {
       if (!handleQuotaError(error)) {
         const detail = getApiErrorDetail(error)
