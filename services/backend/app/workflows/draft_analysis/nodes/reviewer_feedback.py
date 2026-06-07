@@ -322,24 +322,6 @@ def generate_reviewer_feedback_node(state: DraftAnalysisState) -> DraftAnalysisS
     draft_id = state["draft_id"]
 
     try:
-        # Skip generation if feedback already exists in DB (idempotency guard)
-        existing_feedback = supabase.table("reviewer_feedback").select("*").eq("draft_id", draft_id).execute()
-        if existing_feedback.data:
-            logger.info(f"[Reviewer Feedback] Found cached feedback for draft_id={draft_id}, skipping generation")
-            cached_items = [
-                Feedback(
-                    feedback_type=item.get("feedback_type", "suggestion"),
-                    feedback_text=item.get("feedback_text", ""),
-                    severity=item.get("severity", "minor"),
-                    section_reference=item.get("section_reference"),
-                )
-                for item in existing_feedback.data
-            ]
-            return {
-                "reviewer_feedback": cached_items,
-                "current_step": "Reviewer Feedback (Cached)",
-            }
-
         structure = state.get("structure", {})
         claims_with_citations = state.get("claims_with_citations", [])
         gaps = state.get("coverage_gaps", [])

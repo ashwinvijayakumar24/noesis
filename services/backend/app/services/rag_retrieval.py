@@ -577,7 +577,8 @@ def retrieve_relevant_chunks_hybrid(
     project_id: str,
     query: str,
     limit: int = 5,
-    use_reranking: bool = True
+    use_reranking: bool = True,
+    min_similarity: float = 0.0,
 ) -> List[Dict[str, Any]]:
     """
     Enhanced retrieval using hybrid search + reranking
@@ -589,9 +590,13 @@ def retrieve_relevant_chunks_hybrid(
         query: Search query
         limit: Final number of results
         use_reranking: Whether to rerank results with LLM
+        min_similarity: Minimum semantic similarity a chunk must clear to be
+            eligible. When > 0, weak matches are dropped rather than padding the
+            result to ``limit`` (no top_k fill). Default 0.0 preserves prior
+            behaviour for callers that have not opted into a floor.
 
     Returns:
-        High-quality ranked results
+        High-quality ranked results (may be fewer than ``limit`` if matches are weak)
     """
     # Step 1: Hybrid search (get top 20)
     hybrid_results = hybrid_search(
@@ -601,6 +606,16 @@ def retrieve_relevant_chunks_hybrid(
         semantic_weight=0.7,
         keyword_weight=0.3
     )
+
+    # Step 1b: Apply the relevance floor BEFORE reranking/limiting so the result
+    # is never padded with weak, potentially off-topic chunks.
+    if min_similarity > 0.0:
+        hybrid_results = [
+            chunk for chunk in hybrid_results
+            if chunk.get("semantic_score", chunk.get("similarity", 0.0)) >= min_similarity
+        ]
+        if not hybrid_results:
+            return []
 
     # Step 2: Rerank to get best N
     if use_reranking and len(hybrid_results) > limit:

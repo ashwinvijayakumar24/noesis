@@ -440,6 +440,11 @@ async def run_draft_analysis_workflow(
     paper_type: str | None = None,
     citation_style: str | None = None,
     analysis: dict | None = None,
+    initial_structure: dict | None = None,
+    parse_artifact: dict | None = None,
+    parser_quality: dict | None = None,
+    quality_retry_instruction: str | None = None,
+    forced_route: str | None = None,
 ) -> DraftAnalysisState:
     """
     Run the complete draft analysis workflow.
@@ -480,8 +485,13 @@ async def run_draft_analysis_workflow(
         "user_id": user_id,
         "draft_content": draft_content,
         "paper_type": paper_type or "journal_article",
-        "citation_style": citation_style or "apa",
+        "citation_style": citation_style or "auto",
         "analysis": analysis or {},
+        "parse_artifact": parse_artifact or {},
+        "parser_quality": parser_quality or {},
+        "forced_route": forced_route or "",
+        "stage_only": True,
+        "quality_retry_instruction": quality_retry_instruction or "",
         "current_step": "Starting",
         "progress_percentage": 0,
         "search_iterations": 0,
@@ -489,6 +499,8 @@ async def run_draft_analysis_workflow(
         # Must be initialised here so the Annotated reducer channel is seeded.
         "reviewer_outputs": [],
     }
+    if initial_structure:
+        initial_state["structure"] = initial_structure
     logger.info(f"[Workflow] State initialized: {list(initial_state.keys())}")
 
     try:

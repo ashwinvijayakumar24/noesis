@@ -92,8 +92,14 @@ class ManuscriptProfileOutput(StrictOutputModel):
         "empirical_study",
         "methods_paper",
         "theory_framework",
+        "theoretical_article",
+        "methods_article",
+        "legal_policy_analysis",
+        "pedagogical_conceptual",
+        "conceptual_article",
         "case_study",
         "review_article",
+        "literature_review",
         "unknown",
     ] = "unknown"
     study_design: str = ""
@@ -112,7 +118,11 @@ class DiagnosticFinding(StrictOutputModel):
         "framework_validation",
         "causal_inference",
         "literature_positioning",
+        "materials_literature_positioning",
+        "materials_degradation",
+        "materials_evidence",
         "reproducibility",
+        "clarity",
     ]
     severity: Literal["critical", "major", "minor"]
     section_reference: str = ""
@@ -355,3 +365,18 @@ class ReviewerJudgeOutput(StrictOutputModel):
         default_factory=list,
         description="reviewer_ids whose output should be regenerated with a stricter specificity prompt",
     )
+
+
+class AnalysisQualityJudgeOutput(StrictOutputModel):
+    quality_pass: bool
+    domain_alignment_score: float = Field(ge=0.0, le=1.0)
+    manuscript_specificity_score: float = Field(ge=0.0, le=1.0)
+    wrong_domain_flags: list[str] = Field(default_factory=list)
+    retry_recommended: bool = False
+    reroute_required: bool = False
+    suggested_route: str = ""
+    invalid_review_standards: list[str] = Field(default_factory=list)
+    source_contamination_flags: list[str] = Field(default_factory=list)
+    publish_allowed: bool = True
+    failure_reason: str = ""
+    judge_rationale: str = ""

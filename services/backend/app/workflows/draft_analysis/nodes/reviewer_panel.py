@@ -17,6 +17,7 @@ import re
 
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.schemas import ReviewerOutput
+from app.workflows.draft_analysis.domain_routing import domain_context_block
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_async_openai_client, get_completion_params
 from app.core.supabase_client import supabase
@@ -66,6 +67,9 @@ OUTPUT QUALITY REQUIREMENTS:
 - Prefer section references and short quoted/paraphrased anchors over generic advice.
 - Populate the structured `issues` array for the most important 2-5 problems.
 - Each issue must include why it matters for acceptance and a concrete author action.
+- Obey the manuscript profile's forbidden review standards. Do not demand empirical
+  ML, clinical, laboratory, or quantitative standards unless the profile says that
+  evidence mode applies to this manuscript.
 """
 
 # ---------------------------------------------------------------------------
@@ -97,6 +101,9 @@ Your focus: study design, evidence synthesis, statistical validity, reproducibil
 
 Key questions to answer:
 - Is the manuscript using the right methodological standard for its paper type?
+- If the manuscript is conceptual, theoretical, humanities, pedagogy, or essayistic,
+  evaluate operational clarity, argumentative support, classroom/artifact specificity,
+  and scope conditions instead of demanding datasets, baselines, ablations, or metrics.
 - For systematic reviews, are search strategy, eligibility criteria, extraction, risk of bias, heterogeneity, and synthesis handled rigorously?
 - For primary empirical/model papers, are baselines appropriate and up-to-date? Are SOTA methods compared?
 - Are results statistically significant with proper reporting (p-values, confidence intervals, effect sizes)?
@@ -112,12 +119,12 @@ Do NOT comment on novelty or literature coverage — those are other reviewers' 
     "clarity": f"""You are Reviewer D: Clarity, Presentation & Reproducibility expert.
 
 Your focus: writing clarity, figure/table quality, abstract accuracy,
-limitations section honesty, and whether the paper is reproducible from text alone.
+limitations/caveat honesty, and whether the paper is reproducible from text alone.
 
 Key questions to answer:
 - Is the abstract an accurate summary of the paper? Does it oversell?
 - Are figures and tables self-contained with clear captions?
-- Does the paper have a limitations section that is honest (not just one sentence)?
+- Are limitations and caveats honestly discussed? Do not require a dedicated "Limitations" heading for short-letter formats such as PNAS, Nature, or Science.
 - Can experiments be reproduced without contacting the authors?
 - Is technical terminology consistent throughout?
 
@@ -271,6 +278,10 @@ def _profile_context(state: DraftAnalysisState) -> str:
         f"  Review lenses: {', '.join(profile.get('review_lenses') or []) or 'none'}",
         f"  High-risk checks: {', '.join(profile.get('high_risk_checks') or []) or 'none'}",
     ]
+    lines.append(domain_context_block(profile))
+    retry_instruction = state.get("quality_retry_instruction")
+    if retry_instruction:
+        lines.append(f"\nQUALITY RETRY INSTRUCTION:\n{retry_instruction}\n")
     if diagnostics:
         lines.append("\nTOP DIAGNOSTIC FINDINGS:")
         for finding in diagnostics[:10]:
@@ -344,8 +355,8 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
             if issue.problem and issue.problem not in output.weaknesses:
                 output.weaknesses.append(issue.problem)
 
-        # Persist to DB
-        try:
+        if not state.get("stage_only", True):
+            # Legacy direct persist path. Normal draft analysis publishes atomically later.
             supabase.table("reviewer_panel_outputs") \
                 .delete() \
                 .eq("draft_id", draft_id) \
@@ -371,8 +382,8 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
                     raise
                 panel_row.pop("issues", None)
                 supabase.table("reviewer_panel_outputs").insert(panel_row).execute()
-        except Exception as db_err:
-            logger.warning(f"[ReviewerPanel] DB persist failed for {reviewer_type}: {db_err}")
+        else:
+            panel_row = None
 
         logger.info(
             f"[ReviewerPanel] {reviewer_type} complete: "

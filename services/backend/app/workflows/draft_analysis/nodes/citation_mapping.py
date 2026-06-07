@@ -184,9 +184,8 @@ async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
     B2: Discover papers from project library and Semantic Scholar for a weak/unsupported claim.
 
     Flow:
-    1. Check shared_papers global DB (semantic search — no external API call)
-    2. Fall back to suggest_papers_for_gaps() (library + Semantic Scholar)
-    3. Store any new external results back into shared_papers for future reuse
+    1. Search project library + approved external scholarly APIs
+    2. Return per-run suggestions without writing them to a global cache
 
     Args:
         claim_text: The claim text to search for
@@ -196,17 +195,6 @@ async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
         List of suggested_citation dicts with display, source, title, authors, year
     """
     try:
-        # 1. Check shared_papers global cache first
-        from app.services.shared_paper_cache import find_similar_papers, store_paper
-        cached = await find_similar_papers(claim_text, limit=3, similarity_threshold=0.55)
-        if cached:
-            logger.info(f"[Citation Mapping] Using shared_papers cache ({len(cached)} hits) for claim")
-            return [
-                {**_format_paper_chip(p, "Global library"), "source": "global_library"}
-                for p in cached
-            ]
-
-        # 2. External fallback via project library + Semantic Scholar
         from app.services.coverage_analysis import suggest_papers_for_gaps
         mock_gap = {"description": claim_text, "suggested_papers": []}
         enriched = await suggest_papers_for_gaps([mock_gap], project_id, max_suggestions_per_gap=3)
@@ -220,20 +208,6 @@ async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
             chip["source"] = source
             chip["document_id"] = p.get("document_id")
             result.append(chip)
-
-        # 3. Store external (non-library) results in shared_papers (fire-and-forget)
-        for p in papers:
-            if not p.get("document_id") and (p.get("title") or p.get("doi") or p.get("arxiv_id")):
-                asyncio.create_task(store_paper({
-                    "title": p.get("title", ""),
-                    "authors": p.get("authors", []),
-                    "year": p.get("year"),
-                    "abstract": p.get("abstract", ""),
-                    "arxiv_id": p.get("arxiv_id"),
-                    "doi": p.get("doi"),
-                    "pdf_url": p.get("url") or p.get("open_access_url"),
-                    "source": p.get("source", "semantic_scholar"),
-                }))
 
         return result
 

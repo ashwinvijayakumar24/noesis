@@ -175,6 +175,8 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
     # OPTIMIZATION: Check if claims already exist in database (from Phase 1)
     try:
+        if state.get("stage_only", True):
+            raise RuntimeError("Skipping draft_claims cache during staged analysis run")
         existing_claims_res = supabase.table("draft_claims")\
             .select("id, claim_text, claim_type, section_location, importance_score, confidence_score, requires_citation, existing_citations, line_number, char_start, char_end, text_snippet, match_confidence")\
             .eq("draft_id", draft_id)\

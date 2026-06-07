@@ -136,8 +136,8 @@ async def _retry_reviewer(state: DraftAnalysisState, reviewer_id: str) -> dict |
             "recommendation": output.recommendation,
         }
 
-        # Overwrite DB row (delete + insert for upsert compatibility)
-        try:
+        if not state.get("stage_only", True):
+            # Legacy direct persist path. Normal draft analysis publishes atomically later.
             supabase.table("reviewer_panel_outputs") \
                 .delete() \
                 .eq("draft_id", draft_id) \
@@ -151,8 +151,6 @@ async def _retry_reviewer(state: DraftAnalysisState, reviewer_id: str) -> dict |
                 fallback_row = dict(new_row)
                 fallback_row.pop("issues", None)
                 supabase.table("reviewer_panel_outputs").insert(fallback_row).execute()
-        except Exception as db_err:
-            logger.warning(f"[ReviewerJudge] Retry DB overwrite failed for {reviewer_id}: {db_err}")
 
         logger.info(f"[ReviewerJudge] Retry complete for {reviewer_id}: rating={output.rating}")
         return output.model_dump()

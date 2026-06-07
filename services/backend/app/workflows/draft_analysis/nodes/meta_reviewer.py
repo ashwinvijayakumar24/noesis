@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.schemas import MetaReviewOutput
+from app.workflows.draft_analysis.domain_routing import domain_context_block
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_async_openai_client, get_completion_params
 from app.core.supabase_client import supabase
@@ -198,6 +199,7 @@ async def meta_reviewer_node(state: DraftAnalysisState) -> dict:
 
     context = f"""PAPER TYPE: {state.get('paper_type', 'unknown')}
 MANUSCRIPT PROFILE: {profile}
+{domain_context_block(profile)}
 
 PROFILE-AWARE DIAGNOSTIC FINDINGS:
 {chr(10).join(diagnostic_lines) if diagnostic_lines else "None"}
@@ -233,18 +235,14 @@ Based on these specialist reviews and the canonical diagnostics, produce your ar
         meta_dict = meta.model_dump()
         meta_dict["score_summary"] = score_summary or meta_dict.get("score_summary", {})
 
-        # Persist meta_review
-        try:
+        if not state.get("stage_only", True):
+            # Legacy direct persist path. Normal draft analysis publishes atomically later.
             supabase.table("meta_reviews").delete().eq("draft_id", draft_id).execute()
             supabase.table("meta_reviews").insert({
                 "draft_id": draft_id,
                 **meta_dict,
             }).execute()
-        except Exception as db_err:
-            logger.warning(f"[MetaReviewer] DB persist failed: {db_err}")
 
-        # Persist legacy reviewer_feedback rows (delete any old first)
-        try:
             supabase.table("reviewer_feedback").delete().eq("draft_id", draft_id).execute()
             legacy_items = _synthesize_legacy_feedback(meta, reviewer_outputs)
             if legacy_items:
@@ -253,8 +251,6 @@ Based on these specialist reviews and the canonical diagnostics, produce your ar
                     for item in legacy_items
                 ]).execute()
                 logger.info(f"[MetaReviewer] Wrote {len(legacy_items)} legacy feedback rows")
-        except Exception as fb_err:
-            logger.warning(f"[MetaReviewer] Legacy feedback persist failed: {fb_err}")
 
         logger.info(
             f"[MetaReviewer] Complete: "

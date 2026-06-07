@@ -10,6 +10,7 @@ If proceed_to_review=False, graph routes directly to synthesize_report.
 
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.schemas import EditorPassOutput
+from app.workflows.draft_analysis.domain_routing import domain_context_block
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_async_openai_client, get_completion_params
 from app.services.retry_utils import parse_chat_completion_with_retries
@@ -63,6 +64,7 @@ async def editor_pass_node(state: DraftAnalysisState) -> dict:
     structure = state.get("structure") or {}
     draft_content = state.get("draft_content", "")
     editing_feedback = (state.get("analysis") or {}).get("editing_feedback") or {}
+    profile = state.get("manuscript_profile") or {}
 
     # Build context — only first 2000 chars (abstract + intro) needed
     sections_present = [s.get("type", "?") for s in structure.get("sections", [])]
@@ -73,6 +75,7 @@ async def editor_pass_node(state: DraftAnalysisState) -> dict:
 Word count: {word_count}
 Section count: {section_count}
 Sections present: {', '.join(sections_present) or 'unknown'}
+{domain_context_block(profile)}
 
 STAGE 1 ISSUES (mechanical):
 Grammar issues: {len(editing_feedback.get('grammar_issues', []))}

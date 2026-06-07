@@ -34,6 +34,18 @@ def extract_structure_node(state: DraftAnalysisState) -> DraftAnalysisState:
     logger.info(f"[Structure Extraction] draft_content length={len(draft_content)} chars")
 
     try:
+        if state.get("structure"):
+            structure = dict(state["structure"])
+            logger.info(
+                "[Structure Extraction] Using structure from workflow state with %s sections",
+                len(structure.get("sections", [])),
+            )
+            return {
+                'structure': structure,
+                'current_step': 'Structure Extraction',
+                'progress_percentage': 10
+            }
+
         existing_structure = None
         try:
             analysis_response = (

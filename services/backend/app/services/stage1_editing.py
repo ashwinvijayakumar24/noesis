@@ -33,6 +33,8 @@ Return valid JSON:
 }}
 
 Return max 15 items per category. Focus on patterns, not every individual instance.
+If citation style is auto, infer the likely field convention from the manuscript.
+For materials science, chemistry, and engineering drafts, numbered bracket citations like [1,2] are acceptable and should not be flagged as APA violations.
 If the draft looks clean in a category, return an empty list for that category."""
 
 
@@ -64,7 +66,7 @@ def _extract_json_object(raw_content: str) -> dict[str, Any]:
 
 async def run_stage1_editing(
     draft_content: str,
-    citation_style: str = "apa",
+    citation_style: str = "auto",
     paper_type: str = "journal_article",
 ) -> dict[str, list[dict[str, Any]]]:
     """Run the mechanical editing pass and return a stable payload shape."""
