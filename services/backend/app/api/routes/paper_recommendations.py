@@ -539,18 +539,6 @@ async def save_discovered_paper(
     except Exception as e:
         logger.warning(f"[PAPER-REC-API] Monthly quota increment failed: {e}")
 
-    # 9. Populate shared cache best-effort so future users hit shared_papers first
-    try:
-        from app.services.shared_paper_cache import get_or_fetch_paper
-
-        await get_or_fetch_paper(
-            doi=rec.get("doi"),
-            arxiv_id=rec.get("arxiv_id"),
-            title=rec.get("title"),
-        )
-    except Exception as cache_exc:
-        logger.warning(f"[PAPER-REC-API] Shared cache populate failed (non-fatal): {cache_exc}")
-
     return {
         "success": True,
         "document_id": document_id,

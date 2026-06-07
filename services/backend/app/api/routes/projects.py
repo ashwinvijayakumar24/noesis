@@ -18,6 +18,7 @@ from app.services.progress_tracking import (
     store_progress_snapshot,
 )
 from app.services.quota_management import get_project_limit
+from app.services.draft_analysis_runs import active_run_filter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1066,16 +1067,19 @@ async def export_project_bibtex(
         BibTeX file content with all project citations
     """
     try:
-        # Verify project ownership
+        # Verify project ownership. Use limit(1) rather than single() so a
+        # missing/unauthorized project yields a clean 404 instead of a 500
+        # (single() raises when zero rows match).
         project = supabase.table("projects")\
             .select("*")\
             .eq("id", project_id)\
             .eq("user_id", user_id)\
-            .single()\
+            .limit(1)\
             .execute()
 
         if not project.data:
             raise HTTPException(status_code=404, detail="Project not found")
+        project_row = project.data[0]
 
         # Fetch all documents in the project
         documents = supabase.table("documents")\
@@ -1085,12 +1089,10 @@ async def export_project_bibtex(
             .order("title")\
             .execute()
 
-        if not documents.data:
-            raise HTTPException(status_code=404, detail="No documents found in project")
-
+        # An empty project exports an empty (header-only) .bib rather than 404'ing.
         # Generate BibTeX entries
         bibtex_entries = []
-        for doc in documents.data:
+        for doc in (documents.data or []):
             analysis = doc.get("analysis", {})
             citation_metadata = analysis.get("citation_metadata", {})
 
@@ -1131,14 +1133,11 @@ async def export_project_bibtex(
 
             bibtex_entries.append(bibtex_entry)
 
-        if not bibtex_entries:
-            raise HTTPException(status_code=404, detail="No documents with citation metadata found")
-
-        # Combine all entries
+        # Combine all entries (may be empty for a project with no citable docs).
         bibtex_content = "\n\n".join(bibtex_entries)
 
         # Add header comment
-        project_title = project.data.get("title", "Noesis Project")
+        project_title = project_row.get("title", "Noesis Project")
         header = f"% BibTeX export from Noesis\n% Project: {project_title}\n% Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n% Total entries: {len(bibtex_entries)}\n\n"
         bibtex_content = header + bibtex_content
 
@@ -1171,7 +1170,7 @@ def get_drafts_timeline(
 ):
     """Version history timeline for all analyzed drafts in a project."""
     drafts_response = supabase.table("drafts")\
-        .select("id, title, version, created_at")\
+        .select("id, title, version, created_at, active_analysis_run_id")\
         .eq("project_id", project_id)\
         .eq("user_id", user_id)\
         .eq("status", "analyzed")\
@@ -1188,12 +1187,19 @@ def get_drafts_timeline(
     for draft in drafts:
         draft_id = draft["id"]
 
-        feedback_res = supabase.table("reviewer_feedback")\
-            .select("severity").eq("draft_id", draft_id).execute()
-        gaps_res = supabase.table("coverage_gaps")\
-            .select("priority").eq("draft_id", draft_id).execute()
-        claims_res = supabase.table("draft_claims")\
-            .select("id").eq("draft_id", draft_id).execute()
+        active_run_id = draft.get("active_analysis_run_id")
+        feedback_res = active_run_filter(
+            supabase.table("reviewer_feedback").select("severity").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
+        gaps_res = active_run_filter(
+            supabase.table("coverage_gaps").select("priority").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
+        claims_res = active_run_filter(
+            supabase.table("draft_claims").select("id").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
         feedback_items = feedback_res.data or []
         gap_items = gaps_res.data or []

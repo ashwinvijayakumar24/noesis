@@ -16,6 +16,16 @@ from app.core.security_middleware import SecureAuthValidator
 router = APIRouter()
 
 
+def _require_user(authorization: str = Header(None)) -> str:
+    """Validate the Bearer token and return the user id (401 on failure)."""
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+    supabase = get_supabase_client()
+    user_response = supabase.auth.get_user(token)
+    if not user_response or not user_response.user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return user_response.user.id
+
+
 class ReferralStats(BaseModel):
     total_referrals: int
     completed_referrals: int
@@ -38,7 +48,7 @@ class ReferralResponse(BaseModel):
 
 @router.post("/referrals/generate")
 async def generate_referral_code(
-    user_id: str = Depends(lambda: None)  # TODO: Replace with actual auth
+    user_id: str = Depends(_require_user)
 ):
     """
     Generate a unique referral code for the user
@@ -90,7 +100,7 @@ async def generate_referral_code(
 
 @router.get("/referrals/stats", response_model=ReferralStats)
 async def get_referral_stats(
-    user_id: str = Depends(lambda: None)  # TODO: Replace with actual auth
+    user_id: str = Depends(_require_user)
 ):
     """
     Get user's referral statistics
@@ -255,7 +265,7 @@ async def track_referral(
 
 @router.get("/referrals/my", response_model=List[ReferralResponse])
 async def get_my_referrals(
-    user_id: str = Depends(lambda: None)  # TODO: Replace with actual auth
+    user_id: str = Depends(_require_user)
 ):
     """
     Get list of user's referrals

@@ -23,6 +23,8 @@ from pydantic import BaseModel
 from datetime import datetime
 import logging
 import json
+import hashlib
+import re
 
 router = APIRouter()
 
@@ -76,6 +78,37 @@ def _sanitize_filename(filename: str, fallback: str = "document_analysis") -> st
     if not safe_filename:
         safe_filename = fallback
     return safe_filename.replace(" ", "_")
+
+
+def _sanitize_storage_stem(filename: str, fallback: str = "document") -> str:
+    stem = filename.rsplit(".", 1)[0] if filename and "." in filename else filename
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "_", stem or "").strip("_")
+    return (safe_stem or fallback)[:80]
+
+
+def _get_existing_manual_upload(user_id: str, project_id: Optional[str], file_sha256: str) -> Optional[dict]:
+    query = (
+        supabase.table("documents")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("source_type", "manual_upload")
+        .eq("metadata->>file_sha256", file_sha256)
+        .limit(1)
+    )
+    if project_id:
+        query = query.eq("project_id", project_id)
+    else:
+        query = query.is_("project_id", "null")
+
+    response = query.execute()
+    if response.data:
+        return _attach_document_progress(response.data[0])
+    return None
+
+
+def _is_unique_violation(error: Exception) -> bool:
+    message = str(error).lower()
+    return "23505" in message or "duplicate key" in message or "unique constraint" in message
 
 
 def _serialize_document_analysis(analysis: object, title: str) -> str:
@@ -173,14 +206,15 @@ async def upload_document(
     print(f"[UPLOAD] Received: file={file.filename}, project_id={project_id}, title={title}, user_id={user_id}")
     from app.services.quota_management import check_quota, QuotaExceededError
     try:
-        file_extension = (file.filename or "").split(".")[-1].lower()
+        original_filename = file.filename or "document.pdf"
+        file_extension = original_filename.split(".")[-1].lower()
         if file_extension != "pdf":
             raise_api_error(
                 400,
                 code="invalid_file_type",
                 title="PDF required",
                 message="Only PDF uploads are supported in this flow.",
-                details=[f"Received file: {file.filename or 'unknown'}"],
+                details=[f"Received file: {original_filename}"],
                 next_action="fix_file",
                 retryable=False,
             )
@@ -201,32 +235,49 @@ async def upload_document(
                 limit=qe.limit,
                 current=qe.current,
             )
-        # Read file content
+        # Read file content and derive the idempotency key before any write.
         file_content = await file.read()
         file_size = len(file_content)
+        file_sha256 = hashlib.sha256(file_content).hexdigest()
 
-        # Generate storage path: documents/{user_id}/{filename}
+        existing_document = _get_existing_manual_upload(user_id, project_id, file_sha256)
+        if existing_document:
+            print(f"[UPLOAD] Duplicate upload detected; returning existing document_id={existing_document.get('id')}")
+            return {
+                "message": "Document already exists",
+                "document": existing_document,
+                "duplicate": True,
+                "task_id": (existing_document.get("metadata") or {}).get("analysis_task_id"),
+            }
+
+        # Generate deterministic storage path from content hash.
         import time
         import random
-        import uuid
 
-        # Add unique suffix to avoid file name conflicts
-        base_name = file.filename.rsplit('.', 1)[0] if '.' in file.filename else file.filename
-        extension = file.filename.rsplit('.', 1)[1] if '.' in file.filename else ''
-        unique_filename = f"{base_name}_{uuid.uuid4().hex[:8]}.{extension}" if extension else f"{base_name}_{uuid.uuid4().hex[:8]}"
-        storage_path = f"{user_id}/{unique_filename}"
+        extension = original_filename.rsplit('.', 1)[1] if '.' in original_filename else ''
+        safe_stem = _sanitize_storage_stem(original_filename or title or "document")
+        project_scope = project_id or "no_project"
+        unique_filename = f"{file_sha256[:16]}_{safe_stem}.{extension or 'pdf'}"
+        storage_path = f"{user_id}/{project_scope}/{unique_filename}"
 
         # Upload to Supabase Storage with retry logic
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 print(f"[UPLOAD] Attempting upload (try {attempt + 1}/{max_retries}) to path: {storage_path}")
-                storage_response = supabase.storage.from_("documents").upload(
-                    path=storage_path,
-                    file=file_content,
-                    file_options={"content-type": file.content_type or "application/octet-stream"}
-                )
-                print(f"[UPLOAD] Upload successful: {storage_response}")
+                try:
+                    storage_response = supabase.storage.from_("documents").upload(
+                        path=storage_path,
+                        file=file_content,
+                        file_options={"content-type": file.content_type or "application/octet-stream"}
+                    )
+                    print(f"[UPLOAD] Upload successful: {storage_response}")
+                except Exception as storage_error:
+                    # A deterministic path can already exist if a previous DB insert failed
+                    # after storage upload, or if a concurrent request won the storage write.
+                    if "already exists" not in str(storage_error).lower() and "duplicate" not in str(storage_error).lower():
+                        raise
+                    print(f"[UPLOAD] Storage object already exists for hash={file_sha256[:16]}; continuing")
                 break
             except Exception as upload_error:
                 print(f"[UPLOAD] Upload attempt {attempt + 1} failed: {type(upload_error).__name__}: {str(upload_error)}")
@@ -242,7 +293,7 @@ async def upload_document(
         metadata_entry = {
             "user_id": user_id,
             "project_id": project_id,
-            "title": title or file.filename,
+            "title": title or original_filename,
             "description": description,
             "file_url": file_url,
             "file_type": file.content_type or "application/octet-stream",
@@ -250,14 +301,35 @@ async def upload_document(
             "status": "uploaded",
             "source_type": "manual_upload",
             "metadata": {
-                "original_filename": file.filename,
+                "original_filename": original_filename,
+                "file_sha256": file_sha256,
+                "storage_path": storage_path,
                 "upload_timestamp": datetime.utcnow().isoformat()
             },
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }
 
-        db_response = supabase.table("documents").insert(metadata_entry).execute()
+        try:
+            db_response = supabase.table("documents").insert(metadata_entry).execute()
+        except Exception as insert_error:
+            if _is_unique_violation(insert_error):
+                existing_document = _get_existing_manual_upload(user_id, project_id, file_sha256)
+                if existing_document:
+                    existing_storage_path = (existing_document.get("metadata") or {}).get("storage_path")
+                    if existing_storage_path != storage_path:
+                        try:
+                            supabase.storage.from_("documents").remove([storage_path])
+                        except Exception as cleanup_error:
+                            print(f"[UPLOAD] Warning: failed to remove duplicate storage object {storage_path}: {cleanup_error}")
+                    print(f"[UPLOAD] Concurrent duplicate insert detected; returning existing document_id={existing_document.get('id')}")
+                    return {
+                        "message": "Document already exists",
+                        "document": existing_document,
+                        "duplicate": True,
+                        "task_id": (existing_document.get("metadata") or {}).get("analysis_task_id"),
+                    }
+            raise
 
         if not db_response.data:
             # If metadata creation fails, try to delete the uploaded file
@@ -303,6 +375,7 @@ async def upload_document(
         return {
             "message": "Document uploaded successfully",
             "document": document,
+            "duplicate": False,
             "task_id": task_id,
         }
 
@@ -713,43 +786,6 @@ def _run_analysis_task(document_id: str, file_url: str):
         if len(paper_text) < 100:
             raise Exception("Extracted text is too short. PDF might be scanned or corrupted.")
 
-        # 3.5 Check shared_papers cache BEFORE calling GPT-5.2
-        # If another user already analyzed this exact paper, reuse the analysis.
-        try:
-            doc_meta_res = supabase.table("documents").select("metadata").eq("id", document_id).execute()
-            doc_meta = (doc_meta_res.data[0].get("metadata") or {}) if doc_meta_res.data else {}
-            cached_doi = doc_meta.get("doi")
-
-            if cached_doi:
-                doi_clean = cached_doi.replace("https://doi.org/", "").replace("http://doi.org/", "").strip()
-                cached_paper_res = supabase.table("shared_papers")\
-                    .select("analysis, title")\
-                    .eq("doi", doi_clean)\
-                    .limit(1)\
-                    .execute()
-                if cached_paper_res.data and cached_paper_res.data[0].get("analysis"):
-                    cached_analysis = cached_paper_res.data[0]["analysis"]
-                    print(f"[ANALYZE-BG-LG] ✓ CACHE HIT for DOI {cached_doi} — skipping GPT-5.2 call")
-                    # Still run RAG ingest for user-scoped chunks
-                    from app.services.rag_ingest import ingest_document
-                    try:
-                        store_progress_snapshot("document", document_id, "generating_embeddings", 60, "Generating embeddings")
-                        ingest_document(document_id, file_url, project_id)
-                    except Exception as ingest_err:
-                        print(f"[ANALYZE-BG-LG] Warning: RAG ingest failed: {ingest_err}")
-                    run_coroutine_sync(increment_quota_usage(user_id, "document"))
-                    supabase.table("documents").update({
-                        "analysis": cached_analysis,
-                        "status": "analyzed",
-                        "updated_at": datetime.utcnow().isoformat()
-                    }).eq("id", document_id).execute()
-                    store_progress_snapshot("document", document_id, "finalizing", 100, "Analysis ready")
-                    clear_progress_snapshot("document", document_id)
-                    print(f"[ANALYZE-BG-LG] ✓ Applied cached analysis — document {document_id} marked analyzed")
-                    return  # Skip expensive GPT call
-        except Exception as cache_err:
-            print(f"[ANALYZE-BG-LG] Cache check error (non-fatal): {cache_err}")
-
         # 4. Run BOTH workflows in parallel for best of both worlds
         print(f"[ANALYZE-BG-LG] Step 4: Running dual analysis (LangGraph + Traditional)...")
         store_progress_snapshot("document", document_id, "running_analysis", 55, "Running paper analysis")
@@ -882,27 +918,6 @@ def _run_analysis_task(document_id: str, file_url: str):
             raise Exception("Failed to update document with analysis")
 
         print(f"[ANALYZE-BG-LG] ✓ Analysis report stored")
-
-        # 6.5. Write to shared_papers cache so other users benefit
-        try:
-            doc_full = update_response.data[0]
-            doc_meta = doc_full.get("metadata") or {}
-            doi_to_cache = doc_meta.get("doi")
-            if doi_to_cache or doc_full.get("title"):
-                from app.services.shared_paper_cache import store_paper as _store_shared
-                run_coroutine_sync(_store_shared({
-                    "doi": doi_to_cache,
-                    "title": doc_full.get("title"),
-                    "authors": doc_meta.get("authors", []),
-                    "year": doc_meta.get("year"),
-                    "abstract": doc_meta.get("abstract"),
-                    "journal": doc_meta.get("journal"),
-                    "analysis": analysis,
-                    "source": "user_upload",
-                }))
-                print(f"[ANALYZE-BG-LG] ✓ Shared paper cache updated")
-        except Exception as cache_write_err:
-            print(f"[ANALYZE-BG-LG] Warning: Failed to write to shared cache: {cache_write_err}")
 
         # 7. Auto-regenerate project insights (since new document analyzed)
         # Get the document's project_id

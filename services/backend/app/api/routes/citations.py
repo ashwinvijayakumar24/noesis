@@ -19,6 +19,7 @@ from app.services.citation_management import (
     detect_duplicate_citations,
     parse_citation_format
 )
+from app.services.draft_analysis_runs import active_run_filter
 from app.core.logging_config import get_logger
 import datetime
 
@@ -260,8 +261,12 @@ async def get_draft_suggestions(
         if not draft_response.data:
             raise HTTPException(status_code=404, detail="Draft not found or access denied")
 
-        # Fetch suggestions
-        query = supabase.table("citation_suggestions").select("*").eq("draft_id", draft_id).order("priority_score", desc=True)
+        # Fetch suggestions for the currently published analysis run only.
+        active_run_id = draft_response.data.get("active_analysis_run_id")
+        query = active_run_filter(
+            supabase.table("citation_suggestions").select("*").eq("draft_id", draft_id),
+            active_run_id,
+        ).order("priority_score", desc=True)
 
         if status:
             query = query.eq("status", status)
@@ -821,19 +826,24 @@ async def delete_draft_citation_suggestions(
     try:
         # Verify draft ownership
         draft_res = supabase.table("drafts")\
-            .select("id")\
+            .select("id, active_analysis_run_id")\
             .eq("id", draft_id)\
             .eq("user_id", user_id)\
             .execute()
 
         if not draft_res.data:
             raise HTTPException(status_code=404, detail="Draft not found")
+        active_run_id = draft_res.data[0].get("active_analysis_run_id")
 
         # Delete all suggestions for draft
-        delete_res = supabase.table("citation_suggestions")\
+        delete_query = supabase.table("citation_suggestions")\
             .delete()\
-            .eq("draft_id", draft_id)\
-            .execute()
+            .eq("draft_id", draft_id)
+        if active_run_id:
+            delete_query = delete_query.eq("analysis_run_id", active_run_id).eq("is_published", True)
+        else:
+            delete_query = delete_query.eq("is_published", True)
+        delete_res = delete_query.execute()
 
         deleted_count = len(delete_res.data) if delete_res.data else 0
 
