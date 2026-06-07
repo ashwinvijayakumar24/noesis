@@ -817,6 +817,173 @@ class TestPublishGate:
         importlib.reload(gate)  # restore default (off)
 
 
+class TestDoclingMapper:
+    @pytest.mark.unit
+    def test_maps_docling_doc_to_extracted_data_with_coordinates(self):
+        from app.services.docling_client import map_docling_to_extracted_data
+
+        doc = {
+            "texts": [
+                {"label": "section_header", "text": "Methods",
+                 "prov": [{"page_no": 2, "bbox": {"l": 50, "t": 700, "r": 300, "b": 688, "coord_origin": "BOTTOMLEFT"}}]},
+                {"label": "text", "text": "We searched PubMed and Embase.",
+                 "prov": [{"page_no": 2, "bbox": {"l": 50, "t": 680, "r": 320, "b": 660}}]},
+                {"label": "text", "text": "Studies were screened in duplicate.",
+                 "prov": [{"page_no": 3, "bbox": {"l": 50, "t": 700, "r": 320, "b": 680}}]},
+                {"label": "section_header", "text": "References",
+                 "prov": [{"page_no": 4, "bbox": {"l": 50, "t": 700, "r": 300, "b": 688}}]},
+                {"label": "text", "text": "Smith J. A study. Journal. 2020.",
+                 "prov": [{"page_no": 4, "bbox": {"l": 50, "t": 680, "r": 320, "b": 660}}]},
+            ]
+        }
+        ex = map_docling_to_extracted_data(doc)
+        paras = [p for s in ex["sections"] for p in s["paragraphs"]]
+        # Every body paragraph carries a page (the whole point — vs GROBID's 0.0).
+        assert paras and all(p["coordinates"].get("page") is not None for p in paras)
+        # References split out of the body, not treated as paragraphs.
+        assert len(ex["references"]) == 1
+        assert "PubMed" in ex["full_text"]
+        methods = next(s for s in ex["sections"] if s["title"] == "Methods")
+        assert len(methods["paragraphs"]) == 2
+        assert ex["metadata"]["parser"] == "docling"
+        assert ex["metadata"]["page_count"] == 4
+
+    @pytest.mark.unit
+    def test_docling_parse_labeled_and_not_penalized(self):
+        from app.services.draft_parse_artifacts import (
+            build_structure_from_extracted_data,
+            build_anchor_map,
+            assess_parse_quality,
+        )
+        from app.services.docling_client import map_docling_to_extracted_data
+
+        doc = {"texts": [
+            {"label": "section_header", "text": "Introduction",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 700, "r": 300, "b": 688}}]},
+            {"label": "text", "text": "This is a sufficiently long introduction paragraph " * 6,
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 680, "r": 320, "b": 660}}]},
+            {"label": "section_header", "text": "Methods",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 640, "r": 300, "b": 628}}]},
+            {"label": "text", "text": "We did a thing and measured another thing carefully. " * 6,
+             "prov": [{"page_no": 2, "bbox": {"l": 50, "t": 700, "r": 320, "b": 680}}]},
+        ]}
+        ex = map_docling_to_extracted_data(doc)
+        structure = build_structure_from_extracted_data(ex)
+        anchors = build_anchor_map(structure)
+        q = assess_parse_quality(full_text=ex["full_text"] * 5, structure=structure, anchor_map=anchors, file_type="pdf")
+        assert structure["document_metadata"]["docling_extracted"] is True
+        assert structure["document_metadata"]["grobid_extracted"] is False
+        assert q["parser_name"] == "docling"
+        assert "not_grobid_pdf_parse" not in q["parser_quality_flags"]
+        assert q["parse_blocked"] is False
+
+
+class TestAnchorMatchingRepair:
+    @pytest.mark.unit
+    def test_paraphrased_task_anchor_links_to_store_and_inherits_page(self):
+        from app.services.draft_analysis_langgraph import _apply_parse_artifact_anchors
+
+        artifact = {"anchor_map": [{
+            "text_snippet": "Adolescent social media use was associated with increased anxiety and depression across twelve cross-sectional studies.",
+            "page_number": 4,
+            "coordinates": {"page": 4, "x": 50, "y": 600},
+            "section_title": "Results",
+            "paragraph_index": 3,
+        }]}
+        tasks = [{
+            "id": "t1",
+            "problem": "The causal phrasing overstates the evidence.",
+            # paraphrase / shares content words with the store snippet (not verbatim)
+            "anchor_text": "social media use associated with increased anxiety and depression in adolescents",
+            "section": "Results",
+        }]
+        out = _apply_parse_artifact_anchors("draft-x", tasks, artifact)
+        t = out[0]
+        assert t["anchor_status"] in ("exact", "fuzzy")
+        assert t["anchor_source"] == "parse_artifact"
+        assert t["page_number"] == 4
+        # anchor_text repaired to the verbatim store snippet
+        assert t["anchor_text"].startswith("Adolescent social media use")
+
+    @pytest.mark.unit
+    def test_unrelated_task_anchor_stays_unmatched(self):
+        from app.services.draft_analysis_langgraph import _apply_parse_artifact_anchors
+
+        artifact = {"anchor_map": [{
+            "text_snippet": "Adolescent social media use was associated with increased anxiety and depression across studies.",
+            "page_number": 4, "coordinates": {"page": 4}, "section_title": "Results",
+        }]}
+        tasks = [{"id": "t2", "problem": "Funding not disclosed.",
+                  "anchor_text": "the funding sources conflicts disclosure statement appears entirely absent", "section": "Methods"}]
+        out = _apply_parse_artifact_anchors("draft-x", tasks, artifact)
+        assert out[0]["anchor_status"] in ("section_only", "unresolved")
+        assert out[0].get("page_number") in (None, "", 0) or out[0].get("anchor_source") == "task_generated"
+
+    @pytest.mark.unit
+    def test_section_scoped_task_inherits_section_page(self):
+        from app.services.draft_analysis_langgraph import _apply_parse_artifact_anchors
+
+        artifact = {"anchor_map": [
+            {"text_snippet": "We registered the protocol and defined eligibility criteria in detail here.",
+             "page_number": 5, "coordinates": {"page": 5}, "section_title": "Methods"},
+        ]}
+        # Task scoped to Methods but its anchor doesn't quote any paragraph.
+        tasks = [{"id": "t3", "problem": "Report the screening counts.",
+                  "anchor_text": "screening flow counts and reasons for exclusion are not enumerated",
+                  "section": "Methods"}]
+        out = _apply_parse_artifact_anchors("draft-x", tasks, artifact)
+        assert out[0]["page_number"] == 5
+        assert out[0]["anchor_source"] == "parse_artifact_section"
+
+
+class TestStaleSearchDiagnostic:
+    @pytest.mark.unit
+    def test_stale_search_emitted_when_gap_large(self):
+        from app.services.draft_evidence_manifest import build_evidence_manifest, stale_search_task
+
+        m = build_evidence_manifest(
+            "We searched PubMed and Embase from inception to March 2018 for studies."
+        )
+        task = stale_search_task(m, reference_year=2026)
+        assert task is not None
+        assert task["dedupe_category"] == "search_currency"
+        assert "2018" in task["problem"]
+        assert task["task_type"] == "methodology"
+
+    @pytest.mark.unit
+    def test_no_stale_search_when_recent_or_absent(self):
+        from app.services.draft_evidence_manifest import build_evidence_manifest, stale_search_task
+
+        recent = build_evidence_manifest("Searches were conducted in 2025 across PubMed.")
+        assert stale_search_task(recent, reference_year=2026) is None  # 1-year gap < 2
+
+        none = build_evidence_manifest("A short essay with no search dates.")
+        assert stale_search_task(none, reference_year=2026) is None
+
+
+class TestParserPrereviewHalt:
+    @pytest.mark.unit
+    def test_halts_on_parse_blocked(self):
+        from app.services.draft_analysis_langgraph import _parser_prereview_blocked
+        blocked, reason = _parser_prereview_blocked({"parse_blocked": True, "parse_blocked_reason": "very_short_extracted_text"})
+        assert blocked is True
+        assert "very_short" in reason
+
+    @pytest.mark.unit
+    def test_halts_on_catastrophic_flag(self):
+        from app.services.draft_analysis_langgraph import _parser_prereview_blocked
+        blocked, _ = _parser_prereview_blocked({"parser_quality_flags": ["missing_anchor_map"]})
+        assert blocked is True
+
+    @pytest.mark.unit
+    def test_does_not_halt_on_clean_or_minor_parse(self):
+        from app.services.draft_analysis_langgraph import _parser_prereview_blocked
+        assert _parser_prereview_blocked({"parser_quality_score": 1.0, "parser_quality_flags": []})[0] is False
+        # A non-catastrophic flag (e.g. low section count) must NOT halt the review.
+        assert _parser_prereview_blocked({"parser_quality_flags": ["low_section_count"]})[0] is False
+        assert _parser_prereview_blocked(None)[0] is False
+
+
 class TestVerbatimAnchorCoverage:
     @pytest.mark.unit
     def test_only_parse_artifact_matches_count_as_verbatim(self):

@@ -22,7 +22,7 @@ from app.services.draft_analysis_runs import (
     publish_analysis_artifacts,
 )
 from app.services.draft_task_evidence import reconcile_tasks_against_evidence
-from app.services.draft_evidence_manifest import build_evidence_manifest, manifest_summary
+from app.services.draft_evidence_manifest import build_evidence_manifest, manifest_summary, stale_search_task
 from app.services.draft_publish_gate import evaluate_publish_gate, FAIL_CLOSED as PUBLISH_GATE_FAIL_CLOSED
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
@@ -370,6 +370,23 @@ def _page_block_texts(page) -> list[str]:
     ]
 
 
+_ANCHOR_STOPWORDS = {
+    "the", "and", "for", "that", "this", "with", "from", "are", "was", "were", "has",
+    "have", "had", "not", "but", "their", "there", "which", "while", "such", "into",
+    "than", "then", "they", "these", "those", "been", "also", "more", "most", "some",
+    "study", "studies", "paper", "manuscript", "review", "authors", "results", "data",
+}
+
+
+def _anchor_content_tokens(text: str) -> set[str]:
+    """Content-word token set for fuzzy anchor matching (len>=4, minus stopwords)."""
+    return {
+        tok
+        for tok in re.findall(r"[a-z0-9][a-z0-9-]{3,}", (text or "").lower())
+        if tok not in _ANCHOR_STOPWORDS
+    }
+
+
 def _map_revision_task_pages(draft_id: str, tasks: list[dict]) -> list[dict]:
     """Best-effort page-number enrichment using PyMuPDF page text search."""
     if not tasks:
@@ -457,35 +474,56 @@ def _apply_parse_artifact_anchors(draft_id: str, tasks: list[dict], artifact: di
             return tasks
 
         normalized_anchors = []
+        section_page_map: dict[str, dict] = {}
         for anchor in anchor_map:
             text = normalize_anchor_text(anchor.get("text_snippet") or "")
+            # Section→page map: first page seen per section, for a section-level
+            # fallback anchor when no paragraph-level quote matches.
+            sect = (anchor.get("section_title") or "").strip().lower()
+            page = anchor.get("page_number") or (anchor.get("coordinates") or {}).get("page")
+            if sect and page and sect not in section_page_map:
+                section_page_map[sect] = {"page": page, "section_title": anchor.get("section_title")}
             if len(text) < 30:
                 continue
-            normalized_anchors.append((anchor, text, text.lower()))
+            normalized_anchors.append((anchor, text, text.lower(), _anchor_content_tokens(text)))
 
         for task in tasks:
+            # Match the task's QUOTE fields against the evidence store — NOT the
+            # `problem` critique text (it describes the issue, it isn't manuscript
+            # text, so it never matches a paragraph and only adds noise).
             candidates = [
                 normalize_anchor_text(task.get("anchor_text") or ""),
                 normalize_anchor_text(task.get("text_snippet") or ""),
-                normalize_anchor_text(task.get("problem") or ""),
             ]
-            candidates = [candidate for candidate in candidates if len(candidate) >= 30]
+            candidates = [candidate for candidate in candidates if len(candidate) >= 20]
             best_anchor = None
             best_score = 0.0
             best_status = "unresolved"
             for candidate in candidates:
                 candidate_lower = candidate.lower()
-                for anchor, text, text_lower in normalized_anchors:
+                cand_tokens = _anchor_content_tokens(candidate)
+                for anchor, text, text_lower, anchor_tokens in normalized_anchors:
+                    # 1) Verbatim substring (either direction) → exact.
                     if candidate_lower in text_lower or text_lower[:220] in candidate_lower:
-                        score = 0.98
+                        score, status = 0.98, "exact"
                     else:
-                        score = SequenceMatcher(None, candidate_lower[:500], text_lower[:500]).ratio()
+                        # 2) Token containment: fraction of the candidate's content
+                        # words present in this paragraph. Robust to length and
+                        # paraphrase (a one-sentence quote inside a 700-char snippet,
+                        # or a lightly reworded anchor, still scores high).
+                        containment = (
+                            len(cand_tokens & anchor_tokens) / len(cand_tokens)
+                            if len(cand_tokens) >= 4 else 0.0
+                        )
+                        seq = SequenceMatcher(None, candidate_lower[:500], text_lower[:500]).ratio()
+                        score = max(containment, seq)
+                        status = "fuzzy"
                     if score > best_score:
                         best_score = score
                         best_anchor = anchor
                         best_status = "exact" if score >= 0.96 else "fuzzy"
 
-            if best_anchor and best_score >= 0.58:
+            if best_anchor and best_score >= 0.55:
                 task["anchor_status"] = best_status
                 task["anchor_source"] = "parse_artifact"
                 task["anchor_confidence"] = round(best_score, 3)
@@ -499,9 +537,26 @@ def _apply_parse_artifact_anchors(draft_id: str, tasks: list[dict], artifact: di
                     task["pdf_coordinates"] = task.get("pdf_coordinates") or best_anchor.get("coordinates")
                 task["match_confidence"] = max(float(task.get("match_confidence") or 0.0), best_score)
             else:
-                task["anchor_status"] = task.get("anchor_status") or "section_only"
-                task["anchor_source"] = task.get("anchor_source") or "task_generated"
-                task["anchor_confidence"] = task.get("anchor_confidence") or 0.0
+                # No paragraph-level match. Fall back to a section-level page when
+                # the task is scoped to a section the parser located — the user
+                # still lands on the right page even without a paragraph anchor.
+                task_section = (task.get("section") or "").strip().lower()
+                section_hit = section_page_map.get(task_section)
+                if not section_hit and task_section:
+                    section_hit = next(
+                        (v for k, v in section_page_map.items() if k and (k in task_section or task_section in k)),
+                        None,
+                    )
+                if section_hit and not task.get("page_number"):
+                    task["page_number"] = section_hit["page"]
+                    task["section"] = task.get("section") or section_hit["section_title"]
+                    task["anchor_status"] = "section_only"
+                    task["anchor_source"] = "parse_artifact_section"
+                    task["anchor_confidence"] = task.get("anchor_confidence") or 0.3
+                else:
+                    task["anchor_status"] = task.get("anchor_status") or "section_only"
+                    task["anchor_source"] = task.get("anchor_source") or "task_generated"
+                    task["anchor_confidence"] = task.get("anchor_confidence") or 0.0
     except Exception as exc:
         logger.warning("[LangGraph Draft Analysis] Parse artifact anchor validation skipped: %s", safe_exception(exc))
     return tasks
@@ -623,6 +678,25 @@ def apply_meta_review_readiness_guardrail(
     }
 
 
+_PARSER_PREREVIEW_BLOCKING_FLAGS = {"not_grobid_pdf_parse", "very_short_extracted_text", "missing_anchor_map"}
+
+
+def _parser_prereview_blocked(parser_quality: dict | None) -> tuple[bool, str]:
+    """Decide whether a parse is too broken to spend the reviewer panel on.
+
+    Only trips on unambiguous catastrophic-parse signals so a normal (even
+    imperfect) PDF parse proceeds. Returns (blocked, reason).
+    """
+    pq = parser_quality or {}
+    flags = set(pq.get("parser_quality_flags") or [])
+    hit = flags & _PARSER_PREREVIEW_BLOCKING_FLAGS
+    if pq.get("parse_blocked"):
+        return True, (pq.get("parse_blocked_reason") or "parse_blocked")
+    if hit:
+        return True, f"parser_quality_flags={sorted(hit)}"
+    return False, ""
+
+
 async def analyze_draft_with_langgraph(
     draft_id: str,
     project_id: str,
@@ -691,6 +765,33 @@ async def analyze_draft_with_langgraph(
             attempt_number=reroute_count + 1,
             forced_route=forced_route,
         )
+
+        # Pre-review parser-quality halt: if the parser fundamentally failed, do not
+        # spend the reviewer panel + LLM budget reviewing unreliable text. Fail fast
+        # and flag for parser review. Only trips on unambiguous catastrophic-parse
+        # signals, so a normal (even imperfect) PDF parse proceeds as before.
+        from app.services.draft_parse_artifacts import load_parse_artifact as _load_parse_artifact
+        _pq = parser_quality or parse_artifact or _load_parse_artifact(draft_id) or {}
+        _halt, reason = _parser_prereview_blocked(_pq)
+        if _halt:
+            _pq_flags = set(_pq.get("parser_quality_flags") or [])
+            logger.warning(
+                "[LangGraph Draft Analysis] Pre-review parser halt for draft %s: %s",
+                draft_id,
+                reason,
+            )
+            mark_analysis_run(
+                analysis_run_id,
+                status="failed",
+                quality_gate_results={"parser_prereview_halt": {
+                    "halted": True,
+                    "parser_quality_score": _pq.get("parser_quality_score"),
+                    "parser_quality_flags": sorted(_pq_flags),
+                    "reason": reason,
+                }},
+                failure_reason=f"parser_quality_too_low_for_review: {reason}",
+            )
+            raise ValueError(f"Parser quality too low to review reliably: {reason}")
 
         # Run the LangGraph workflow
         logger.info(f"[LangGraph Draft Analysis] Calling run_draft_analysis_workflow...")
@@ -1073,6 +1174,18 @@ async def analyze_draft_with_langgraph(
             "[LangGraph Draft Analysis] Evidence manifest: %s",
             manifest_summary(evidence_manifest),
         )
+        # Domain-agnostic stale-search-window critique (evidence-driven): if the
+        # last search year is well before submission, surface it. Compared to the
+        # current (submission) year; threshold in stale_search_task.
+        _stale_task = stale_search_task(evidence_manifest, datetime.datetime.utcnow().year)
+        if _stale_task and not any(
+            t.get("dedupe_category") == "search_currency" for t in revision_tasks
+        ):
+            revision_tasks.append(_stale_task)
+            logger.info(
+                "[LangGraph Draft Analysis] Added stale-search critique (latest=%s)",
+                _stale_task.get("id"),
+            )
         revision_tasks, evidence_rebuttal = reconcile_tasks_against_evidence(
             revision_tasks,
             full_text=draft_content,
@@ -1312,6 +1425,12 @@ async def analyze_draft_with_langgraph(
         final_state["publish_gate"] = publish_gate
         enriched_metadata["publish_gate"] = publish_gate
         enriched_metadata["analysis_confidence"] = publish_gate["confidence"]
+        # Authoritative publish signals so consumers don't have to reconcile the
+        # internal editor routing flag (editor_decision.proceed_to_review, which only
+        # means "was it worth sending to reviewers") against the gate verdict. The
+        # gate is the single source of truth for whether to trust/ship this analysis.
+        enriched_metadata["publishable"] = publish_gate["publishable"]
+        enriched_metadata["needs_retry"] = not publish_gate["publishable"]
         if not publish_gate["publishable"]:
             logger.warning(
                 "[LangGraph Draft Analysis] Publish gate flagged run %s status=%s reasons=%s",
