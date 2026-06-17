@@ -563,6 +563,44 @@ def final_pairwise_dedup(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return survivors
 
 
+def merge_anchor_collisions(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge tasks that point at the SAME verbatim anchor into one multi-part task.
+
+    Two separate major tasks lighting up the identical block of text (Gemini eval:
+    Na-ion Tasks 7 & 8 shared an 87-word anchor) induce UI fatigue. Keep the stronger
+    task and fold the other's problem into its suggested_action as an added point.
+    Undroppable/audit-grounded tasks are never folded away (kept standalone)."""
+    if len(tasks) < 2:
+        return tasks
+    by_anchor: dict[str, int] = {}
+    survivors: list[dict[str, Any]] = []
+    for task in tasks:
+        anchor = _norm((task.get("anchor_text") or "").strip())
+        # Only collide on substantial shared anchors; null/short anchors don't collide.
+        if not anchor or len(anchor.split()) < 4 or task.get("undroppable") or task.get("audit_grounded"):
+            survivors.append(task)
+            continue
+        if anchor in by_anchor:
+            keep = survivors[by_anchor[anchor]]
+            if keep.get("undroppable") or keep.get("audit_grounded"):
+                survivors.append(task)
+                continue
+            stronger, weaker = _pick_stronger(keep, task)
+            merged = dict(stronger)
+            extra = (weaker.get("problem") or "").strip()
+            if extra and extra not in (merged.get("suggested_action") or ""):
+                merged["suggested_action"] = (
+                    (merged.get("suggested_action") or "").rstrip()
+                    + f" Additionally, address a distinct point at the same location: {extra}"
+                )
+            merged["duplicate_count"] = int(keep.get("duplicate_count") or 0) + int(task.get("duplicate_count") or 0) + 1
+            survivors[by_anchor[anchor]] = merged
+        else:
+            by_anchor[anchor] = len(survivors)
+            survivors.append(task)
+    return survivors
+
+
 def _pick_stronger(a: dict[str, Any], b: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return (stronger, weaker): higher severity, then more specific anchor, then longer action."""
     ra, rb = _SEVERITY_RANK.get((a.get("severity") or "").lower(), 0), _SEVERITY_RANK.get((b.get("severity") or "").lower(), 0)
@@ -874,8 +912,11 @@ def _is_parser_artifact_task(
     _FIGURE_CALLOUT_SIGNAL = re.compile(
         r"\bfig(?:ure)?\.?\s*\d+\b.{0,60}(?:interrupt|mid[- ]sentence|inserted|breaks?|broken|splits?)"
         r"|interrupted\s+by\s+fig(?:ure)?\.?\s*\d+"
-        # B3 strengthen: the specific "modified CD34 + Fig. 3" inline-callout glitch.
-        r"|modified\s+cd34\s*\+?\s*fig",
+        # B3 strengthen: generic inline-callout join glitch — any "<word> + Fig. N"
+        # (Docling/GROBID splices a figure callout into the text stream, e.g.
+        # "modified CD34 + Fig. 3"). Real prose almost never writes "word + Fig N".
+        r"|\b\w+\s*\+\s*fig(?:ure)?\.?\s*\d+"
+        r"|obscur\w*\s+(?:the\s+)?(?:intended\s+)?meaning",
         re.IGNORECASE,
     )
     if _TRUNCATION_SIGNAL.search(text) or _FIGURE_CALLOUT_SIGNAL.search(text):
@@ -883,6 +924,44 @@ def _is_parser_artifact_task(
         # substantive clarity issues (e.g. "sentence is unclear" is not suppressed).
         return True
 
+    return False
+
+
+_DEDUCTIVE_FRAMING_RE = re.compile(
+    r"^\s*(therefore|thus|hence|in short|in summary|in conclusion|overall|generally|"
+    r"as a result|consequently|up to now|so far|actually|in fact|evidently|clearly|"
+    r"importantly|notably|in other words|to summari[sz]e|taken together)\b",
+    re.IGNORECASE,
+)
+_RHETORICAL_FRAMING_RE = re.compile(
+    r"\b("
+    r"play(?:s|ing)?\s+(?:an?\s+)?(?:important|key|significant|crucial|vital|central|major)\s+role"
+    r"|(?:evident|obvious|clear|numerous|various)\s+advantages"
+    r"|(?:great|huge|enormous|significant)\s+(?:prospects?|potential|promise|importance)"
+    r"|widely\s+(?:regarded|recognized|considered|used)"
+    r"|(?:is|are)\s+(?:essential|crucial|vital|important|necessary)\s+(?:to|for)"
+    r"|attracted?\s+(?:much|considerable|increasing|growing)\s+(?:attention|interest)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_deductive_framing_claim(claim_text: str) -> bool:
+    """Author framing/transition sentences are NOT citable empirical claims.
+
+    Gemini eval: a citation was demanded for 'Sodium-ion batteries ... play an
+    important commercial role due to their evident advantages.' Penalizing
+    rhetorical/deductive framing as a missing-citation degrades perceived
+    intelligence. Suppress sentences that open with a deductive marker OR consist
+    of vague evaluative framing rather than a specific factual assertion."""
+    t = (claim_text or "").strip()
+    if not t:
+        return False
+    if _DEDUCTIVE_FRAMING_RE.search(t):
+        return True
+    # Vague evaluative framing AND no specific number/comparator that would warrant a source.
+    if _RHETORICAL_FRAMING_RE.search(t) and not re.search(r"\d|%|\bvs\.?\b|compared", t):
+        return True
     return False
 
 
@@ -1397,6 +1476,9 @@ def build_revision_tasks(
             continue
         if _is_low_value_common_knowledge_citation(claim, manuscript_profile):
             continue
+        # Don't demand citations for rhetorical/deductive framing sentences.
+        if _is_deductive_framing_claim(claim.get("claim_text", "")):
+            continue
         # Issue #17: never demand a citation for the authors' own framework/model thesis.
         if _is_author_self_referential(claim.get("claim_text", ""), author_coined_terms):
             continue
@@ -1484,6 +1566,7 @@ def build_revision_tasks(
         parser_quality=parser_quality,
     )
     consolidated = final_pairwise_dedup(consolidated)
+    consolidated = merge_anchor_collisions(consolidated)
 
     # BACKSTOP: guarantee every audit-grounded reviewer issue (deterministic
     # domain-trigger finding) has a surviving task. Multiple merge/consolidate

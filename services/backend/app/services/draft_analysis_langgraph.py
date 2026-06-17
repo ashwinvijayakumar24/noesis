@@ -719,8 +719,24 @@ def _revision_quality_metrics(tasks: list[dict], draft_content: str = "") -> dic
     }
 
 
+_TASK_TYPE_SECTION_FALLBACK = {
+    "methodology": "Methods",
+    "reproducibility": "Methods",
+    "causal_claim": "Discussion",
+    "literature_positioning": "Introduction / Related Work",
+    "citation": "Introduction / Related Work",
+    "clarity": "Discussion",
+}
+
+
 def _revision_task_row(draft_id: str, task: dict) -> dict:
     """Map canonical in-memory revision task shape to the durable DB row."""
+    # A null anchor (honest global/absence critique) must still carry a `section` so
+    # the UI has a navigation target — never ship null anchor AND null section
+    # (that left a task with "Page unknown / Anchor None" the frontend can't place).
+    section = task.get("section")
+    if not section and task.get("anchor_text") is None:
+        section = _TASK_TYPE_SECTION_FALLBACK.get(task.get("task_type", ""), "General")
     return {
         "id": task["id"],
         "draft_id": draft_id,
@@ -728,7 +744,7 @@ def _revision_task_row(draft_id: str, task: dict) -> dict:
         "task_type": task.get("task_type", "other"),
         "severity": task.get("severity", "major"),
         "priority": task.get("priority", "medium"),
-        "section": task.get("section") or None,
+        "section": section or None,
         # Anchor honesty: anchor_text is a verbatim manuscript substring or None — NEVER
         # the section/problem generative fallback (which the UI would try to highlight as a
         # fake "quote"). The column is nullable.
@@ -1508,6 +1524,11 @@ async def analyze_draft_with_langgraph(
         # final metric so coverage reflects the deduped set. Falls back to no-op on failure.
         if os.environ.get("OPENAI_API_KEY") and not os.environ.get("PYTEST_CURRENT_TEST"):
             revision_tasks = await llm_dedupe_tasks(revision_tasks)
+        # Anchor-collision merge AFTER repair: llm_repair_anchors can assign two distinct
+        # tasks the same verbatim span (Gemini eval: two major tasks lighting up the
+        # identical block). Collapse them here, once the final anchors are set.
+        from app.workflows.draft_analysis.revision_tasks import merge_anchor_collisions
+        revision_tasks = merge_anchor_collisions(revision_tasks)
         final_state["revision_tasks"] = revision_tasks
         revision_quality_metrics = _revision_quality_metrics(revision_tasks, draft_content)
         final_state["revision_quality_metrics"] = revision_quality_metrics

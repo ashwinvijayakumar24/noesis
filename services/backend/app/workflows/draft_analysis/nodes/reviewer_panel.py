@@ -593,6 +593,23 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
                     )
                 )
 
+        # Lane enforcement (persona homogeneity): the clarity reviewer keeps drifting
+        # into methodology/literature critiques (Gemini eval: clarity reviewer raised
+        # T7E1 limits + replication numbers + search methodology). Drop clarity issues
+        # whose content clearly belongs to another reviewer's lane — the owning reviewer
+        # already covers them. Conservative: only drop when the foreign lane strictly
+        # dominates and clarity itself has no signal.
+        if reviewer_type == "clarity":
+            kept_issues = []
+            for issue in output.issues:
+                text = f"{issue.problem} {issue.suggested_action}"
+                lane = _critique_lane(text)
+                clarity_hits = sum(1 for kw in _LANE_KEYWORDS["clarity"] if kw in text.lower())
+                if lane in ("methodology", "literature_positioning") and clarity_hits == 0:
+                    continue
+                kept_issues.append(issue)
+            output.issues = kept_issues
+
         for issue in output.issues:
             if issue.problem and issue.problem not in output.weaknesses:
                 output.weaknesses.append(issue.problem)
