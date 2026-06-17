@@ -16,7 +16,11 @@ from __future__ import annotations
 import re
 
 from app.workflows.draft_analysis.state import DraftAnalysisState
-from app.workflows.draft_analysis.schemas import ReviewerOutput
+from app.workflows.draft_analysis.schemas import (
+    ReviewerOutput,
+    ReviewerIssue,
+    TriggerAuditOutput,
+)
 from app.workflows.draft_analysis.domain_routing import domain_context_block
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_async_openai_client, get_completion_params
@@ -70,6 +74,21 @@ OUTPUT QUALITY REQUIREMENTS:
 - Obey the manuscript profile's forbidden review standards. Do not demand empirical
   ML, clinical, laboratory, or quantitative standards unless the profile says that
   evidence mode applies to this manuscript.
+- Ignore PDF-extraction artifacts: fused words ("crosssectional"), broken hyphenation,
+  kerning/spacing glitches, and stray characters are parser noise, NOT author errors —
+  never raise them as typos or formatting weaknesses.
+- Do not over-index on isolated word choices or a single throwaway sentence. Every
+  weakness must be substantive and affect the manuscript's claims, methods, or
+  contribution — not stylistic nitpicks.
+- anchor_text MUST be an exact, contiguous, copy-paste substring of the manuscript
+  (<=200 chars). Do NOT paraphrase, summarize, stitch with ellipses, or fix typos
+  in the anchor — copy verbatim.
+
+GROUNDING RULE: The FULL manuscript text is provided below. Before you state that
+something is missing/absent/not reported, or demand an experiment, method, or detail —
+search the ENTIRE provided text first. If the manuscript already addresses it anywhere
+(even briefly, in any section including Methods/Supplement), DO NOT raise it. Only raise
+genuinely absent items. Quote the exact sentence you are critiquing.
 """
 
 # ---------------------------------------------------------------------------
@@ -91,7 +110,13 @@ Key questions to answer:
 - Are claims about prior literature accurate and appropriately qualified?
 
 Context you are given: paper type, draft content, claim list.
-Do NOT comment on protocol registration, risk of bias, pooling, or study-design validity — those belong to Reviewer B.
+
+YOUR LANE ONLY: introduction, related work, discussion — contribution and positioning.
+FORBIDDEN: Do NOT comment on protocol registration, risk of bias, pooling, statistical
+methods, or study-design validity (Reviewer B's lane). Do NOT comment on writing quality,
+grammar, or figure clarity (Reviewer D's lane). If a methodology issue also affects
+positioning, name it once in one sentence and defer to Reviewer B. Your critiques must be
+about novelty, prior-work coverage, and contribution — not method soundness or prose.
 
 {RATING_CALIBRATION}""",
 
@@ -112,7 +137,11 @@ Key questions to answer:
 - Are there confounds or threats to validity that are unaddressed?
 
 Context you are given: empirical claims, citation quality per claim, structural checks.
-Do NOT comment on novelty or literature coverage — those are other reviewers' jobs.
+
+YOUR LANE ONLY: methods, results interpretation, statistical and study-design validity.
+FORBIDDEN: Do NOT comment on novelty, literature coverage, or positioning (Reviewer A's
+lane). Do NOT comment on writing clarity, grammar, or exposition (Reviewer D's lane).
+Your critiques must be about method soundness and evidence validity — not contribution or prose.
 
 {RATING_CALIBRATION}""",
 
@@ -129,7 +158,11 @@ Key questions to answer:
 - Is technical terminology consistent throughout?
 
 Context you are given: paper structure, word count, section list.
-Do NOT comment on novelty, literature positioning, protocol registration, risk of bias, or statistical methodology.
+
+YOUR LANE ONLY: exposition, argument structure, reporting completeness, terminology consistency.
+FORBIDDEN: Do NOT make causal or statistical claims about the evidence, and do NOT comment
+on novelty, literature positioning, protocol registration, risk of bias, or statistical
+methodology (other reviewers' lanes). Your job is communication quality, not the science.
 
 {RATING_CALIBRATION}""",
 }
@@ -201,6 +234,16 @@ def _build_methodology_context(state: DraftAnalysisState) -> str:
                 f"  • [{finding.get('severity', 'major')}] "
                 f"{finding.get('section_reference', 'Unknown')}: {finding.get('problem', '')}"
             )
+
+    # Field-standard audit triggers — domain-specific checks general reviewers miss
+    # (issue #19/#20: Sepsis-2->3 definition drift, alert fatigue). Injected ONLY into
+    # the methodology reviewer (empirical lane), not all reviewers.
+    profile = state.get("manuscript_profile") or {}
+    triggers = profile.get("domain_audit_triggers") or []
+    if triggers:
+        lines.append("\nDOMAIN-SPECIFIC AUDIT CHECKLIST (you MUST evaluate each that applies):")
+        for trigger in triggers:
+            lines.append(f"  • {trigger}")
 
     return "\n".join(lines)
 
@@ -304,8 +347,8 @@ def build_reviewer_context(state: DraftAnalysisState, reviewer_type: str) -> str
 
 {_profile_context(state)}
 
-DRAFT SECTION EXCERPTS:
-{_section_excerpts(state.get('draft_content', ''))}
+FULL MANUSCRIPT TEXT (search this entire text before claiming anything is missing):
+{(state.get('draft_content', '') or '')[:24000]}
 """
 
     builders = {
@@ -319,6 +362,169 @@ DRAFT SECTION EXCERPTS:
 # ---------------------------------------------------------------------------
 # Node
 # ---------------------------------------------------------------------------
+
+# Lane ownership for cross-reviewer dedup: which reviewer "owns" a shared critique.
+_LANE_KEYWORDS = {
+    "methodology": ("method", "statistic", "sample size", "control", "bias", "design",
+                    "confound", "reproducib", "validity", "power", "replicat"),
+    "literature_positioning": ("novelty", "contribution", "prior work", "positioning",
+                               "related work", "literature", "citation", "seminal", "gap"),
+    "clarity": ("clarity", "writing", "exposition", "structure", "terminology",
+                "figure", "caption", "readability", "flow", "transition"),
+}
+
+
+def _critique_lane(text: str) -> str | None:
+    t = (text or "").lower()
+    best, best_hits = None, 0
+    for lane, kws in _LANE_KEYWORDS.items():
+        hits = sum(1 for kw in kws if kw in t)
+        if hits > best_hits:
+            best, best_hits = lane, hits
+    return best
+
+
+def deduplicate_cross_reviewer_critiques(reviewer_outputs: list[dict]) -> list[dict]:
+    """If two reviewers emit essentially the same critique (text similarity > 0.85),
+    keep it only in the reviewer whose lane it belongs to and annotate the duplicate
+    out of the other (issue #5: reviewers converge on the same points). Deterministic;
+    no LLM call. Mutates copies, returns new list."""
+    import re as _re
+    from difflib import SequenceMatcher
+
+    def _norm(s: str) -> str:
+        return _re.sub(r"[^a-z0-9 ]+", " ", (s or "").lower()).strip()
+
+    outputs = [dict(o) for o in reviewer_outputs or []]
+    # Flatten (reviewer_idx, weakness) and find cross-reviewer near-duplicates.
+    for i, out_i in enumerate(outputs):
+        kept_weaknesses: list[str] = []
+        for w in out_i.get("weaknesses") or []:
+            wn = _norm(w)
+            duplicate_owner = None
+            for j, out_j in enumerate(outputs):
+                if j == i:
+                    continue
+                for w2 in out_j.get("weaknesses") or []:
+                    if SequenceMatcher(None, wn, _norm(w2)).ratio() > 0.85:
+                        lane = _critique_lane(w)
+                        owner = lane or out_j.get("reviewer_id") or out_i.get("reviewer_id")
+                        # The lane owner keeps it; a non-owner drops it.
+                        if owner and out_i.get("reviewer_id") != owner and out_j.get("reviewer_id") == owner:
+                            duplicate_owner = owner
+                        break
+                if duplicate_owner:
+                    break
+            if duplicate_owner:
+                continue  # drop from this non-owner reviewer
+            kept_weaknesses.append(w)
+        out_i["weaknesses"] = kept_weaknesses
+    return outputs
+
+
+def _trigger_label(trigger: str) -> str:
+    """Label = text before the first colon ('protein-level validation: IF ...')."""
+    head = (trigger or "").split(":", 1)[0].strip()
+    return head or (trigger or "")[:60]
+
+
+async def audit_domain_triggers(
+    triggers: list[str], draft_content: str
+) -> list[dict]:
+    """Deterministic present/absent checklist over profile-derived audit triggers.
+
+    A single narrow call evaluates ONLY the selected triggers against the full
+    manuscript. This decouples trigger detection from the broad methodology
+    reviewer (which drops triggers under attention load) — the source of the
+    protein-validation appears-1/5-runs variance. Returns the verdict dicts for
+    triggers judged ABSENT, so the caller can emit a deterministic issue.
+    """
+    if not triggers or not (draft_content or "").strip():
+        return []
+
+    checklist = "\n".join(f"  - {_trigger_label(t)}: {t}" for t in triggers)
+    system = (
+        "You are a meticulous methods auditor. For EACH checklist item, decide if the "
+        "manuscript already contains the required evidence. Verdict 'present' ONLY if you "
+        "can quote verbatim text from the manuscript that satisfies it — otherwise 'absent'. "
+        "Use 'not_applicable' only if the item genuinely does not apply to this study type. "
+        "Echo the item's label exactly. Do not invent quotes."
+    )
+    user = (
+        f"CHECKLIST (evaluate every item):\n{checklist}\n\n"
+        f"MANUSCRIPT:\n{(draft_content or '')[:24000]}"
+    )
+    try:
+        response = await parse_chat_completion_with_retries(
+            _get_client(),
+            model="gpt-5.2-chat-latest",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            max_completion_tokens=1800,
+            response_format=TriggerAuditOutput,
+            **get_completion_params(),
+        )
+        verdicts = response.parsed.verdicts
+    except Exception as exc:
+        logger.error(f"[TriggerAudit] failed: {exc}")
+        return []
+
+    # A 'present' verdict is only trusted if its evidence quote actually appears
+    # in the manuscript. Otherwise the model hallucinated coverage — downgrade to
+    # absent. This removes the false-present that left protein-validation missing
+    # in ~1/5 runs even with the audit in place.
+    def _quote_grounded(v) -> bool:
+        q = re.sub(r"\s+", " ", (v.evidence_quote or "").strip()).lower()
+        if len(q) < 12:
+            return False
+        return q in re.sub(r"\s+", " ", (draft_content or "")).lower()
+
+    absent = [
+        v.model_dump()
+        for v in verdicts
+        if v.verdict == "absent" or (v.verdict == "present" and not _quote_grounded(v))
+    ]
+    logger.info(
+        f"[TriggerAudit] {len(verdicts)} verdicts, {len(absent)} treated-absent: "
+        f"{[v.get('trigger_label') for v in absent]}"
+    )
+    return absent
+
+
+# Generic words that appear across many critiques — they must NOT drive trigger
+# coverage matching (e.g. 'level'/'validation' wrongly bound 'protein-level
+# validation' to a colony-count issue, leaving the real protein issue unprotected).
+_TRIGGER_GENERIC_TOKENS = {
+    "level", "validation", "risk", "analysis", "study", "data", "assessment",
+    "comparison", "specific", "testing", "control", "design", "method", "methods",
+    "result", "results", "issue", "concern",
+}
+
+
+def _trigger_covering_issue(label: str, issues: list):
+    """Return the existing reviewer issue that BEST matches this trigger, else None.
+
+    Matches on discriminating (non-generic) tokens and binds the issue with the
+    most hits — never the first incidental match.
+    """
+    key_tokens = {
+        w for w in re.split(r"[^a-z0-9]+", (label or "").lower())
+        if len(w) > 3 and w not in _TRIGGER_GENERIC_TOKENS
+    }
+    if not key_tokens:
+        return None
+    best_issue, best_hits = None, 0
+    for issue in issues or []:
+        text = (
+            f"{getattr(issue, 'problem', '')} {getattr(issue, 'suggested_action', '')}"
+        ).lower()
+        hits = sum(1 for tok in key_tokens if tok in text)
+        if hits > best_hits:
+            best_hits, best_issue = hits, issue
+    return best_issue if best_hits >= 1 else None
+
 
 async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
     """
@@ -351,6 +557,42 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
         )
 
         output = response.parsed
+
+        # Deterministic domain-trigger audit (methodology lane only). The broad
+        # reviewer above inconsistently surfaces profile-derived triggers; a narrow
+        # checklist pass forces a present/absent verdict per trigger and emits a
+        # finding for any ABSENT one the reviewer missed. Kills the run-to-run
+        # variance (e.g. protein-level validation appearing in only ~1/5 runs).
+        if reviewer_type == "methodology":
+            triggers = (state.get("manuscript_profile") or {}).get("domain_audit_triggers") or []
+            absent = await audit_domain_triggers(triggers, state.get("draft_content", "") or "")
+            label_to_trigger = {_trigger_label(t): t for t in triggers}
+            for verdict in absent:
+                label = verdict.get("trigger_label", "")
+                trigger = label_to_trigger.get(label, label)
+                covering = _trigger_covering_issue(label, output.issues)
+                if covering is not None:
+                    # The broad reviewer already raised this trigger. Protect ITS
+                    # issue from the downstream LLM absence-verifier (which otherwise
+                    # downgrades/drops it) instead of emitting a duplicate.
+                    covering.audit_grounded = True
+                    continue
+                output.issues.append(
+                    ReviewerIssue(
+                        issue_type="methodology",
+                        section_reference="Methods",
+                        anchor_text="",
+                        problem=f"{label}: the manuscript does not provide the required evidence. {verdict.get('rationale', '')}".strip(),
+                        why_it_matters=(
+                            "Field-standard methodological requirement that, if unaddressed, "
+                            "blocks acceptance. " + (trigger.split(":", 1)[-1].strip() if ":" in trigger else "")
+                        ).strip(),
+                        suggested_action=f"Provide {label}, or explicitly justify its absence.",
+                        confidence=0.85,
+                        audit_grounded=True,
+                    )
+                )
+
         for issue in output.issues:
             if issue.problem and issue.problem not in output.weaknesses:
                 output.weaknesses.append(issue.problem)

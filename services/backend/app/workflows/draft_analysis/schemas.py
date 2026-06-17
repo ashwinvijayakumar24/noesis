@@ -23,6 +23,35 @@ class StrictOutputModel(BaseModel):
 # Stage 1 — mechanical editing (stage1_editing.py)
 # ---------------------------------------------------------------------------
 
+class AbsenceVerdict(StrictOutputModel):
+    """One verdict for a single absence-claiming revision task (Prong B LLM verifier)."""
+    index: int
+    verdict: Literal["addressed", "partial", "absent"]
+    evidence: str = ""
+
+
+class AbsenceVerification(StrictOutputModel):
+    """Batched LLM entailment output for false-absence detection."""
+    items: list[AbsenceVerdict]
+
+
+class AnchorSpan(StrictOutputModel):
+    """One repaired anchor: the exact verbatim manuscript span for a task, or 'GLOBAL'."""
+    index: int
+    verbatim_span: str
+
+
+class AnchorRepair(StrictOutputModel):
+    """Batched LLM anchor-repair output (verbatim-anchor real fix)."""
+    items: list[AnchorSpan]
+
+
+class TaskClusters(StrictOutputModel):
+    """Batched LLM semantic-dedup output: each inner list is a cluster of task indices
+    that address the SAME underlying flaw and should consolidate into one revision."""
+    clusters: list[list[int]]
+
+
 class GrammarIssue(StrictOutputModel):
     text: str
     issue: str
@@ -288,6 +317,10 @@ class ReviewerIssue(StrictOutputModel):
     why_it_matters: str
     suggested_action: str
     confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    audit_grounded: bool = Field(
+        default=False,
+        description="True for deterministic domain-trigger audit findings (already grounded-entailment verified; exempt from re-verification).",
+    )
 
 
 class ReviewerOutput(StrictOutputModel):
@@ -307,6 +340,23 @@ class ReviewerOutput(StrictOutputModel):
     rating: int = Field(ge=1, le=10, description="ICLR scale: 1-2=strong reject, 3-4=weak reject, 5=borderline, 6-7=weak accept, 8-9=strong accept, 10=award")
     confidence: int = Field(ge=1, le=5, description="1=not my area, 5=expert in this exact area")
     recommendation: Literal["accept", "minor_revision", "major_revision", "reject"] = "major_revision"
+
+
+class TriggerVerdict(StrictOutputModel):
+    """Present/absent verdict for one profile-derived domain audit trigger.
+
+    Decouples trigger detection from the broad methodology reviewer (which drops
+    triggers under attention load) — a narrow, single-purpose checklist call is
+    far more consistent run-to-run.
+    """
+    trigger_label: str = Field(description="Short label identifying the trigger, e.g. 'protein-level validation'")
+    verdict: Literal["present", "absent", "not_applicable"]
+    evidence_quote: str = Field(default="", description="Verbatim quote from the manuscript supporting the verdict (required when present)")
+    rationale: str = Field(default="", description="One sentence on why absent/applicable")
+
+
+class TriggerAuditOutput(StrictOutputModel):
+    verdicts: list[TriggerVerdict] = Field(default_factory=list)
 
 
 class MetaReviewOutput(StrictOutputModel):
