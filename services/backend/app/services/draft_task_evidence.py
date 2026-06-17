@@ -703,11 +703,21 @@ def repair_anchor(task: dict[str, Any], raw_text: str) -> dict[str, Any]:
     if not anchor or not raw_text:
         return task
 
-    # 1. Already verbatim
-    if anchor in raw_text:
+    # 1. Already a useful verbatim anchor (substantial span, not a bare header)
+    if anchor in raw_text and _anchor_is_substantial(anchor):
         return task
 
     task = dict(task)  # shallow copy — do not mutate caller's dict
+
+    # A bare header / sub-threshold anchor ("Methods") has no sentence to map to
+    # deterministically — steps 2-3 would just re-find the header. Go straight to
+    # irreparable (null); llm_repair_anchors gets a chance to find a real span.
+    if not _anchor_is_substantial(anchor):
+        task["anchor_type"] = "global"
+        task["anchor_text"] = None
+        if not _is_verbatim_substring(str(task.get("text_snippet") or ""), raw_text):
+            task["text_snippet"] = None
+        return task
 
     # 2. Normalized match
     norm_anchor = _norm_ws(anchor)
@@ -767,10 +777,12 @@ def repair_anchor(task: dict[str, Any], raw_text: str) -> dict[str, Any]:
         task["anchor_text"] = lcs
         return task
 
-    # 4. Irreparable — global scope, no fake quote. Keep section as a non-quote locator
-    # if present; otherwise null. NEVER leave the generative critique text in anchor_text.
+    # 4. Irreparable — global scope, no fake quote. anchor_text becomes null (the UI must
+    # never try to highlight a non-quote). The section name is NOT a quote and belongs in
+    # the separate `section` field for navigation — never in anchor_text (that produced the
+    # useless single-word "Results"/"Discussion" highlights). NEVER leave generative text.
     task["anchor_type"] = "global"
-    task["anchor_text"] = task.get("section") or None
+    task["anchor_text"] = None
     if not _is_verbatim_substring(str(task.get("text_snippet") or ""), raw_text):
         task["text_snippet"] = None
     return task
@@ -802,6 +814,16 @@ def _extract_raw_span(raw_text: str, norm_text: str, norm_start: int, norm_lengt
     return None
 
 
+def _anchor_is_substantial(anchor: str) -> bool:
+    """A useful highlight anchor is a real span, not a bare section header.
+
+    Single-word / very short anchors ("Methods", "Results", "Discussion") are
+    verbatim but useless to highlight — the UI lights up a lone header. Require a
+    locatable span: >=3 words OR >=24 chars."""
+    a = (anchor or "").strip()
+    return len(a.split()) >= 3 or len(a) >= 24
+
+
 def _is_verbatim_substring(anchor: str, raw_text: str) -> bool:
     """True iff anchor is an exact substring of raw_text (whitespace-normalized)."""
     anchor = (anchor or "").strip()
@@ -810,6 +832,11 @@ def _is_verbatim_substring(anchor: str, raw_text: str) -> bool:
     if anchor in raw_text:
         return True
     return _norm_ws(anchor) in _norm_ws(raw_text)
+
+
+def _is_useful_anchor(anchor: str, raw_text: str) -> bool:
+    """Verbatim AND substantial — what actually ships as a highlightable anchor."""
+    return _is_verbatim_substring(anchor, raw_text) and _anchor_is_substantial(anchor)
 
 
 _LLM_ANCHOR_REPAIR_SYSTEM_PROMPT = (
@@ -854,12 +881,12 @@ async def llm_repair_anchors(
     still_broken: list[tuple[int, dict[str, Any]]] = []
     for i, task in enumerate(all_tasks):
         anchor = (task.get("anchor_text") or task.get("text_snippet") or "").strip()
-        if _is_verbatim_substring(anchor, draft_content):
+        if _is_useful_anchor(anchor, draft_content):
             repaired.append(task)
             continue
         det = repair_anchor(task, draft_content)
         det_anchor = (det.get("anchor_text") or det.get("text_snippet") or "").strip()
-        if det.get("anchor_type") != "global" and _is_verbatim_substring(det_anchor, draft_content):
+        if det.get("anchor_type") != "global" and _is_useful_anchor(det_anchor, draft_content):
             repaired.append(det)
             continue
         # repair_anchor may have set anchor_type="global" deterministically; we will let
@@ -920,7 +947,7 @@ async def llm_repair_anchors(
                 continue
             span = (span_by_sel.get(sel_idx) or "").strip()
             updated = dict(task)
-            if span and span != "GLOBAL" and _is_verbatim_substring(span, draft_content):
+            if span and span != "GLOBAL" and _is_useful_anchor(span, draft_content):
                 # Locate the exact raw span (preserve original whitespace) when possible.
                 exact = span if span in draft_content else None
                 if exact is None:
@@ -933,10 +960,11 @@ async def llm_repair_anchors(
                 updated["anchor_type"] = "local"
             else:
                 # GLOBAL or hallucinated/empty → no locatable verbatim quote. Mark global
-                # and NULL the generative anchor_text so no fake "quote" reaches the user
-                # (keep a bare section name as a non-quote locator if present).
+                # and NULL anchor_text. The section name is NOT a quote; it stays in the
+                # separate `section` field for navigation, never in anchor_text (that
+                # produced the useless single-word "Results"/"Discussion" highlights).
                 updated["anchor_type"] = "global"
-                updated["anchor_text"] = updated.get("section") or None
+                updated["anchor_text"] = None
                 if not _is_verbatim_substring(str(updated.get("text_snippet") or ""), draft_content):
                     updated["text_snippet"] = None
             out.append(updated)

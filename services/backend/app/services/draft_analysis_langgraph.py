@@ -10,6 +10,7 @@ from app.workflows.draft_analysis.revision_tasks import (
     build_revision_tasks,
     calculate_revision_task_readiness_score,
     consolidate_revision_tasks,
+    llm_dedupe_tasks,
 )
 from app.workflows.draft_analysis.citation_rules import apply_existing_citation_gate, has_existing_citation
 from app.workflows.draft_analysis.nodes.analysis_quality_judge import judge_analysis_quality
@@ -21,7 +22,7 @@ from app.services.draft_analysis_runs import (
     mark_analysis_run,
     publish_analysis_artifacts,
 )
-from app.services.draft_task_evidence import reconcile_tasks_against_evidence
+from app.services.draft_task_evidence import reconcile_tasks_against_evidence, repair_anchor
 from app.services.draft_evidence_manifest import build_evidence_manifest, manifest_summary, stale_search_task
 from app.services.draft_publish_gate import evaluate_publish_gate, FAIL_CLOSED as PUBLISH_GATE_FAIL_CLOSED
 from app.core.supabase_client import supabase
@@ -256,6 +257,22 @@ def _source_rejection_reason(
     if _is_methodology_task(task) and _is_methodology_guideline_source(source_text):
         return None
 
+    # Distinctive-topic gate: a single broad shared term ("materials" from a materials
+    # profile) is NOT enough to keep a source on-topic — that is exactly how a "phenol
+    # wastewater treatment" review survived for a sodium-ion battery manuscript. Require
+    # the source to share the manuscript's DISTINCTIVE subject vocabulary (topic_terms
+    # minus broad domain tags), reusing the same gate the retrieval layer applies.
+    try:
+        from app.services.draft_external_source_discovery import _passes_domain_gate
+        query_text = " ".join(
+            str(task.get(key) or "")
+            for key in ("problem", "suggested_action", "anchor_text", "text_snippet", "section")
+        )
+        if manuscript_profile and not _passes_domain_gate(query_text, source_text, similarity, manuscript_profile):
+            return "off_topic_distinctive"
+    except Exception:
+        pass
+
     if set(route_keys) & FAIL_CLOSED_SOURCE_ROUTES:
         if not profile_overlap:
             return "missing_profile_overlap"
@@ -321,6 +338,45 @@ def sanitize_revision_task_sources(
     return sanitized, {
         "pruned_sources": pruned_sources,
         "source_safety_metrics": metrics,
+    }
+
+
+def _merge_source_safety(first: dict, second: dict) -> dict:
+    """Combine two sanitize passes' source-safety payloads (pruned lists + counts)."""
+    first = first or {}
+    second = second or {}
+    m1 = first.get("source_safety_metrics") or {}
+    m2 = second.get("source_safety_metrics") or {}
+    reasons: dict[str, int] = dict(m1.get("pruned_by_reason") or {})
+    for reason, count in (m2.get("pruned_by_reason") or {}).items():
+        reasons[reason] = reasons.get(reason, 0) + count
+    return {
+        "pruned_sources": (first.get("pruned_sources") or []) + (second.get("pruned_sources") or []),
+        "source_safety_metrics": {
+            "sources_checked": (m1.get("sources_checked") or 0) + (m2.get("sources_checked") or 0),
+            "sources_kept": m2.get("sources_kept", m1.get("sources_kept", 0)),
+            "sources_pruned": (m1.get("sources_pruned") or 0) + (m2.get("sources_pruned") or 0),
+            "pruned_by_reason": reasons,
+        },
+    }
+
+
+def suppress_unreliable_task_artifacts(task_rows: list[dict]) -> tuple[list[dict], dict]:
+    """When the publish gate marks a run unpublishable (parse/anchor failure), don't ship
+    the parts most likely to be wrong: drop durable tasks
+    that can't be located in the manuscript (``page_number is None`` — they'd break UI
+    highlighting and are the least trustworthy) and clear ``suggested_sources`` from the
+    rest (sources are the contaminated surface). The reviewer panel + meta-review +
+    claims carry the scholarly value and are kept by the caller.
+
+    Returns (kept_rows, summary).
+    """
+    kept = [row for row in (task_rows or []) if row.get("page_number") is not None]
+    for row in kept:
+        row["suggested_sources"] = []
+    return kept, {
+        "dropped_unanchored_tasks": len(task_rows or []) - len(kept),
+        "sources_cleared": True,
     }
 
 
@@ -562,7 +618,49 @@ def _apply_parse_artifact_anchors(draft_id: str, tasks: list[dict], artifact: di
     return tasks
 
 
-def _revision_quality_metrics(tasks: list[dict]) -> dict:
+def _is_verbatim_anchor(anchor_text: str, draft_content: str) -> bool:
+    """True iff anchor_text is a substantial (>=4 words or >=30 chars) verbatim
+    substring of the draft. Bare section headers ("Methods") are not useful anchors
+    and do not count as verbatim coverage."""
+    anchor = (anchor_text or "").strip()
+    if not draft_content:
+        return False
+    if len(anchor.split()) < 3 and len(anchor) < 24:
+        return False
+    if anchor in draft_content:
+        return True
+    norm_anchor = re.sub(r"\s+", " ", anchor)
+    norm_draft = re.sub(r"\s+", " ", draft_content)
+    return norm_anchor in norm_draft
+
+
+def _classify_task_anchors(tasks: list[dict], draft_content: str) -> None:
+    """Tag each task with anchor_verbatim + anchor_type (local vs global).
+
+    A task is GLOBAL when something upstream (llm_repair_anchors, or the deterministic
+    repair_anchor fallback) explicitly set anchor_type="global" because the LLM confirmed
+    it is a whole-document point with no locatable quote — OR when anchor_text is now None
+    (anchor honesty: a missing/unlocatable critique now carries NO fake quote, so it has
+    no verbatim locus to score). A non-verbatim LOCAL anchor (real quote present) is still
+    an honest MISS, not an exemption."""
+    for task in tasks or []:
+        anchor = task.get("anchor_text") or task.get("text_snippet") or ""
+        verbatim = _is_verbatim_anchor(anchor, draft_content) or (
+            task.get("anchor_source") == "parse_artifact"
+            and task.get("anchor_status") in {"exact", "fuzzy"}
+        )
+        task["anchor_verbatim"] = bool(verbatim)
+        # A null anchor_text means there is NO locus to verify — it is global (no fake
+        # quote), exempt from coverage. Otherwise keep whatever repair set (default local).
+        if task.get("anchor_text") is None:
+            task["anchor_type"] = "global"
+        else:
+            task.setdefault("anchor_type", "local")
+
+
+def _revision_quality_metrics(tasks: list[dict], draft_content: str = "") -> dict:
+    if draft_content:
+        _classify_task_anchors(tasks, draft_content)
     total = len(tasks or [])
     if not total:
         return {
@@ -580,12 +678,21 @@ def _revision_quality_metrics(tasks: list[dict]) -> dict:
     tasks_with_duplicate_merges = sum(1 for task in tasks if int(task.get("duplicate_count") or 0) > 0)
     anchored = sum(1 for task in tasks if task.get("anchor_text") or task.get("text_snippet") or task.get("section"))
     page_anchored = sum(1 for task in tasks if task.get("page_number") or task.get("paragraph_index") or task.get("pdf_coordinates") or task.get("char_start") is not None)
-    # Verbatim = anchor text was matched back to the evidence store (parse artifact),
-    # not an LLM-generated paraphrase. Unresolved/section-only tasks do not count.
+    # Honest verbatim coverage (anchor honesty):
+    #   numerator   = tasks whose non-null anchor_text is an exact substring (or parse-
+    #                 artifact-backed) of the manuscript.
+    #   denominator = tasks that HAVE a non-null anchor_text.
+    # Tasks with a null anchor (global / unlocatable — no fake quote) are excluded from
+    # BOTH; they carry no verbatim locus to verify. This makes the metric honest AND the
+    # payload honest (no generative "quotes" anywhere).
+    anchored_tasks = [t for t in tasks if t.get("anchor_text") is not None]
     verbatim_anchored = sum(
-        1 for task in tasks
-        if task.get("anchor_source") == "parse_artifact" and task.get("anchor_status") in {"exact", "fuzzy"}
+        1 for task in anchored_tasks
+        if task.get("anchor_verbatim")
+        or (task.get("anchor_source") == "parse_artifact" and task.get("anchor_status") in {"exact", "fuzzy"})
     )
+    verbatim_denominator = len(anchored_tasks)
+    global_tasks_count = sum(1 for t in tasks if t.get("anchor_text") is None)
     citation_tasks = [
         task for task in tasks
         if task.get("task_type") == "citation"
@@ -600,7 +707,9 @@ def _revision_quality_metrics(tasks: list[dict]) -> dict:
         "tasks_with_duplicate_merges": tasks_with_duplicate_merges,
         "anchor_coverage": round(anchored / total, 3),
         "page_anchor_coverage": round(page_anchored / total, 3),
-        "verbatim_anchor_coverage": round(verbatim_anchored / total, 3),
+        "verbatim_anchor_coverage": round(verbatim_anchored / verbatim_denominator, 3) if verbatim_denominator else 1.0,
+        "global_tasks_count": global_tasks_count,
+        "global_tasks_exempted": global_tasks_count,
         "citation_source_coverage": (
             round(citation_tasks_with_sources / len(citation_tasks), 3)
             if citation_tasks else 1.0
@@ -620,7 +729,10 @@ def _revision_task_row(draft_id: str, task: dict) -> dict:
         "severity": task.get("severity", "major"),
         "priority": task.get("priority", "medium"),
         "section": task.get("section") or None,
-        "anchor_text": task.get("anchor_text") or task.get("text_snippet") or task.get("section") or task.get("problem"),
+        # Anchor honesty: anchor_text is a verbatim manuscript substring or None — NEVER
+        # the section/problem generative fallback (which the UI would try to highlight as a
+        # fake "quote"). The column is nullable.
+        "anchor_text": task.get("anchor_text"),
         "line_number": task.get("line_number"),
         "page_number": task.get("page_number"),
         "paragraph_index": task.get("paragraph_index"),
@@ -629,6 +741,10 @@ def _revision_task_row(draft_id: str, task: dict) -> dict:
         "text_snippet": task.get("text_snippet") or task.get("anchor_text") or None,
         "pdf_coordinates": task.get("pdf_coordinates"),
         "match_confidence": task.get("match_confidence"),
+        # NOTE: anchor_type/anchor_verbatim are intentionally NOT persisted per-row yet —
+        # the draft_revision_tasks table lacks those columns (see migration 035, unapplied).
+        # The honest verbatim_anchor_coverage metric is computed from the in-memory flags
+        # and stored in analysis_metadata, so observability is preserved without the columns.
         "problem": task.get("problem", ""),
         "why_it_matters": task.get("why_it_matters") or None,
         "suggested_action": task.get("suggested_action", ""),
@@ -1161,10 +1277,11 @@ async def analyze_draft_with_langgraph(
             reviewer_outputs=final_state.get("judged_reviewer_outputs") or final_state.get("reviewer_outputs") or [],
             claims=claims,
             gaps=gaps,
-        structural_feedback=structural_feedback,
-        structure=structure,
-        parser_quality=final_state.get("parser_quality") or existing_metadata,
-        manuscript_profile=manuscript_profile,
+            structural_feedback=structural_feedback,
+            structure=structure,
+            parser_quality=final_state.get("parser_quality") or existing_metadata,
+            manuscript_profile=manuscript_profile,
+            meta_review=final_state.get("meta_review") or {},
         )
         revision_tasks = _apply_parse_artifact_anchors(draft_id, revision_tasks, final_state.get("parse_artifact") or {})
         revision_tasks = _map_revision_task_pages(draft_id, revision_tasks)
@@ -1214,8 +1331,21 @@ async def analyze_draft_with_langgraph(
                 "[LangGraph Draft Analysis] Task-level source surfacing failed (non-fatal): %s",
                 safe_exception(task_source_err),
             )
+        # Sanitize sources (drop off-domain / low-overlap citations) BEFORE the quality
+        # judge runs, so the judge evaluates the cleaned task list. Otherwise an
+        # off-domain source that sanitize would remove anyway (e.g. a "phenol wastewater
+        # treatment" review for a sodium-ion claim) still gets flagged by the judge and
+        # needlessly trips the publish gate. analysis_quality_judge is not available yet
+        # at this point, so the judge-flag rejection path is skipped here — the
+        # deterministic task/profile-overlap checks still remove the off-domain source.
+        revision_tasks, source_safety = sanitize_revision_task_sources(
+            revision_tasks,
+            manuscript_profile=manuscript_profile,
+            analysis_quality_judge=None,
+        )
+        revision_tasks = [repair_anchor(t, draft_content) for t in revision_tasks]
         final_state["revision_tasks"] = revision_tasks
-        revision_quality_metrics = _revision_quality_metrics(revision_tasks)
+        revision_quality_metrics = _revision_quality_metrics(revision_tasks, draft_content)
         final_state["revision_quality_metrics"] = revision_quality_metrics
         logger.info(
             "[LangGraph Draft Analysis] Synthesized %s canonical revision tasks metrics=%s",
@@ -1264,7 +1394,20 @@ async def analyze_draft_with_langgraph(
                 forced_route=suggested_route,
                 reroute_count=reroute_count + 1,
             )
-        if not analysis_quality_judge.get("quality_pass", True):
+        # A quality_pass=False is a HARD failure (user gets nothing) — reserve it for a
+        # genuinely wrong-domain / garbage analysis. If the analysis is on-domain
+        # (domain_alignment high) and the only problem is an off-domain SUGGESTED SOURCE,
+        # don't nuke the whole run: downgrade to the soft path so the publish gate flags
+        # needs_retry and the suppression step drops the bad source while keeping the
+        # reviewer panel + meta-review. (A stray wastewater source on a battery review
+        # must not delete a good analysis.)
+        domain_aligned = float(analysis_quality_judge.get("domain_alignment_score") or 0.0) >= 0.6
+        contamination_only = (
+            domain_aligned
+            and not analysis_quality_judge.get("reroute_required")
+            and bool(analysis_quality_judge.get("source_contamination_flags"))
+        )
+        if not analysis_quality_judge.get("quality_pass", True) and not contamination_only:
             mark_analysis_run(
                 analysis_run_id,
                 status="failed",
@@ -1276,12 +1419,22 @@ async def analyze_draft_with_langgraph(
                 "Analysis quality judge rejected output: "
                 f"{analysis_quality_judge.get('failure_reason') or analysis_quality_judge.get('judge_rationale')}"
             )
+        if not analysis_quality_judge.get("quality_pass", True) and contamination_only:
+            logger.warning(
+                "[LangGraph Draft Analysis] Quality judge fail downgraded to soft (on-domain "
+                "analysis, source-contamination only) — gate+suppression will handle: %s",
+                analysis_quality_judge.get("source_contamination_flags"),
+            )
 
-        revision_tasks, source_safety = sanitize_revision_task_sources(
+        # Second sanitize pass now that the judge has run — this one CAN act on the
+        # judge's wrong-domain flags to catch anything the deterministic pre-judge pass
+        # missed. Merge the pruning metrics from both passes.
+        revision_tasks, source_safety_2 = sanitize_revision_task_sources(
             revision_tasks,
             manuscript_profile=manuscript_profile,
             analysis_quality_judge=analysis_quality_judge,
         )
+        source_safety = _merge_source_safety(source_safety, source_safety_2)
         revision_tasks, final_evidence_rebuttal = reconcile_tasks_against_evidence(
             revision_tasks,
             full_text=draft_content,
@@ -1297,8 +1450,66 @@ async def analyze_draft_with_langgraph(
                 "events": combined_events,
             }
         revision_tasks = consolidate_revision_tasks(revision_tasks)
+        # Pre-emit grounding check (issue #2): downgrade + flag any "X is missing" task
+        # whose X is actually already addressed in the body. Never drops — user decides.
+        try:
+            import os
+            from app.services.draft_task_evidence import (
+                llm_verify_absence_claims,
+                verify_absence_claims,
+            )
+            if os.environ.get("OPENAI_API_KEY") and not os.environ.get("PYTEST_CURRENT_TEST"):
+                # PRIMARY: LLM entailment verifier (only reliable false-absence detector).
+                revision_tasks, grounding_metrics = await llm_verify_absence_claims(
+                    revision_tasks, draft_content
+                )
+            else:
+                # FALLBACK (no key / under pytest): sync lexical check.
+                revision_tasks, grounding_metrics = verify_absence_claims(
+                    revision_tasks, draft_content
+                )
+            if grounding_metrics.get("llm_addressed_dropped"):
+                logger.info(
+                    "[LangGraph Draft Analysis] LLM verifier DROPPED %s addressed absence task(s)",
+                    grounding_metrics["llm_addressed_dropped"],
+                )
+            if grounding_metrics.get("llm_partial_downgraded"):
+                logger.info(
+                    "[LangGraph Draft Analysis] LLM verifier downgraded %s partial absence task(s)",
+                    grounding_metrics["llm_partial_downgraded"],
+                )
+            if grounding_metrics.get("absence_tasks_downgraded"):
+                logger.info(
+                    "[LangGraph Draft Analysis] Grounding check downgraded %s absence task(s)",
+                    grounding_metrics["absence_tasks_downgraded"],
+                )
+            if grounding_metrics.get("self_contradiction_dropped"):
+                logger.info(
+                    "[LangGraph Draft Analysis] Grounding check DROPPED %s self-contradicting absence task(s) (B1)",
+                    grounding_metrics["self_contradiction_dropped"],
+                )
+        except Exception as grounding_err:
+            logger.warning(
+                "[LangGraph Draft Analysis] grounding check failed (non-fatal): %s",
+                safe_exception(grounding_err),
+            )
+        # Verbatim anchor repair (real fix, 4b): with a key (and not under pytest), use
+        # the LLM repairer which can turn paraphrase anchors into real quotes and honestly
+        # mark whole-document points as global. Otherwise fall back to the deterministic
+        # repair loop. anchor_type set here drives the honest coverage metric below.
+        if os.environ.get("OPENAI_API_KEY") and not os.environ.get("PYTEST_CURRENT_TEST"):
+            from app.services.draft_task_evidence import llm_repair_anchors
+            revision_tasks = await llm_repair_anchors(revision_tasks, draft_content)
+        else:
+            revision_tasks = [repair_anchor(t, draft_content) for t in revision_tasks]
+        # LLM semantic dedup (FIX 2): collapse same-critique-different-words pairs that
+        # survive lexical + embedding dedup (within-domain paraphrases ~0.6 cosine).
+        # After anchor repair so merges keep the most-specific verbatim anchor; before the
+        # final metric so coverage reflects the deduped set. Falls back to no-op on failure.
+        if os.environ.get("OPENAI_API_KEY") and not os.environ.get("PYTEST_CURRENT_TEST"):
+            revision_tasks = await llm_dedupe_tasks(revision_tasks)
         final_state["revision_tasks"] = revision_tasks
-        revision_quality_metrics = _revision_quality_metrics(revision_tasks)
+        revision_quality_metrics = _revision_quality_metrics(revision_tasks, draft_content)
         final_state["revision_quality_metrics"] = revision_quality_metrics
         final_state["source_safety"] = source_safety
         if source_safety["source_safety_metrics"].get("sources_pruned"):
@@ -1307,7 +1518,6 @@ async def analyze_draft_with_langgraph(
                 source_safety["source_safety_metrics"].get("sources_pruned"),
             )
 
-        task_rows = [_revision_task_row(draft_id, task) for task in revision_tasks]
         logger.info(f"[LangGraph Draft Analysis] Staged {len(revision_tasks)} durable revision tasks")
 
         # ============================================================
@@ -1319,7 +1529,9 @@ async def analyze_draft_with_langgraph(
         try:
             from app.services.coverage_analysis import suggest_papers_for_gaps
             logger.info("[LangGraph Draft Analysis] Running suggest_papers_for_gaps...")
-            enriched_gaps = await suggest_papers_for_gaps(list(gaps), project_id)
+            enriched_gaps = await suggest_papers_for_gaps(
+                list(gaps), project_id, manuscript_profile=manuscript_profile
+            )
             for idx, enriched_gap in enumerate(enriched_gaps or []):
                 if idx < len(gaps_data):
                     gaps_data[idx]["suggested_papers"] = enriched_gap.get(
@@ -1332,6 +1544,34 @@ async def analyze_draft_with_langgraph(
                 "[LangGraph Draft Analysis] suggest_papers_for_gaps failed (non-fatal): %s",
                 safe_exception(suggestion_err),
             )
+
+        # 6a-bis. Embedding relevance filter (RAG contamination guard). Additional layer
+        # on top of the topic-term/domain gates: drop any suggested source whose embedding
+        # cosine vs THIS manuscript falls below DRAFT_SOURCE_RELEVANCE_MIN. The manuscript
+        # defines its own domain — no keyword/MeSH lists. No-op under pytest / no key.
+        relevance_metrics = {}
+        if os.environ.get("OPENAI_API_KEY") and not os.environ.get("PYTEST_CURRENT_TEST"):
+            try:
+                from app.services.draft_task_evidence import filter_sources_by_manuscript_relevance
+                revision_tasks, gaps_data, relevance_metrics = filter_sources_by_manuscript_relevance(
+                    revision_tasks, gaps_data, draft_content
+                )
+                if relevance_metrics.get("sources_dropped_offdomain"):
+                    logger.warning(
+                        "[LangGraph Draft Analysis] Dropped %s off-domain suggested sources "
+                        "(relevance < %s)",
+                        relevance_metrics.get("sources_dropped_offdomain"),
+                        relevance_metrics.get("relevance_threshold"),
+                    )
+            except Exception as relevance_err:
+                logger.warning(
+                    "[LangGraph Draft Analysis] source relevance filter failed (non-fatal): %s",
+                    safe_exception(relevance_err),
+                )
+
+        # Stage durable rows AFTER source-relevance filtering so off-domain
+        # suggested_sources are excluded from persistence.
+        task_rows = [_revision_task_row(draft_id, task) for task in revision_tasks]
 
         # 6b. Calculate deterministic readiness score from canonical tasks
         readiness_result = calculate_revision_task_readiness_score(
@@ -1347,17 +1587,9 @@ async def analyze_draft_with_langgraph(
             f"({readiness_result['verdict']})"
         )
 
-        # 6c. Synthesize action items
+        # 6c. action_items removed — revision tasks are the canonical to-do list;
+        # synthesize_action_items duplicated them and bypassed the deductive filter.
         action_items: list = []
-        try:
-            from app.services.reviewer_feedback import synthesize_action_items
-            action_items = synthesize_action_items(claims, enriched_gaps, all_feedback)
-            logger.info(f"[LangGraph Draft Analysis] Synthesized {len(action_items)} action items")
-        except Exception as action_err:
-            logger.warning(
-                "[LangGraph Draft Analysis] synthesize_action_items failed (non-fatal): %s",
-                safe_exception(action_err),
-            )
 
         # 6d. Publish staged artifacts for this validated run
         total_feedback = len(feedback_data) + len(r1_rows)
@@ -1377,7 +1609,10 @@ async def analyze_draft_with_langgraph(
             "manuscript_profile": manuscript_profile,
             "diagnostic_findings": diagnostic_findings,
             "revision_quality_metrics": final_state.get("revision_quality_metrics"),
-            "source_safety_metrics": final_state.get("source_safety", {}).get("source_safety_metrics", {}),
+            "source_safety_metrics": {
+                **final_state.get("source_safety", {}).get("source_safety_metrics", {}),
+                **relevance_metrics,
+            },
             "pruned_sources": final_state.get("source_safety", {}).get("pruned_sources", []),
             "evidence_rebuttal_metrics": final_state.get("evidence_rebuttal", {}),
             "readiness_score": readiness_result.get("readiness_score"),
@@ -1457,6 +1692,21 @@ async def analyze_draft_with_langgraph(
                     f"Publish gate ({publish_gate['gate_status']}) blocked low-confidence analysis: "
                     + "; ".join(publish_gate["reasons"])
                 )
+
+            # Soft path (fail-closed off): ship the trustworthy parts only. Drop the
+            # un-anchored durable tasks + all suggested sources (the contaminated /
+            # unlocatable surface), but keep the reviewer panel + meta-review + claims.
+            task_rows, suppression = suppress_unreliable_task_artifacts(task_rows)
+            enriched_metadata["analysis_status"] = "needs_reparse"
+            enriched_metadata["suppressed_artifacts"] = {
+                "reason": publish_gate["gate_status"],
+                **suppression,
+            }
+            logger.warning(
+                "[LangGraph Draft Analysis] publishable=False — suppressed %s un-anchored "
+                "tasks + cleared suggested sources; kept reviewer panel/meta/claims",
+                suppression["dropped_unanchored_tasks"],
+            )
 
         mark_analysis_run(
             analysis_run_id,
