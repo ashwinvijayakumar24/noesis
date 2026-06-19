@@ -11,6 +11,8 @@ import asyncio
 import re
 from typing import Any, Dict, List, Optional
 
+import aiohttp
+
 from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from app.services.external_apis.semantic_scholar import SemanticScholarAPI
@@ -19,15 +21,35 @@ from app.services.external_apis.openalex import search_works
 
 logger = get_logger(__name__)
 
+_OA_BASE = "https://api.openalex.org"
+_OA_EMAIL = "contact@noesis.is"
+_OA_FIELDS_CG = (
+    "id,display_name,title,authorships,publication_year,doi,"
+    "abstract_inverted_index,open_access,primary_location,cited_by_count"
+)
+
+
+def _reconstruct_abstract(inverted: dict | None) -> str:
+    if not inverted:
+        return ""
+    try:
+        pos: dict[int, str] = {}
+        for word, positions in inverted.items():
+            for p in positions:
+                pos[p] = word
+        return " ".join(pos[i] for i in sorted(pos))
+    except Exception:
+        return ""
+
 
 MIN_IMPORTANCE_SCORE = 0.6
 MAX_TARGETS = 8
 MIN_CANDIDATES = 10
 MAX_CANDIDATES = 20
 PER_SOURCE_LIMIT = 8
-MIN_RELEVANCE_SCORE = 0.66
+MIN_RELEVANCE_SCORE = 0.72
 MIN_INTERNAL_TASK_SOURCE_SIMILARITY = 0.68
-MIN_TASK_EXTERNAL_RELEVANCE_SCORE = 0.62
+MIN_TASK_EXTERNAL_RELEVANCE_SCORE = 0.70
 MIN_HUMANITIES_TASK_EXTERNAL_RELEVANCE_SCORE = 0.56
 PERSIST_DRAFT_EXTERNAL_RECOMMENDATIONS = False
 
@@ -161,6 +183,17 @@ def _topic_terms(text: str) -> set[str]:
     return {term for term in _meaningful_terms(text) if term not in GENERIC_RELEVANCE_TERMS}
 
 
+def _distinctive_topic_terms(manuscript_profile: Dict[str, Any] | None = None) -> set[str]:
+    """The manuscript's SUBJECT vocabulary (e.g. {social, media, screen}) — its
+    title/abstract topic_terms minus the broad domain-tag terms. A topical source
+    must share at least one of these to be on-topic; a paper that only shares generic
+    domain words (adolescent, mental, health) is NOT about the same subject.
+    """
+    profile = manuscript_profile or {}
+    topic = {t for t in (profile.get("topic_terms") or []) if t not in GENERIC_RELEVANCE_TERMS}
+    return topic - _profile_terms(profile)
+
+
 def _is_methodology_guideline_source(source_text: str) -> bool:
     lower = (source_text or "").lower()
     return any(term in lower for term in METHODOLOGY_GUIDELINE_TERMS)
@@ -186,6 +219,20 @@ def _passes_domain_gate(query_text: str, source_text: str, score: float, manuscr
 
     if _is_methodology_task(query_text) and _is_methodology_guideline_source(source_text):
         return True
+
+    # Topic gate: a topical (non-methodology) source must share >=2 of the
+    # manuscript's distinctive subject terms. This rejects papers that only share
+    # generic domain words or a single shared outcome (e.g. a child-maltreatment
+    # paper sharing "depression" with a social-media review). NOT bypassed by a high
+    # relevance_score — that score is inflated by citation count + methodology-term
+    # overlap, so an off-topic high-citation systematic review can hit 1.0 without
+    # being on-topic. Legitimate methodology guidelines are already bypassed above.
+    # Only applied when we have enough topic signal (>=3 distinctive terms).
+    # Require at least 1 distinctive topic term overlap (was 2 — too aggressive).
+    # Papers sharing ANY of the manuscript's distinctive subject terms pass.
+    distinctive = _distinctive_topic_terms(manuscript_profile)
+    if len(distinctive) >= 3 and not (source_terms & distinctive):
+        return False
 
     if score < MIN_TASK_EXTERNAL_RELEVANCE_SCORE and len(query_overlap) < 2:
         return False
@@ -490,6 +537,153 @@ def _normalize_candidate(
         "addresses_gaps": [target.get("target_type", "draft_analysis")],
         "search_query": target["search_query"],
         "recommendation_context": _target_context(target),
+    }
+
+
+async def _fetch_citation_graph_candidates(
+    resolved_refs: List[Dict[str, Any]],
+    max_refs_to_use: int = 8,
+    max_output: int = 12,
+) -> List[Dict[str, Any]]:
+    """
+    Find papers co-cited by ≥2 of the author's own references (OpenAlex).
+
+    Strategy: for each resolved ref (has DOI + abstract), fetch its
+    referenced_works list from OpenAlex. Count how many of the author's refs
+    each candidate appears in. Papers in 2+ lists are foundational work the
+    author likely missed. Papers already in the author's bibliography are excluded.
+    """
+    resolved = [r for r in (resolved_refs or []) if r.get("doi") and r.get("resolved")]
+    if not resolved:
+        logger.info("[CitGraph] No resolved refs with DOI — skipping citation-graph path")
+        return []
+
+    known_dois: set[str] = {
+        (_clean_identifier(r.get("doi") or "") or "").lower()
+        for r in resolved_refs
+        if r.get("doi")
+    }
+
+    # Step 1: fetch referenced_works for each resolved ref
+    co_cited_counts: dict[str, int] = {}
+
+    async with aiohttp.ClientSession() as session:
+        for ref in resolved[:max_refs_to_use]:
+            doi_clean = _clean_identifier(ref.get("doi") or "") or ""
+            if not doi_clean:
+                continue
+            try:
+                async with session.get(
+                    f"{_OA_BASE}/works/https://doi.org/{doi_clean}",
+                    params={"mailto": _OA_EMAIL, "select": "id,referenced_works"},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        for ref_id in (data.get("referenced_works") or []):
+                            co_cited_counts[ref_id] = co_cited_counts.get(ref_id, 0) + 1
+            except Exception as exc:
+                logger.debug("[CitGraph] ref lookup failed: %s", exc)
+            await asyncio.sleep(0.05)
+
+    # Step 2: keep papers co-cited by ≥2 of the author's refs
+    co_cited_pairs = sorted(
+        [(oa_id, cnt) for oa_id, cnt in co_cited_counts.items() if cnt >= 2],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    score_map = {oa_id: cnt for oa_id, cnt in co_cited_pairs}
+    top_ids = [oa_id for oa_id, _ in co_cited_pairs[:max_output]]
+
+    if not top_ids:
+        logger.info("[CitGraph] No papers co-cited by >=2 of the author's references")
+        return []
+
+    logger.info("[CitGraph] %d papers co-cited by >=2 refs; fetching metadata", len(top_ids))
+
+    # Step 3: fetch metadata for each co-cited paper
+    async def _fetch_one(session: aiohttp.ClientSession, oa_id: str) -> dict | None:
+        try:
+            async with session.get(
+                oa_id,
+                params={"mailto": _OA_EMAIL, "select": _OA_FIELDS_CG},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status == 200:
+                    work = await resp.json()
+                    doi_raw = work.get("doi") or ""
+                    doi_norm = (_clean_identifier(doi_raw) or "").lower()
+                    if doi_norm and doi_norm in known_dois:
+                        return None  # already in bibliography
+                    abstract = _reconstruct_abstract(work.get("abstract_inverted_index"))
+                    authors = [
+                        a.get("author", {}).get("display_name", "")
+                        for a in (work.get("authorships") or [])[:5]
+                    ]
+                    return {
+                        "title": work.get("display_name") or work.get("title") or "",
+                        "abstract": abstract,
+                        "authors": authors,
+                        "year": work.get("publication_year"),
+                        "doi": _clean_identifier(doi_raw) if doi_raw else "",
+                        "journal": (
+                            ((work.get("primary_location") or {}).get("source") or {})
+                            .get("display_name") or ""
+                        ),
+                        "citation_count": work.get("cited_by_count", 0),
+                        "open_access_url": (work.get("open_access") or {}).get("oa_url"),
+                        "co_citation_score": score_map.get(oa_id, 1),
+                    }
+        except Exception as exc:
+            logger.debug("[CitGraph] metadata fetch failed for %s: %s", oa_id, exc)
+        return None
+
+    papers: List[Dict[str, Any]] = []
+    async with aiohttp.ClientSession() as session:
+        results = await asyncio.gather(
+            *[_fetch_one(session, oa_id) for oa_id in top_ids],
+            return_exceptions=True,
+        )
+        for r in results:
+            if isinstance(r, dict) and r and r.get("title"):
+                papers.append(r)
+
+    papers.sort(key=lambda x: x.get("co_citation_score", 0), reverse=True)
+    logger.info("[CitGraph] %d co-cited papers fetched (excluding bibliography)", len(papers))
+    return papers[:max_output]
+
+
+def _citation_graph_to_external_source(paper: dict, draft_id: str) -> Dict[str, Any]:
+    """Convert a citation-graph paper to the external_source record shape."""
+    co_score = paper.get("co_citation_score", 1)
+    relevance_score = round(min(0.95, 0.68 + co_score * 0.08), 3)
+    return {
+        "type": "external_source",
+        "title": paper["title"],
+        "authors": paper.get("authors", []),
+        "year": paper.get("year"),
+        "abstract": paper.get("abstract"),
+        "source": "citation_graph",
+        "doi": paper.get("doi"),
+        "arxiv_id": None,
+        "paper_url": paper.get("open_access_url"),
+        "pdf_url": paper.get("open_access_url"),
+        "citation_count": paper.get("citation_count", 0),
+        "journal_name": paper.get("journal", ""),
+        "relevance_score": relevance_score,
+        "relevance_reason": (
+            f"Co-cited by {co_score} of the author's own references "
+            "— likely foundational work missing from the bibliography"
+        ),
+        "search_query": "citation_graph",
+        "recommendation_context": {
+            "draft_id": draft_id,
+            "target_type": "citation_graph",
+            "target_id": "citation_graph",
+            "co_citation_score": co_score,
+        },
+        "shared_paper_id": None,
+        "recommendation_id": None,
     }
 
 
@@ -871,32 +1065,41 @@ async def discover_external_sources_for_draft(
     user_id: str,
     claims_with_citations: List[Dict[str, Any]],
     coverage_gaps: List[Dict[str, Any]],
+    resolved_references: Optional[List[Dict[str, Any]]] = None,
+    manuscript_profile: Optional[Dict[str, Any]] = None,
     min_candidates: int = MIN_CANDIDATES,
     max_candidates: int = MAX_CANDIDATES,
 ) -> List[Dict[str, Any]]:
     """
-    Discover, validate, persist, and normalize external papers for draft analysis.
+    Discover external papers for draft analysis via two paths:
+    1. Keyword-based (Semantic Scholar / PubMed / OpenAlex) for weak claims + gaps.
+    2. Citation-graph (OpenAlex co-citation) using the draft's own bibliography.
 
-    Targets weak/unsupported high-importance claims plus high-priority gaps.
-    Returns normalized external_source records suitable for reviewer feedback.
+    Returns normalized external_source records for the citation judge + reviewer panel.
     """
     if not draft_id or not project_id or not user_id:
         return []
 
     targets = _select_targets(draft_id, claims_with_citations, coverage_gaps)
-    if not targets:
-        logger.info("[DraftExternalDiscovery] No weak/none high-importance claims or serious gaps")
-        return []
+
+    # ── Stage 1: keyword-based search ────────────────────────────────────────
+    logger.info(
+        "[DraftExternalDiscovery] Stage 1: %d targets selected for keyword search",
+        len(targets),
+    )
 
     all_candidates: List[Dict[str, Any]] = []
     for target in targets:
-        all_candidates.extend(await _fetch_candidates_for_target(target))
+        new = await _fetch_candidates_for_target(target)
+        all_candidates.extend(new)
         if len(_deduplicate_candidates(all_candidates)) >= min_candidates:
             break
 
     candidates = _deduplicate_candidates(all_candidates)[:max_candidates]
-    if not candidates:
-        return []
+    logger.info(
+        "[DraftExternalDiscovery] Stage 2: %d candidates after keyword search + dedup",
+        len(candidates),
+    )
 
     existing_keys = (
         _load_existing_recommendation_keys(project_id, user_id)
@@ -909,17 +1112,48 @@ async def discover_external_sources_for_draft(
         if not PERSIST_DRAFT_EXTERNAL_RECOMMENDATIONS:
             external_sources.append(_external_source_record(candidate, None, None))
             continue
-
         recommendation_id = _store_recommendation(project_id, user_id, candidate, existing_keys)
         if recommendation_id:
             external_sources.append(
                 _external_source_record(candidate, None, recommendation_id)
             )
 
+    keyword_count = len(external_sources)
     logger.info(
-        "[DraftExternalDiscovery] Stored %s external sources from %s targets",
-        len(external_sources),
-        len(targets),
+        "[DraftExternalDiscovery] Stage 2 complete: %d keyword-based sources",
+        keyword_count,
+    )
+
+    # ── Stage 3: citation-graph discovery ────────────────────────────────────
+    graph_count = 0
+    if resolved_references:
+        try:
+            graph_papers = await _fetch_citation_graph_candidates(resolved_references)
+            logger.info(
+                "[DraftExternalDiscovery] Stage 3 (citation-graph): %d co-cited papers before dedup",
+                len(graph_papers),
+            )
+            seen_keys = {_source_key(s) for s in external_sources if _source_key(s)}
+            for paper in graph_papers:
+                if not paper.get("title"):
+                    continue
+                src = _citation_graph_to_external_source(paper, draft_id)
+                key = _source_key(src)
+                if key and key in seen_keys:
+                    continue
+                if key:
+                    seen_keys.add(key)
+                external_sources.append(src)
+                graph_count += 1
+        except Exception as exc:
+            logger.warning(
+                "[DraftExternalDiscovery] Citation-graph discovery failed (non-fatal): %s", exc
+            )
+
+    logger.info(
+        "[DraftExternalDiscovery] Stage 3 complete: %d graph sources added "
+        "(total pre-judge: %d = %d keyword + %d graph)",
+        graph_count, len(external_sources), keyword_count, graph_count,
     )
     return external_sources
 

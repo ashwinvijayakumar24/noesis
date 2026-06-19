@@ -46,6 +46,8 @@ Guidelines:
 - Do NOT average ratings — synthesize qualitatively
 - Use manuscript profile and diagnostic findings as first-class evidence when they reveal paper-type-specific review risks
 - Explicitly surface reviewer conflicts ("Reviewer A rates novelty strong; Reviewer C flags a key missing citation that undermines this claim")
+- When reviewers disagree, resolve the conflict using the manuscript profile's high-risk checks and the diagnostic findings as the tie-breaker — NOT a majority vote
+- decision_rationale must be an executive judgment that weighs the single heaviest flaw against the contribution; do NOT just restate each reviewer's summary
 - must_address = blocking items that, if fixed, could change the recommendation
 - nice_to_address = non-blocking suggestions
 - Be decisive. "borderline with clear path to acceptance" is acceptable.
@@ -218,6 +220,7 @@ Based on these specialist reviews and the canonical diagnostics, produce your ar
                 {"role": "user", "content": context},
             ],
             max_completion_tokens=2000,
+            temperature=0,
             response_format=MetaReviewOutput,
             **get_completion_params(),
         )

@@ -31,6 +31,46 @@ def _get_client():
 
 
 INTERNAL_SYNTHESIS_ROLES = {"result_finding", "discussion_synthesis", "conclusion_summary"}
+
+# Causal/definitive overstatement still needs support even in a conclusion — these are
+# the only synthesis statements we keep eligible for "unsupported" critique.
+_CAUSAL_OVERSTATEMENT_RE = re.compile(
+    r"\b(causes?|caused|causal|definitive|proves?|proven|leads? to|resulted in)\b", re.IGNORECASE
+)
+
+# The author's own deductive/transitional reasoning — a conclusion drawn from the paper's
+# own argument, not an empirical fact requiring an external citation. Demanding a citation
+# here ("In short, these make SIBs promising") is a false positive (issue #2).
+_DEDUCTIVE_SYNTHESIS_RE = re.compile(
+    r"^\s*(in short|in summary|in conclusion|to summari[sz]e|overall|taken together|"
+    r"in sum|on balance|therefore|thus|hence|as a result|consequently|"
+    r"these (findings|results|superiorities|advantages|properties|features)\b|"
+    r"(we|this (paper|review|study|work)) (argue|propose|believe|conclude|suggest|posit|"
+    r"contend|show|demonstrate|provide|present))",
+    re.IGNORECASE,
+)
+
+# Modal-future / speculative language — sentences whose entire claim is that something
+# *should* or *remains to* be done in future work. These are not citable empirical facts.
+_MODAL_FUTURE_RE = re.compile(
+    r"\b(needs? to be explored|should be investigated|should be explored|"
+    r"remains? to be(?: explored| investigated| determined)?|"
+    r"warrants? further|could be explored|merits? investigation|"
+    r"future work|to be determined)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_deductive_synthesis(claim_text: str) -> bool:
+    """True when the claim is the author's own deductive/transitional conclusion (not a
+    citable empirical fact), OR is entirely modal-future speculation. Causal/definitive
+    overstatement is excluded — that still warrants support."""
+    text = (claim_text or "").strip()
+    if _CAUSAL_OVERSTATEMENT_RE.search(text):
+        return False
+    return bool(_DEDUCTIVE_SYNTHESIS_RE.search(text) or _MODAL_FUTURE_RE.search(text))
+
+
 def _infer_rhetorical_role(claim_text: str, section_location: str) -> str:
     """Heuristic backstop for cached/older claims that lack rhetorical-role metadata."""
     text = (claim_text or "").strip().lower()
@@ -63,12 +103,14 @@ def _claim_requires_external_citation(
     but they should not be labeled "unsupported because no external citation was found."
     """
     role = rhetorical_role or _infer_rhetorical_role(claim_text, section_location)
-    text = (claim_text or "").lower()
+    causal_overstatement = bool(_CAUSAL_OVERSTATEMENT_RE.search(claim_text or ""))
 
-    causal_overstatement = bool(
-        re.search(r"\b(causes?|caused|causal|definitive|proves?|leads? to|resulted in)\b", text)
-    )
-    if role in INTERNAL_SYNTHESIS_ROLES and not causal_overstatement:
+    # The author's own non-causal synthesis/conclusion is not "unsupported because no
+    # external citation was found" — gate it out by rhetorical role OR by deterministic
+    # transitional/deductive phrasing (a backstop for mislabeled roles).
+    if not causal_overstatement and (
+        role in INTERNAL_SYNTHESIS_ROLES or _is_deductive_synthesis(claim_text)
+    ):
         return False
 
     return bool(model_requires_citation)

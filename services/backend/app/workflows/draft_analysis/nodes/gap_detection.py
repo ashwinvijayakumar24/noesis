@@ -5,6 +5,7 @@ Analyzes citation mappings to identify coverage gaps in the draft.
 """
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, Gap
+from app.workflows.draft_analysis.nodes.claim_extraction import _is_deductive_synthesis
 from app.core.logging_config import get_logger
 from typing import List
 import re
@@ -106,6 +107,14 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             claim = claim_citation['claim']
             if claim.get("requires_citation") is False:
                 continue
+            # Backstop (issue #2): never flag the author's own deductive/transitional
+            # conclusion as a missing citation, even if requires_citation was mislabeled
+            # upstream ("In short, these make SIBs promising" is not a citable empirical
+            # fact). Uses the high-precision phrasing check ONLY — the broader role-based
+            # suppression already runs at claim extraction, and re-deriving it here would
+            # wrongly drop genuine empirical result claims.
+            if _is_deductive_synthesis(claim.get("claim_text", "")):
+                continue
 
             quality = claim_citation.get('citation_quality', 'unknown')
             claim_gaps = claim_citation.get('gaps', [])
@@ -195,6 +204,13 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             f"minor={len(minor_gaps)}"
         )
 
+        # Schema gate: ensure gaps is a list of dicts
+        if not isinstance(gaps, list):
+            raise ValueError(f"coverage_gaps is {type(gaps)}, expected list")
+        for i, g in enumerate(gaps):
+            if not isinstance(g, dict):
+                raise ValueError(f"gap[{i}] is {type(g)}, expected dict")
+
         return {
             'coverage_gaps': gaps,
             'current_step': 'Gap Detection',
@@ -203,11 +219,11 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
     except Exception as e:
         logger.error(f"[Gap Detection] Error: {e}")
-        errors = state.get('errors', [])
-        errors.append(f"Gap detection failed: {str(e)}")
-
+        warnings = list(state.get('warnings') or [])
+        warnings.append(f"Gap detection failed: {str(e)}")
         return {
-            'errors': errors,
+            'coverage_gaps': [],
+            'warnings': warnings,
             'current_step': 'Gap Detection (Failed)',
             'progress_percentage': 70
         }

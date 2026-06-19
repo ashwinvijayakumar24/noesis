@@ -764,7 +764,12 @@ class TestPublishGate:
         assert verdict["gate_status"] == "ok"
 
     @pytest.mark.unit
-    def test_contamination_flags_downgrade_confidence(self):
+    def test_contamination_flags_only_still_publishable(self):
+        """Contamination-only (parser good, page-anchor good) → publishable=True, ok_sources_pruned.
+
+        Sources are already stripped upstream; the contamination flag is informational only.
+        Run-9 (sodium-ion / phenol-wastewater) was the motivating case.
+        """
         from app.services.draft_publish_gate import evaluate_publish_gate
 
         verdict = evaluate_publish_gate(
@@ -773,8 +778,38 @@ class TestPublishGate:
             parser_quality={"parser_quality_score": 0.9},
             contamination_flags=["cross_domain_source"],
         )
-        assert verdict["publishable"] is False
+        assert verdict["publishable"] is True
+        assert verdict["gate_status"] == "ok_sources_pruned"
         assert verdict["confidence"] == "low"
+        assert any("pruned" in r for r in verdict["reasons"])
+
+    @pytest.mark.unit
+    def test_parser_failure_plus_contamination_still_fails(self):
+        """Real parser failure + contamination → publishable=False (hard fail wins; contamination
+        must not rescue a genuine parser failure)."""
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="pdf",
+            revision_quality_metrics={"total_tasks": 5, "page_anchor_coverage": 0.95},
+            parser_quality={"parser_quality_score": 0.3, "parser_quality_flags": ["very_short_extracted_text"]},
+            contamination_flags=["cross_domain_source"],
+        )
+        assert verdict["publishable"] is False
+        assert verdict["gate_status"] == "needs_parser_review"
+
+    @pytest.mark.unit
+    def test_page_anchor_failure_no_contamination_still_fails(self):
+        """Page-anchor failure alone → publishable=False (unchanged, no contamination involved)."""
+        from app.services.draft_publish_gate import evaluate_publish_gate
+
+        verdict = evaluate_publish_gate(
+            file_type="pdf",
+            revision_quality_metrics={"total_tasks": 8, "page_anchor_coverage": 0.4},
+            parser_quality={"parser_quality_score": 0.9},
+        )
+        assert verdict["publishable"] is False
+        assert verdict["gate_status"] == "needs_retry"
 
     @pytest.mark.unit
     def test_good_run_publishes_high_confidence(self):
@@ -847,6 +882,76 @@ class TestDoclingMapper:
         assert len(methods["paragraphs"]) == 2
         assert ex["metadata"]["parser"] == "docling"
         assert ex["metadata"]["page_count"] == 4
+
+    @pytest.mark.unit
+    def test_normalizes_glyph_spacing_artifacts(self):
+        """Spaced contraction apostrophes and letter-spaced headings are repaired so
+        verbatim anchor matching survives fonts that encode them oddly."""
+        from app.services.docling_client import map_docling_to_extracted_data
+
+        doc = {"texts": [
+            {"label": "section_header", "text": "A B S T R A C T",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 700, "r": 300, "b": 688}}]},
+            {"label": "text", "text": "However, what hasn ' t been discussed is the student ' s labor.",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 680, "r": 320, "b": 660}}]},
+        ]}
+        ex = map_docling_to_extracted_data(doc)
+        # Heading letter-spacing collapsed.
+        assert any(s["title"] == "ABSTRACT" for s in ex["sections"])
+        # Contraction/possessive apostrophes rejoined — no orphaned " ' " tokens.
+        assert "hasn't" in ex["full_text"]
+        assert "student's" in ex["full_text"]
+        assert " ' " not in ex["full_text"]
+
+    @pytest.mark.unit
+    def test_normalizes_spaced_hyphen_compounds(self):
+        """Compound words with a stray space before the hyphen ('sodium -ion', 'J -T')
+        are rejoined so verbatim anchor matching survives."""
+        from app.services.docling_client import map_docling_to_extracted_data
+
+        doc = {"texts": [
+            {"label": "section_header", "text": "J -T effect",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 700, "r": 300, "b": 688}}]},
+            {"label": "text", "text": "High -capacity sodium -ion cathodes via co -precipitation are carbon -based.",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 680, "r": 320, "b": 660}}]},
+        ]}
+        ex = map_docling_to_extracted_data(doc)
+        ft = ex["full_text"]
+        for joined in ("High-capacity", "sodium-ion", "co-precipitation", "carbon-based"):
+            assert joined in ft, joined
+        assert " -" not in ft
+        assert any(s["title"] == "J-T effect" for s in ex["sections"])
+
+    @pytest.mark.unit
+    def test_spaced_hyphen_leaves_ranges_and_dashes_untouched(self):
+        """Spaced numeric ranges ('10 - 20') and em/en dashes must not be glued."""
+        from app.services.docling_client import map_docling_to_extracted_data
+
+        doc = {"texts": [
+            {"label": "text", "text": "Capacity fell over 10 - 20 cycles — a steep drop – see Figure 2.",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 680, "r": 320, "b": 660}}]},
+        ]}
+        ex = map_docling_to_extracted_data(doc)
+        ft = ex["full_text"]
+        assert "10 - 20" in ft     # space-both-sides range untouched
+        assert "—" in ft           # em dash untouched
+        assert "–" in ft           # en dash untouched
+
+    @pytest.mark.unit
+    def test_glyph_normalization_leaves_clean_text_untouched(self):
+        """No-op on already-clean text (single-column PDFs must not regress)."""
+        from app.services.docling_client import map_docling_to_extracted_data
+
+        doc = {"texts": [
+            {"label": "section_header", "text": "Introduction",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 700, "r": 300, "b": 688}}]},
+            {"label": "text", "text": "The model didn't overfit and the team's results held.",
+             "prov": [{"page_no": 1, "bbox": {"l": 50, "t": 680, "r": 320, "b": 660}}]},
+        ]}
+        ex = map_docling_to_extracted_data(doc)
+        assert "didn't overfit" in ex["full_text"]
+        assert "team's results" in ex["full_text"]
+        assert any(s["title"] == "Introduction" for s in ex["sections"])
 
     @pytest.mark.unit
     def test_docling_parse_labeled_and_not_penalized(self):
@@ -982,6 +1087,55 @@ class TestParserPrereviewHalt:
         # A non-catastrophic flag (e.g. low section count) must NOT halt the review.
         assert _parser_prereview_blocked({"parser_quality_flags": ["low_section_count"]})[0] is False
         assert _parser_prereview_blocked(None)[0] is False
+
+
+class TestUnreliableArtifactSuppression:
+    @pytest.mark.unit
+    def test_suppress_drops_unanchored_tasks_and_clears_sources(self):
+        """On publishable=False, un-anchored tasks (page_number None) are dropped and all
+        suggested_sources are cleared from the survivors; anchored tasks survive."""
+        from app.services.draft_analysis_langgraph import suppress_unreliable_task_artifacts
+        rows = [
+            {"id": "1", "page_number": 3, "suggested_sources": [{"title": "Glass industry"}]},
+            {"id": "2", "page_number": None, "suggested_sources": [{"title": "X"}]},  # un-anchored → drop
+            {"id": "3", "page_number": 8, "suggested_sources": []},
+        ]
+        kept, summary = suppress_unreliable_task_artifacts(rows)
+        assert [r["id"] for r in kept] == ["1", "3"]
+        assert all(r["suggested_sources"] == [] for r in kept)  # contaminated sources cleared
+        assert summary["dropped_unanchored_tasks"] == 1
+        assert summary["sources_cleared"] is True
+
+    @pytest.mark.unit
+    def test_suppress_handles_empty(self):
+        from app.services.draft_analysis_langgraph import suppress_unreliable_task_artifacts
+        kept, summary = suppress_unreliable_task_artifacts([])
+        assert kept == []
+        assert summary["dropped_unanchored_tasks"] == 0
+
+
+class TestSourceSanitizeDistinctiveGate:
+    @pytest.mark.unit
+    def test_sanitize_rejects_off_topic_source_sharing_only_broad_term(self):
+        """An off-domain source ('phenol wastewater treatment ... materials') that shares
+        only a BROAD profile term ('materials') must be rejected by sanitize via the
+        distinctive-topic gate — a single broad term is not on-topic."""
+        from app.services.draft_analysis_langgraph import _source_rejection_reason
+        profile = {
+            "routing_domain": "chemistry_materials",
+            "domain_tags": ["battery", "sodium_ion", "materials_science"],
+            "review_lenses": ["materials_degradation", "battery_cathode"],
+            "topic_terms": ["layered", "batteries", "degradation", "oxides", "sodium-ion", "cathode", "sibs"],
+        }
+        task = {"task_type": "citation", "section": "Discussion",
+                "problem": "Claim lacks a verified citation: NaxTMO2 cathodes show capacity fade.",
+                "suggested_action": "Add a source supporting this degradation claim."}
+        phenol = {"title": "A bibliometric review of phenol wastewater treatment using advanced materials",
+                  "similarity": 0.71}
+        on_topic = {"title": "Phase transition and degradation of layered sodium-ion oxide cathodes",
+                    "similarity": 0.71}
+        assert _source_rejection_reason(task=task, source=phenol, manuscript_profile=profile, analysis_quality_judge=None) == "off_topic_distinctive"
+        assert _source_rejection_reason(task=task, source=on_topic, manuscript_profile=profile, analysis_quality_judge=None) is None
 
 
 class TestVerbatimAnchorCoverage:

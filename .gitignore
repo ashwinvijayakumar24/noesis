@@ -95,3 +95,6 @@ alembic/versions/*.pyc
 pdfs/
 scripts/parser_spike_out/
 .spike-venv/
+
+# Eval harness — results are local only; corpora/gold/config are committed
+scripts/eval/results/

@@ -440,7 +440,7 @@ def _materials_battery_findings(text: str) -> list[dict[str, Any]]:
     return findings
 
 
-def _public_health_psych_findings(text: str) -> list[dict[str, Any]]:
+def _public_health_psych_findings(text: str, manuscript_profile: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     lower = text.lower()
     has_funding_reporting = _has_any(lower, ["funding source", "conflict of interest", "industry sponsor", "platform funding", "commercial interest"])
@@ -484,23 +484,107 @@ def _public_health_psych_findings(text: str) -> list[dict[str, Any]]:
             anchor_text=_snippet(text, r"(influence|impact).{0,80}social media|social media.{0,80}(influence|impact)", "social media causal language"),
             problem="Directional language about social media influence may overstate what mostly cross-sectional evidence can support.",
             why_it_matters="Behavioral-health reviewers will distinguish association, prediction, and causal influence, especially when exposure and outcomes are self-reported.",
-            suggested_action="Align the title, abstract, and conclusion with the underlying study designs by using association-focused language unless longitudinal or experimental evidence supports causal wording.",
+            suggested_action="Align the title, abstract, and conclusion with the underlying study designs by using natural associative phrasing (e.g. 'associated with', 'associated factors') rather than causal/directional wording, unless longitudinal or experimental evidence supports causation.",
         ))
 
     if (
         _has_any(lower, ["facebook", "instagram", "twitter"])
         and not _has_any(lower, ["tiktok", "snapchat", "youtube"])
     ):
+        # Chronology-aware: don't demand platforms that postdate the search. If the
+        # search year is known, frame suggestions to that period (a separate
+        # stale-search critique covers recency); otherwise recommend platform-AGNOSTIC
+        # constructs rather than naming newer platforms anachronistically.
+        search_year = (manuscript_profile or {}).get("latest_search_year")
+        if search_year:
+            suggested_action = (
+                "Use platform-agnostic search constructs (e.g. 'social networking sites', "
+                f"'digital media') and justify the platform scope for the search period ({search_year}); "
+                "do not retrofit platforms that postdate the search."
+            )
+        else:
+            suggested_action = (
+                "Use platform-agnostic search constructs (e.g. 'social networking sites', "
+                "'digital media') and justify the platform scope; add or justify omitted platform "
+                "terms (e.g. Snapchat, YouTube) where chronologically appropriate to the search dates."
+            )
         findings.append(_finding(
             finding_type="systematic_review",
             severity="major",
             section_reference="Methods/Search Strategy",
             anchor_text=_snippet(text, r"Facebook|Instagram|Twitter|search strateg|Table 1", "platform search terms"),
             problem="The platform search terms may be too restrictive for adolescent social-media exposure.",
-            why_it_matters="Missing platform-specific terms can bias a social-media review toward older platforms and under-represent adolescent use patterns.",
-            suggested_action="Explain the platform-term strategy and consider adding or justifying omitted platform terms such as Snapchat, YouTube, and TikTok where date-appropriate.",
+            why_it_matters="Brand-specific keywords can bias a social-media review toward named platforms and under-represent broader adolescent digital exposure.",
+            suggested_action=suggested_action,
         ))
 
+    return findings
+
+
+# Phrases that look like technical terms but are conclusion boilerplate — never flag.
+_ORPHAN_STOPWORDS = {
+    "future work", "in summary", "we conclude", "in conclusion", "this review",
+    "this paper", "this study", "this work", "future perspectives", "future research",
+    "in this", "we believe", "our results", "our findings", "the authors", "as a result",
+}
+_CONCLUSION_HEADING_RE = re.compile(
+    r"^\s*(?:#{1,3}\s*)?(?:\d+\.?\s*)?(conclusions?|future\s+(?:work|perspectives?|directions?)|outlook|concluding\s+remarks?)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+# Technical-term shapes that signal a substantive concept (not ordinary prose):
+#   - hyphenated compound + up to 3 following nouns ("high-entropy layered oxide cathodes")
+#   - CamelCase / multi-capitalized proper names ("NoesisPR", "EduAI-X")
+#   - standalone acronyms (3-6 caps)
+_TECH_TERM_RE = re.compile(
+    r"\b([a-z]+-[a-z]+(?:\s+[a-z]+){0,3}"
+    r"|[A-Z][a-z]+(?:[A-Z][a-z]+)+"
+    r"|[A-Z]{3,6})\b"
+)
+
+
+def _orphaned_concept_findings(text: str) -> list[dict[str, Any]]:
+    """Flag technical concepts introduced ONLY in the Conclusion/Future-Work sections
+    with no groundwork in the main body (issue #16). A good PI would require either
+    integrating the concept into the relevant section or cutting it."""
+    if not text:
+        return []
+    match = _CONCLUSION_HEADING_RE.search(text)
+    if not match or match.start() < len(text) * 0.4:
+        # No clear conclusion heading, or it appears too early to be the real conclusion.
+        return []
+    body = text[: match.start()]
+    conclusion = text[match.start():]
+    if len(conclusion) > 6000:
+        conclusion = conclusion[:6000]
+    body_lower = body.lower()
+
+    findings: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for m in _TECH_TERM_RE.finditer(conclusion):
+        term = re.sub(r"\s+", " ", m.group(1)).strip()
+        key = term.lower()
+        if key in seen or key in _ORPHAN_STOPWORDS or len(term) < 6:
+            continue
+        # Require it to look like a substantive multi-word concept or acronym.
+        if " " not in term and "-" not in term and not term.isupper():
+            continue
+        seen.add(key)
+        # Present in main body? Exact match or first-word stem match.
+        first_word = key.split()[0].rstrip("s")
+        if key in body_lower or (len(first_word) >= 5 and first_word in body_lower):
+            continue
+        findings.append(_finding(
+            finding_type="structural_coherence",
+            severity="major",
+            section_reference="Conclusion/Future Work",
+            anchor_text=_snippet(conclusion, re.escape(term), term),
+            problem=f'"{term}" is introduced in the Conclusion/Future Work without any groundwork in the main body.',
+            why_it_matters="Introducing a major technical concept only in the conclusion leaves it unsupported and disconnected from the manuscript's argument.",
+            suggested_action=f'Either integrate "{term}" into the relevant main-body section (with the necessary background and analysis) or remove it from the conclusion.',
+            confidence=0.7,
+        ))
+        if len(findings) >= 5:
+            break
     return findings
 
 
@@ -526,11 +610,13 @@ def diagnostic_findings_node(state: DraftAnalysisState) -> DraftAnalysisState:
     if "clinical_ai" in domain_tags or "clinical_ai_deployment" in lenses:
         findings.extend(_clinical_ai_findings(text))
     if "behavioral_health" in lenses or "public_health" in domain_tags or "psychology" in domain_tags:
-        findings.extend(_public_health_psych_findings(text))
+        findings.extend(_public_health_psych_findings(text, profile))
     if "framework_validation" in lenses or "framework_mapping" in set(profile.get("contribution_types") or []):
         findings.extend(_framework_findings(text))
     if "materials_science" in domain_tags or "materials_degradation" in lenses:
         findings.extend(_materials_battery_findings(text))
+
+    findings.extend(_orphaned_concept_findings(text))
 
     seen: set[tuple[str, str]] = set()
     deduped: list[dict[str, Any]] = []
@@ -540,6 +626,13 @@ def diagnostic_findings_node(state: DraftAnalysisState) -> DraftAnalysisState:
             continue
         seen.add(key)
         deduped.append(finding)
+
+    # Evidence gate: drop findings whose anchor is non-empty but not verbatim in draft
+    try:
+        from app.services.draft_evidence_gate import strip_unanchored_findings
+        deduped = strip_unanchored_findings(deduped, text)
+    except Exception as _gate_exc:
+        logger.warning("[DiagnosticFindings] Evidence gate skipped: %s", _gate_exc)
 
     logger.info("[DiagnosticFindings] Generated %s profile-aware findings", len(deduped))
     return {

@@ -389,6 +389,21 @@ class ExternalSourceVerdict(StrictOutputModel):
     reason: str
 
 
+class SingleCitationVerdict(StrictOutputModel):
+    pair_index: int = Field(description="0-based index matching the input pair list")
+    verdict: Literal["supports", "partial", "unrelated", "contradicts", "overclaim", "unverifiable"]
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    evidence_quote: str = Field(
+        default="",
+        description="Verbatim quote from the SOURCE ABSTRACT proving the verdict. REQUIRED for contradicts/overclaim/unrelated. Empty only for 'supports' or 'unverifiable'.",
+    )
+    reasoning: str = Field(default="", description="Brief explanation of the verdict (1-2 sentences)")
+
+
+class CitationVerificationBatch(StrictOutputModel):
+    verdicts: list[SingleCitationVerdict] = Field(default_factory=list)
+
+
 class CitationJudgeOutput(StrictOutputModel):
     citation_verdicts: list[SuggestedCitationVerdict] = Field(default_factory=list)
     external_source_verdicts: list[ExternalSourceVerdict] = Field(default_factory=list)

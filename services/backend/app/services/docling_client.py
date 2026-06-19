@@ -31,6 +31,35 @@ _HEADING_LABELS = {"section_header", "title", "subtitle-level-1"}
 _SKIP_LABELS = {"page_header", "page_footer", "footnote"}
 _REFS_TITLE_RE = re.compile(r"^\s*(references|bibliography|works cited|literature cited)\b", re.IGNORECASE)
 
+# Some PDFs encode contraction/possessive apostrophes as a standalone glyph with
+# spaces on BOTH sides ("hasn ' t", "student ' s"). This splits a single word into
+# tokens and breaks verbatim anchor matching when the LLM quotes the normal form.
+# Require spaces on both sides so real single-quotes (`'word'`, adjacent to text) are
+# left untouched.
+_SPACED_APOS_RE = re.compile(r"(\w)\s+(['‘’])\s+(\w)")
+# Compound/hyphenated words encoded with a stray space BEFORE the hyphen and the next
+# token glued to it ("sodium -ion", "high -capacity", "J -T", "co -precipitation").
+# Rejoin so the LLM's normal-form quote ("sodium-ion") matches the manuscript. Hyphen-
+# minus only (em/en dashes are different glyphs and left untouched); require the next
+# char glued to the hyphen so spaced ranges like "10 - 20" are not affected.
+_SPACED_HYPHEN_RE = re.compile(r"(\w)\s+-(\w)")
+# Small-caps tracking renders headings as letter-spaced runs ("A B S T R A C T",
+# "A R T I C L E I N F O"). Collapse only in headings to avoid touching acronyms.
+_LETTER_SPACED_RE = re.compile(r"(?:\b[A-Za-z] ){2,}[A-Za-z]\b")
+
+
+def _normalize_extracted_text(text: str) -> str:
+    """Collapse whitespace and rejoin glyph-spaced apostrophes and hyphenated compounds."""
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
+    text = _SPACED_APOS_RE.sub(r"\1\2\3", text)
+    text = _SPACED_HYPHEN_RE.sub(r"\1-\2", text)
+    return text
+
+
+def _collapse_letter_spacing(text: str) -> str:
+    """Collapse small-caps letter-spacing in headings: 'A B S T R A C T' -> 'ABSTRACT'."""
+    return _LETTER_SPACED_RE.sub(lambda m: m.group(0).replace(" ", ""), text)
+
 
 def _coords_from_prov(prov: list[dict] | None) -> dict[str, Any]:
     """Map a Docling prov entry to the {page,x,y,width,height} coords shape."""
@@ -82,7 +111,7 @@ def map_docling_to_extracted_data(doc: dict[str, Any]) -> dict[str, Any]:
         label = (item.get("label") or "").lower()
         if label in _SKIP_LABELS:
             continue
-        text = re.sub(r"\s+", " ", str(item.get("text") or "")).strip()
+        text = _normalize_extracted_text(item.get("text"))
         if not text:
             continue
         prov = item.get("prov") or []
@@ -90,6 +119,7 @@ def map_docling_to_extracted_data(doc: dict[str, Any]) -> dict[str, Any]:
             pages_seen.add(int(prov[0]["page_no"]))
 
         if label in _HEADING_LABELS:
+            text = _collapse_letter_spacing(text)
             full_parts.append(text)
             in_refs = bool(_REFS_TITLE_RE.match(text))
             in_abstract = bool(re.match(r"^\s*abstract\b", text, re.IGNORECASE))
@@ -158,7 +188,18 @@ async def extract_with_docling(file_bytes: bytes, *, filename: str = "draft.pdf"
             resp = await client.post(
                 f"{base}/v1/convert/file",
                 files={"files": (filename, file_bytes, "application/pdf")},
-                data={"to_formats": "json", "image_export_mode": "placeholder"},
+                data={
+                    "to_formats": "json",
+                    "image_export_mode": "placeholder",
+                    # Digital academic PDFs have a text layer — OCR is unnecessary and
+                    # extremely slow (per-page RapidOCR), and was causing the parse to
+                    # stall/fall back to GROBID. Coordinates come from the text layer,
+                    # not OCR. Scanned PDFs (no text) fall back to GROBID/PyMuPDF.
+                    "do_ocr": "false",
+                    # Fast table structure — "accurate" is much slower; we only need
+                    # table text + location, not perfect cell reconstruction.
+                    "table_mode": "fast",
+                },
             )
         if resp.status_code != 200:
             logger.warning("[Docling] convert returned HTTP %s", resp.status_code)

@@ -1360,6 +1360,14 @@ async def analyze_draft_with_langgraph(
             analysis_quality_judge=None,
         )
         revision_tasks = [repair_anchor(t, draft_content) for t in revision_tasks]
+
+        # Evidence gate: drop revision tasks whose anchor is non-empty but not verbatim
+        try:
+            from app.services.draft_evidence_gate import strip_unanchored_findings
+            revision_tasks = strip_unanchored_findings(revision_tasks, draft_content)
+        except Exception as _ev_gate_exc:
+            logger.warning("[LangGraph Draft Analysis] Revision task evidence gate skipped: %s", safe_exception(_ev_gate_exc))
+
         final_state["revision_tasks"] = revision_tasks
         revision_quality_metrics = _revision_quality_metrics(revision_tasks, draft_content)
         final_state["revision_quality_metrics"] = revision_quality_metrics
@@ -1645,6 +1653,7 @@ async def analyze_draft_with_langgraph(
             "reviewer_judge": final_state.get("reviewer_judge_output"),
             "analysis_quality_judge": final_state.get("analysis_quality_judge"),
             "editor_decision": final_state.get("editor_decision"),
+            "synthesis_report": synthesis_report,
         }
         staged_draft_analysis_row["analysis_metadata"] = enriched_metadata
 

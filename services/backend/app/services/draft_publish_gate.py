@@ -38,6 +38,47 @@ PARSER_QUALITY_MIN = _env_float("DRAFT_PARSER_QUALITY_MIN", 0.55)
 FAIL_CLOSED = os.getenv("DRAFT_ANALYSIS_FAIL_CLOSED", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+# Preliminary (pre-reviewer) gate thresholds. If anchor coverage or parser quality is
+# predictably below these early in the pipeline, the reviewer panel + meta-review are
+# skipped entirely so tokens aren't burned on output the publish gate would suppress
+# anyway (issue #12 — prevention, not cleanup).
+PRELIM_PAGE_ANCHOR_MIN = _env_float("DRAFT_PRELIM_ANCHOR_MIN", 0.7)
+PRELIM_PARSER_MIN = _env_float("DRAFT_PRELIM_PARSER_MIN", 0.6)
+
+
+def should_halt_before_reviewers(
+    *,
+    page_anchor_coverage: float | None,
+    parser_quality_score: float | None,
+    parse_blocked: bool = False,
+) -> dict[str, Any]:
+    """Preliminary gate evaluated AFTER citation mapping / anchor scoring but BEFORE the
+    reviewer panel. Returns {"halt": bool, "reasons": [...], "observed": {...}}.
+
+    Halts when parser quality or page-anchor coverage predicts the publish gate will
+    fail, so the expensive reviewer/meta LLM calls never run on a doomed parse."""
+    reasons: list[str] = []
+    if parse_blocked:
+        reasons.append("parser halted extraction (parse_blocked)")
+    if parser_quality_score is not None and float(parser_quality_score) < PRELIM_PARSER_MIN:
+        reasons.append(
+            f"parser_quality_score={parser_quality_score} < {PRELIM_PARSER_MIN}"
+        )
+    if page_anchor_coverage is not None and float(page_anchor_coverage) < PRELIM_PAGE_ANCHOR_MIN:
+        reasons.append(
+            f"page_anchor_coverage={page_anchor_coverage} < {PRELIM_PAGE_ANCHOR_MIN}"
+        )
+    return {
+        "halt": bool(reasons),
+        "reasons": reasons,
+        "observed": {
+            "page_anchor_coverage": page_anchor_coverage,
+            "parser_quality_score": parser_quality_score,
+            "parse_blocked": parse_blocked,
+        },
+    }
+
+
 def _is_pdf(file_type: str | None) -> bool:
     return (file_type or "").lower() in _PDF_TYPES
 
@@ -52,9 +93,13 @@ def evaluate_publish_gate(
 ) -> dict[str, Any]:
     """Return a deterministic publish verdict.
 
-    ``gate_status`` is one of ``ok`` | ``needs_retry`` | ``needs_parser_review``.
-    ``publishable`` stays True for ``ok``; otherwise the run should be marked as
-    low confidence (and optionally retried) rather than shipped as high-quality.
+    ``gate_status`` is one of ``ok`` | ``ok_sources_pruned`` | ``needs_retry`` | ``needs_parser_review``.
+    ``publishable`` stays True for ``ok`` and ``ok_sources_pruned``; otherwise the run
+    should be marked as low confidence (and optionally retried) rather than shipped as
+    high-quality.
+
+    ``ok_sources_pruned``: parser and page-anchor checks passed; contamination flags were
+    recorded but sources are already stripped upstream — analysis is retained as-is.
     """
     metrics = revision_quality_metrics or {}
     parser = parser_quality or {}
@@ -93,13 +138,21 @@ def evaluate_publish_gate(
             "too many tasks cannot be located in the PDF."
         )
 
-    # 3. Source contamination is independent of the above — always downgrade.
+    # 3. Source contamination: flags are informational — sources are already pruned upstream
+    # by sanitize_revision_task_sources before the gate runs. Record the flags and note
+    # confidence as low-ish, but DO NOT fail the run when parser + anchor checks passed.
+    # If a real hard-fail (parser / page-anchor) already set publishable=False, leave that
+    # verdict untouched — contamination must not rescue a genuine failure either.
     if contamination_flags:
-        confidence = "low"
-        publishable = False
-        if gate_status == "ok":
-            gate_status = "needs_retry"
-        reasons.append(f"Source contamination flags present: {contamination_flags}")
+        reasons.append(
+            f"Off-domain sources detected and pruned; analysis retained. "
+            f"Contamination flags: {contamination_flags}"
+        )
+        if publishable:
+            # Contamination-only path: analysis is clean, sources were already stripped.
+            gate_status = "ok_sources_pruned"
+            confidence = "low"
+            # publishable remains True
 
     return {
         "gate_status": gate_status,

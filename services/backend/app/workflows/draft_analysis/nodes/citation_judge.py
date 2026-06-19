@@ -53,15 +53,16 @@ REJECT a suggested_citation if:
 - It would be weird to cite it for this specific claim
 
 KEEP an external_source if:
-- It directly fills the named gap (missing baseline, missing perspective, conflicting evidence)
-- A coverage reviewer would specifically name it as "you missed this paper"
+- It plausibly fills the named gap or adds relevant perspective
+- A coverage reviewer might mention it ("you should be aware of this work")
+- It is co-cited by several of the author's own references (citation-graph source)
 
 REJECT an external_source if:
-- It is tangentially related to the topic but doesn't address the gap
+- It is clearly off-topic (different field, different methodology, different population)
 - It duplicates a paper already in the author's library
-- The gap description and source are only loosely connected
 
-Be strict. A relevance_score below 0.5 should almost always be keep=False.
+For suggested_citations, be strict (keyword false positives are common).
+For external_sources, be liberal — these are already pre-filtered; only reject clear mismatches.
 Return verdicts for every item provided."""
 
 
@@ -147,14 +148,13 @@ def _apply_verdicts(
         new_cwc["suggested_citations"] = kept
         filtered_cwc.append(new_cwc)
 
-    # Filter external_sources
+    # Filter external_sources — fail-open: no verdict = keep (already pre-filtered upstream)
     external_sources = state.get("external_sources") or []
     filtered_ext = []
     removed_sources = 0
     for src in external_sources:
         title = src.get("title") or src.get("document_title") or "Untitled"
-        # Fail closed: no verdict means no display.
-        if external_lookup.get(title, False):
+        if external_lookup.get(title, True):
             filtered_ext.append(src)
         else:
             removed_sources += 1
@@ -194,6 +194,7 @@ async def citation_judge_node(state: DraftAnalysisState) -> dict:
                 {"role": "user", "content": context_str[:6000]},  # cap context
             ],
             max_completion_tokens=1500,
+            temperature=0,
             response_format=CitationJudgeOutput,
             **get_completion_params(),
         )
@@ -219,7 +220,8 @@ async def citation_judge_node(state: DraftAnalysisState) -> dict:
         }
 
     except Exception as exc:
-        logger.warning(f"[CitationJudge] Failed; suppressing unverified citation/source suggestions: {exc}")
+        logger.warning(f"[CitationJudge] Failed; suppressing suggested citations but keeping external sources: {exc}")
+        # suggested_citations: fail-closed (keyword false positives are common)
         fail_closed_cwc = []
         for cwc in state.get("claims_with_citations") or []:
             new_cwc = dict(cwc)
@@ -228,7 +230,8 @@ async def citation_judge_node(state: DraftAnalysisState) -> dict:
             fail_closed_cwc.append(new_cwc)
         return {
             "claims_with_citations": fail_closed_cwc,
-            "external_sources": [],
+            # external_sources: fail-open (already pre-filtered by domain gate + score)
+            "external_sources": state.get("external_sources") or [],
             "citation_judge_output": {
                 "error": str(exc),
                 "overall_citation_quality": "low",

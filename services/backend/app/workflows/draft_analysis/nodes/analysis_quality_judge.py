@@ -35,11 +35,18 @@ Pass the analysis if:
   not merely the current route label.
 - Minor generic wording or isolated cross-domain words do not change the substance.
 
-Fail the analysis if:
+Fail the analysis (quality_pass=false) ONLY for substantive, pervasive problems:
 - The recommendations are mostly about a different field or different manuscript.
 - The analysis applies inappropriate standards from another domain.
 - The comments would be obviously absurd to the manuscript's author.
-- The actionable task list is dominated by duplicates, lacks usable anchors, or leaves major citation/evidence tasks without any source-search result.
+- The actionable task list is dominated by duplicates or lacks usable anchors.
+
+Do NOT set quality_pass=false merely because one or a few SUGGESTED SOURCES are
+off-topic. A stray irrelevant suggested citation (e.g. a wastewater-treatment paper
+appearing under a battery review) is a SOURCE-CONTAMINATION issue, not an analysis
+failure: list it in source_contamination_flags and keep quality_pass=true if the
+reviewer feedback and tasks are otherwise on-topic. The pipeline drops contaminated
+sources downstream — your job is to flag them, not to discard the whole analysis.
 
 Set reroute_required=true if the manuscript's actual genre/discipline conflicts
 with the current route and a corrected route would likely rescue the run. Example:
@@ -116,6 +123,7 @@ REVISION QUALITY METRICS:
                 {"role": "user", "content": context},
             ],
             max_completion_tokens=1200,
+            temperature=0,
             response_format=AnalysisQualityJudgeOutput,
             **get_completion_params(),
         )

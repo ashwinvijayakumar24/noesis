@@ -50,6 +50,10 @@ Set scope_appropriate=false only for clearly off-topic content (recipes, fiction
 Be lenient on quality — your job is to filter out obviously unreviable submissions,
 not to pre-judge scientific merit. When in doubt, let it through (proceed_to_review=true).
 
+IMPORTANT: Do NOT comment on section metadata anomalies (duplicate entries, 'other'
+placeholders, running-header echoes) in your notes — these are parser extraction
+artifacts, not manuscript flaws. Only comment on content visible in the draft text.
+
 Return a structured assessment."""
 
 
@@ -67,7 +71,7 @@ async def editor_pass_node(state: DraftAnalysisState) -> dict:
     profile = state.get("manuscript_profile") or {}
 
     # Build context — only first 2000 chars (abstract + intro) needed
-    sections_present = [s.get("type", "?") for s in structure.get("sections", [])]
+    sections_present = [s.get("type", "?") for s in structure.get("sections", []) if s.get("type") != "other"]
     word_count = structure.get("word_count", 0)
     section_count = len(structure.get("sections", []))
 

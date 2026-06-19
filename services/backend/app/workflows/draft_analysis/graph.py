@@ -15,6 +15,7 @@ from app.services.progress_publisher import publish_progress
 # Import all workflow nodes
 from app.workflows.draft_analysis.nodes.structure_extraction import extract_structure_node
 from app.workflows.draft_analysis.nodes.manuscript_profile import manuscript_profile_node
+from app.workflows.draft_analysis.nodes.extract_references import extract_references_node
 from app.workflows.draft_analysis.nodes.claim_extraction import extract_claims_node
 from app.workflows.draft_analysis.nodes.claim_categorization import categorize_claims_node
 from app.workflows.draft_analysis.nodes.literature_search import literature_search_node
@@ -27,6 +28,7 @@ from app.workflows.draft_analysis.nodes.reviewer_panel import reviewer_panel_nod
 from app.workflows.draft_analysis.nodes.meta_reviewer import meta_reviewer_node
 from app.workflows.draft_analysis.nodes.citation_judge import citation_judge_node
 from app.workflows.draft_analysis.nodes.reviewer_judge import reviewer_judge_node
+from app.workflows.draft_analysis.nodes.verify_citations import verify_citations_node
 from app.workflows.draft_analysis.nodes.report_synthesis import synthesize_report_node
 
 logger = get_logger(__name__)
@@ -56,6 +58,16 @@ async def _manuscript_profile_node_with_progress(state: DraftAnalysisState) -> D
     return result
 
 
+async def _extract_references_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "extract_references_start", 12, "Extracting reference list...")
+    result = await extract_references_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "extract_references", 13, "Reference list resolved")
+    return result
+
+
 async def _extract_claims_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
     draft_id = state.get("draft_id")
     if draft_id:
@@ -73,6 +85,16 @@ async def _categorize_claims_node_with_progress(state: DraftAnalysisState) -> Dr
     result = categorize_claims_node(state)
     if draft_id:
         await publish_progress(draft_id, "categorize_claims", 35, "Claims categorized")
+    return result
+
+
+async def _verify_citations_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    draft_id = state.get("draft_id")
+    if draft_id:
+        await publish_progress(draft_id, "verify_citations_start", 35, "Checking citation accuracy...")
+    result = await verify_citations_node(state)
+    if draft_id:
+        await publish_progress(draft_id, "verify_citations", 36, "Citation accuracy checked")
     return result
 
 
@@ -126,6 +148,8 @@ async def _external_source_discovery_node_with_progress(state: DraftAnalysisStat
             user_id=state["user_id"],
             claims_with_citations=claims_with_citations,
             coverage_gaps=coverage_gaps,
+            resolved_references=state.get("resolved_references") or [],
+            manuscript_profile=state.get("manuscript_profile") or {},
         )
         attach_external_sources_to_analysis(
             claims_with_citations,
@@ -296,6 +320,30 @@ def route_after_literature_search(state: DraftAnalysisState) -> str:
 REVIEWER_TYPES = ["methodology", "literature_positioning", "clarity"]
 
 
+def _preliminary_anchor_coverage(state: DraftAnalysisState) -> float | None:
+    """Fraction of mapped claims that carry a locatable anchor (page/char/coords) after
+    citation mapping. Proxy for how anchorable the run is before reviewers run. Returns
+    None when there are no mapped claims (don't halt on absence of data)."""
+    cwc = state.get("claims_with_citations") or []
+    if not cwc:
+        return None
+    located = 0
+    for entry in cwc:
+        claim = entry.get("claim") or entry
+        if (
+            claim.get("page_number") is not None
+            or claim.get("char_start") is not None
+            or entry.get("page_number") is not None
+            or entry.get("char_start") is not None
+        ):
+            located += 1
+    # No anchors at all = no evidence to make a call; skip the halt rather than
+    # treating 0/N as a coverage failure (common for plaintext and fresh parses).
+    if located == 0:
+        return None
+    return round(located / max(1, len(cwc)), 3)
+
+
 def route_to_reviewer_panel(state: DraftAnalysisState):
     """
     After editor_pass: if desk-rejected route straight to synthesis,
@@ -305,6 +353,27 @@ def route_to_reviewer_panel(state: DraftAnalysisState):
     if not editor.get("proceed_to_review", True):
         logger.info("[Routing] Editor desk-rejected — skipping reviewer panel")
         return "synthesize_report"
+
+    # Preliminary gate (issue #12): if anchor coverage / parser quality already predict a
+    # gate failure, halt BEFORE the reviewer panel + meta-review so tokens aren't burned
+    # on output the publish gate would suppress. Reviewer panel runs only on parses that
+    # clear this checkpoint.
+    try:
+        from app.services.draft_publish_gate import should_halt_before_reviewers
+        parser_quality = state.get("parser_quality") or {}
+        prelim = should_halt_before_reviewers(
+            page_anchor_coverage=_preliminary_anchor_coverage(state),
+            parser_quality_score=parser_quality.get("parser_quality_score"),
+            parse_blocked=bool(parser_quality.get("parse_blocked")),
+        )
+        if prelim["halt"]:
+            logger.warning(
+                "[Routing] Preliminary gate FAILED (%s) — skipping reviewer panel + meta-review",
+                "; ".join(prelim["reasons"]),
+            )
+            return "synthesize_report"
+    except Exception as exc:  # never block the run on the preliminary gate itself
+        logger.warning("[Routing] Preliminary gate check skipped: %s", safe_exception(exc))
 
     logger.info("[Routing] Editor approved — dispatching 3 parallel reviewers")
     return [
@@ -347,8 +416,10 @@ def create_draft_analysis_workflow() -> StateGraph:
 
     workflow.add_node("extract_structure", _extract_structure_node_with_progress)
     workflow.add_node("profile_manuscript", _manuscript_profile_node_with_progress)
+    workflow.add_node("extract_references", _extract_references_node_with_progress)
     workflow.add_node("extract_claims", _extract_claims_node_with_progress)
     workflow.add_node("categorize_claims", _categorize_claims_node_with_progress)
+    workflow.add_node("verify_citations", _verify_citations_node_with_progress)
     workflow.add_node("search_literature", _literature_search_node_with_progress)
     workflow.add_node("map_citations", _citation_mapping_node_with_progress)
     workflow.add_node("detect_gaps", _detect_gaps_node_with_progress)
@@ -371,7 +442,8 @@ def create_draft_analysis_workflow() -> StateGraph:
 
     # Linear flow for most steps
     workflow.add_edge("extract_structure", "profile_manuscript")
-    workflow.add_edge("profile_manuscript", "extract_claims")
+    workflow.add_edge("profile_manuscript", "extract_references")
+    workflow.add_edge("extract_references", "extract_claims")
 
     # Conditional routing after claim extraction
     workflow.add_conditional_edges(
@@ -383,8 +455,9 @@ def create_draft_analysis_workflow() -> StateGraph:
         }
     )
 
-    # Continue with categorization → literature search
-    workflow.add_edge("categorize_claims", "search_literature")
+    # Continue with categorization → citation verification → literature search
+    workflow.add_edge("categorize_claims", "verify_citations")
+    workflow.add_edge("verify_citations", "search_literature")
 
     # Conditional routing after literature search
     workflow.add_conditional_edges(

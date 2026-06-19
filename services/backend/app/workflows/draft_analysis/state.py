@@ -137,6 +137,14 @@ class DraftAnalysisState(TypedDict):
     # Gap detection
     coverage_gaps: NotRequired[List[Gap]]
 
+    # Plan 02 — draft's own reference list
+    resolved_references: NotRequired[List[Dict[str, Any]]]
+    unused_references: NotRequired[List[Dict[str, Any]]]
+    claim_to_own_reference_suggestions: NotRequired[List[Dict[str, Any]]]
+
+    # Plan 04 — citation misrepresentation verdicts
+    citation_verdicts: NotRequired[List[Dict[str, Any]]]
+
     # Literature recommendations
     literature_recommendations: NotRequired[List[Dict[str, Any]]]
     external_sources: NotRequired[List[Dict[str, Any]]]

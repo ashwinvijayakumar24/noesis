@@ -113,6 +113,7 @@ async def _retry_reviewer(state: DraftAnalysisState, reviewer_id: str) -> dict |
                 {"role": "user", "content": f"Review this paper:\n\n{context}"},
             ],
             max_completion_tokens=2500,
+            temperature=0,
             response_format=ReviewerOutput,
             **get_completion_params(),
         )
@@ -200,6 +201,7 @@ async def reviewer_judge_node(state: DraftAnalysisState) -> dict:
                 {"role": "user", "content": context[:6000]},
             ],
             max_completion_tokens=1500,
+            temperature=0,
             response_format=ReviewerJudgeOutput,
             **get_completion_params(),
         )

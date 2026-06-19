@@ -46,6 +46,10 @@ Also identify any gaps:
 - What perspectives are not covered?
 - What baselines or comparisons are absent?
 
+Any anchor_text or text_snippet field MUST be an exact, contiguous, copy-paste
+substring of the manuscript (<=200 chars). Do NOT paraphrase, summarize, stitch
+with ellipses, or fix typos in the anchor — copy verbatim.
+
 Return ONLY a valid JSON object:
 {
   "overall_quality": "strong" | "moderate" | "weak" | "none",
@@ -179,7 +183,7 @@ def _format_paper_chip(p: dict, source_label: str) -> dict:
     }
 
 
-async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
+async def _discover_papers_for_claim(claim_text: str, project_id: str, manuscript_profile: dict | None = None) -> list:
     """
     B2: Discover papers from project library and Semantic Scholar for a weak/unsupported claim.
 
@@ -200,8 +204,18 @@ async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
         enriched = await suggest_papers_for_gaps([mock_gap], project_id, max_suggestions_per_gap=3)
         papers = enriched[0].get("suggested_papers", []) if enriched else []
 
+        # Apply the same distinctive-topic gate used elsewhere so claim-level discovery
+        # can't inject off-domain sources (e.g. a "phenol wastewater treatment" review for
+        # a sodium-ion battery claim) that the post-hoc contamination judge would later
+        # flag and force a needs_retry. Gate at the source so the run can pass cleanly.
+        from app.services.draft_external_source_discovery import _passes_domain_gate
+
         result = []
         for p in papers[:3]:
+            paper_text = " ".join(str(p.get(k) or "") for k in ("title", "abstract", "document_title"))
+            score = float(p.get("similarity") or p.get("relevance_score") or 0.0)
+            if manuscript_profile and not _passes_domain_gate(claim_text, paper_text, score, manuscript_profile):
+                continue
             source = "library" if p.get("document_id") else "semantic_scholar"
             source_label = "In your library" if source == "library" else "Semantic Scholar"
             chip = _format_paper_chip(p, source_label)
@@ -299,10 +313,12 @@ async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState
                 )
 
                 try:
+                    _profile = state.get("manuscript_profile")
                     disc_tasks = [
                         _discover_papers_for_claim(
                             cwc['claim']['claim_text'],
-                            project_id
+                            project_id,
+                            _profile,
                         )
                         for cwc in top_candidates
                     ]

@@ -1,0 +1,26 @@
+# Noesis eval matrix config
+# Paths are relative to repo root.
+# corpora: names of dirs under scripts/eval/corpora/
+# A null corpus entry runs the draft with no uploaded literature (--no-corpus mode).
+
+drafts:
+  - pdfs/draft1.pdf
+  - pdfs/draft2.pdf
+  - pdfs/draft3.pdf
+  - pdfs/draft4.pdf
+  - pdfs/draft5.pdf
+  - pdfs/draft6.pdf
+  - pdfs/draft7.pdf
+  - pdfs/draft8.pdf
+  - pdfs/draft9.pdf
+  - pdfs/draft10.pdf
+
+# Set to null for no-corpus runs; add corpus dir names to test with literature
+corpora:
+  - null
+
+# Thresholds for regression gate (run_eval.py exits non-zero if violated)
+thresholds:
+  min_overall: 8.5       # mean overall across all scored cells must be ≥ 8.5
+  min_dim_score: 7.5     # no individual dimension mean may fall below 7.5
+  max_mean_drop: 0.5     # alert if mean drops >0.5 vs previous scoreboard

@@ -670,12 +670,49 @@ def _normalize_external_paper(raw: dict, source: str) -> dict:
     }
 
 
+def _gap_paper_passes_domain_gate(
+    paper: dict,
+    manuscript_profile: dict | None,
+) -> bool:
+    """Lightweight domain check for gap suggested papers.
+
+    Rejects papers with zero overlap against the manuscript's topic_terms and
+    routing_domain — the same guard applied to task sources in
+    draft_external_source_discovery._passes_domain_gate, reimplemented here to
+    avoid a circular import. Returns True (pass) when no profile is supplied.
+    """
+    if not manuscript_profile:
+        return True
+    profile_terms: set[str] = set()
+    routing_domain = str(manuscript_profile.get("routing_domain") or "").lower()
+    if routing_domain:
+        profile_terms.update(routing_domain.replace("_", " ").split())
+    for t in manuscript_profile.get("topic_terms") or []:
+        profile_terms.update(str(t).lower().split())
+    for tag in manuscript_profile.get("domain_tags") or []:
+        profile_terms.update(str(tag).lower().replace("_", " ").split())
+    if not profile_terms:
+        return True
+    paper_text = " ".join(filter(None, [
+        str(paper.get("title") or ""),
+        str(paper.get("abstract") or ""),
+    ])).lower()
+    paper_words = set(paper_text.split())
+    return bool(profile_terms & paper_words)
+
+
 async def _fetch_external_papers_for_gap(
     gap_description: str,
     needed: int,
     max_external: int = _MAX_EXTERNAL_PAPERS,
+    manuscript_profile: dict | None = None,
 ) -> list:
-    """Semantic Scholar first, OpenAlex cascade, deduplicate by title."""
+    """Semantic Scholar first, OpenAlex cascade, deduplicate by title.
+
+    manuscript_profile is used to domain-filter results — papers with zero
+    overlap against the profile's topic_terms/routing_domain are dropped before
+    they can surface as gap suggestions (issue #3 under-retrieval fix).
+    """
     results: list = []
     seen_titles: set = set()
 
@@ -687,8 +724,10 @@ async def _fetch_external_papers_for_gap(
         for p in (raw or []):
             t = (p.get("title") or "").lower().strip()
             if t and t not in seen_titles:
-                seen_titles.add(t)
-                results.append(_normalize_external_paper(p, "semantic_scholar"))
+                normalized = _normalize_external_paper(p, "semantic_scholar")
+                if _gap_paper_passes_domain_gate(normalized, manuscript_profile):
+                    seen_titles.add(t)
+                    results.append(normalized)
     except Exception as e:
         logger.warning(f"[EXTERNAL FALLBACK] Semantic Scholar failed: {e}")
 
@@ -700,8 +739,10 @@ async def _fetch_external_papers_for_gap(
             for p in (oa_raw or []):
                 t = (p.get("title") or "").lower().strip()
                 if t and t not in seen_titles:
-                    seen_titles.add(t)
-                    results.append(_normalize_external_paper(p, "open_access"))
+                    normalized = _normalize_external_paper(p, "open_access")
+                    if _gap_paper_passes_domain_gate(normalized, manuscript_profile):
+                        seen_titles.add(t)
+                        results.append(normalized)
         except Exception as e:
             logger.warning(f"[EXTERNAL FALLBACK] OpenAlex failed: {e}")
 
@@ -715,17 +756,21 @@ async def _fetch_external_papers_for_gap(
 async def suggest_papers_for_gaps(
     gaps: List[Dict[str, Any]],
     project_id: str,
-    max_suggestions_per_gap: int = 3
+    max_suggestions_per_gap: int = 3,
+    manuscript_profile: dict | None = None,
 ) -> List[Dict[str, Any]]:
     """
     Suggest specific papers to address identified gaps.
 
     Uses semantic search to find relevant papers from project literature.
+    External fallback results are domain-filtered via manuscript_profile to
+    prevent off-domain RAG contamination in gap suggestions (issue #3).
 
     Args:
         gaps: List of identified coverage gaps
         project_id: Project identifier
         max_suggestions_per_gap: Maximum suggestions per gap
+        manuscript_profile: Manuscript profile for domain filtering of external results
 
     Returns:
         Gaps enhanced with paper suggestions
@@ -748,7 +793,8 @@ async def suggest_papers_for_gaps(
                 logger.warning(f"Failed to embed gap description, trying external fallback")
                 try:
                     gap["suggested_papers"] = await _fetch_external_papers_for_gap(
-                        gap_description, _EXTERNAL_FALLBACK_THRESHOLD
+                        gap_description, _EXTERNAL_FALLBACK_THRESHOLD,
+                        manuscript_profile=manuscript_profile,
                     )
                 except Exception:
                     gap["suggested_papers"] = []
@@ -768,7 +814,8 @@ async def suggest_papers_for_gaps(
 
             if not search_results.data:
                 external = await _fetch_external_papers_for_gap(
-                    gap_description, _EXTERNAL_FALLBACK_THRESHOLD
+                    gap_description, _EXTERNAL_FALLBACK_THRESHOLD,
+                    manuscript_profile=manuscript_profile,
                 )
                 gap["suggested_papers"] = external
                 continue
@@ -809,7 +856,9 @@ async def suggest_papers_for_gaps(
             if len(suggested_papers) < _EXTERNAL_FALLBACK_THRESHOLD:
                 try:
                     needed = _EXTERNAL_FALLBACK_THRESHOLD - len(suggested_papers)
-                    external = await _fetch_external_papers_for_gap(gap_description, needed)
+                    external = await _fetch_external_papers_for_gap(
+                        gap_description, needed, manuscript_profile=manuscript_profile,
+                    )
                     suggested_papers.extend(external)
                 except Exception as ext_err:
                     logger.warning(f"[EXTERNAL FALLBACK] Failed for gap, using local only: {ext_err}")

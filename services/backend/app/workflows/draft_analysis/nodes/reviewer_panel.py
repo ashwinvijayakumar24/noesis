@@ -463,6 +463,7 @@ async def audit_domain_triggers(
                 {"role": "user", "content": user},
             ],
             max_completion_tokens=1800,
+            temperature=0,
             response_format=TriggerAuditOutput,
             **get_completion_params(),
         )
@@ -552,6 +553,7 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
                 {"role": "user", "content": f"Review this paper:\n\n{context}"},
             ],
             max_completion_tokens=2500,
+            temperature=0,
             response_format=ReviewerOutput,
             **get_completion_params(),
         )
@@ -609,6 +611,20 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
                     continue
                 kept_issues.append(issue)
             output.issues = kept_issues
+
+        # Evidence gate: drop issues whose anchor_text is non-empty but not verbatim
+        try:
+            from app.services.draft_evidence_gate import strip_unanchored_findings
+            draft_content = state.get("draft_content") or ""
+            issue_dicts = [i.model_dump() for i in output.issues]
+            filtered = strip_unanchored_findings(issue_dicts, draft_content)
+            kept_ids = {id(d) for d in filtered}
+            output.issues = [
+                issue for issue, d in zip(output.issues, issue_dicts)
+                if id(d) in kept_ids
+            ]
+        except Exception as _gate_exc:
+            logger.warning("[ReviewerPanel] Evidence gate skipped: %s", _gate_exc)
 
         for issue in output.issues:
             if issue.problem and issue.problem not in output.weaknesses:

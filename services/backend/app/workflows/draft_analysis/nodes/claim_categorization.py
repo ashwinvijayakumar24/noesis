@@ -65,7 +65,14 @@ def categorize_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
             f"primary={len(primary_claims)}, supporting={len(supporting_claims)}"
         )
 
-        # Update state
+        # Schema gate: ensure all output fields are the expected types
+        if not isinstance(claims_by_type, dict):
+            raise ValueError(f"claims_by_type is {type(claims_by_type)}, expected dict")
+        if not isinstance(primary_claims, list):
+            raise ValueError(f"primary_claims is {type(primary_claims)}, expected list")
+        if not isinstance(supporting_claims, list):
+            raise ValueError(f"supporting_claims is {type(supporting_claims)}, expected list")
+
         return {
             'claims_by_type': claims_by_type,
             'primary_claims': primary_claims,
@@ -76,11 +83,13 @@ def categorize_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
     except Exception as e:
         logger.error(f"[Claim Categorization] Error: {e}")
-        errors = state.get('errors', [])
-        errors.append(f"Claim categorization failed: {str(e)}")
-
+        warnings = list(state.get('warnings') or [])
+        warnings.append(f"Claim categorization failed: {str(e)}")
         return {
-            'errors': errors,
+            'claims_by_type': {'empirical': [], 'theoretical': [], 'methodological': []},
+            'primary_claims': [],
+            'supporting_claims': list(state.get('claims') or []),
+            'warnings': warnings,
             'current_step': 'Claim Categorization (Failed)',
             'progress_percentage': 35
         }

@@ -8,10 +8,162 @@ paper type instead of defaulting to generic ML-conference expectations.
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from app.core.logging_config import get_logger
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.domain_routing import infer_domain_route
+
+# Generic academic vocabulary that is NOT topic-distinctive — excluded when deriving
+# a manuscript's topic_terms (used to keep suggested sources on-topic).
+_TOPIC_STOPWORDS = {
+    "study", "studies", "paper", "papers", "review", "reviews", "research", "analysis",
+    "results", "result", "method", "methods", "data", "findings", "finding", "article",
+    "articles", "authors", "author", "using", "based", "between", "among", "within",
+    "across", "associated", "association", "associations", "effect", "effects", "impact",
+    "factors", "factor", "evidence", "literature", "systematic", "included", "reported",
+    "conducted", "examine", "examined", "investigate", "investigated", "discussion",
+    "introduction", "conclusion", "abstract", "background", "objective", "objectives",
+    "table", "figure", "section", "however", "therefore", "these", "those", "their",
+    "which", "while", "with", "from", "this", "that", "have", "been", "were", "also",
+    "more", "most", "such", "than", "into", "they", "them", "there", "where", "what",
+    # Generic cross-domain science vocabulary — present in nearly every paper, so NOT
+    # topic-distinctive. Without these an off-domain source (e.g. a "decarbonizing the
+    # glass industry" paper) can clear the topic gate by sharing only generic words
+    # like "energy"/"renewable"/"materials" with a sodium-ion battery manuscript.
+    "energy", "application", "applications", "demand", "renewable", "sustainable",
+    "sustainability", "science", "sciences", "scientific", "material", "materials",
+    "technology", "technologies", "technological", "development", "developments",
+    "performance", "properties", "property", "novel", "recent", "high", "low",
+    "system", "systems", "approach", "approaches", "model", "models", "process",
+    "processes", "design", "designs", "future", "current", "potential", "important",
+    "significant", "various", "different", "several", "overall", "general", "field",
+    "strategy", "strategies", "mechanism", "mechanisms",
+    # Geographic / institutional terms that leak from author affiliation blocks
+    # (the title/abstract head includes the author + affiliation lines on journal PDFs).
+    "university", "universities", "institute", "institutes", "department", "departments",
+    "laboratory", "laboratories", "college", "school", "national", "international",
+    "china", "chinese", "usa", "united", "states", "korea", "japan", "germany", "india",
+}
+
+
+def _manuscript_topic_terms(text: str, *, top_n: int = 25) -> list[str]:
+    """Distinctive content terms from the title/abstract/intro region of the draft.
+
+    These capture what the manuscript is actually ABOUT (e.g. "social media",
+    "screen time") rather than broad domain tags — used to keep suggested sources
+    topically relevant and avoid cross-topic contamination.
+    """
+    head = (text or "")[:3500].lower()
+    tokens = re.findall(r"[a-z][a-z0-9-]{3,}", head)
+    counts = Counter(t for t in tokens if t not in _TOPIC_STOPWORDS)
+    return [t for t, _ in counts.most_common(top_n)]
+
+
+def _latest_search_year(text: str) -> int | None:
+    """Latest literature-search year, if the manuscript reports one (for chronology)."""
+    try:
+        from app.services.draft_evidence_manifest import build_evidence_manifest
+        return (build_evidence_manifest(text).get("search_dates") or {}).get("latest_year")
+    except Exception:
+        return None
+
+
+# Acronyms that are field-standard, not author contributions — never treat as
+# author-coined framework names (would wrongly protect them from citation demands).
+_COMMON_ACRONYMS = {
+    "DNA", "RNA", "PCR", "MRI", "CT", "EHR", "ICU", "AI", "ML", "LLM", "GPT", "API",
+    "USA", "UK", "EU", "WHO", "FDA", "NIH", "PRISMA", "PICO", "GRADE", "PROSPERO",
+    "ROB", "SOFA", "SIRS", "ICD", "HTTP", "URL", "PDF", "CEO", "PhD", "ROC", "AUC",
+    "RCT", "CI", "SD", "SE", "OR", "RR", "HR", "IQR", "SOTA", "NLP", "CNN", "RNN",
+    "BERT", "SVM", "GPU", "CPU", "RAM", "SQL", "JSON", "CSV", "XML", "HTML", "CSS",
+    "COVID", "SARS", "HIV", "AIDS", "TNF", "ATP", "ADP", "NAD", "PH",
+    # Document-structure and lab-method abbreviations that are never author-coined.
+    "FIGURE", "TABLE", "EQUATION", "SCHEME", "SECTION", "APPENDIX",
+    # Field-standard lab/method acronyms commonly over-captured by frequency.
+    "CRISPR", "XRD", "SEM", "TEM", "NMR", "FTIR", "EDS", "EDX", "XPS", "AFM",
+}
+
+# Author introduces their contribution with phrasing like "we propose X", "the X
+# framework", "X (our/the proposed ...)". Capture the name token following/preceding
+# these cues so the citation gate can recognize the authors' own thesis.
+_COINED_TERM_CUES = re.compile(
+    r"\b(?:we (?:propose|introduce|present|develop|call (?:it|this)|term (?:it|this))|"
+    r"(?:our|the proposed|this) (?:proposed )?(?:framework|model|method|approach|system|"
+    r"tool|metric|algorithm|index|score|pipeline)(?: ,?| is| ,? called| ,? termed| ,? named)?)\s+"
+    r"([A-Z][A-Za-z0-9]*(?:[- ][A-Z][A-Za-z0-9]*)?)",
+    re.IGNORECASE,
+)
+# Acronym-like coined name: 3-8 uppercase letters/digits, optionally hyphenated.
+_ACRONYM_RE = re.compile(r"\b([A-Z][A-Z0-9]{2,7}(?:-[A-Z0-9]{1,4})?)\b")
+
+
+def _extract_author_coined_terms(text: str, *, top_n: int = 6) -> list[str]:
+    """Proper-noun acronyms / framework names the authors introduce as their OWN
+    contribution. Heuristic: a candidate must (a) be introduced with an author-voice
+    cue ("we propose X", "the X framework") OR be a repeated non-common acronym, AND
+    (b) appear in the introduction/early body. These terms are protected from
+    "missing citation" demands — you cannot cite the authors for their own thesis
+    (issue #17: the SALIENT-framework false positive)."""
+    if not text:
+        return []
+    candidates: Counter[str] = Counter()
+
+    for match in _COINED_TERM_CUES.finditer(text):
+        name = (match.group(1) or "").strip()
+        if name and name.upper() not in _COMMON_ACRONYMS and not name.islower():
+            candidates[name] += 3  # cue-introduced names are strong signals
+
+    return [term for term, _ in candidates.most_common(top_n)]
+
+
+# Field-standard audit triggers injected into the methodology reviewer's context per
+# routing domain (issue #19/#20). These are domain-specialized checks general reviewers
+# miss (e.g. Sepsis-2→3 definition drift, alert fatigue for clinical AI).
+DOMAIN_AUDIT_TRIGGERS: dict[str, list[str]] = {
+    "clinical_ai": [
+        "definition versioning: IF the studies span a clinical definition change (e.g. Sepsis-2->3, ICD-9->10) that breaks comparability AND this is not acknowledged, raise it. If the manuscript already discusses definition comparability, do not raise it.",
+        "alert fatigue: IF performance is reported ONLY via sensitivity / lead-time with NO false-positive-rate or alert-burden analysis, raise alert fatigue. If an alert-burden / false-positive analysis is already present, do not raise it.",
+        "external validation failure: IF no discussion of transportability / external-validation failures is present, raise it. If the manuscript already addresses external validation or transportability, do not raise it.",
+        "subgroup calibration: IF no fairness / demographic-bias or calibration-drift discussion is present, raise it. If subgroup calibration or fairness is already discussed, do not raise it.",
+    ],
+    "biomedical_empirical": [
+        "biological replication: IF empirical claims rest on fewer than 3 independent experiments with no justification, raise insufficient biological replication. If >=3 independent experiments are already reported, do not raise it.",
+        "statistical independence: IF donors/samples appear pseudo-replicated or confounded, raise statistical independence. If independent samples / proper controls are already reported, do not raise it.",
+    ],
+    "systematic_review": [
+        "PROSPERO registration: IF no prospectively-registered protocol is reported, flag it. If a registered protocol (PROSPERO or equivalent) is already reported, do not raise it.",
+        "no-pooling justification: IF a meta-analysis is not performed AND no justification is given, request one. If the manuscript already justifies not pooling, do not raise it.",
+        "GRADE certainty: IF risk-of-bias is not linked to the strength/certainty of conclusions, raise it. If GRADE / certainty assessment is already present, do not raise it.",
+    ],
+    "materials_science": [
+        "performance comparison table: IF no structured strategy->metric comparison against prior work is present, request one. If such a comparison table is already provided, do not raise it.",
+        "degradation mechanism specificity: IF degradation is described only with generic claims and no per-mechanism quantification, raise it. If per-mechanism quantification is already present, do not raise it.",
+    ],
+    "gene_editing": [
+        "protein-level validation: IF therapeutic elevation (HbF/globin or similar) is shown ONLY via mRNA (RT-PCR/qPCR) and NO protein-level data (HPLC or flow-cytometry F-cells) is present, raise protein-level validation -- mRNA does not equal protein. If protein-level data IS present, do not raise it.",
+        "pseudoreplication: IF colonies/clones from a single donor or transfection are treated as independent biological replicates (n) for p-values, raise pseudoreplication and request donor-level aggregation across independent biological donors. If independent biological donors are already reported, do not raise it.",
+        "on-target structural risk: IF a dual-gRNA or large-excision design is validated ONLY by PCR banding with NO junction sequencing/NGS, raise structural-variant validation (inversion of the excised segment, translocations between cut sites). If junction sequencing (Sanger/NGS of junctions) is already reported, do not raise it.",
+    ],
+}
+
+
+def _domain_audit_triggers(*, is_clinical_ai: bool, is_systematic: bool,
+                           is_materials_battery: bool, is_biomedical: bool,
+                           is_gene_editing: bool = False) -> list[str]:
+    """Select the domain audit triggers that apply to this manuscript's routing."""
+    triggers: list[str] = []
+    if is_clinical_ai:
+        triggers.extend(DOMAIN_AUDIT_TRIGGERS["clinical_ai"])
+    if is_systematic:
+        triggers.extend(DOMAIN_AUDIT_TRIGGERS["systematic_review"])
+    if is_materials_battery:
+        triggers.extend(DOMAIN_AUDIT_TRIGGERS["materials_science"])
+    if is_biomedical:
+        triggers.extend(DOMAIN_AUDIT_TRIGGERS["biomedical_empirical"])
+    if is_gene_editing:
+        triggers.extend(DOMAIN_AUDIT_TRIGGERS["gene_editing"])
+    return triggers
 
 logger = get_logger(__name__)
 
@@ -90,6 +242,26 @@ MATERIALS_BATTERY_PATTERNS = (
     r"\bSEI\b",
     r"\bcathode electrolyte interphase\b",
     r"\bCEI\b",
+)
+
+GENE_EDITING_PATTERNS = (
+    r"\bCRISPR\b",
+    r"\bCas9\b",
+    r"\bCas12[a-z]?\b",
+    r"\bgRNAs?\b",
+    r"\bguide RNAs?\b",
+    r"\bsgRNAs?\b",
+    r"\bHDR\b",
+    r"\bhomology[- ]directed repair\b",
+    r"\bNHEJ\b",
+    r"\bnon[- ]homologous end joining\b",
+    r"\bbase edit(?:ing|or)\b",
+    r"\bprime edit(?:ing|or)\b",
+    r"\bknock[- ]?outs?\b",
+    r"\bknock[- ]?ins?\b",
+    r"\bgene[- ]edit(?:ing|ed)\b",
+    r"\bgenome[- ]edit(?:ing|ed)\b",
+    r"\bdual[- ]gRNA\b",
 )
 
 HUMANITIES_EDUCATION_PATTERNS = (
@@ -294,6 +466,10 @@ def _is_clinical_ai(text: str) -> bool:
     return biomedical_score >= 2 and ai_score >= 2 and has_clinical_context
 
 
+def _is_gene_editing(text: str) -> bool:
+    return _count_matches(text, GENE_EDITING_PATTERNS) >= 2
+
+
 def _is_implementation_framework(text: str) -> bool:
     if not _count_matches(text, FRAMEWORK_PATTERNS):
         return False
@@ -324,6 +500,7 @@ def build_manuscript_profile(state: DraftAnalysisState) -> dict:
     is_clinical_ai = _is_clinical_ai(text)
     is_framework = _is_implementation_framework(text)
     is_materials_battery = _count_matches(text, MATERIALS_BATTERY_PATTERNS) >= 3
+    is_gene_editing = _is_gene_editing(text)
     humanities_education_score = _count_matches(text, HUMANITIES_EDUCATION_PATTERNS)
     empirical_ml_score = _count_matches(text, EMPIRICAL_ML_PATTERNS)
     conceptual_ai_score = _count_matches(text, CONCEPTUAL_AI_PATTERNS)
@@ -693,6 +870,21 @@ def build_manuscript_profile(state: DraftAnalysisState) -> dict:
         "review_lenses": sorted(set(review_lenses)),
         "retrieval_domains": retrieval_domains,
         "high_risk_checks": sorted(set(high_risk_checks)),
+        # Distinctive topic vocabulary + search recency, used to keep suggested
+        # sources on-topic and platform/tech suggestions chronologically sane.
+        "topic_terms": _manuscript_topic_terms(text),
+        "latest_search_year": _latest_search_year(text),
+        # Author's own framework/model names — protected from "missing citation" demands
+        # (issue #17). You cannot cite the authors for their own thesis.
+        "author_coined_terms": _extract_author_coined_terms(text),
+        # Field-standard audit triggers injected into the methodology reviewer (issue #19/#20).
+        "domain_audit_triggers": _domain_audit_triggers(
+            is_clinical_ai=is_clinical_ai,
+            is_systematic=is_systematic,
+            is_materials_battery=is_materials_battery,
+            is_biomedical=("biomedical" in domain_tags or "biology" in domain_tags),
+            is_gene_editing=is_gene_editing,
+        ),
         "rationale": "Heuristic profile inferred from manuscript text and upload context.",
     }
 
