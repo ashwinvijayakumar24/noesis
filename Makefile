@@ -49,10 +49,27 @@ eval-stability: eval-sync
 	docker exec $(BACKEND) python /app/scripts/eval/run_eval.py --stability 3
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
 
+# Build corpus for one draft by auto-downloading cited papers from OpenAlex
+# Usage: make eval-build-corpus DRAFT=pdfs/draft1.pdf
+eval-build-corpus: eval-sync
+	docker exec $(BACKEND) python /app/scripts/eval/build_corpus.py \
+		--draft $(DRAFT)
+	docker cp $(BACKEND):/app/scripts/eval/corpora ./scripts/eval/
+	docker cp $(BACKEND):/app/scripts/eval/config.yaml ./scripts/eval/
+	@echo "[eval] Corpus synced back. Re-run eval-sync before next eval run."
+
+# Build corpora for ALL drafts in scripts/eval/pdfs/
+eval-build-all-corpora: eval-sync
+	docker exec $(BACKEND) python /app/scripts/eval/build_corpus.py --all
+	docker cp $(BACKEND):/app/scripts/eval/corpora ./scripts/eval/
+	docker cp $(BACKEND):/app/scripts/eval/config.yaml ./scripts/eval/
+	@echo "[eval] All corpora synced back. Re-run eval-sync before next eval run."
+
 # Pull results back from container after a manual docker exec run
 eval-pull-results:
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
 	docker cp $(BACKEND):/app/scripts/eval/gold ./scripts/eval/
 
 .PHONY: eval eval-quick eval-stability eval-sync eval-run eval-run-corpus \
-        eval-judge eval-bootstrap-gold eval-pull-results
+        eval-judge eval-bootstrap-gold eval-pull-results \
+        eval-build-corpus eval-build-all-corpora

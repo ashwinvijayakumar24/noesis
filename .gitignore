@@ -98,3 +98,5 @@ scripts/parser_spike_out/
 
 # Eval harness — results are local only; corpora/gold/config are committed
 scripts/eval/results/
+scripts/eval/pdfs/*.pdf
+scripts/eval/corpora/**/*.pdf
