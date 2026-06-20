@@ -223,8 +223,13 @@ async def _extract_refs_from_draft(draft_path: Path) -> list[dict]:
     try:
         print(f"[build-corpus] Ingesting {draft_path.name} via GROBID …")
         ingest_result = await ingest_draft(draft_id, project_id)
-        parse_artifact = ingest_result.get("parse_artifact") or {}
-        refs = extract_refs_from_parse_artifact(parse_artifact)
+        # extracted_refs is the raw GROBID reference list returned directly from
+        # ingest_draft — more reliable than going through parse_artifact.parser_metadata
+        refs = ingest_result.get("extracted_refs") or []
+        if not refs:
+            # fallback: try parse_artifact path (older container builds)
+            parse_artifact = ingest_result.get("parse_artifact") or {}
+            refs = extract_refs_from_parse_artifact(parse_artifact)
         print(f"[build-corpus] GROBID extracted {len(refs)} references")
     finally:
         # Clean up all throwaway rows
@@ -373,7 +378,8 @@ async def main(args: argparse.Namespace) -> int:
             stems_built.append(draft_path.stem)
 
     if stems_built and not args.no_config_update:
-        _update_config_yaml(stems_built)
+        # config.yaml uses auto_corpus: true — no need to add to corpora list.
+        # _update_config_yaml(stems_built) intentionally skipped.
 
     print(f"\n[build-corpus] Done. Corpora built for: {stems_built or 'none'}")
     print(f"[build-corpus] Run eval with: python scripts/eval/run_eval.py")

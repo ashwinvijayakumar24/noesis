@@ -232,13 +232,23 @@ def main(args: argparse.Namespace) -> int:
 
     rows: list[dict] = []
 
+    auto_corpus: bool = cfg.get("auto_corpus", False)
+
     for draft_str in drafts_cfg:
         draft_path = (REPO_ROOT / draft_str).resolve()
         if not draft_path.exists():
             print(f"[eval] Draft not found, skipping: {draft_path}")
             continue
 
-        for corpus in corpora_cfg:
+        # auto_corpus: use <draft_stem> corpus if dir exists, otherwise no-corpus
+        if auto_corpus:
+            own_corpus = draft_path.stem
+            own_corpus_dir = EVAL_DIR / "corpora" / own_corpus
+            corpora_for_draft = [own_corpus] if own_corpus_dir.exists() and list(own_corpus_dir.glob("*.pdf")) else [None]
+        else:
+            corpora_for_draft = corpora_cfg
+
+        for corpus in corpora_for_draft:
             if args.stability and args.stability > 1:
                 cell_results = []
                 for run_i in range(args.stability):

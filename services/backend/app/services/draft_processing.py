@@ -695,6 +695,7 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
             "structure": structure,
             "parser_quality": parse_quality,
             "parse_artifact_id": parse_artifact_id,
+            "extracted_refs": extracted_data.get("references") or [],
             "parse_artifact": {
                 "id": parse_artifact_id,
                 "anchor_map": anchor_map,

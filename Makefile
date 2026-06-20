@@ -5,8 +5,8 @@ EVAL = scripts/eval
 # Sync scripts/ and pdfs/ into the running container (no volume mount needed)
 # Run this once after any change to scripts/eval/ or after adding PDFs
 eval-sync:
-	docker cp $(REPO_ROOT)/scripts $(BACKEND):/app/scripts
-	docker cp $(REPO_ROOT)/pdfs $(BACKEND):/app/pdfs
+	docker cp "$(REPO_ROOT)/scripts" $(BACKEND):/app/scripts
+	-docker cp "$(REPO_ROOT)/pdfs" $(BACKEND):/app/pdfs 2>/dev/null || true
 	@echo "[eval] ✓ Synced scripts/ and pdfs/ into $(BACKEND)"
 
 # Run a single draft (no corpus). Run eval-sync first if scripts changed.
