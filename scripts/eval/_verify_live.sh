@@ -91,5 +91,5 @@ fi
 verify_pair "scripts" "$REPO_ROOT/scripts" "$CONTAINER_ROOT/scripts"
 verify_pair "draft_analysis workflow" "$WORKFLOW_HOST" "$WORKFLOW_CONTAINER"
 
-PIPELINE_VERSION="$(checksum_dir_container "$WORKFLOW_CONTAINER")"
+PIPELINE_VERSION="$(docker exec "$BACKEND" python -c 'from scripts.eval.pipeline_cache import pipeline_version; print(pipeline_version())')"
 echo "[eval] live pipeline_version=$PIPELINE_VERSION"

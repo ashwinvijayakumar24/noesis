@@ -34,6 +34,7 @@ from app.core.supabase_client import supabase
 from app.services.draft_processing import ingest_draft
 from app.services.draft_analysis_langgraph import analyze_draft_with_langgraph
 from app.services.rag_ingest import ingest_document
+from scripts.eval.pipeline_cache import cache_key, get_cached, pipeline_version, put_cached
 
 EVAL_DIR = Path(__file__).resolve().parent
 RESULTS_DIR = EVAL_DIR / "results"
@@ -237,6 +238,18 @@ def _cleanup_eval_rows(draft_id: str) -> None:
 
 def run(draft_path: Path, corpus_name: str | None, keep: bool = False) -> Path:
     RESULTS_DIR.mkdir(exist_ok=True)
+    corpus_dir = CORPORA_DIR / corpus_name if corpus_name else None
+    live_pipeline_version = pipeline_version()
+    key = cache_key(draft_path, live_pipeline_version, corpus_name, corpus_dir)
+    if not keep:
+        cached = get_cached(key)
+        if cached:
+            print(f"[harness] Cache hit: {cached}")
+            print(f"[harness] pipeline_version={live_pipeline_version}")
+            return cached
+    print(f"[harness] Cache miss: key={key}")
+    print(f"[harness] pipeline_version={live_pipeline_version}")
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
@@ -286,6 +299,9 @@ def run(draft_path: Path, corpus_name: str | None, keep: bool = False) -> Path:
         counts = payload["summary_counts"]
         print(f"[harness] ✓ Export: {out_path}")
         print(f"[harness]   tasks={counts['durable_revision_tasks']}  claims={counts['claims']}  gaps={counts['coverage_gaps']}  reviewers={counts['reviewer_panel_outputs']}")
+        if not keep:
+            cached_path = put_cached(key, out_path)
+            print(f"[harness] Cached export: {cached_path}")
         return out_path
 
     finally:
