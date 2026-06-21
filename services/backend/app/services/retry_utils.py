@@ -33,6 +33,22 @@ F = TypeVar("F", bound=Callable[..., Any])
 openai_semaphore = asyncio.Semaphore(20)
 
 
+def _sanitize_structured_completion_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize kwargs for structured chat completions.
+
+    The current GPT-5.2 structured-output endpoint rejects explicit
+    `temperature=0` and only accepts the default temperature. Most draft-analysis
+    nodes route through this helper, so strip that unsupported no-op at the
+    boundary instead of duplicating model-specific conditionals in every node.
+    """
+    sanitized = dict(kwargs)
+    model = str(sanitized.get("model") or "")
+    if model.startswith("gpt-5.2") and sanitized.get("temperature") == 0:
+        sanitized.pop("temperature", None)
+    return sanitized
+
+
 # Retry decorator for OpenAI API calls
 retry_openai = retry(
     stop=stop_after_attempt(3),
@@ -131,6 +147,7 @@ async def parse_chat_completion_with_retries(
     - validation retries that append the schema error to the prompt
     """
     current_messages = deepcopy(messages)
+    sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
     last_exc: ValidationError | None = None
 
     @retry_openai
@@ -138,7 +155,7 @@ async def parse_chat_completion_with_retries(
         async with openai_semaphore:
             return await client.beta.chat.completions.parse(
                 messages=active_messages,
-                **kwargs,
+                **sanitized_kwargs,
             )
 
     for attempt in range(max_validation_retries + 1):
@@ -173,13 +190,14 @@ def parse_chat_completion_with_retries_sync(
     should use parse_chat_completion_with_retries().
     """
     current_messages = deepcopy(messages)
+    sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
     last_exc: ValidationError | None = None
 
     @retry_openai
     def _parse_once(active_messages: list[dict[str, Any]]) -> Any:
         return client.beta.chat.completions.parse(
             messages=active_messages,
-            **kwargs,
+            **sanitized_kwargs,
         )
 
     for attempt in range(max_validation_retries + 1):
