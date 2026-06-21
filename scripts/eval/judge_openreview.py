@@ -47,6 +47,25 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
+def paper_field(gold: dict, field_map: dict[str, str] | None = None) -> str:
+    """Return the explicit field tag for a paper, falling back to venue context."""
+    paper_id = str(gold.get("paper_id") or "")
+    if field_map and paper_id in field_map:
+        return field_map[paper_id]
+    if field_map and str(gold.get("title") or "") in field_map:
+        return field_map[str(gold.get("title") or "")]
+
+    for key in ("field", "primary_field", "subject_area", "area"):
+        value = gold.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    venue = str(gold.get("venue") or "").lower()
+    if "iclr" in venue or "neurips" in venue or "icml" in venue:
+        return "machine_learning"
+    return "unknown"
+
+
 def _extract_pdf_text(gold: dict) -> str:
     pdf_path = Path(str(gold.get("pdf_path") or ""))
     if not pdf_path.is_absolute():
@@ -222,6 +241,7 @@ def score_paper(
 
     return {
         "paper_id": gold.get("paper_id"),
+        "field": paper_field(gold),
         "accepted": bool(gold.get("accepted")),
         "readiness_score": _readiness_score(export),
         "weakness_recall": round(weakness_recall, 4),
@@ -279,6 +299,18 @@ def aggregate(per_paper: list[dict]) -> dict:
         values = [float(row[key]) for row in per_paper if row.get(key) is not None]
         return round(sum(values) / len(values), 4) if values else 0.0
 
+    by_field: dict[str, dict] = {}
+    fields = sorted({str(row.get("field") or "unknown") for row in per_paper})
+    for field in fields:
+        rows = [row for row in per_paper if str(row.get("field") or "unknown") == field]
+        by_field[field] = {
+            "papers": len(rows),
+            "mean_weakness_recall": mean_for(rows, "weakness_recall"),
+            "mean_precision": mean_for(rows, "precision"),
+            "mean_hallucination_rate": mean_for(rows, "hallucination_rate"),
+            "mean_anchor_quality": mean_for(rows, "anchor_quality"),
+        }
+
     return {
         "papers": len(per_paper),
         "mean_weakness_recall": mean("weakness_recall"),
@@ -286,7 +318,13 @@ def aggregate(per_paper: list[dict]) -> dict:
         "mean_hallucination_rate": mean("hallucination_rate"),
         "mean_anchor_quality": mean("anchor_quality"),
         "decision_spearman_rho": rho,
+        "by_field": by_field,
     }
+
+
+def mean_for(rows: list[dict], key: str) -> float:
+    values = [float(row[key]) for row in rows if row.get(key) is not None]
+    return round(sum(values) / len(values), 4) if values else 0.0
 
 
 def main() -> int:

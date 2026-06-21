@@ -59,6 +59,7 @@ def test_score_paper_uses_weighted_recall_and_grounding(tmp_path, monkeypatch):
     )
     gold = {
         "paper_id": "paper1",
+        "venue": "ICLR.cc/2024/Conference",
         "accepted": True,
         "review_units": [
             {"unit_id": "u1", "severity_weight": 0.7},
@@ -76,14 +77,15 @@ def test_score_paper_uses_weighted_recall_and_grounding(tmp_path, monkeypatch):
     assert result["anchor_quality"] == 0.25
     assert result["precision"] == 0.5
     assert result["hallucination_rate"] == 0.5
+    assert result["field"] == "machine_learning"
     assert result["matched_unit_ids"] == ["u1"]
     assert len(result["hallucinations"]) == 2
 
 
 def test_aggregate_computes_means_and_spearman():
     rows = [
-        {"readiness_score": 0.9, "accepted": True, "weakness_recall": 0.5, "precision": 1, "hallucination_rate": 0, "anchor_quality": 0.5},
-        {"readiness_score": 0.1, "accepted": False, "weakness_recall": 0.3, "precision": 0.5, "hallucination_rate": 0.5, "anchor_quality": 0.0},
+        {"field": "machine_learning", "readiness_score": 0.9, "accepted": True, "weakness_recall": 0.5, "precision": 1, "hallucination_rate": 0, "anchor_quality": 0.5},
+        {"field": "biology", "readiness_score": 0.1, "accepted": False, "weakness_recall": 0.3, "precision": 0.5, "hallucination_rate": 0.5, "anchor_quality": 0.0},
     ]
 
     agg = judge_openreview.aggregate(rows)
@@ -91,3 +93,13 @@ def test_aggregate_computes_means_and_spearman():
     assert agg["papers"] == 2
     assert agg["mean_weakness_recall"] == 0.4
     assert agg["decision_spearman_rho"] == 1.0
+    assert agg["by_field"]["biology"]["mean_precision"] == 0.5
+    assert agg["by_field"]["machine_learning"]["papers"] == 1
+
+
+def test_paper_field_prefers_manifest_then_gold_then_venue():
+    gold = {"paper_id": "p1", "title": "A title", "field": "biology", "venue": "ICLR.cc/2024/Conference"}
+
+    assert judge_openreview.paper_field(gold, {"p1": "climate_science"}) == "climate_science"
+    assert judge_openreview.paper_field(gold) == "biology"
+    assert judge_openreview.paper_field({"venue": "ICLR.cc/2024/Conference"}) == "machine_learning"

@@ -18,6 +18,9 @@ eval-openreview:
 	docker cp $(BACKEND):/app/scripts/eval/openreview ./scripts/eval/
 	docker cp $(BACKEND):/app/scripts/eval/cache ./scripts/eval/
 
+eval-heldout-check:
+	python3 $(EVAL)/check_heldout.py
+
 # Run a single draft (no corpus). Run eval-sync first if scripts changed.
 # Usage: make eval-run DRAFT=pdfs/draft3.pdf
 eval-run: eval-sync
@@ -81,4 +84,4 @@ eval-pull-results:
 
 .PHONY: eval eval-quick eval-stability eval-sync eval-openreview eval-run eval-run-corpus \
         eval-judge eval-bootstrap-gold eval-pull-results \
-        eval-build-corpus eval-build-all-corpora
+        eval-build-corpus eval-build-all-corpora eval-heldout-check

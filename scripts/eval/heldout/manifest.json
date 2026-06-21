@@ -1,0 +1,25 @@
+{
+  "description": "Non-ML transfer set for Phase 6 anti-overfitting checks. These papers are used for anchor and hallucination sanity checks, not OpenReview recall scoring.",
+  "papers": [
+    {
+      "paper_id": "heldout_microplastics_landfill_leachate",
+      "field": "environmental_science",
+      "pdf_path": "corpora/draft4/praagh_2021_microplastics_in_landfill_leachates_in_three_nordic_countries.pdf"
+    },
+    {
+      "paper_id": "heldout_neuroinflammation_tau",
+      "field": "neuroscience",
+      "pdf_path": "corpora/draft8/jin_2021_tau_activates_microglia_via_the_pqbp1_cgas_sting_pathway_to_promote_bra.pdf"
+    },
+    {
+      "paper_id": "heldout_quantum_error_correction",
+      "field": "quantum_computing",
+      "pdf_path": "corpora/draft9/krinner_2022_realizing_repeated_quantum_error_correction_in_a_distance_three_sur.pdf"
+    },
+    {
+      "paper_id": "heldout_urban_heat_island",
+      "field": "climate_science",
+      "pdf_path": "corpora/draft10/luo_2023_the_interactions_between_urban_heat_island_and_heat_waves_amplify_urban.pdf"
+    }
+  ]
+}

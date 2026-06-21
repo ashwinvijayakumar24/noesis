@@ -206,7 +206,7 @@ def run_cell(draft_path: Path, corpus_name: str | None, gold_dir: Path) -> dict 
 def run_openreview_eval(args: argparse.Namespace) -> int:
     from scripts.eval.atomize_reviews import atomize_paper
     from scripts.eval.fetch_openreview import fetch_venue
-    from scripts.eval.judge_openreview import aggregate, extract_noesis_items, score_paper
+    from scripts.eval.judge_openreview import aggregate, extract_noesis_items, paper_field, score_paper
     from scripts.eval.match import match
     from scripts.eval.run_harness import run as harness_run
 
@@ -214,6 +214,7 @@ def run_openreview_eval(args: argparse.Namespace) -> int:
     openreview_dir = EVAL_DIR / "openreview"
     venue_slug = args.venue.replace("/", "_")
     gold_dir = openreview_dir / venue_slug
+    field_map = _load_json_map(args.field_map) if args.field_map else {}
 
     gold_paths = sorted(gold_dir.glob("*.json")) if gold_dir.exists() else []
     if len(gold_paths) < args.limit:
@@ -237,6 +238,7 @@ def run_openreview_eval(args: argparse.Namespace) -> int:
         noesis_items = extract_noesis_items(export)
         matches = match(noesis_items, review_units)
         row = score_paper(export_path, gold, matches)
+        row["field"] = paper_field(gold, field_map)
         row["export"] = str(export_path)
         row["gold"] = str(gold_path)
         rows.append(row)
@@ -253,6 +255,26 @@ def run_openreview_eval(args: argparse.Namespace) -> int:
     print(f"[eval-openreview] Scoreboard: {scoreboard_path}")
     print(json.dumps(scoreboard["aggregate"], indent=2, sort_keys=True))
     return 0
+
+
+def _load_json_map(path: str | Path) -> dict[str, str]:
+    raw = json.loads(Path(path).read_text())
+    if isinstance(raw, dict) and all(isinstance(value, str) for value in raw.values()):
+        return {str(key): value for key, value in raw.items()}
+    if isinstance(raw, dict) and isinstance(raw.get("papers"), list):
+        mapping: dict[str, str] = {}
+        for paper in raw["papers"]:
+            if not isinstance(paper, dict):
+                continue
+            field = paper.get("field")
+            if not isinstance(field, str) or not field.strip():
+                continue
+            for key in ("paper_id", "title"):
+                value = paper.get(key)
+                if isinstance(value, str) and value.strip():
+                    mapping[value] = field.strip()
+        return mapping
+    raise ValueError(f"Unsupported field map shape: {path}")
 
 
 def main(args: argparse.Namespace) -> int:
@@ -383,6 +405,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--openreview", action="store_true", help="Run OpenReview human-review eval")
     p.add_argument("--venue", default="ICLR.cc/2024/Conference", help="OpenReview venue id")
     p.add_argument("--limit", type=int, default=15, help="OpenReview paper limit")
+    p.add_argument("--field-map", default=None, help="Optional JSON map from OpenReview paper_id/title to field")
     return p.parse_args()
 
 
