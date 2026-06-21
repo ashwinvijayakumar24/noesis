@@ -10,13 +10,13 @@ eval-sync:
 	BACKEND=$(BACKEND) REPO_ROOT="$(REPO_ROOT)" $(EVAL)/_verify_live.sh
 	@echo "[eval] ✓ Synced scripts/ and pdfs/ into $(BACKEND)"
 
-# OpenReview eval entrypoint. Until run_eval.py grows the OpenReview scorer,
-# this runs the Phase-0 fetcher behind the same verified live-code sync.
 eval-openreview:
 	BACKEND=$(BACKEND) REPO_ROOT="$(REPO_ROOT)" $(EVAL)/_verify_live.sh
-	docker exec $(BACKEND) python /app/scripts/eval/fetch_openreview.py \
-		--venue $(VENUE) --limit $(LIMIT)
+	docker exec $(BACKEND) python /app/scripts/eval/run_eval.py \
+		--openreview --venue $(VENUE) --limit $(LIMIT)
+	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
 	docker cp $(BACKEND):/app/scripts/eval/openreview ./scripts/eval/
+	docker cp $(BACKEND):/app/scripts/eval/cache ./scripts/eval/
 
 # Run a single draft (no corpus). Run eval-sync first if scripts changed.
 # Usage: make eval-run DRAFT=pdfs/draft3.pdf

@@ -117,7 +117,7 @@ def _regression_check(current_rows: list[dict], prev_scoreboard: dict, threshold
         prev_map = {_cell_key(r["draft_stem"], r["corpus"]): r["overall"] for r in prev_scoreboard["rows"]}
         for r in current_rows:
             key = _cell_key(r["draft_stem"], r["corpus"])
-            if key in prev_map:
+            if key in prev_map and prev_map[key] is not None and r.get("overall") is not None:
                 drop = prev_map[key] - r["overall"]
                 if drop > max_mean_drop:
                     failures.append(f"REGRESSION: {key} dropped {drop:.2f} (was {prev_map[key]:.2f}, now {r['overall']:.2f})")
@@ -203,7 +203,62 @@ def run_cell(draft_path: Path, corpus_name: str | None, gold_dir: Path) -> dict 
         return {"draft_stem": stem, "corpus": corpus_label, "overall": 0.0, "dims": {}, "hallucinations": [], "error": str(e)}
 
 
+def run_openreview_eval(args: argparse.Namespace) -> int:
+    from scripts.eval.atomize_reviews import atomize_paper
+    from scripts.eval.fetch_openreview import fetch_venue
+    from scripts.eval.judge_openreview import aggregate, extract_noesis_items, score_paper
+    from scripts.eval.match import match
+    from scripts.eval.run_harness import run as harness_run
+
+    RESULTS_DIR.mkdir(exist_ok=True)
+    openreview_dir = EVAL_DIR / "openreview"
+    venue_slug = args.venue.replace("/", "_")
+    gold_dir = openreview_dir / venue_slug
+
+    gold_paths = sorted(gold_dir.glob("*.json")) if gold_dir.exists() else []
+    if len(gold_paths) < args.limit:
+        print(f"[eval-openreview] Fetching gold: venue={args.venue} limit={args.limit}")
+        fetch_venue(args.venue, args.limit, openreview_dir)
+        gold_paths = sorted(gold_dir.glob("*.json"))
+    gold_paths = gold_paths[:args.limit]
+    if not gold_paths:
+        print("[eval-openreview] No OpenReview gold files available.")
+        return 1
+
+    rows: list[dict] = []
+    for gold_path in gold_paths:
+        gold = json.loads(gold_path.read_text())
+        review_units = atomize_paper(gold)
+        gold["review_units"] = review_units
+        draft_path = EVAL_DIR / str(gold["pdf_path"])
+        print(f"[eval-openreview] Running pipeline for {gold['paper_id']}: {draft_path}")
+        export_path = harness_run(draft_path, None)
+        export = json.loads(export_path.read_text())
+        noesis_items = extract_noesis_items(export)
+        matches = match(noesis_items, review_units)
+        row = score_paper(export_path, gold, matches)
+        row["export"] = str(export_path)
+        row["gold"] = str(gold_path)
+        rows.append(row)
+
+    scoreboard = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "venue": args.venue,
+        "limit": args.limit,
+        "aggregate": aggregate(rows),
+        "rows": rows,
+    }
+    scoreboard_path = RESULTS_DIR / "openreview_scoreboard.json"
+    scoreboard_path.write_text(json.dumps(scoreboard, indent=2, default=str) + "\n")
+    print(f"[eval-openreview] Scoreboard: {scoreboard_path}")
+    print(json.dumps(scoreboard["aggregate"], indent=2, sort_keys=True))
+    return 0
+
+
 def main(args: argparse.Namespace) -> int:
+    if args.openreview:
+        return run_openreview_eval(args)
+
     RESULTS_DIR.mkdir(exist_ok=True)
     cfg = _load_config()
 
@@ -325,6 +380,9 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Noesis eval loop")
     p.add_argument("--quick", action="store_true", help="Run only first 3 drafts from config")
     p.add_argument("--stability", type=int, default=None, metavar="N", help="Run each cell N times to check variance")
+    p.add_argument("--openreview", action="store_true", help="Run OpenReview human-review eval")
+    p.add_argument("--venue", default="ICLR.cc/2024/Conference", help="OpenReview venue id")
+    p.add_argument("--limit", type=int, default=15, help="OpenReview paper limit")
     return p.parse_args()
 
 
