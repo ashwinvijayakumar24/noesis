@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -105,3 +106,37 @@ def test_as_bool_does_not_treat_false_strings_as_true():
     assert openreview_match._as_bool("false") is False
     assert openreview_match._as_bool("NO") is False
     assert openreview_match._as_bool("") is False
+
+
+def test_confirm_pairs_splits_malformed_large_batches(tmp_path):
+    candidate_pairs = [
+        {
+            "noesis_id": f"n{i}",
+            "unit_id": f"u{i}",
+            "noesis_text": f"Concern {i}",
+            "unit_text": f"Concern {i}",
+            "cosine": 1.0,
+        }
+        for i in range(4)
+    ]
+    calls = []
+
+    def confirmer(pairs):
+        calls.append(len(pairs))
+        if len(pairs) > 1:
+            raise json.JSONDecodeError("truncated", "", 0)
+        return [{"index": pairs[0]["index"], "confirmed": True, "reason": "same"}]
+
+    stats = {}
+    confirmed = openreview_match._confirm_pairs(
+        candidate_pairs,
+        cache_dir=tmp_path,
+        confirmer=confirmer,
+        client=None,
+        stats=stats,
+    )
+
+    assert [item["confirmed"] for item in confirmed] == [True, True, True, True]
+    assert calls == [4, 2, 1, 1, 2, 1, 1]
+    assert stats["confirm_calls"] == 7
+    assert stats["confirmed_pairs"] == 4

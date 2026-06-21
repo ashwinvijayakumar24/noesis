@@ -34,6 +34,7 @@ PROMPT_VERSION = "match_v1"
 # Initial value chosen before hand-label calibration. Phase-2 calibration target:
 # 30 labeled pairs with agreement >=0.85; update this comment with precision/recall.
 COS_THRESHOLD = 0.55
+CONFIRM_BATCH_SIZE = 20
 
 Embedder = Callable[[list[str]], list[list[float]]]
 Confirmer = Callable[[list[dict]], list[dict]]
@@ -191,11 +192,10 @@ def _confirm_pairs(
             misses.append({"index": idx, **pair})
 
     if misses:
-        if stats is not None:
-            stats["confirm_calls"] = stats.get("confirm_calls", 0) + 1
-            stats["confirmed_pairs"] = stats.get("confirmed_pairs", 0) + len(misses)
         confirm = confirmer or (lambda pairs: _real_confirm(pairs, client=client))
-        confirmed = confirm(misses)
+        confirmed: list[dict] = []
+        for start in range(0, len(misses), CONFIRM_BATCH_SIZE):
+            confirmed.extend(_confirm_chunk(misses[start : start + CONFIRM_BATCH_SIZE], confirm, stats))
         by_index = {int(item["index"]): item for item in confirmed}
         for missed in misses:
             idx = int(missed["index"])
@@ -212,6 +212,23 @@ def _confirm_pairs(
             results[idx] = normalized
 
     return [result for result in results if result is not None]
+
+
+def _confirm_chunk(pairs: list[dict], confirm: Confirmer, stats: dict[str, int] | None) -> list[dict]:
+    if not pairs:
+        return []
+    if stats is not None:
+        stats["confirm_calls"] = stats.get("confirm_calls", 0) + 1
+    try:
+        confirmed = confirm(pairs)
+    except (json.JSONDecodeError, RuntimeError) as exc:
+        if len(pairs) == 1:
+            raise RuntimeError(f"Matcher confirmation failed for pair index {pairs[0].get('index')}") from exc
+        midpoint = len(pairs) // 2
+        return _confirm_chunk(pairs[:midpoint], confirm, stats) + _confirm_chunk(pairs[midpoint:], confirm, stats)
+    if stats is not None:
+        stats["confirmed_pairs"] = stats.get("confirmed_pairs", 0) + len(pairs)
+    return confirmed
 
 
 def match(
