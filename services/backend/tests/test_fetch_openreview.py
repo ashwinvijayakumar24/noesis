@@ -98,3 +98,33 @@ def test_validate_gold_fails_loudly_for_missing_required_data(tmp_path):
 
     with pytest.raises(RuntimeError, match="no decision"):
         fetch_openreview._validate_gold(gold, pdf)
+
+
+def test_fetch_venue_skips_bad_submissions_until_limit(tmp_path, monkeypatch):
+    class Client:
+        def get_notes(self, invitation, limit):
+            assert limit >= 6
+            return [{"id": "bad"}, {"id": "good1"}, {"id": "good2"}]
+
+    monkeypatch.setattr(fetch_openreview, "_client", lambda: Client())
+    monkeypatch.setattr(fetch_openreview, "_resolve_submission_invitation", lambda client, venue_id: "venue/-/Submission")
+
+    def build_gold(client, venue_id, submission, out_dir):
+        if submission["id"] == "bad":
+            raise RuntimeError("PDF download failed")
+        path = out_dir / "venue" / f"{submission['id']}.json"
+        return (
+            {
+                "paper_id": submission["id"],
+                "reviews": [{"weaknesses": "a"}, {"weaknesses": "b"}, {"weaknesses": "c"}],
+                "decision": "Reject",
+                "raw_reply_invitations": [],
+            },
+            path,
+        )
+
+    monkeypatch.setattr(fetch_openreview, "_build_gold", build_gold)
+
+    paths = fetch_openreview.fetch_venue("venue", limit=2, out_dir=tmp_path, delay=0)
+
+    assert [path.name for path in paths] == ["good1.json", "good2.json"]

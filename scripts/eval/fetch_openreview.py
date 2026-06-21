@@ -277,14 +277,24 @@ def fetch_venue(venue_id: str, limit: int = 20, out_dir: Path = DEFAULT_OUT_DIR,
     # openreview-py 1.54.0 currently raises KeyError("count") for this venue
     # when `details="replies"` is combined with `get_all_notes`. Fetch replies
     # by forum instead; this still enumerates exact reply invitations live.
-    submissions = client.get_notes(invitation=submission_invitation, limit=limit)
+    candidate_limit = max(limit * 3, limit + 10)
+    submissions = client.get_notes(invitation=submission_invitation, limit=candidate_limit)
     if not submissions:
         raise RuntimeError(f"No submissions found for invitation {submission_invitation}")
 
     written: list[Path] = []
+    skipped: list[str] = []
     for raw_submission in submissions:
+        if len(written) >= limit:
+            break
         submission = _note_to_dict(raw_submission)
-        gold, json_path = _build_gold(client, venue_id, submission, out_dir)
+        paper_id = str(submission.get("id") or "<unknown>")
+        try:
+            gold, json_path = _build_gold(client, venue_id, submission, out_dir)
+        except Exception as exc:
+            skipped.append(paper_id)
+            print(f"[openreview] skipped {paper_id}: {exc}")
+            continue
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json.dumps(gold, indent=2, sort_keys=True) + "\n")
         written.append(json_path)
@@ -295,6 +305,12 @@ def fetch_venue(venue_id: str, limit: int = 20, out_dir: Path = DEFAULT_OUT_DIR,
         print(f"[openreview] raw_reply_invitations={gold['raw_reply_invitations']}")
         if delay and len(written) < limit:
             time.sleep(delay)
+
+    if len(written) < limit:
+        raise RuntimeError(
+            f"Only wrote {len(written)} valid OpenReview gold files for {venue_id}; "
+            f"requested {limit}, skipped={skipped}"
+        )
 
     return written
 
