@@ -232,12 +232,4 @@ export const api = {
   labInvites: {
     join: (token: string, code: string) => request(`/api/lab-invite/${code}/join`, { method: 'POST', token }),
   },
-  subscriptions: {
-    getPlans: () => request('/api/subscriptions/plans'),
-    checkout: (token: string, body: Record<string, unknown>) => (
-      request('/api/subscriptions/checkout', { method: 'POST', token, body })
-    ),
-    usage: (token: string) => request('/api/subscriptions/usage', { token }),
-    portalSession: (token: string) => request('/api/subscriptions/portal-session', { token }),
-  },
 }
