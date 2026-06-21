@@ -1,13 +1,22 @@
 BACKEND = noesis-backend
 REPO_ROOT := $(shell pwd)
 EVAL = scripts/eval
+LIMIT ?= 15
+VENUE ?= ICLR.cc/2024/Conference
 
 # Sync scripts/ and pdfs/ into the running container (no volume mount needed)
 # Run this once after any change to scripts/eval/ or after adding PDFs
 eval-sync:
-	docker cp "$(REPO_ROOT)/scripts" $(BACKEND):/app/scripts
-	-docker cp "$(REPO_ROOT)/pdfs" $(BACKEND):/app/pdfs 2>/dev/null || true
+	BACKEND=$(BACKEND) REPO_ROOT="$(REPO_ROOT)" $(EVAL)/_verify_live.sh
 	@echo "[eval] ✓ Synced scripts/ and pdfs/ into $(BACKEND)"
+
+# OpenReview eval entrypoint. Until run_eval.py grows the OpenReview scorer,
+# this runs the Phase-0 fetcher behind the same verified live-code sync.
+eval-openreview:
+	BACKEND=$(BACKEND) REPO_ROOT="$(REPO_ROOT)" $(EVAL)/_verify_live.sh
+	docker exec $(BACKEND) python /app/scripts/eval/fetch_openreview.py \
+		--venue $(VENUE) --limit $(LIMIT)
+	docker cp $(BACKEND):/app/scripts/eval/openreview ./scripts/eval/
 
 # Run a single draft (no corpus). Run eval-sync first if scripts changed.
 # Usage: make eval-run DRAFT=pdfs/draft3.pdf
@@ -70,6 +79,6 @@ eval-pull-results:
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
 	docker cp $(BACKEND):/app/scripts/eval/gold ./scripts/eval/
 
-.PHONY: eval eval-quick eval-stability eval-sync eval-run eval-run-corpus \
+.PHONY: eval eval-quick eval-stability eval-sync eval-openreview eval-run eval-run-corpus \
         eval-judge eval-bootstrap-gold eval-pull-results \
         eval-build-corpus eval-build-all-corpora
