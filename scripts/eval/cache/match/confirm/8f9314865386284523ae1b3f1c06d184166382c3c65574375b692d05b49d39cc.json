@@ -1,4 +1,0 @@
-{
-  "confirmed": false,
-  "reason": "Noesis concerns specifically the choice of a fully connected GNN; the unit focuses on missing microbiome-specific methodological details like graph topology, not necessarily the lack of justification for full connectivity."
-}
