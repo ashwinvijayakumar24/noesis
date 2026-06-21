@@ -12,7 +12,7 @@ eval-sync:
 
 eval-openreview:
 	BACKEND=$(BACKEND) REPO_ROOT="$(REPO_ROOT)" $(EVAL)/_verify_live.sh
-	docker exec $(BACKEND) python /app/scripts/eval/run_eval.py \
+	docker exec -e EVAL_STATE_DIR=/app/scripts/eval/cache/state $(BACKEND) python /app/scripts/eval/run_eval.py \
 		--openreview --venue $(VENUE) --limit $(LIMIT)
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
 	docker cp $(BACKEND):/app/scripts/eval/openreview ./scripts/eval/

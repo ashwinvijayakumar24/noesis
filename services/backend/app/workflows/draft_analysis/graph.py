@@ -4,6 +4,10 @@ Draft Analysis Workflow Graph
 LangGraph workflow that orchestrates the complete draft analysis process.
 """
 
+import json
+import os
+from pathlib import Path
+
 from langgraph.graph import StateGraph, END
 from langgraph.types import Send
 from app.workflows.draft_analysis.state import DraftAnalysisState
@@ -34,11 +38,27 @@ from app.workflows.draft_analysis.nodes.report_synthesis import synthesize_repor
 logger = get_logger(__name__)
 
 
+def _dump_eval_state(node_name: str, state: DraftAnalysisState) -> None:
+    """Write upstream node state for eval-only node replay when explicitly enabled."""
+    state_dir = os.environ.get("EVAL_STATE_DIR", "")
+    if not state_dir:
+        return
+    paper_id = os.environ.get("EVAL_STATE_PAPER_ID") or state.get("draft_id") or "unknown"
+    reviewer_type = state.get("reviewer_type")
+    filename = f"{node_name}__{reviewer_type}.json" if reviewer_type else f"{node_name}.json"
+    out_dir = Path(state_dir) / str(paper_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / filename).write_text(
+        json.dumps(dict(state), indent=2, ensure_ascii=False, default=str) + "\n"
+    )
+
+
 # ============================================
 # PROGRESS-EMITTING NODE WRAPPERS
 # ============================================
 
 async def _extract_structure_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("extract_structure", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "extract_structure_start", 4, "Analyzing draft structure...")
@@ -49,6 +69,7 @@ async def _extract_structure_node_with_progress(state: DraftAnalysisState) -> Dr
 
 
 async def _manuscript_profile_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("profile_manuscript", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "manuscript_profile_start", 10, "Profiling manuscript type...")
@@ -59,6 +80,7 @@ async def _manuscript_profile_node_with_progress(state: DraftAnalysisState) -> D
 
 
 async def _extract_references_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("extract_references", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "extract_references_start", 12, "Extracting reference list...")
@@ -69,6 +91,7 @@ async def _extract_references_node_with_progress(state: DraftAnalysisState) -> D
 
 
 async def _extract_claims_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("extract_claims", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "extract_claims_start", 12, "Extracting research claims...")
@@ -79,6 +102,7 @@ async def _extract_claims_node_with_progress(state: DraftAnalysisState) -> Draft
 
 
 async def _categorize_claims_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("categorize_claims", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "categorize_claims_start", 27, "Categorizing claims...")
@@ -89,6 +113,7 @@ async def _categorize_claims_node_with_progress(state: DraftAnalysisState) -> Dr
 
 
 async def _verify_citations_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("verify_citations", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "verify_citations_start", 35, "Checking citation accuracy...")
@@ -99,6 +124,7 @@ async def _verify_citations_node_with_progress(state: DraftAnalysisState) -> Dra
 
 
 async def _literature_search_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("search_literature", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "search_literature_start", 37, "Searching literature...")
@@ -109,6 +135,7 @@ async def _literature_search_node_with_progress(state: DraftAnalysisState) -> Dr
 
 
 async def _citation_mapping_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("map_citations", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "map_citations_start", 52, "Mapping citations to claims...")
@@ -119,6 +146,7 @@ async def _citation_mapping_node_with_progress(state: DraftAnalysisState) -> Dra
 
 
 async def _detect_gaps_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("detect_gaps", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "detect_gaps_start", 67, "Detecting coverage gaps...")
@@ -129,6 +157,7 @@ async def _detect_gaps_node_with_progress(state: DraftAnalysisState) -> DraftAna
 
 
 async def _external_source_discovery_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("discover_external_sources", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "external_sources_start", 75, "Discovering external sources...")
@@ -179,6 +208,7 @@ async def _external_source_discovery_node_with_progress(state: DraftAnalysisStat
 
 
 async def _citation_judge_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("citation_judge_node", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "citation_judge_start", 76, "Judging citation relevance...")
@@ -189,6 +219,7 @@ async def _citation_judge_node_with_progress(state: DraftAnalysisState) -> Draft
 
 
 async def _reviewer_judge_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("reviewer_judge_node", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "reviewer_judge_start", 85, "Judging review specificity...")
@@ -199,6 +230,7 @@ async def _reviewer_judge_node_with_progress(state: DraftAnalysisState) -> Draft
 
 
 async def _structural_checks_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("structural_checks", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "structural_checks_start", 76, "Running structural checks...")
@@ -209,6 +241,7 @@ async def _structural_checks_node_with_progress(state: DraftAnalysisState) -> Dr
 
 
 async def _diagnostic_findings_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("run_quality_diagnostics", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "diagnostic_findings_start", 77, "Running manuscript-specific diagnostics...")
@@ -219,6 +252,7 @@ async def _diagnostic_findings_node_with_progress(state: DraftAnalysisState) -> 
 
 
 async def _editor_pass_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("editor_pass_node", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "editor_pass_start", 79, "Running editorial desk check...")
@@ -229,11 +263,13 @@ async def _editor_pass_node_with_progress(state: DraftAnalysisState) -> DraftAna
 
 
 async def _reviewer_panel_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("reviewer_panel_node", state)
     # Progress published per-reviewer inside the node; no outer wrapper needed
     return await reviewer_panel_node(state)
 
 
 async def _meta_reviewer_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("meta_reviewer_node", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "meta_review_start", 90, "Synthesizing reviewer panel...")
@@ -244,6 +280,7 @@ async def _meta_reviewer_node_with_progress(state: DraftAnalysisState) -> DraftA
 
 
 async def _synthesize_report_node_with_progress(state: DraftAnalysisState) -> DraftAnalysisState:
+    _dump_eval_state("synthesize_report", state)
     draft_id = state.get("draft_id")
     if draft_id:
         await publish_progress(draft_id, "synthesize_report_start", 90, "Synthesizing report...")

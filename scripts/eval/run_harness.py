@@ -241,13 +241,14 @@ def run(draft_path: Path, corpus_name: str | None, keep: bool = False) -> Path:
     corpus_dir = CORPORA_DIR / corpus_name if corpus_name else None
     live_pipeline_version = pipeline_version()
     key = cache_key(draft_path, live_pipeline_version, corpus_name, corpus_dir)
-    if not keep:
+    bypass_cache = os.environ.get("EVAL_BYPASS_PIPELINE_CACHE") == "1"
+    if not keep and not bypass_cache:
         cached = get_cached(key)
         if cached:
             print(f"[harness] Cache hit: {cached}")
             print(f"[harness] pipeline_version={live_pipeline_version}")
             return cached
-    print(f"[harness] Cache miss: key={key}")
+    print(f"[harness] Cache bypass: key={key}" if bypass_cache else f"[harness] Cache miss: key={key}")
     print(f"[harness] pipeline_version={live_pipeline_version}")
 
     loop = asyncio.new_event_loop()
@@ -275,17 +276,26 @@ def run(draft_path: Path, corpus_name: str | None, keep: bool = False) -> Path:
 
         # Run full LangGraph workflow
         print(f"[harness] Running LangGraph workflow …")
-        loop.run_until_complete(
-            analyze_draft_with_langgraph(
-                draft_id=draft_id,
-                project_id=project_id,
-                user_id=user_id,
-                draft_content=draft_content,
-                initial_structure=initial_structure,
-                parse_artifact=parse_artifact,
-                parser_quality=parser_quality,
+        previous_eval_paper_id = os.environ.get("EVAL_STATE_PAPER_ID")
+        if os.environ.get("EVAL_STATE_DIR"):
+            os.environ["EVAL_STATE_PAPER_ID"] = draft_path.stem
+        try:
+            loop.run_until_complete(
+                analyze_draft_with_langgraph(
+                    draft_id=draft_id,
+                    project_id=project_id,
+                    user_id=user_id,
+                    draft_content=draft_content,
+                    initial_structure=initial_structure,
+                    parse_artifact=parse_artifact,
+                    parser_quality=parser_quality,
+                )
             )
-        )
+        finally:
+            if previous_eval_paper_id is None:
+                os.environ.pop("EVAL_STATE_PAPER_ID", None)
+            else:
+                os.environ["EVAL_STATE_PAPER_ID"] = previous_eval_paper_id
         print(f"[harness] ✓ Workflow complete")
 
         # Export
