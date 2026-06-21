@@ -133,6 +133,14 @@ Key questions to answer:
 - For primary empirical/model papers, are baselines appropriate and up-to-date? Are SOTA methods compared?
 - Are results statistically significant with proper reporting (p-values, confidence intervals, effect sizes)?
 - Are ablations present when this is a model-development paper?
+- For primary empirical/model/mechanistic papers, is the chosen modeling formalism
+  justified by the data structure and assumptions, rather than merely applied because
+  it is available? Check whether graph/topology, state variables, simulation setup,
+  target leakage, unavailable ground-truth parameters, and scope limits are explained
+  well enough to support the central claim.
+- Do the comparisons test the claimed advantage, not just generic performance? If
+  the paper focuses on a restricted regime such as steady state, pooled averages, or
+  simplified simulations, does it make that scope constraint explicit in the claims?
 - Can experiments be reproduced? (hyperparameters, seeds, dataset splits, code availability)
 - Are there confounds or threats to validity that are unaddressed?
 
@@ -222,6 +230,12 @@ def _build_methodology_context(state: DraftAnalysisState) -> str:
         lines.append("\nSTRUCTURAL CHECKS:")
         for s in structural[:4]:
             lines.append(f"  • {s.get('feedback_text', '')}")
+
+    lines.append("\nTRANSFERABLE MODEL/METHOD AUDIT:")
+    lines.append("  • Is the modeling formalism justified by the paper's data structure and assumptions?")
+    lines.append("  • Are topology/state variables/simulation parameters described enough to reproduce the method?")
+    lines.append("  • Could target variables, unavailable ground-truth parameters, or synthetic setup choices leak the answer?")
+    lines.append("  • Do comparisons test the claimed advantage and stated scope constraints?")
 
     diagnostics = [
         f for f in state.get("diagnostic_findings") or []

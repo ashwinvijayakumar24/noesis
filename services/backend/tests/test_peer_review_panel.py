@@ -286,6 +286,22 @@ class TestReviewerPanelNode:
         assert "empirical" in ctx
         assert "3500" in ctx
 
+    @pytest.mark.unit
+    def test_methodology_reviewer_includes_transferable_model_audit(self):
+        from app.workflows.draft_analysis.nodes.reviewer_panel import REVIEWER_PROMPTS, build_reviewer_context
+        state = {
+            "draft_id": "d1", "project_id": "p1", "user_id": "u1",
+            "draft_content": "Methods. We train a model on simulated data.",
+            "paper_type": "empirical",
+            "structure": {"sections": [{"type": "methods"}], "word_count": 1200},
+            "manuscript_profile": {},
+        }
+
+        assert "chosen modeling formalism" in REVIEWER_PROMPTS["methodology"]
+        ctx = build_reviewer_context(state, "methodology")
+        assert "TRANSFERABLE MODEL/METHOD AUDIT" in ctx
+        assert "target variables" in ctx
+
 
 # ── Meta-Reviewer Node ────────────────────────────────────────────────────────
 
