@@ -11,12 +11,15 @@ Or from repo root via the Makefile target (see Makefile).
 
 import argparse
 import asyncio
+import copy
 import datetime
 import json
 import os
+import re
 import sys
 import uuid
 from pathlib import Path
+from typing import Any
 
 # Inside container: /app/app exists, sys.path needs /app
 # Outside container: sys.path needs <repo>/services/backend
@@ -164,26 +167,163 @@ def _upload_draft(draft_path: Path, project_id: str, user_id: str = "") -> str:
     return draft_id
 
 
-def _export_result(draft_id: str, project_id: str, draft_stem: str, corpus_name: str) -> dict:
-    # Import helpers only — use app's already-initialized supabase, not the export script's own client
-    from scripts.export_latest_draft_analysis import (  # type: ignore[import]
-        safe_select, select_related, draft_by_id,
-        latest_analysis_row, sanitize_analysis_row_for_export,
-        parser_metrics, project_literature_summary, table_count,
+def _safe_select(client, table: str, **filters: Any) -> list[dict[str, Any]]:
+    try:
+        query = client.table(table).select("*")
+        for field, value in filters.items():
+            query = query.eq(field, value)
+        response = query.execute()
+        return response.data or []
+    except Exception:
+        return []
+
+
+def _select_related(client, table: str, draft_id: str, analysis_run_id: str | None) -> list[dict[str, Any]]:
+    if analysis_run_id:
+        return _safe_select(client, table, draft_id=draft_id, analysis_run_id=analysis_run_id)
+    return _safe_select(client, table, draft_id=draft_id)
+
+
+def _draft_by_id(client, draft_id: str) -> dict[str, Any]:
+    response = client.table("drafts").select("*").eq("id", draft_id).limit(1).execute()
+    rows = response.data or []
+    if not rows:
+        raise RuntimeError(f"Draft not found: {draft_id}")
+    return rows[0]
+
+
+def _latest_analysis_row(client, draft_id: str, analysis_run_id: str | None) -> dict[str, Any]:
+    if analysis_run_id:
+        rows = _safe_select(client, "draft_analysis", draft_id=draft_id, analysis_run_id=analysis_run_id)
+        return rows[0] if rows else {}
+    response = (
+        client.table("draft_analysis")
+        .select("*")
+        .eq("draft_id", draft_id)
+        .order("updated_at", desc=True)
+        .limit(1)
+        .execute()
     )
+    rows = response.data or []
+    return rows[0] if rows else {}
+
+
+def _sanitize_analysis_row_for_export(analysis: dict[str, Any]) -> dict[str, Any]:
+    cleaned = copy.deepcopy(analysis or {})
+    metadata = cleaned.get("analysis_metadata")
+    if isinstance(metadata, dict):
+        metadata.pop("revision_tasks", None)
+    return cleaned
+
+
+def _table_count(rows: list[dict[str, Any]]) -> int:
+    return len(rows or [])
+
+
+def _parser_metrics(parse_artifact: dict[str, Any] | None, analysis: dict[str, Any]) -> dict[str, Any]:
+    parse_artifact = parse_artifact or {}
+    metadata = analysis.get("analysis_metadata") or {}
+    parser_metadata = parse_artifact.get("parser_metadata") or {}
+    section_map = parse_artifact.get("section_map") or []
+    anchor_map = parse_artifact.get("anchor_map") or []
+    return {
+        "persisted_parse_artifact_available": bool(parse_artifact),
+        "parser_name": parse_artifact.get("parser_name") or metadata.get("parser_name"),
+        "parser_quality_flags": parse_artifact.get("parser_quality_flags") or metadata.get("parser_quality_flags") or [],
+        "parser_quality_score": parse_artifact.get("parser_quality_score") or metadata.get("parser_quality_score"),
+        "section_count": len(section_map),
+        "anchor_count": len(anchor_map),
+        "grobid_sections_count": (
+            parser_metadata.get("grobid_sections_count")
+            or metadata.get("grobid_sections_count")
+            or len(section_map)
+        ),
+        "grobid_references_count": (
+            parser_metadata.get("grobid_references_count")
+            or metadata.get("grobid_references_count")
+            or 0
+        ),
+    }
+
+
+DOMAIN_TITLE_TERMS: dict[str, set[str]] = {
+    "biology": {
+        "biology", "biomedical", "clinical", "gene", "genetic", "genome", "editing",
+        "crispr", "cas9", "sickle", "cell", "hemoglobin", "globin", "therapy",
+        "therapeutic", "transplant", "stem",
+    },
+    "chemistry_materials": {
+        "chemistry", "materials", "battery", "batteries", "sodium", "ion", "cathode",
+        "anode", "electrolyte", "oxide", "degradation", "cycling",
+    },
+    "humanities_education": {
+        "humanities", "education", "pedagogy", "composition", "writing", "rhetoric",
+        "classroom", "literacy", "teaching", "social", "justice", "algorithm",
+    },
+    "computer_science_ml": {
+        "machine", "learning", "model", "algorithm", "neural", "dataset", "benchmark",
+        "classification", "prediction", "deep", "ai", "artificial", "intelligence",
+    },
+    "public_health_psychology": {
+        "social", "media", "adolescent", "adolescents", "teen", "youth", "anxiety",
+        "depression", "mental", "health", "psychology", "systematic", "review",
+        "prisma", "bias",
+    },
+}
+
+
+def _doc_title(document: dict[str, Any]) -> str:
+    metadata = document.get("metadata") or {}
+    return (
+        document.get("title")
+        or document.get("document_title")
+        or metadata.get("title")
+        or metadata.get("extracted_title")
+        or "Untitled"
+    )
+
+
+def _profile_terms(profile: dict[str, Any]) -> set[str]:
+    routing_domain = str(profile.get("routing_domain") or "").lower()
+    terms = set(DOMAIN_TITLE_TERMS.get(routing_domain, set()))
+    for key in ("domain_tags", "retrieval_domains", "review_lenses", "secondary_domains"):
+        for value in profile.get(key) or []:
+            terms.update(re.findall(r"[a-z0-9]+", str(value).lower()))
+    return {term for term in terms if len(term) >= 3}
+
+
+def _project_literature_summary(documents: list[dict[str, Any]], profile: dict[str, Any]) -> dict[str, Any]:
+    terms = _profile_terms(profile)
+    included_titles: list[str] = []
+    for document in documents:
+        title = _doc_title(document)
+        haystack = " ".join([title, str((document.get("metadata") or {}).get("abstract") or "")]).lower()
+        if terms and not any(term in haystack for term in terms):
+            continue
+        included_titles.append(title)
+    return {
+        "total_documents": len(documents),
+        "included_relevant_title_count": len(included_titles),
+        "excluded_from_export_count": max(len(documents) - len(included_titles), 0),
+        "raw_documents_omitted": True,
+        "included_relevant_titles": included_titles[:20],
+    }
+
+
+def _export_result(draft_id: str, project_id: str, draft_stem: str, corpus_name: str) -> dict:
     client = supabase  # app.core.supabase_client instance (already has env)
 
-    draft = draft_by_id(client, draft_id)
+    draft = _draft_by_id(client, draft_id)
     analysis_run_id = draft.get("active_analysis_run_id")
-    analysis = sanitize_analysis_row_for_export(latest_analysis_row(client, draft_id, analysis_run_id))
+    analysis = _sanitize_analysis_row_for_export(_latest_analysis_row(client, draft_id, analysis_run_id))
     metadata = analysis.get("analysis_metadata") or {}
     profile = metadata.get("manuscript_profile") or {}
 
-    parse_artifacts = safe_select(client, "draft_parse_artifacts", draft_id=draft_id)
+    parse_artifacts = _safe_select(client, "draft_parse_artifacts", draft_id=draft_id)
     parse_artifact = parse_artifacts[0] if parse_artifacts else {}
-    durable_revision_tasks = select_related(client, "draft_revision_tasks", draft_id, analysis_run_id)
-    project_documents = safe_select(client, "documents", project_id=project_id)
-    literature_summary = project_literature_summary(project_documents, profile)
+    durable_revision_tasks = _select_related(client, "draft_revision_tasks", draft_id, analysis_run_id)
+    project_documents = _safe_select(client, "documents", project_id=project_id)
+    literature_summary = _project_literature_summary(project_documents, profile)
 
     payload = {
         "eval_metadata": {
@@ -196,25 +336,25 @@ def _export_result(draft_id: str, project_id: str, draft_stem: str, corpus_name:
         },
         "draft": draft,
         "analysis": analysis,
-        "analysis_run": safe_select(client, "draft_analysis_runs", id=analysis_run_id)[0] if analysis_run_id else {},
-        "parser_metadata": parser_metrics(parse_artifact, analysis),
+        "analysis_run": _safe_select(client, "draft_analysis_runs", id=analysis_run_id)[0] if analysis_run_id else {},
+        "parser_metadata": _parser_metrics(parse_artifact, analysis),
         "durable_revision_tasks": durable_revision_tasks,
-        "claims": select_related(client, "draft_claims", draft_id, analysis_run_id),
-        "coverage_gaps": select_related(client, "coverage_gaps", draft_id, analysis_run_id),
-        "reviewer_feedback": select_related(client, "reviewer_feedback", draft_id, analysis_run_id),
-        "reviewer_panel_outputs": select_related(client, "reviewer_panel_outputs", draft_id, analysis_run_id),
-        "meta_reviews": select_related(client, "meta_reviews", draft_id, analysis_run_id),
-        "citation_suggestions": select_related(client, "citation_suggestions", draft_id, analysis_run_id),
+        "claims": _select_related(client, "draft_claims", draft_id, analysis_run_id),
+        "coverage_gaps": _select_related(client, "coverage_gaps", draft_id, analysis_run_id),
+        "reviewer_feedback": _select_related(client, "reviewer_feedback", draft_id, analysis_run_id),
+        "reviewer_panel_outputs": _select_related(client, "reviewer_panel_outputs", draft_id, analysis_run_id),
+        "meta_reviews": _select_related(client, "meta_reviews", draft_id, analysis_run_id),
+        "citation_suggestions": _select_related(client, "citation_suggestions", draft_id, analysis_run_id),
         "project_literature_summary": literature_summary,
     }
     payload["summary_counts"] = {
-        "durable_revision_tasks": table_count(payload["durable_revision_tasks"]),
-        "claims": table_count(payload["claims"]),
-        "coverage_gaps": table_count(payload["coverage_gaps"]),
-        "reviewer_feedback": table_count(payload["reviewer_feedback"]),
-        "reviewer_panel_outputs": table_count(payload["reviewer_panel_outputs"]),
-        "meta_reviews": table_count(payload["meta_reviews"]),
-        "citation_suggestions": table_count(payload["citation_suggestions"]),
+        "durable_revision_tasks": _table_count(payload["durable_revision_tasks"]),
+        "claims": _table_count(payload["claims"]),
+        "coverage_gaps": _table_count(payload["coverage_gaps"]),
+        "reviewer_feedback": _table_count(payload["reviewer_feedback"]),
+        "reviewer_panel_outputs": _table_count(payload["reviewer_panel_outputs"]),
+        "meta_reviews": _table_count(payload["meta_reviews"]),
+        "citation_suggestions": _table_count(payload["citation_suggestions"]),
     }
     return payload
 
