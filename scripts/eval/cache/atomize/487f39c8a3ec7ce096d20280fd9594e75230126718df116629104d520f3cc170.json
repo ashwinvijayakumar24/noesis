@@ -1,0 +1,32 @@
+{
+  "units": [
+    {
+      "kind": "weakness",
+      "text": "The proposed approach for using GNNs for bacterial communities is vaguely described and not well justified."
+    },
+    {
+      "kind": "weakness",
+      "text": "The key methods section (2.2) provides a generic description of existing GNN approaches, and is missing key microbiome specific information (in particular, what is the topology of the graph)."
+    },
+    {
+      "kind": "weakness",
+      "text": "That information is provided in Supplementary information: the graph is fully connected."
+    },
+    {
+      "kind": "weakness",
+      "text": "This makes statements in the manuscript such as \u201cBy using k graph convolutional layers after one another we can achieve k-hop information propagation\u201d rather misleading."
+    },
+    {
+      "kind": "weakness",
+      "text": "Overall, the proposed method - applying GNN model in a straightforward way to a very small, fully-connected graph - is poorly justified and weak on novelty."
+    },
+    {
+      "kind": "question",
+      "text": "What is the rationale for using a GNN on a very simple graph?"
+    },
+    {
+      "kind": "question",
+      "text": "What is the benefit of focusing on predicting steady state, instead of focusing on dynamical changes to the relative abundances (e.g., dysbiosis)."
+    }
+  ]
+}
