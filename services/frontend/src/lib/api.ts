@@ -234,10 +234,13 @@ export const api = {
   },
   subscriptions: {
     getPlans: () => request('/api/subscriptions/plans'),
-    checkout: (token: string, body: Record<string, unknown>) => (
+    createCheckout: (token: string, body: Record<string, unknown>) => (
       request('/api/subscriptions/checkout', { method: 'POST', token, body })
     ),
-    usage: (token: string) => request('/api/subscriptions/usage', { token }),
-    portalSession: (token: string) => request('/api/subscriptions/portal-session', { token }),
+    cancel: (token: string, body: Record<string, unknown>) => (
+      request('/api/subscriptions/cancel', { method: 'POST', token, body })
+    ),
+    getUsage: (token: string) => request('/api/subscriptions/usage', { token }),
+    getPortalSession: (token: string) => request('/api/subscriptions/portal-session', { token }),
   },
 }

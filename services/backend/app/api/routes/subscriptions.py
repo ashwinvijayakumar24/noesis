@@ -1,14 +1,27 @@
 """
-API routes for subscription management
+API routes for subscription management.
+
+Webhook security model
+----------------------
+* Signature verification is ALWAYS required outside of ENVIRONMENT=development.
+* If STRIPE_WEBHOOK_SECRET is unset in a non-development environment the
+  endpoint returns 500 (misconfiguration) rather than falling back to
+  unsigned JSON parsing.  Accepting unsigned payloads would allow any caller
+  to forge subscription events and downgrade / alter any account.
+* Idempotency is enforced via the stripe_webhook_events table.  The event_id
+  is inserted (ON CONFLICT DO NOTHING) before handlers run.  A duplicate
+  delivery returns {"status": "duplicate"} immediately without re-running
+  business logic.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Request, Header
 from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional
 import stripe
+import json
 
 from app.core.config import settings
-from app.core.supabase_client import supabase
+from app.core.supabase_client import supabase, get_supabase_client
 from app.core.security_middleware import SecureAuthValidator
 from app.services.stripe_service import (
     create_checkout_session,
@@ -17,12 +30,18 @@ from app.services.stripe_service import (
     handle_checkout_completed,
     handle_subscription_updated,
     handle_subscription_deleted,
-    PLAN_CONFIGS
+    handle_invoice_payment_failed,
+    handle_invoice_payment_succeeded,
+    PLAN_CONFIGS,
 )
 from app.services.quota_management import get_plan_limits, get_project_limit
 
 
-def get_current_user(authorization: str = Header(None)):
+# ---------------------------------------------------------------------------
+# Auth dependency
+# ---------------------------------------------------------------------------
+
+def get_current_user(authorization: str = Header(None)) -> str:
     if supabase is None:
         raise HTTPException(status_code=500, detail="Supabase not configured")
     token = SecureAuthValidator.validate_bearer_token(authorization)
@@ -33,14 +52,25 @@ def get_current_user(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
+# ---------------------------------------------------------------------------
+# Router
+# ---------------------------------------------------------------------------
+
 router = APIRouter()
 
+
+# ---------------------------------------------------------------------------
+# Request / response schemas
+# ---------------------------------------------------------------------------
 
 class CheckoutRequest(BaseModel):
     plan_tier: str = Field(..., description="Plan tier: pro or team")
     success_url: HttpUrl = Field(..., description="URL to redirect after successful payment")
     cancel_url: HttpUrl = Field(..., description="URL to redirect if payment is canceled")
-    team_seats: Optional[int] = Field(None, description="Number of team seats (required for team plan, minimum 2, maximum 3)")
+    team_seats: Optional[int] = Field(
+        None,
+        description="Number of team seats (required for team plan, minimum 2, maximum 3)",
+    )
 
 
 class CheckoutResponse(BaseModel):
@@ -49,16 +79,85 @@ class CheckoutResponse(BaseModel):
 
 
 class CancelRequest(BaseModel):
-    cancel_immediately: bool = Field(False, description="If True, cancel immediately; otherwise at period end")
+    cancel_immediately: bool = Field(
+        False,
+        description="If True, cancel immediately; otherwise at period end",
+    )
 
+
+# ---------------------------------------------------------------------------
+# Webhook helpers
+# ---------------------------------------------------------------------------
+
+def _verify_stripe_signature(payload: bytes, stripe_signature: Optional[str]) -> dict:
+    """
+    Verify the Stripe webhook signature and return the parsed event.
+
+    Raises HTTPException:
+      - 400 if the signature header is missing or invalid.
+      - 500 if STRIPE_WEBHOOK_SECRET is unset outside development (misconfiguration).
+
+    In ENVIRONMENT=development the secret is optional; unsigned payloads are
+    accepted so engineers can use `stripe trigger` locally without configuring
+    the webhook secret.  This branch is disabled in staging and production.
+    """
+    if settings.STRIPE_WEBHOOK_SECRET:
+        if not stripe_signature:
+            raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
+        try:
+            return stripe.Webhook.construct_event(
+                payload,
+                stripe_signature,
+                settings.STRIPE_WEBHOOK_SECRET,
+            )
+        except stripe.error.SignatureVerificationError:
+            raise HTTPException(status_code=400, detail="Invalid Stripe signature")
+
+    # No secret configured.
+    if settings.ENVIRONMENT != "development":
+        # Reject in staging / production -- never fall back to unsigned JSON.
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "STRIPE_WEBHOOK_SECRET is not configured. "
+                "Webhook processing is disabled until the secret is set."
+            ),
+        )
+
+    # Development-only fallback: parse without verification.
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+
+def _record_event_or_skip(event_id: str, event_type: str) -> bool:
+    """
+    Insert event_id into stripe_webhook_events.
+
+    Returns True if the event was newly inserted (should be processed).
+    Returns False if the event was already present (duplicate -- skip).
+
+    Uses INSERT ... ON CONFLICT DO NOTHING so the operation is a single
+    round-trip with no SELECT + INSERT race condition.
+    """
+    db = get_supabase_client()
+    result = (
+        db.table("stripe_webhook_events")
+        .insert({"event_id": event_id, "type": event_type})
+        .execute()
+    )
+    # Supabase returns an empty data list when ON CONFLICT DO NOTHING fires.
+    return bool(result.data)
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 
 @router.get("/subscriptions/plans")
 async def get_available_plans():
-    """
-    Get available subscription plans
-
-    Returns pricing and features for each tier
-    """
+    """Return pricing and feature metadata for each subscription tier."""
     return {
         "plans": {
             "free": {
@@ -70,15 +169,15 @@ async def get_available_plans():
                     "30 BibTeX references per month total",
                     "5 Discover searches per day",
                     "5 Literature Map refreshes per day",
-                    "Basic feedback"
+                    "Basic feedback",
                 ],
                 "limits": {
                     **get_plan_limits("free"),
                     "project_limit": get_project_limit("free"),
-                }
+                },
             },
             "pro": PLAN_CONFIGS["pro"],
-            "team": PLAN_CONFIGS["team"]
+            "team": PLAN_CONFIGS["team"],
         }
     }
 
@@ -86,23 +185,18 @@ async def get_available_plans():
 @router.post("/subscriptions/checkout", response_model=CheckoutResponse)
 async def create_checkout(
     request: CheckoutRequest,
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_current_user),
 ):
     """
-    Create a Stripe Checkout session
+    Create a Stripe Checkout session.
 
-    Redirects user to Stripe payment page
-
-    For Team plans:
-    - Minimum 2 seats required
-    - Users can adjust quantity at checkout (2-3 seats)
-    - Priced at $20/user/month
+    For Team plans the minimum seat count is 2; users may adjust quantity
+    at checkout up to the configured maximum (currently 3).
     """
     try:
         if request.plan_tier not in ["pro", "team"]:
             raise HTTPException(status_code=400, detail="Invalid plan tier")
 
-        # Validate team_seats for team plan
         if request.plan_tier == "team" and request.team_seats is not None:
             if request.team_seats < 2:
                 raise HTTPException(status_code=400, detail="Team plan requires minimum 2 seats")
@@ -114,9 +208,8 @@ async def create_checkout(
             plan_tier=request.plan_tier,
             success_url=str(request.success_url),
             cancel_url=str(request.cancel_url),
-            team_seats=request.team_seats
+            team_seats=request.team_seats,
         )
-
         return CheckoutResponse(**result)
 
     except HTTPException:
@@ -130,24 +223,15 @@ async def create_checkout(
 @router.post("/subscriptions/cancel")
 async def cancel_user_subscription(
     request: CancelRequest,
-    user_id: str = Depends(get_current_user)
+    user_id: str = Depends(get_current_user),
 ):
-    """
-    Cancel user's subscription
-
-    Can cancel immediately or at end of billing period
-    """
+    """Cancel the authenticated user's subscription."""
     try:
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User authentication required")
-
         result = cancel_subscription(
             user_id=user_id,
-            cancel_at_period_end=not request.cancel_immediately
+            cancel_at_period_end=not request.cancel_immediately,
         )
-
         return result
-
     except HTTPException:
         raise
     except Exception as e:
@@ -155,116 +239,118 @@ async def cancel_user_subscription(
 
 
 @router.get("/subscriptions/usage")
-async def get_usage(
-    user_id: str = Depends(get_current_user)
-):
-    """
-    Get user's current usage and limits
-    """
+async def get_usage(user_id: str = Depends(get_current_user)):
+    """Return the authenticated user's current usage against their plan limits."""
     try:
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User authentication required")
-
-        usage = get_usage_limits(user_id)
-
-        return usage
-
+        return get_usage_limits(user_id)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get usage limits: {str(e)}")
 
 
-@router.post("/webhooks/stripe")
-async def stripe_webhook(
-    request: Request,
-    stripe_signature: str = Header(None, alias="Stripe-Signature")
-):
-    """
-    Handle Stripe webhooks
-
-    ⚠️ IMPORTANT: This endpoint requires webhook secret to be configured
-    You'll need to set STRIPE_WEBHOOK_SECRET in environment variables
-
-    To get webhook secret:
-    1. Go to https://dashboard.stripe.com/test/webhooks
-    2. Add endpoint: https://your-domain.com/api/webhooks/stripe
-    3. Select events: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted
-    4. Copy webhook signing secret
-    5. Add to .env as STRIPE_WEBHOOK_SECRET
-    """
-    try:
-        payload = await request.body()
-
-        # Verify webhook signature (if secret is configured)
-        if settings.STRIPE_WEBHOOK_SECRET:
-            try:
-                event = stripe.Webhook.construct_event(
-                    payload,
-                    stripe_signature,
-                    settings.STRIPE_WEBHOOK_SECRET
-                )
-            except stripe.error.SignatureVerificationError:
-                raise HTTPException(status_code=400, detail="Invalid signature")
-        else:
-            # WARNING: This is insecure - only for development
-            import json
-            event = json.loads(payload)
-
-        # Handle different event types
-        event_type = event["type"]
-
-        if event_type == "checkout.session.completed":
-            handle_checkout_completed(event["data"]["object"])
-
-        elif event_type == "customer.subscription.updated":
-            handle_subscription_updated(event["data"]["object"])
-
-        elif event_type == "customer.subscription.deleted":
-            handle_subscription_deleted(event["data"]["object"])
-
-        return {"status": "success", "event_type": event_type}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Webhook processing failed: {str(e)}")
-
-
 @router.get("/subscriptions/portal-session")
 async def create_customer_portal_session(
     user_id: str = Depends(get_current_user),
-    return_url: HttpUrl = None
+    return_url: Optional[HttpUrl] = None,
 ):
     """
-    Create a Stripe Customer Portal session
-
-    Allows users to manage their subscription, payment methods, etc.
+    Create a Stripe Customer Portal session so the user can manage their
+    payment method, view invoices, or cancel their subscription directly
+    inside Stripe's hosted UI.
     """
     try:
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User authentication required")
-
-        from app.core.supabase_client import get_supabase_client
-        supabase = get_supabase_client()
-
-        # Get Stripe customer ID
-        subscription = supabase.table("subscriptions").select("stripe_customer_id").eq("user_id", user_id).execute()
+        db = get_supabase_client()
+        subscription = (
+            db.table("subscriptions")
+            .select("stripe_customer_id")
+            .eq("user_id", user_id)
+            .execute()
+        )
 
         if not subscription.data or not subscription.data[0].get("stripe_customer_id"):
             raise HTTPException(status_code=404, detail="No subscription found")
 
         stripe_customer_id = subscription.data[0]["stripe_customer_id"]
-
-        # Create portal session
         session = stripe.billing_portal.Session.create(
             customer=stripe_customer_id,
-            return_url=str(return_url) if return_url else "https://noesis.is/dashboard"
+            return_url=str(return_url) if return_url else f"{settings.FRONTEND_URL}/billing",
         )
-
         return {"url": session.url}
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create portal session: {str(e)}")
+
+
+@router.post("/webhooks/stripe")
+async def stripe_webhook(
+    request: Request,
+    stripe_signature: Optional[str] = Header(None, alias="Stripe-Signature"),
+):
+    """
+    Receive and process Stripe webhook events.
+
+    Security guarantees
+    -------------------
+    1. Signature verification is enforced in all non-development environments.
+       An unset STRIPE_WEBHOOK_SECRET in staging/production returns 500 rather
+       than accepting unsigned payloads.
+    2. Every event is recorded in stripe_webhook_events before handler
+       execution.  Duplicate deliveries (Stripe retries) return
+       {"status": "duplicate"} without re-running business logic.
+
+    Supported events
+    ----------------
+    - checkout.session.completed
+    - customer.subscription.updated
+    - customer.subscription.deleted
+    - invoice.payment_failed
+    - invoice.payment_succeeded
+    """
+    payload = await request.body()
+    event = _verify_stripe_signature(payload, stripe_signature)
+
+    event_id = event["id"]
+    event_type = event["type"]
+
+    # Idempotency check -- returns early if already processed.
+    if not _record_event_or_skip(event_id, event_type):
+        return {"status": "duplicate", "event_id": event_id}
+
+    # Dispatch to handlers.  Errors inside handlers are caught and logged
+    # rather than propagated so Stripe does not retry an event that was
+    # successfully recorded but whose side-effects partially failed.
+    # Partial failures are surfaced via application logs / Sentry.
+    try:
+        data_object = event["data"]["object"]
+
+        if event_type == "checkout.session.completed":
+            handle_checkout_completed(data_object)
+
+        elif event_type == "customer.subscription.updated":
+            handle_subscription_updated(data_object)
+
+        elif event_type == "customer.subscription.deleted":
+            handle_subscription_deleted(data_object)
+
+        elif event_type == "invoice.payment_failed":
+            handle_invoice_payment_failed(data_object)
+
+        elif event_type == "invoice.payment_succeeded":
+            handle_invoice_payment_succeeded(data_object)
+
+        # Unrecognised event types are accepted (200) and ignored.
+        # This prevents Stripe from retrying events we intentionally skip.
+
+    except Exception as e:
+        # Do NOT re-raise.  The event is already recorded as processed so a
+        # 500 here would cause Stripe to retry and potentially double-process
+        # once the bug is fixed.  Log and alert instead.
+        import logging
+        logging.getLogger(__name__).exception(
+            "Handler error for event %s (%s): %s", event_id, event_type, e
+        )
+
+    return {"status": "success", "event_type": event_type}

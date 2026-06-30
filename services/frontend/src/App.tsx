@@ -13,6 +13,7 @@ const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'))
 const Projects = lazy(() => import('./pages/Projects'))
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
 const DraftAnalysis = lazy(() => import('./pages/DraftAnalysis'))
+const Billing = lazy(() => import('./pages/Billing'))
 
 // Loading fallback component
 function PageLoader() {
@@ -93,6 +94,14 @@ function App() {
           element={
             <ProtectedRoute>
               <DraftAnalysis />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/billing"
+          element={
+            <ProtectedRoute>
+              <Billing />
             </ProtectedRoute>
           }
         />

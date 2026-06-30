@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     GROBID_URL: Optional[str] = None
 
     # Application Configuration
+    FRONTEND_URL: str = "https://noesis.is"
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
