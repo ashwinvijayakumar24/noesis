@@ -171,7 +171,7 @@ export default function UnifiedFeedbackCard({
   const contentText = getContentText()
   const suggestions = getSuggestions()
   const metadata = getMetadata()
-  const hasLongContent = contentText.length > 200 || suggestions.length > 3
+  const hasLongContent = (contentText || '').length > 200 || suggestions.length > 3
 
   // Citation chips from supporting_literature
   const suggestedCitations = item.type === 'claim' ? parseSuggestedCitations(item.content) : []
@@ -179,8 +179,9 @@ export default function UnifiedFeedbackCard({
     ? item.content.suggested_sources
     : []
   const isPdf = fileType === 'application/pdf' || fileType === 'pdf'
-  const hasReliablePdfAnchor = Boolean(item.content.pdf_coordinates || item.content.page_number)
-  const canOpenDocument = Boolean(onViewInDocument) && (isPdf ? hasReliablePdfAnchor : Boolean(item.content.line_number))
+  const anchorText = item.content.anchor_text ?? item.content.text_snippet
+  const hasPdfAnchor = Boolean(item.content.pdf_coordinates || item.content.page_number || anchorText)
+  const canOpenDocument = Boolean(onViewInDocument) && (isPdf ? hasPdfAnchor : Boolean(item.content.line_number || anchorText))
   const viewPayload = {
     line_number: item.content.line_number,
     content_text: contentText,
@@ -194,11 +195,21 @@ export default function UnifiedFeedbackCard({
   const locationLabel = isPdf
     ? item.content.pdf_coordinates?.page || item.content.page_number
       ? `Page ${item.content.pdf_coordinates?.page ?? item.content.page_number}`
-      : null
+      : anchorText
+        ? 'Find anchor'
+        : null
     : item.content.line_number
       ? `Line ${item.content.line_number}`
-      : null
-  const anchorText = item.content.anchor_text ?? item.content.text_snippet
+      : anchorText
+        ? 'Find anchor'
+        : null
+
+  // Shown when the document can't be opened (e.g. the landing showcase has no live
+  // file): prefer a section + page reference, falling back to the raw location label.
+  const sectionName = item.content.section_type ?? item.content.section_reference ?? item.content.section
+  const staticLocationLabel = sectionName && item.content.page_number
+    ? `${sectionName} · p. ${item.content.page_number}`
+    : locationLabel ?? 'Location unavailable'
 
   const renderLocationButton = (className = META_STATUS_READY_CLASS) => {
     if (!canOpenDocument || !locationLabel) return null
@@ -322,7 +333,7 @@ export default function UnifiedFeedbackCard({
               <div className={META_LABEL_CLASS}>Location</div>
               <div className="mt-1">
                 {renderLocationButton('text-xs font-medium text-accent-primary hover:text-accent-primary/80') ?? (
-                  <span className="text-xs text-text-muted">Location unavailable</span>
+                  <span className="text-xs text-text-muted">{staticLocationLabel}</span>
                 )}
               </div>
               {typeof item.content.match_confidence === 'number' && (

@@ -4,10 +4,12 @@ import { lazy, Suspense } from 'react'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpgradeModal from './components/UpgradeModal'
+import { FREEZE_MODE } from './config/site'
 
 // Lazy load page components for code splitting
 const Landing = lazy(() => import('./pages/Landing'))
 const Demo = lazy(() => import('./pages/Demo'))
+const Contact = lazy(() => import('./pages/Contact'))
 const Login = lazy(() => import('./pages/Login'))
 const SignUp = lazy(() => import('./pages/SignUp'))
 const ConfirmEmail = lazy(() => import('./pages/ConfirmEmail'))
@@ -67,57 +69,79 @@ function App() {
 
       <Suspense fallback={<PageLoader />}>
           <Routes>
-          {/* Public routes */}
+          {/* Public marketing routes — always live */}
           <Route path="/" element={<Landing />} />
           <Route path="/demo" element={<Demo />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/auth/confirm" element={<ConfirmEmail />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/contact" element={<Contact />} />
+          {/* Pricing shows self-serve consumer tiers — hidden in B2B freeze mode. */}
+          <Route
+            path="/pricing"
+            element={FREEZE_MODE ? <Navigate to="/contact" replace /> : <Pricing />}
+          />
 
-        {/* Protected routes */}
-        <Route
-          path="/projects"
-          element={
-            <ProtectedRoute>
-              <Projects />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:projectId"
-          element={
-            <ProtectedRoute>
-              <ProjectDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:projectId/drafts/:draftId"
-          element={
-            <ProtectedRoute>
-              <DraftAnalysis />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:projectId/documents/:documentId"
-          element={
-            <ProtectedRoute>
-              <DocumentAnalysis />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/analytics"
-          element={
-            <ProtectedRoute>
-              <AnalyticsDashboard />
-            </ProtectedRoute>
-          }
-        />
+          {FREEZE_MODE ? (
+            /* Freeze mode: backend is offline — funnel every backend-dependent
+               route to the Contact page instead of hitting dead APIs. */
+            <>
+              <Route path="/login" element={<Navigate to="/contact" replace />} />
+              <Route path="/signup" element={<Navigate to="/contact" replace />} />
+              <Route path="/auth/confirm" element={<Navigate to="/contact" replace />} />
+              <Route path="/auth/callback" element={<Navigate to="/contact" replace />} />
+              <Route path="/projects/*" element={<Navigate to="/contact" replace />} />
+              <Route path="/admin/*" element={<Navigate to="/contact" replace />} />
+            </>
+          ) : (
+            <>
+              {/* Auth routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/auth/confirm" element={<ConfirmEmail />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+
+              {/* Protected routes */}
+              <Route
+                path="/projects"
+                element={
+                  <ProtectedRoute>
+                    <Projects />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/projects/:projectId"
+                element={
+                  <ProtectedRoute>
+                    <ProjectDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/projects/:projectId/drafts/:draftId"
+                element={
+                  <ProtectedRoute>
+                    <DraftAnalysis />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/projects/:projectId/documents/:documentId"
+                element={
+                  <ProtectedRoute>
+                    <DocumentAnalysis />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/analytics"
+                element={
+                  <ProtectedRoute>
+                    <AnalyticsDashboard />
+                  </ProtectedRoute>
+                }
+              />
+            </>
+          )}
 
         {/* Fallback redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
