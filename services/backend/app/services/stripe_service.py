@@ -88,7 +88,7 @@ def _normalize_plan_tier(plan_tier: Optional[str]) -> str:
 
 
 def _to_iso8601(timestamp: Optional[int]) -> Optional[str]:
-    if not timestamp:
+    if timestamp is None:
         return None
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
 
@@ -200,10 +200,10 @@ def create_checkout_session(
                 metadata={"user_id": user_id},
             )
             stripe_customer_id = customer.id
-            if subscription_record.data:
-                db.table("subscriptions").update(
-                    {"stripe_customer_id": stripe_customer_id}
-                ).eq("user_id", user_id).execute()
+            db.table("subscriptions").upsert(
+                {"user_id": user_id, "stripe_customer_id": stripe_customer_id},
+                on_conflict="user_id",
+            ).execute()
 
         price_id = None
         if plan_tier == "pro":
@@ -212,28 +212,10 @@ def create_checkout_session(
             price_id = settings.STRIPE_PRICE_ID_TEAM
 
         if not price_id:
-            if plan_tier == "pro":
-                price = stripe.Price.create(
-                    product_data={
-                        "name": plan_config["name"],
-                        "metadata": {"plan_tier": plan_tier},
-                    },
-                    unit_amount=int(plan_config["price_monthly"] * 100),
-                    currency="usd",
-                    recurring={"interval": "month"},
-                )
-                price_id = price.id
-            elif plan_tier == "team":
-                price = stripe.Price.create(
-                    product_data={
-                        "name": f"{plan_config['name']} (per user)",
-                        "metadata": {"plan_tier": plan_tier},
-                    },
-                    unit_amount=int(plan_config["price_per_user_monthly"] * 100),
-                    currency="usd",
-                    recurring={"interval": "month"},
-                )
-                price_id = price.id
+            raise ValueError(
+                f"STRIPE_PRICE_ID_{plan_tier.upper()} is not configured. "
+                "Set this env var to the Stripe price ID for this plan."
+            )
 
         line_items = [{"price": price_id, "quantity": team_seats if plan_tier == "team" else 1}]
 
@@ -273,8 +255,15 @@ def handle_checkout_completed(session_data: Dict[str, Any]) -> None:
     """
     db = get_supabase_client()
     try:
-        user_id = session_data["metadata"]["user_id"]
-        plan_tier = _normalize_plan_tier(session_data["metadata"]["plan_tier"])
+        metadata = session_data.get("metadata") or {}
+        user_id = metadata.get("user_id")
+        plan_tier = _normalize_plan_tier(metadata.get("plan_tier"))
+        if not user_id:
+            logger.warning(
+                "checkout.session.completed missing user_id in metadata, session=%s",
+                session_data.get("id"),
+            )
+            return
         subscription_id = session_data.get("subscription")
         customer_id = session_data.get("customer")
 

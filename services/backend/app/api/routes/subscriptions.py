@@ -234,6 +234,8 @@ async def cancel_user_subscription(
         return result
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to cancel subscription: {str(e)}")
 
@@ -249,7 +251,7 @@ async def get_usage(user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to get usage limits: {str(e)}")
 
 
-@router.get("/subscriptions/portal-session")
+@router.post("/subscriptions/portal-session")
 async def create_customer_portal_session(
     user_id: str = Depends(get_current_user),
     return_url: Optional[HttpUrl] = None,

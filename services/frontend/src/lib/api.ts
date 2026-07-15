@@ -241,6 +241,6 @@ export const api = {
       request('/api/subscriptions/cancel', { method: 'POST', token, body })
     ),
     getUsage: (token: string) => request('/api/subscriptions/usage', { token }),
-    getPortalSession: (token: string) => request('/api/subscriptions/portal-session', { token }),
+    getPortalSession: (token: string) => request('/api/subscriptions/portal-session', { method: 'POST', token }),
   },
 }

@@ -66,15 +66,14 @@ export default function Pricing() {
       const origin = window.location.origin
       const result = (await api.subscriptions.createCheckout(session.access_token, {
         plan_tier: tierName.toLowerCase(),
-        success_url: `${origin}/billing?subscribed=true`,
+        success_url: `${origin}/billing?subscribed=true&plan=${tierName.toLowerCase()}`,
         cancel_url: `${origin}/pricing`,
       })) as { checkout_url: string }
 
       if (result.checkout_url) {
         window.location.href = result.checkout_url
       } else {
-        toast.success('Subscription activated!')
-        navigate('/billing')
+        toast.error('Failed to start checkout. Please try again.')
       }
     } catch (error) {
       console.error('Subscription error:', error)

@@ -71,7 +71,9 @@ export default function Billing() {
   useEffect(() => {
     document.title = 'Billing | Noesis'
     if (searchParams.get('subscribed') === 'true') {
-      toast.success("You're now subscribed to Pro!")
+      const plan = searchParams.get('plan')
+      const label = plan === 'team' ? 'Research Group' : 'Pro'
+      toast.success(`You're now subscribed to ${label}!`)
     }
   }, [searchParams])
 
