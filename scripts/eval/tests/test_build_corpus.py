@@ -479,3 +479,310 @@ def test_extract_refs_picks_up_doi_and_arxiv_ids(tmp_path, monkeypatch):
 def test_extract_refs_on_a_pdf_without_a_bibliography(tmp_path, monkeypatch):
     monkeypatch.setattr(bc, "_bibliography_text", lambda p: "")
     assert bc._extract_refs_from_pdf(tmp_path / "x.pdf") == []
+
+
+# ---------------------------------------------------------------------------
+# OpenAlex authentication
+#
+# OpenAlex authenticates with an ``api_key`` *query parameter* (confirmed at
+# developers.openalex.org/api-reference/authentication, and live: a bogus key
+# returns 401 "Invalid or missing API key"). Because the credential rides in
+# the URL rather than a header, the interesting risk is not "does it work" but
+# "where does it leak" — hence the redaction tests below.
+# ---------------------------------------------------------------------------
+
+SECRET = "oa-secret-key-do-not-log-9f3a2b"
+
+
+@pytest.fixture
+def with_key(monkeypatch):
+    monkeypatch.setattr(bc, "_OA_API_KEY", SECRET)
+    return SECRET
+
+
+@pytest.fixture
+def without_key(monkeypatch):
+    monkeypatch.setattr(bc, "_OA_API_KEY", "")
+
+
+class RecordingSession:
+    """Captures the (url, params) of every request, and replays canned responses."""
+
+    def __init__(self, responses=None):
+        self.requests = []
+        self._responses = list(responses or [])
+
+    def get(self, url, params=None, **kw):
+        self.requests.append((url, dict(params or {})))
+        resp = self._responses.pop(0) if self._responses else FakeResponse(200, {})
+        return resp
+
+    async def close(self):
+        pass
+
+
+class FakeResponse:
+    def __init__(self, status, headers, body=None):
+        self.status = status
+        self.headers = headers
+        self._body = body if body is not None else {"id": "https://openalex.org/W1"}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def json(self):
+        return self._body
+
+
+def test_api_key_is_sent_as_the_api_key_query_parameter(with_key):
+    params = bc._polite({"search": "layer normalization"})
+    assert params["api_key"] == SECRET
+    # mailto is the polite pool, not authentication — both are sent.
+    assert params["mailto"] == bc._OA_EMAIL
+
+
+def test_without_a_key_requests_are_byte_for_byte_what_they_were(without_key):
+    params = bc._polite({"search": "layer normalization"})
+    assert "api_key" not in params
+    assert set(params) == {"mailto", "select", "search"}
+
+
+def test_budget_probe_carries_the_key_and_the_key_alone_authenticates(with_key):
+    session = RecordingSession([FakeResponse(200, {"X-RateLimit-Remaining-USD": "0.94"})])
+    budget = asyncio.run(bc.fetch_budget(session))
+
+    url, params = session.requests[0]
+    assert params["api_key"] == SECRET
+    assert budget["remaining_usd"] == pytest.approx(0.94)
+
+
+# ---------------------------------------------------------------------------
+# The key must not escape into anything durable or printed
+# ---------------------------------------------------------------------------
+
+
+def test_key_never_appears_in_the_sidecar(patched, source_pdf, monkeypatch, with_key):
+    refs = [{"title": "Resolved one", "doi": "10.1/a", "raw": "r1"},
+            {"title": "Missing two", "doi": None, "raw": "r2"}]
+    monkeypatch.setattr(bc, "_resolve_ref", FakeOpenAlex({
+        "Resolved one": _work("W1", "Resolved one", "10.1/a", "http://x/1.pdf"),
+    }))
+    monkeypatch.setattr(bc, "_download_pdf", FakeDownloader())
+
+    _run("c1", source_pdf, refs, max_papers=0)
+
+    # Every byte the build wrote, not just the sidecar: downloaded PDFs are
+    # named from OpenAlex metadata and could in principle carry request state.
+    written = list((patched / "corpora").rglob("*"))
+    assert written, "nothing was written — the test would pass vacuously"
+    for path in written:
+        if path.is_file():
+            assert SECRET.encode() not in path.read_bytes(), f"key leaked into {path.name}"
+            assert SECRET not in path.name
+
+
+def test_key_never_appears_in_stdout(patched, source_pdf, monkeypatch, capsys, with_key):
+    refs = [{"title": "Resolved one", "doi": "10.1/a", "raw": "r1"}]
+    monkeypatch.setattr(bc, "_resolve_ref", FakeOpenAlex({
+        "Resolved one": _work("W1", "Resolved one", "10.1/a", "http://x/1.pdf"),
+    }))
+    monkeypatch.setattr(bc, "_download_pdf", FakeDownloader())
+
+    _run("c1", source_pdf, refs, max_papers=0)
+
+    captured = capsys.readouterr()
+    assert SECRET not in captured.out + captured.err
+
+
+def test_key_never_appears_in_a_raised_error(with_key, monkeypatch):
+    """Construct the real failure path: a 429 that interpolates the key.
+
+    The budget message echoes response headers verbatim, so a header carrying
+    the request URL — which is where OpenAlex's credential lives — would put the
+    key straight into the exception. Redaction has to be doing real work here,
+    not merely happening to hold: the ``***`` assertion pins that.
+    """
+    monkeypatch.setattr(bc._throttle, "_delay", 0.0)
+    session = RecordingSession([
+        FakeResponse(429, {
+            "Retry-After": "13907",
+            "X-RateLimit-Remaining-USD": SECRET,
+            "X-RateLimit-Prepaid-Remaining-USD": "0",
+        })
+    ])
+
+    with pytest.raises(bc.OpenAlexBudgetExhausted) as exc:
+        asyncio.run(bc._oa_get(session, "https://api.openalex.org/works", bc._polite()))
+
+    assert SECRET not in str(exc.value)
+    assert "***" in str(exc.value)          # it was there, and was scrubbed
+
+
+def test_redact_is_a_noop_without_a_key(without_key):
+    assert bc._redact("nothing to hide") == "nothing to hide"
+
+
+def test_redact_scrubs_a_url_carrying_the_key(with_key):
+    leaky = f"GET https://api.openalex.org/works?search=x&api_key={SECRET} failed"
+    assert SECRET not in bc._redact(leaky)
+
+
+def test_rejected_key_does_not_echo_the_key(with_key, monkeypatch):
+    monkeypatch.setattr(bc._throttle, "_delay", 0.0)
+    session = RecordingSession([FakeResponse(401, {})])
+    with pytest.raises(bc.OpenAlexBudgetExhausted) as exc:
+        asyncio.run(bc._oa_get(session, "https://api.openalex.org/works", bc._polite()))
+    assert SECRET not in str(exc.value)
+    assert "OPENALEX_API_KEY" in str(exc.value)
+
+
+# ---------------------------------------------------------------------------
+# --check-budget
+# ---------------------------------------------------------------------------
+
+
+def test_check_budget_parses_the_ratelimit_headers(monkeypatch, capsys, with_key):
+    session = RecordingSession([FakeResponse(200, {
+        "X-RateLimit-Limit-USD": "1.0",
+        "X-RateLimit-Remaining-USD": "0.8734",
+        "X-RateLimit-Prepaid-Remaining-USD": "1.0",
+        "X-RateLimit-Reset": "10677",
+    })])
+    monkeypatch.setattr(bc, "_client_session", lambda: session)
+
+    code = asyncio.run(bc.check_budget())
+    out = capsys.readouterr().out
+
+    assert code == 0
+    assert "$0.8734" in out
+    assert "prepaid balance: $1.0000" in out
+    assert "spendable now: $1.8734" in out
+    assert SECRET not in out
+
+
+def test_check_budget_reports_unknown_when_headers_are_absent(monkeypatch, capsys, without_key):
+    session = RecordingSession([FakeResponse(200, {})])
+    monkeypatch.setattr(bc, "_client_session", lambda: session)
+
+    code = asyncio.run(bc.check_budget())
+    out = capsys.readouterr().out
+
+    # Absent headers must read as "unknown", never as "$0.00 — do not start".
+    assert "budget unknown" in out
+    assert code == 0
+
+
+def test_check_budget_reports_an_exhausted_budget(monkeypatch, capsys, without_key):
+    """What the owner actually sees today, from the observed 429 headers."""
+    session = RecordingSession([FakeResponse(429, {
+        "Retry-After": "10677",
+        "X-RateLimit-Limit-USD": "0.1",
+        "X-RateLimit-Remaining-USD": "0",
+        "X-RateLimit-Prepaid-Remaining-USD": "0",
+        "X-RateLimit-Reset": "10677",
+    })])
+    monkeypatch.setattr(bc, "_client_session", lambda: session)
+
+    code = asyncio.run(bc.check_budget())
+    out = capsys.readouterr().out
+
+    assert code == 2
+    assert "spendable now: $0.0000" in out
+    assert "resets in 3.0h" in out
+    assert "openalex.org/pricing" in out
+
+
+def test_check_budget_flags_a_rejected_key(monkeypatch, capsys, with_key):
+    session = RecordingSession([FakeResponse(401, {})])
+    monkeypatch.setattr(bc, "_client_session", lambda: session)
+
+    code = asyncio.run(bc.check_budget())
+    out = capsys.readouterr().out
+
+    assert code == 1
+    assert "API key rejected" in out
+    assert SECRET not in out
+
+
+def test_check_budget_is_one_request(monkeypatch, with_key):
+    session = RecordingSession([FakeResponse(200, {"X-RateLimit-Remaining-USD": "1"})])
+    monkeypatch.setattr(bc, "_client_session", lambda: session)
+    asyncio.run(bc.check_budget())
+    assert len(session.requests) == 1
+
+
+# ---------------------------------------------------------------------------
+# Pre-run estimate
+# ---------------------------------------------------------------------------
+
+
+def test_estimate_prices_title_searches_above_doi_lookups():
+    """A DOI-less reference costs 10x, which is why the estimate reads them."""
+    with_dois = [{"doi": "10.1/a"}] * 10
+    without = [{"doi": None}] * 10
+    _, cheap = bc._estimate_requests(10, with_dois)
+    _, dear = bc._estimate_requests(10, without)
+    assert dear > cheap
+
+
+def test_underfunded_run_is_flagged_before_it_starts(monkeypatch, capsys):
+    monkeypatch.setattr(bc, "_budget_at_start", {"remaining_usd": 0.002, "prepaid_usd": 0.0})
+    bc._warn_if_underfunded(0.6)
+    assert "spendable budget is $0.0020" in capsys.readouterr().out
+
+
+def test_unknown_budget_does_not_warn(monkeypatch, capsys):
+    monkeypatch.setattr(bc, "_budget_at_start", None)
+    bc._warn_if_underfunded(0.6)
+    assert capsys.readouterr().out == ""
+
+
+def test_build_prints_the_request_estimate(patched, source_pdf, monkeypatch, capsys):
+    refs = [{"title": f"Paper {i}", "doi": None, "raw": f"r{i}"} for i in range(10)]
+    monkeypatch.setattr(bc, "_resolve_ref", FakeOpenAlex({}))
+    monkeypatch.setattr(bc, "_download_pdf", FakeDownloader())
+
+    _run("c1", source_pdf, refs, max_papers=0)
+
+    out = capsys.readouterr().out
+    assert "~10 requests" in out
+    assert "$0.010" in out
+
+
+# ---------------------------------------------------------------------------
+# 429 with a large Retry-After: still pending, never no_openalex_match
+# ---------------------------------------------------------------------------
+
+
+def test_large_retry_after_raises_and_records_pending(patched, source_pdf, monkeypatch):
+    """The end-to-end version of the mislabelling guard, driven by a real 429.
+
+    ``_oa_get`` is exercised for real here (not stubbed at ``_resolve_ref``), so
+    this pins the whole path: 429 → OA_MAX_BACKOFF exceeded → raise → PENDING.
+    """
+    monkeypatch.setattr(bc._throttle, "_delay", 0.0)
+    exhausted = FakeResponse(429, {
+        "Retry-After": "13907",
+        "X-RateLimit-Remaining-USD": "0",
+        "X-RateLimit-Prepaid-Remaining-USD": "0",
+    })
+
+    async def _resolve(session, ref):
+        # Same shape as the real _resolve_ref: it lets the 429 propagate.
+        return await bc._oa_get(RecordingSession([exhausted]), bc._OA_BASE, bc._polite())
+
+    monkeypatch.setattr(bc, "_resolve_ref", _resolve)
+    monkeypatch.setattr(bc, "_download_pdf", FakeDownloader())
+
+    refs = [{"title": "Never looked up", "doi": None, "raw": "r1"}]
+    with pytest.raises(bc.OpenAlexBudgetExhausted):
+        _run("c1", source_pdf, refs, max_papers=0)
+
+    entry = _sidecar(patched)["references"][0]
+    assert entry["status"] == bc.STATUS_PENDING
+    assert entry["status"] != bc.STATUS_NO_OPENALEX
+    # Pending refs stay in the denominator so the resolution rate stays honest.
+    assert _sidecar(patched)["references_attempted"] == 1

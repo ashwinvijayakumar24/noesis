@@ -21,6 +21,13 @@ Usage (inside backend container):
   python scripts/eval/build_corpus.py --draft pdfs/draft1.pdf --max-papers 15
   python scripts/eval/build_corpus.py --draft pdfs/draft1.pdf --force  # re-download existing
 
+OpenAlex is metered (since Feb 2026). Set ``OPENALEX_API_KEY`` — a *free* key
+raises the daily allowance from $0.10 to $1.00 — and check it landed with:
+
+  python scripts/eval/build_corpus.py --check-budget
+
+See scripts/eval/OPENALEX.md for signup, funding and the free-tier workaround.
+
 Every corpus dir gets a ``references.json`` sidecar recording *every* reference
 that was attempted, with its resolution outcome. Without it the resolution
 denominator is unrecoverable and scripts/eval/retrieval/labels.py refuses to
@@ -76,11 +83,34 @@ STATUS_PENDING = "pending"                # budget ran out before this ref was t
 
 _OA_BASE = "https://api.openalex.org"
 _OA_EMAIL = os.environ.get("OPENALEX_EMAIL") or os.environ.get("UNPAYWALL_EMAIL") or "contact@noesis.is"
+
+#: OpenAlex authenticates with an ``api_key`` **query parameter** — not a bearer
+#: token, not a custom header. Confirmed against
+#: https://developers.openalex.org/api-reference/authentication
+#: ("add ``api_key=YOUR_KEY`` to your API calls") and live: a bogus key on
+#: ``?api_key=`` returns 401 {"error":"Invalid or missing API key"}.
+#: ``mailto`` is the *polite pool* convention and is orthogonal — it is not
+#: authentication and is still sent either way, per the same docs.
+#: Because the credential rides in the URL, it must never reach a log, an
+#: exception string or the sidecar: see ``_redact``.
+_OA_API_KEY = (os.environ.get("OPENALEX_API_KEY") or "").strip()
+
 # Fetch oa_url in addition to the standard fields used by draft_reference_extraction
 _OA_FIELDS = (
     "id,display_name,title,authorships,publication_year,doi,"
     "abstract_inverted_index,open_access,primary_location"
 )
+
+#: Observed per-request prices (X-RateLimit-Cost-Required-USD, 2026-07-30).
+#: A title search is 10x a single-entity lookup, which is why a build's cost is
+#: dominated by references that have no DOI.
+OA_COST_LOOKUP_USD = 0.0001   # /works/<id-or-doi>
+OA_COST_SEARCH_USD = 0.001    # /works?search=
+
+#: A single-entity lookup, used by --check-budget: the cheapest request that
+#: still returns the full X-RateLimit-* header set. (This id is the OpenAlex
+#: work for "Deep Residual Learning"; nothing depends on the body.)
+_BUDGET_PROBE_URL = f"{_OA_BASE}/works/W2194775991"
 
 MAX_PAPERS_DEFAULT = 20
 DOWNLOAD_TIMEOUT = 30  # seconds per PDF
@@ -101,6 +131,18 @@ class OpenAlexBudgetExhausted(RuntimeError):
     that was never actually looked up.
     """
 USER_AGENT = f"Noesis-eval-corpus-builder/1.0 (+https://noesis.is; mailto:{_OA_EMAIL})"
+
+
+def _redact(text: str) -> str:
+    """Strip the API key out of anything about to be printed, raised or written.
+
+    The key travels as a query parameter, so it is one f-string away from a log
+    line at all times. Everything that can surface a URL or an aiohttp error
+    goes through here.
+    """
+    if not _OA_API_KEY:
+        return text
+    return text.replace(_OA_API_KEY, "***")
 
 
 class _Throttle:
@@ -159,16 +201,24 @@ async def _oa_get(session: aiohttp.ClientSession, url: str, params: dict) -> dic
                     return await resp.json()
                 if resp.status == 404:
                     return None
+                if resp.status == 401:
+                    # Redacted deliberately: the rejected key is in resp.url.
+                    raise OpenAlexBudgetExhausted(
+                        "OpenAlex rejected the API key (401 Invalid or missing API key). "
+                        "Check OPENALEX_API_KEY against openalex.org/settings/api."
+                    )
                 if resp.status == 429 or resp.status >= 500:
                     retry_after = resp.headers.get("Retry-After")
                     wait = float(retry_after) if (retry_after or "").isdigit() else delay
                     if wait > OA_MAX_BACKOFF:
-                        raise OpenAlexBudgetExhausted(
+                        raise OpenAlexBudgetExhausted(_redact(
                             f"OpenAlex returned {resp.status} with Retry-After={wait:.0f}s "
-                            f"(remaining budget ${resp.headers.get('X-RateLimit-Remaining-USD', '?')}). "
-                            "Daily budget is spent; re-run after it resets (midnight UTC) — "
-                            "the build resumes where it stopped."
-                        )
+                            f"(remaining budget ${resp.headers.get('X-RateLimit-Remaining-USD', '?')}, "
+                            f"prepaid ${resp.headers.get('X-RateLimit-Prepaid-Remaining-USD', '?')}). "
+                            "Daily budget is spent; add prepaid credit or re-run after it "
+                            "resets (midnight UTC) — the build resumes where it stopped. "
+                            "See scripts/eval/OPENALEX.md."
+                        ))
                     print(f"[build-corpus]   OpenAlex {resp.status} — backing off {wait:.0f}s")
                     await asyncio.sleep(wait)
                     delay = min(delay * 2, OA_MAX_BACKOFF)
@@ -185,14 +235,174 @@ async def _oa_get(session: aiohttp.ClientSession, url: str, params: dict) -> dic
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Budget introspection
+#
+# OpenAlex became metered in 2026. Before this, exhaustion surfaced as a 429
+# twenty minutes into a forty-minute run. These two helpers turn that into a
+# fact you can check in one second, before starting.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_budget_headers(headers) -> dict:
+    """Pull the X-RateLimit-* family out of a response into plain floats.
+
+    Every value is optional: OpenAlex omits the whole family from some cached
+    and error responses, and a missing budget must read as "unknown", never as
+    "zero" — the difference decides whether a run is worth starting.
+    """
+    def _num(name: str) -> float | None:
+        raw = headers.get(name)
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "remaining_usd": _num("X-RateLimit-Remaining-USD"),
+        "limit_usd": _num("X-RateLimit-Limit-USD"),
+        "prepaid_usd": _num("X-RateLimit-Prepaid-Remaining-USD"),
+        "credits_remaining": _num("X-RateLimit-Remaining"),
+        "credits_limit": _num("X-RateLimit-Limit"),
+        "reset_seconds": _num("X-RateLimit-Reset"),
+    }
+
+
+def _total_available_usd(budget: dict) -> float | None:
+    """Daily allowance plus prepaid balance, or None if neither was reported."""
+    parts = [budget.get("remaining_usd"), budget.get("prepaid_usd")]
+    known = [p for p in parts if p is not None]
+    return sum(known) if known else None
+
+
+async def fetch_budget(session: aiohttp.ClientSession | None = None) -> dict:
+    """One cheap single-entity lookup, reporting the budget headers it comes back with.
+
+    Deliberately does not go through ``_oa_get``: a 429 here is not a failure,
+    it is the answer, and it carries the same headers a 200 would.
+    """
+    own = session is None
+    session = session or _client_session()
+    try:
+        async with session.get(
+            _BUDGET_PROBE_URL,
+            params=_auth({"mailto": _OA_EMAIL, "select": "id"}),
+            timeout=aiohttp.ClientTimeout(total=20),
+        ) as resp:
+            budget = _parse_budget_headers(resp.headers)
+            budget["status"] = resp.status
+            return budget
+    finally:
+        if own:
+            await session.close()
+
+
+def _format_budget(budget: dict) -> list[str]:
+    """Human-readable budget lines. Never contains the key."""
+    lines: list[str] = []
+    authed = "authenticated" if _OA_API_KEY else "unauthenticated (free tier)"
+    lines.append(f"[build-corpus] OpenAlex: {authed}")
+
+    if budget.get("status") == 401:
+        lines.append("[build-corpus]   API key rejected (401). Check OPENALEX_API_KEY.")
+        return lines
+
+    limit = budget.get("limit_usd")
+    remaining = budget.get("remaining_usd")
+    prepaid = budget.get("prepaid_usd")
+    if remaining is None and prepaid is None:
+        lines.append("[build-corpus]   budget unknown — OpenAlex sent no X-RateLimit-* headers")
+        return lines
+
+    if remaining is not None:
+        cap = f" of ${limit:.2f}" if limit is not None else ""
+        lines.append(f"[build-corpus]   daily allowance remaining: ${remaining:.4f}{cap}")
+    if prepaid is not None:
+        lines.append(f"[build-corpus]   prepaid balance: ${prepaid:.4f}")
+
+    total = _total_available_usd(budget)
+    if total is not None:
+        lines.append(f"[build-corpus]   spendable now: ${total:.4f} "
+                     f"(~{int(total / OA_COST_SEARCH_USD)} title searches)")
+    reset = budget.get("reset_seconds")
+    if reset is not None and (remaining or 0) <= 0:
+        lines.append(f"[build-corpus]   daily allowance resets in {reset / 3600:.1f}h (midnight UTC)")
+    return lines
+
+
+async def check_budget() -> int:
+    """``--check-budget``: report the budget and exit. Returns a process code."""
+    try:
+        budget = await fetch_budget()
+    except Exception as exc:
+        print(f"[build-corpus] could not reach OpenAlex: {_redact(str(exc)) or type(exc).__name__}")
+        return 1
+
+    for line in _format_budget(budget):
+        print(line)
+
+    if budget.get("status") == 401:
+        return 1
+    total = _total_available_usd(budget)
+    if total is not None and total <= 0:
+        print("[build-corpus] Budget is spent. Add prepaid credit at https://openalex.org/pricing "
+              "or wait for the midnight-UTC reset. See scripts/eval/OPENALEX.md.")
+        return 2
+    if not _OA_API_KEY:
+        print("[build-corpus] No OPENALEX_API_KEY set — running on the $0.10/day no-key allowance. "
+              "A *free* key raises this to $1/day. See scripts/eval/OPENALEX.md.")
+    return 0
+
+
+#: Budget as of the run's single preflight probe. None = never probed / unknown,
+#: which is treated as "say nothing" rather than "assume broke".
+_budget_at_start: dict | None = None
+
+
+def _warn_if_underfunded(est_usd: float) -> None:
+    """Say up front that this corpus will not finish, instead of 429ing later."""
+    total = _total_available_usd(_budget_at_start or {})
+    if total is None:
+        return
+    if total < est_usd:
+        print(f"[build-corpus]   ⚠ spendable budget is ${total:.4f}; this needs about "
+              f"${est_usd:.3f}. Expect to stop partway and resume "
+              f"(pending refs are retried, never mislabelled).")
+
+
+def _estimate_requests(n_refs: int, refs: list[dict] | None = None) -> tuple[int, float]:
+    """(requests, usd) for resolving ``n_refs`` references.
+
+    A reference costs one cheap id lookup if it has a DOI, and a title search
+    (10x dearer) if it does not or if the DOI lookup misses. Assumes the DOI
+    path misses half the time, which is roughly what the resolved corpora show.
+    """
+    with_doi = sum(1 for r in (refs or []) if r.get("doi"))
+    without_doi = n_refs - with_doi
+    lookups = with_doi
+    searches = without_doi + with_doi * 0.5
+    usd = lookups * OA_COST_LOOKUP_USD + searches * OA_COST_SEARCH_USD
+    return int(round(lookups + searches)), usd
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # OpenAlex helpers (extended from draft_reference_extraction — adds oa_url)
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _auth(params: dict) -> dict:
+    """Add the ``api_key`` query parameter when one is configured.
+
+    Absent a key this is the identity function, so unauthenticated runs are
+    byte-for-byte what they were before the key was supported.
+    """
+    if _OA_API_KEY:
+        params["api_key"] = _OA_API_KEY
+    return params
+
 
 def _polite(extra: dict | None = None) -> dict:
     params = {"mailto": _OA_EMAIL, "select": _OA_FIELDS}
     if extra:
         params.update(extra)
-    return params
+    return _auth(params)
 
 
 def _title_match(a: str, b: str) -> bool:
@@ -675,7 +885,10 @@ async def build_corpus_from_refs(
         write_sidecar(corpus_dir, source_pdf, entries)
         return sum(1 for e in entries if e["status"] == STATUS_RESOLVED), entries
 
-    print(f"[build-corpus] {corpus_name}: resolving {len(attempt)}/{len(refs)} refs against OpenAlex …")
+    n_req, est_usd = _estimate_requests(len(attempt), attempt)
+    print(f"[build-corpus] {corpus_name}: resolving {len(attempt)}/{len(refs)} refs against OpenAlex "
+          f"(~{n_req} requests, ~${est_usd:.3f}) …")
+    _warn_if_underfunded(est_usd)
     sem = asyncio.Semaphore(OA_CONCURRENCY)
 
     async def _guarded(session, ref):
@@ -832,7 +1045,23 @@ def _update_config_yaml(draft_stems: list[str]) -> None:
 
 
 async def main(args: argparse.Namespace) -> int:
+    global _budget_at_start
     stems_built: list[str] = []
+
+    if args.check_budget:
+        return await check_budget()
+
+    if not _OA_API_KEY:
+        print("[build-corpus] OpenAlex: unauthenticated — running on the $0.10/day free "
+              "allowance. Set OPENALEX_API_KEY for $1/day (see scripts/eval/OPENALEX.md).")
+
+    # One cheap probe so an under-funded run is visible now, not in 20 minutes.
+    try:
+        _budget_at_start = await fetch_budget()
+        for line in _format_budget(_budget_at_start):
+            print(line)
+    except Exception:
+        _budget_at_start = None  # unknown budget is not a reason to refuse to run
 
     if args.openreview or args.openreview_all:
         ids = [args.openreview] if args.openreview else openreview_ids_with_claims()
@@ -885,6 +1114,8 @@ def parse_args() -> argparse.Namespace:
     g.add_argument("--openreview", metavar="ID", help="Build corpus for one OpenReview submission id")
     g.add_argument("--openreview-all", action="store_true",
                    help="Build corpora for every OpenReview paper that has cached claims")
+    g.add_argument("--check-budget", action="store_true",
+                   help="Report remaining OpenAlex budget (one cheap request) and exit")
     p.add_argument("--max-papers", type=int, default=MAX_PAPERS_DEFAULT,
                    help=f"Max refs to attempt per paper, 0 = all (default: {MAX_PAPERS_DEFAULT})")
     p.add_argument("--force", action="store_true", help="Re-download even if corpus already exists")
