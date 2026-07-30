@@ -18,6 +18,7 @@ from app.services.retry_utils import retry_openai
 from typing import List, Dict, Any
 import json
 import logging
+import os
 import threading
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,31 @@ class _DegradationFlag:
 
 
 KEYWORD_SEARCH_DEGRADED = _DegradationFlag("keyword_search_chunks")
+
+#: The two keyword RPCs. The legacy one builds its tsquery with plainto_tsquery,
+#: which ANDs every lemma; on the ~20-word manuscript claims this system actually
+#: searches with, that returned ZERO rows for 55 of the 59 eval queries
+#: (recall@10 = 0.0026 against dense at 0.4221). Migration 038 adds a second
+#: function that ORs the query's lemmas and ranks with ts_rank(..., 1|32),
+#: measured at recall@10 = 0.2841 on the same queries. See
+#: scripts/eval/KEYWORD_QUERY.md.
+KEYWORD_SEARCH_RPC_LEGACY = "keyword_search_chunks"
+KEYWORD_SEARCH_RPC_V2 = "keyword_search_chunks_v2"
+
+#: Off by default. The v2 RPC is better on 59 eval queries from 4 manuscripts,
+#: which is not enough to change production retrieval under everyone silently.
+#: Set KEYWORD_SEARCH_V2=1 to opt in.
+KEYWORD_SEARCH_V2_ENV = "KEYWORD_SEARCH_V2"
+
+
+def keyword_search_rpc_name() -> str:
+    """Which keyword RPC the next ``keyword_search`` call will use.
+
+    Read per call rather than captured at import so the flag can be flipped in a
+    running process (and so a test does not have to reload the module).
+    """
+    enabled = (os.getenv(KEYWORD_SEARCH_V2_ENV) or "").strip().lower() in {"1", "true", "yes", "on"}
+    return KEYWORD_SEARCH_RPC_V2 if enabled else KEYWORD_SEARCH_RPC_LEGACY
 
 
 def embed_query(query: str, model: str = "text-embedding-3-large") -> List[float]:
@@ -441,11 +467,17 @@ def keyword_search(
 
     Returns:
         List of matching chunks with keyword relevance scores
+
+    Which RPC runs is decided by ``keyword_search_rpc_name()`` (env flag
+    ``KEYWORD_SEARCH_V2``, default off). Both return the same columns --
+    ``id, document_id, content, rank`` -- so ``hybrid_search``, which reads only
+    ``id`` and ``rank``, is unaffected by the choice.
     """
     # Use PostgreSQL full-text search (ts_rank)
+    rpc_name = keyword_search_rpc_name()
     try:
         response = supabase.rpc(
-            "keyword_search_chunks",
+            rpc_name,
             {
                 "proj_id": project_id,
                 "search_query": query,
@@ -462,11 +494,15 @@ def keyword_search(
         # every call returned [], hybrid_search fused 0.7*semantic + 0.3*nothing,
         # and no signal ever reached a log or a metric. Fixed in migration 037,
         # but the next schema drift would have been just as invisible.
+        # Both RPC paths land here: the flag must fire for v2 exactly as it does
+        # for the legacy function, or switching paths would reintroduce the
+        # silent-failure hole it was added to close.
         KEYWORD_SEARCH_DEGRADED.record(exc)
         logger.error(
-            "[keyword_search] RPC keyword_search_chunks failed; hybrid retrieval is "
+            "[keyword_search] RPC %s failed; hybrid retrieval is "
             "degrading to semantic-only for project=%s. This is NOT a silent fallback -- "
             "results are now missing their lexical leg. error=%s: %s",
+            rpc_name,
             project_id,
             type(exc).__name__,
             exc,
