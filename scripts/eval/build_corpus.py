@@ -93,6 +93,16 @@ _OA_EMAIL = os.environ.get("OPENALEX_EMAIL") or os.environ.get("UNPAYWALL_EMAIL"
 #: authentication and is still sent either way, per the same docs.
 #: Because the credential rides in the URL, it must never reach a log, an
 #: exception string or the sidecar: see ``_redact``.
+# The eval harness runs on the host and never inherits what compose injects into
+# the backend container, so read services/backend/.env. Without this a key sitting
+# in .env is silently ignored and every request quietly runs on the $0.10/day
+# unauthenticated tier instead of the $1.00/day authenticated one -- no error, just
+# a 10x smaller budget. An already-exported value still wins.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from env import load_backend_env  # noqa: E402
+
+load_backend_env()
+
 _OA_API_KEY = (os.environ.get("OPENALEX_API_KEY") or "").strip()
 
 # Fetch oa_url in addition to the standard fields used by draft_reference_extraction
