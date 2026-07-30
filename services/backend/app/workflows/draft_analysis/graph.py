@@ -4,8 +4,10 @@ Draft Analysis Workflow Graph
 LangGraph workflow that orchestrates the complete draft analysis process.
 """
 
+import functools
 import json
 import os
+from contextlib import nullcontext
 from pathlib import Path
 
 from langgraph.graph import StateGraph, END
@@ -13,7 +15,17 @@ from langgraph.types import Send
 from app.workflows.draft_analysis.state import DraftAnalysisState
 from app.workflows.draft_analysis.checkpoints import get_checkpoint_saver
 from app.core.logging_config import get_logger
+from app.core.llm_budget import llm_label
 from app.core.privacy import safe_exception
+from app.core.tracing import (
+    NOESIS_NODE_NAME,
+    SpanKind,
+    extract_context,
+    inject_context,
+    run_attributes,
+    start_span,
+    use_context,
+)
 from app.services.progress_publisher import publish_progress
 
 # Import all workflow nodes
@@ -36,6 +48,51 @@ from app.workflows.draft_analysis.nodes.verify_citations import verify_citations
 from app.workflows.draft_analysis.nodes.report_synthesis import synthesize_report_node
 
 logger = get_logger(__name__)
+
+#: Span attribute for the reviewer persona a ``reviewer_panel_node`` instance ran as.
+#: ``core.tracing`` has no constant for it because the reviewer fan-out is specific
+#: to this graph; the ``noesis.*`` prefix keeps it inside the same namespace.
+NOESIS_REVIEWER_TYPE = "noesis.reviewer.type"
+
+
+def _traced_node(node_name: str, fn):
+    """Wrap a node callable in its NODE span and its token-attribution label.
+
+    This is the single injection point for the whole graph: every node is
+    registered through :func:`create_draft_analysis_workflow`, so wrapping here
+    instruments all 18 of them without touching a single node body.
+
+    Parenting:
+
+    * Normal nodes inherit the ambient context (the RUN span, or an enclosing
+      node span) through the contextvar -- LangGraph creates each node's task
+      from the invoking context, so it propagates.
+    * Fan-out branches arrive via ``Send`` with an explicitly injected
+      ``SpanContext`` in their payload. ``use_context`` re-establishes it so the
+      three reviewer spans are siblings under one parent rather than three
+      orphaned roots. ``use_context(None)`` *clears* the parent, so it is only
+      entered when a context was actually found -- otherwise a normal node would
+      lose its RUN parent.
+
+    With ``NOESIS_TRACING_BACKEND`` unset both context managers are effectively
+    free (a noop adapter and two contextvar set/reset pairs).
+    """
+
+    @functools.wraps(fn)
+    async def wrapper(state: DraftAnalysisState) -> DraftAnalysisState:
+        parent = extract_context(state)
+        attributes = {NOESIS_NODE_NAME: node_name}
+        reviewer_type = state.get("reviewer_type")
+        if reviewer_type:
+            attributes[NOESIS_REVIEWER_TYPE] = reviewer_type
+        with (
+            use_context(parent) if parent is not None else nullcontext(),
+            start_span(node_name, kind=SpanKind.NODE, attributes=attributes),
+            llm_label(node_name),
+        ):
+            return await fn(state)
+
+    return wrapper
 
 
 def _dump_eval_state(node_name: str, state: DraftAnalysisState) -> None:
@@ -164,6 +221,19 @@ async def _external_source_discovery_node_with_progress(state: DraftAnalysisStat
 
     claims_with_citations = state.get("claims_with_citations", [])
     coverage_gaps = state.get("coverage_gaps", [])
+
+    if os.environ.get("EVAL_SKIP_EXTERNAL_SOURCE_DISCOVERY") == "1":
+        logger.info("[Workflow] External source discovery skipped by EVAL_SKIP_EXTERNAL_SOURCE_DISCOVERY=1")
+        result: DraftAnalysisState = {
+            "claims_with_citations": claims_with_citations,
+            "coverage_gaps": coverage_gaps,
+            "external_sources": [],
+            "current_step": "External Source Discovery (Eval Skipped)",
+            "progress_percentage": 76,
+        }
+        if draft_id:
+            await publish_progress(draft_id, "external_sources", 76, "External source discovery skipped")
+        return result
 
     try:
         from app.services.draft_external_source_discovery import (
@@ -395,26 +465,34 @@ def route_to_reviewer_panel(state: DraftAnalysisState):
     # gate failure, halt BEFORE the reviewer panel + meta-review so tokens aren't burned
     # on output the publish gate would suppress. Reviewer panel runs only on parses that
     # clear this checkpoint.
-    try:
-        from app.services.draft_publish_gate import should_halt_before_reviewers
-        parser_quality = state.get("parser_quality") or {}
-        prelim = should_halt_before_reviewers(
-            page_anchor_coverage=_preliminary_anchor_coverage(state),
-            parser_quality_score=parser_quality.get("parser_quality_score"),
-            parse_blocked=bool(parser_quality.get("parse_blocked")),
-        )
-        if prelim["halt"]:
-            logger.warning(
-                "[Routing] Preliminary gate FAILED (%s) — skipping reviewer panel + meta-review",
-                "; ".join(prelim["reasons"]),
+    if os.environ.get("EVAL_DISABLE_PRE_REVIEWER_HALT") == "1":
+        logger.info("[Routing] Preliminary reviewer halt disabled for eval")
+    else:
+        try:
+            from app.services.draft_publish_gate import should_halt_before_reviewers
+            parser_quality = state.get("parser_quality") or {}
+            prelim = should_halt_before_reviewers(
+                page_anchor_coverage=_preliminary_anchor_coverage(state),
+                parser_quality_score=parser_quality.get("parser_quality_score"),
+                parse_blocked=bool(parser_quality.get("parse_blocked")),
             )
-            return "synthesize_report"
-    except Exception as exc:  # never block the run on the preliminary gate itself
-        logger.warning("[Routing] Preliminary gate check skipped: %s", safe_exception(exc))
+            if prelim["halt"]:
+                logger.warning(
+                    "[Routing] Preliminary gate FAILED (%s) — skipping reviewer panel + meta-review",
+                    "; ".join(prelim["reasons"]),
+                )
+                return "synthesize_report"
+        except Exception as exc:  # never block the run on the preliminary gate itself
+            logger.warning("[Routing] Preliminary gate check skipped: %s", safe_exception(exc))
 
     logger.info("[Routing] Editor approved — dispatching 3 parallel reviewers")
+    # inject_context mutates its argument in place. That is safe *only* because
+    # ``{**state, "reviewer_type": rt}`` is a fresh dict per branch -- never call
+    # it on the live ``state``, which would stamp the trace key onto the graph's
+    # own channels. Each branch carries the same parent context, so the three
+    # reviewer spans come out as siblings of one parent sharing one trace_id.
     return [
-        Send("reviewer_panel_node", {**state, "reviewer_type": rt})
+        Send("reviewer_panel_node", inject_context({**state, "reviewer_type": rt}))
         for rt in REVIEWER_TYPES
     ]
 
@@ -451,24 +529,29 @@ def create_draft_analysis_workflow() -> StateGraph:
     # ADD NODES
     # ============================================
 
-    workflow.add_node("extract_structure", _extract_structure_node_with_progress)
-    workflow.add_node("profile_manuscript", _manuscript_profile_node_with_progress)
-    workflow.add_node("extract_references", _extract_references_node_with_progress)
-    workflow.add_node("extract_claims", _extract_claims_node_with_progress)
-    workflow.add_node("categorize_claims", _categorize_claims_node_with_progress)
-    workflow.add_node("verify_citations", _verify_citations_node_with_progress)
-    workflow.add_node("search_literature", _literature_search_node_with_progress)
-    workflow.add_node("map_citations", _citation_mapping_node_with_progress)
-    workflow.add_node("detect_gaps", _detect_gaps_node_with_progress)
-    workflow.add_node("discover_external_sources", _external_source_discovery_node_with_progress)
-    workflow.add_node("citation_judge_node", _citation_judge_node_with_progress)
-    workflow.add_node("run_quality_diagnostics", _diagnostic_findings_node_with_progress)
-    workflow.add_node("structural_checks", _structural_checks_node_with_progress)
-    workflow.add_node("editor_pass_node", _editor_pass_node_with_progress)
-    workflow.add_node("reviewer_panel_node", _reviewer_panel_node_with_progress)
-    workflow.add_node("reviewer_judge_node", _reviewer_judge_node_with_progress)
-    workflow.add_node("meta_reviewer_node", _meta_reviewer_node_with_progress)
-    workflow.add_node("synthesize_report", _synthesize_report_node_with_progress)
+    # Every node goes through _traced_node: one span + one token label per node,
+    # applied once here instead of 18 times in the wrapper bodies.
+    def add_node(name: str, fn) -> None:
+        workflow.add_node(name, _traced_node(name, fn))
+
+    add_node("extract_structure", _extract_structure_node_with_progress)
+    add_node("profile_manuscript", _manuscript_profile_node_with_progress)
+    add_node("extract_references", _extract_references_node_with_progress)
+    add_node("extract_claims", _extract_claims_node_with_progress)
+    add_node("categorize_claims", _categorize_claims_node_with_progress)
+    add_node("verify_citations", _verify_citations_node_with_progress)
+    add_node("search_literature", _literature_search_node_with_progress)
+    add_node("map_citations", _citation_mapping_node_with_progress)
+    add_node("detect_gaps", _detect_gaps_node_with_progress)
+    add_node("discover_external_sources", _external_source_discovery_node_with_progress)
+    add_node("citation_judge_node", _citation_judge_node_with_progress)
+    add_node("run_quality_diagnostics", _diagnostic_findings_node_with_progress)
+    add_node("structural_checks", _structural_checks_node_with_progress)
+    add_node("editor_pass_node", _editor_pass_node_with_progress)
+    add_node("reviewer_panel_node", _reviewer_panel_node_with_progress)
+    add_node("reviewer_judge_node", _reviewer_judge_node_with_progress)
+    add_node("meta_reviewer_node", _meta_reviewer_node_with_progress)
+    add_node("synthesize_report", _synthesize_report_node_with_progress)
 
     # ============================================
     # ADD EDGES
@@ -555,6 +638,7 @@ async def run_draft_analysis_workflow(
     parser_quality: dict | None = None,
     quality_retry_instruction: str | None = None,
     forced_route: str | None = None,
+    analysis_run_id: str | None = None,
 ) -> DraftAnalysisState:
     """
     Run the complete draft analysis workflow.
@@ -568,10 +652,57 @@ async def run_draft_analysis_workflow(
         paper_type: Optional draft type for editor/reviewer context
         citation_style: Optional citation style for editor/reviewer context
         analysis: Existing draft_analysis.analysis payload, including Stage 1 editing feedback
+        analysis_run_id: Optional draft_analysis_runs row id. Used only to key the
+            root trace span; the caller may omit it, in which case the run span
+            falls back to draft_id.
 
     Returns:
         Final workflow state with complete analysis
+
+    The whole run is enclosed in a single RUN span, so every node span opened
+    inside it inherits one trace_id and the run is one connected tree.
     """
+    with start_span(
+        "draft_analysis_run",
+        kind=SpanKind.RUN,
+        attributes=run_attributes(
+            analysis_run_id=analysis_run_id or draft_id,
+            draft_id=draft_id,
+        ),
+    ):
+        return await _run_draft_analysis_workflow(
+            draft_id=draft_id,
+            project_id=project_id,
+            user_id=user_id,
+            draft_content=draft_content,
+            checkpoint_enabled=checkpoint_enabled,
+            paper_type=paper_type,
+            citation_style=citation_style,
+            analysis=analysis,
+            initial_structure=initial_structure,
+            parse_artifact=parse_artifact,
+            parser_quality=parser_quality,
+            quality_retry_instruction=quality_retry_instruction,
+            forced_route=forced_route,
+        )
+
+
+async def _run_draft_analysis_workflow(
+    draft_id: str,
+    project_id: str,
+    user_id: str,
+    draft_content: str,
+    checkpoint_enabled: bool = True,
+    paper_type: str | None = None,
+    citation_style: str | None = None,
+    analysis: dict | None = None,
+    initial_structure: dict | None = None,
+    parse_artifact: dict | None = None,
+    parser_quality: dict | None = None,
+    quality_retry_instruction: str | None = None,
+    forced_route: str | None = None,
+) -> DraftAnalysisState:
+    """Body of :func:`run_draft_analysis_workflow`, run inside the RUN span."""
     logger.info(f"[Workflow] ========== WORKFLOW START ==========")
     logger.info(f"[Workflow] draft_id={draft_id}")
     logger.info(f"[Workflow] project_id={project_id}")
@@ -722,7 +853,14 @@ async def resume_draft_analysis_workflow(draft_id: str) -> DraftAnalysisState:
     try:
         # Resume execution
         # Note: LangGraph can continue from where it left off
-        final_state = await workflow.ainvoke(saved_state)
+        # Same RUN span as a fresh run, so a resumed run is one tree rather than
+        # one orphaned root per node.
+        with start_span(
+            "draft_analysis_run",
+            kind=SpanKind.RUN,
+            attributes=run_attributes(analysis_run_id=draft_id, draft_id=draft_id),
+        ):
+            final_state = await workflow.ainvoke(saved_state)
 
         # Update checkpoint status
         checkpoint_saver.update_status(draft_id, "completed")

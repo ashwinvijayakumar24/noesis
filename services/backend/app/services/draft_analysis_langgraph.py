@@ -939,7 +939,10 @@ async def analyze_draft_with_langgraph(
             parse_artifact=parse_artifact,
             parser_quality=parser_quality,
             forced_route=forced_route,
-            checkpoint_enabled=True
+            checkpoint_enabled=True,
+            # Keys the root trace span to the same id the durable artifacts use,
+            # so a span tree joins to draft_analysis_runs without a second lookup.
+            analysis_run_id=analysis_run_id,
         )
         logger.info(f"[LangGraph Draft Analysis] Workflow completed, processing results...")
 

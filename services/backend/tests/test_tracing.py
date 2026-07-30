@@ -705,14 +705,25 @@ def test_tracing_module_does_not_import_llm_budget():
     assert not any("llm_budget" in line for line in code_lines)
 
 
-def test_module_is_not_imported_by_the_pipeline_yet():
-    """Scope guard: this lane builds the module only, it does not wire it."""
+def test_module_is_wired_into_the_graph():
+    """Was a scope guard asserting NOTHING imported this module -- the module was
+    built one wave before it was wired, and the guard kept those waves honest.
+
+    It is now inverted rather than deleted: the graph is the consumer this module
+    exists for, and an import silently disappearing (a bad merge, an over-eager
+    cleanup of an "unused" import) would leave every span unrecorded while the
+    whole suite stayed green. Tracing that quietly stops tracing is the failure
+    mode worth a test.
+    """
     backend_root = Path(__file__).resolve().parents[1] / "app"
-    offenders = []
+    consumers = []
     for py in backend_root.rglob("*.py"):
         if py.name == "tracing.py":
             continue
         text = py.read_text(encoding="utf-8", errors="ignore")
         if "core.tracing" in text or "from .tracing" in text:
-            offenders.append(str(py))
-    assert offenders == [], f"tracing wired in prematurely: {offenders}"
+            consumers.append(py.name)
+    assert "graph.py" in consumers, (
+        f"draft_analysis graph no longer imports core.tracing; spans are silently "
+        f"off. Current consumers: {consumers}"
+    )
