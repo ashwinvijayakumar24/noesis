@@ -1,0 +1,124 @@
+# Optional observability stack for Noesis -- Langfuse trace UI.
+#
+# SEPARATE FILE ON PURPOSE. Nothing here is part of the default `docker compose
+# up`; the `obs` profile keeps it off unless explicitly asked for.
+#
+#   Run alongside the main stack:
+#     docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile obs up -d
+#
+#   Stop just the observability services:
+#     docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile obs down
+#
+#   Langfuse UI: http://localhost:3100  (create the first user via the sign-up form)
+#
+# ---------------------------------------------------------------------------
+# WHY LANGFUSE v2 AND NOT v3
+# ---------------------------------------------------------------------------
+# Langfuse v3 split the single-container design into a required multi-service
+# deployment: web + async worker + ClickHouse + Redis + MinIO (S3). Rough
+# steady-state footprint on this machine:
+#
+#     ClickHouse       ~1.5-2.0 GB   (it is the hard floor; JVM-free but
+#                                     mark-cache + uncompressed cache alone
+#                                     want ~1 GB before any query load)
+#     MinIO            ~0.3 GB
+#     Redis (its own)  ~0.1 GB
+#     langfuse-web     ~0.5 GB
+#     langfuse-worker  ~0.5 GB
+#     Postgres         ~0.2 GB
+#     ------------------------------
+#     v3 total         ~3.1-3.6 GB
+#
+# Docker on this machine has 8.2 GB total. The Noesis app stack already runs
+# backend + celery worker + redis + grobid, and GROBID alone is a ~2.5-3 GB JVM
+# once its CRF models are loaded; with the rest the app stack sits around
+# 4.5-5.5 GB. 5.5 + 3.4 overruns 8.2 GB and the OOM killer takes whichever
+# container asks for memory next -- in practice GROBID or celery, i.e. the
+# pipeline we are trying to measure. Observability that kills the workload is
+# worse than no observability.
+#
+# v2 needs only Postgres + one web container:
+#
+#     langfuse-web     ~0.5 GB
+#     Postgres         ~0.2 GB
+#     ------------------------------
+#     v2 total         ~0.7 GB   -> fits in the ~2.5 GB headroom with room left
+#
+# Pinned to an exact v2 tag rather than `:2` so a re-pull cannot silently drag
+# in a v3-shaped image. If you later need v3 features (evals, LLM-as-judge in
+# the UI), give Docker >=12 GB first, or run the app stack down while tracing
+# replayed JSONL instead.
+#
+# The `jsonl` tracing adapter (app/core/tracing.py) is the fallback that needs
+# none of this: per-node p50/p95, tokens and cost are all computable from the
+# JSONL alone. Langfuse is the nicer UI, not the source of truth.
+#
+# ---------------------------------------------------------------------------
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!! EVERY CREDENTIAL BELOW IS A HARDCODED LOCAL-DEVELOPMENT PLACEHOLDER. !!!
+# !!! They are committed in plaintext deliberately so this file needs no    !!!
+# !!! .env and leaks nothing. This stack binds to localhost and MUST NOT be !!!
+# !!! deployed anywhere reachable from a network. If you ever host Langfuse !!!
+# !!! for real, regenerate NEXTAUTH_SECRET and SALT (`openssl rand -base64  !!!
+# !!! 32`), change the Postgres password, and move all of it into secrets.  !!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# ---------------------------------------------------------------------------
+
+services:
+  langfuse-db:
+    image: postgres:15-alpine
+    container_name: noesis-langfuse-db
+    profiles: ["obs"]
+    restart: unless-stopped
+    environment:
+      # LOCAL-ONLY PLACEHOLDER CREDENTIALS -- see the loud block above.
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse_local_dev_only
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  langfuse:
+    # Langfuse v2 -- single container, Postgres only. See the version note above.
+    image: langfuse/langfuse:2.95.3
+    container_name: noesis-langfuse
+    profiles: ["obs"]
+    restart: unless-stopped
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    ports:
+      # 3100 on the host to stay clear of anything already on 3000.
+      - "127.0.0.1:3100:3000"
+    environment:
+      # LOCAL-ONLY PLACEHOLDER CREDENTIALS -- see the loud block above.
+      DATABASE_URL: postgresql://langfuse:langfuse_local_dev_only@langfuse-db:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3100
+      NEXTAUTH_SECRET: local-dev-only-nextauth-secret-not-a-real-secret
+      SALT: local-dev-only-salt-not-a-real-secret
+      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      TELEMETRY_ENABLED: "false"
+      # No public sign-up beyond the first user; this is a single-operator box.
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/public/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+volumes:
+  langfuse_db_data:
