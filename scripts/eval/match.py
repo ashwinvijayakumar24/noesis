@@ -5,6 +5,26 @@ Pipeline:
 1. Cache embeddings for both sides.
 2. Cosine prefilter candidate pairs.
 3. Cache GPT confirmation per surviving pair.
+
+SPEND GUARDRAILS
+----------------
+Both network paths here (embeddings and the GPT confirmation) go through
+``app.core.llm_budget``: ``check_llm_allowed()`` before the call, ``record_usage``
+/ ``record_response_usage`` after. Until this was wired up, matcher calls were
+invisible to every cost figure the eval harness printed and ignored
+NOESIS_LLM_KILL_SWITCH / EVAL_REPLAY_ONLY / NOESIS_LLM_MAX_CALLS /
+NOESIS_LLM_MAX_SPEND_USD entirely, so reported spend was a lower bound by an
+unknown margin.
+
+Why the budget functions are called directly instead of routing through
+``app.services.retry_utils``: that wrapper is built for *structured output* --
+it calls ``client.beta.chat.completions.parse`` and sanitises kwargs for a
+Pydantic ``response_format``. The matcher deliberately uses plain
+``response_format={"type": "json_object"}`` plus its own bisecting retry
+(``_confirm_chunk``) to isolate a single bad pair, and the embedding path is not
+a chat completion at all. Reusing retry_utils would mean rewriting both. The
+guardrail contract retry_utils provides -- guard before the request, record
+after -- is what matters, and it is reproduced here exactly.
 """
 
 from __future__ import annotations
@@ -27,9 +47,20 @@ else:
     if _svc not in sys.path:
         sys.path.insert(0, _svc)
 
+from app.core.llm_budget import (  # noqa: E402
+    LLMGuardrailError,
+    check_llm_allowed,
+    current_label,
+    record_response_usage,
+    record_usage,
+)
+
 EVAL_DIR = Path(__file__).resolve().parent
 DEFAULT_CACHE_DIR = EVAL_DIR / "cache" / "match"
 PROMPT_VERSION = "match_v1"
+
+EMBED_MODEL = "text-embedding-3-small"
+CONFIRM_MODEL = "gpt-5.2"
 
 # Initial value chosen before hand-label calibration. Phase-2 calibration target:
 # 30 labeled pairs with agreement >=0.85; update this comment with precision/recall.
@@ -38,6 +69,41 @@ CONFIRM_BATCH_SIZE = 20
 
 Embedder = Callable[[list[str]], list[list[float]]]
 Confirmer = Callable[[list[dict]], list[dict]]
+
+
+def _match_label(kind: str) -> str:
+    """A usage label that always begins with ``match:`` so matcher spend is separable.
+
+    ``node_eval.score_replay`` already runs the matcher inside
+    ``llm_label(f"match:{node}")``. An explicit label beats the ambient one in
+    ``llm_budget._resolve_label``, so composing rather than overriding is what
+    keeps the per-node attribution ("match:reviewer_panel:confirm") while still
+    guaranteeing the ``match:`` prefix when the matcher is run standalone from
+    ``main()`` (where the ambient label is None and the fallback would otherwise
+    be the bare model name, i.e. indistinguishable from node spend).
+    """
+    ambient = current_label()
+    if not ambient:
+        return f"match:{kind}"
+    if ambient.startswith("match"):
+        return f"{ambient}:{kind}"
+    return f"match:{ambient}:{kind}"
+
+
+def _count_tokens(texts: list[str]) -> int:
+    """Token count for embedding usage accounting.
+
+    The embeddings endpoint response is reduced to ``.data`` by
+    ``rag_ingest.embed_chunks``, so no usage block survives to read. Counting
+    with cl100k_base -- the tokenizer text-embedding-3-* actually uses -- matches
+    what ``scripts/eval/ingest.py`` already does for the same reason.
+    ``disallowed_special=()`` for the same reason as rag_chunking: this is
+    counting, and critique text can legitimately quote "<|endoftext|>".
+    """
+    import tiktoken
+
+    enc = tiktoken.get_encoding("cl100k_base")
+    return sum(len(enc.encode(text, disallowed_special=())) for text in texts)
 
 
 def _stable_hash(parts: list[str]) -> str:
@@ -57,7 +123,7 @@ def _item_text(item: dict) -> str:
 
 
 def _embedding_cache_key(text: str) -> str:
-    return _stable_hash(["text-embedding-3-small", "1536", text])
+    return _stable_hash([EMBED_MODEL, "1536", text])
 
 
 def _confirm_cache_key(noesis_text: str, unit_text: str) -> str:
@@ -77,7 +143,7 @@ def _as_bool(value: Any) -> bool:
 def _real_embed(texts: list[str]) -> list[list[float]]:
     from app.services.rag_ingest import embed_chunks
 
-    data = embed_chunks(texts, model="text-embedding-3-small")
+    data = embed_chunks(texts, model=EMBED_MODEL)
     return [list(item.embedding) for item in data]
 
 
@@ -107,7 +173,17 @@ def _embed_texts(
             stats["embed_calls"] = stats.get("embed_calls", 0) + 1
             stats["embedded_texts"] = stats.get("embedded_texts", 0) + len(misses)
         batch_embedder = embedder or _real_embed
-        embedded = batch_embedder([text for _, text, _ in misses])
+        miss_texts = [text for _, text, _ in misses]
+        # Guard covers the injected embedder too: the ceilings bound *calls*, and
+        # a test double standing in for the network still represents one.
+        label = _match_label("embed")
+        check_llm_allowed(label)
+        embedded = batch_embedder(miss_texts)
+        record_usage(
+            model=EMBED_MODEL,
+            prompt_tokens=_count_tokens(miss_texts),
+            label=label,
+        )
         if len(embedded) != len(misses):
             raise RuntimeError("Embedder returned wrong number of vectors")
         for (idx, _text, path), vector in zip(misses, embedded):
@@ -138,7 +214,7 @@ def _real_confirm(pairs: list[dict], client: Any | None = None) -> list[dict]:
     from app.core.openai_client import get_completion_params
 
     response = client.chat.completions.create(
-        model="gpt-5.2",
+        model=CONFIRM_MODEL,
         messages=[
             {
                 "role": "system",
@@ -161,9 +237,12 @@ def _real_confirm(pairs: list[dict], client: Any | None = None) -> list[dict]:
         temperature=0,
         **get_completion_params(),
     )
+    record_response_usage(response, model=CONFIRM_MODEL, label=_match_label("confirm"))
     content = response.choices[0].message.content or "{}"
     payload = json.loads(content)
     results = payload.get("pairs") or payload.get("results") or payload.get("matches")
+    if results is None and {"index", "confirmed"} <= set(payload):
+        results = [payload]
     if not isinstance(results, list):
         raise RuntimeError(f"Matcher response missing pairs list: {content[:500]}")
     return results
@@ -219,8 +298,17 @@ def _confirm_chunk(pairs: list[dict], confirm: Confirmer, stats: dict[str, int] 
         return []
     if stats is not None:
         stats["confirm_calls"] = stats.get("confirm_calls", 0) + 1
+    # BEFORE the network call, and before the bisect below, so a tripped
+    # guardrail halts matching instead of being retried into two halves. Sits
+    # here rather than inside _real_confirm so an injected confirmer is bounded
+    # by the same ceilings.
+    check_llm_allowed(_match_label("confirm"))
     try:
         confirmed = confirm(pairs)
+    except LLMGuardrailError:
+        # LLMGuardrailError subclasses RuntimeError, so without this it would be
+        # swallowed by the bisect below and retried -- the opposite of halting.
+        raise
     except (json.JSONDecodeError, RuntimeError) as exc:
         if len(pairs) == 1:
             raise RuntimeError(f"Matcher confirmation failed for pair index {pairs[0].get('index')}") from exc

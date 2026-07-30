@@ -15,7 +15,11 @@ from app.core.config import settings
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.grobid_client import get_grobid_client
-from app.services.rag_chunking import get_chunking_strategy, get_section_aware_chunking_strategy
+from app.services.rag_chunking import (
+    count_and_encode,
+    get_chunking_strategy,
+    get_section_aware_chunking_strategy,
+)
 import datetime
 from typing import Any, Dict, List, Tuple
 
@@ -216,7 +220,11 @@ def chunk_text(text: str, max_tokens: int = 500, overlap_tokens: int = 100) -> L
         List of text chunks
     """
     enc = tiktoken.get_encoding("cl100k_base")
-    tokens = enc.encode(text)
+    # count_and_encode, not enc.encode: a document quoting "<|endoftext|>" (any
+    # paper about LLM tokenisation does) otherwise raises here. See the
+    # _DISALLOWED_SPECIAL note in rag_chunking for why the literal string is kept
+    # as text rather than promoted to a control token.
+    tokens = count_and_encode(enc, text)
 
     chunks = []
     stride = max(1, max_tokens - overlap_tokens)  # Ensure stride is at least 1
@@ -346,7 +354,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
         # 5. Calculate total tokens for adaptive chunking
         logger.info(f"[RAG-INGEST] Step 5: Calculating total tokens...")
         enc = tiktoken.get_encoding("cl100k_base")
-        total_tokens = len(enc.encode(full_text))
+        total_tokens = len(count_and_encode(enc, full_text))
         logger.info(f"[RAG-INGEST] ✓ Document has {total_tokens} tokens across {page_count} pages")
 
         # 6. Determine chunking strategy based on GROBID section extraction

@@ -23,6 +23,44 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================
+# TOKENISATION
+# ============================================
+
+# tiktoken's `encode()` defaults to ``disallowed_special="all"``, which RAISES
+# ValueError when the input contains any special-token *string* such as
+# "<|endoftext|>" or "<|im_start|>". That default exists to stop text of unknown
+# provenance from being silently promoted into real control tokens on a
+# *generation* path, where a smuggled <|im_start|> could forge a role boundary.
+#
+# Every call here is a COUNTING/SPLITTING operation used to size chunks; the
+# resulting token ids are decoded straight back to text or just measured, and
+# are never handed to a completion endpoint as ids. So the injection concern the
+# default guards against does not arise, while the default's failure mode does:
+# a real published paper about prompt injection (greshake et al. 2023) quotes
+# "<|endoftext|>" in its body, and ingestion of that PDF crashed outright.
+#
+# Choice: ``disallowed_special=()`` rather than an explicit ``allowed_special``
+# set. They differ in what the text BECOMES:
+#   - allowed_special={"<|endoftext|>"}  -> the literal string is encoded AS the
+#     special token id. That is the option that actually creates control tokens
+#     out of document text, and it also distorts the count (13 characters ->
+#     1 token) and would let a crafted PDF inject a control token into anything
+#     downstream that reuses the ids.
+#   - disallowed_special=()              -> nothing is forbidden and nothing is
+#     promoted; ``allowed_special`` stays empty, so "<|endoftext|>" is encoded
+#     as ordinary bytes and decodes back to exactly the same characters.
+# The second is both the safer and the more faithful one: the paper's text is
+# text, and chunking must preserve it verbatim. Normal text is unaffected --
+# the parameter only governs the special-string case.
+_DISALLOWED_SPECIAL: tuple = ()
+
+
+def count_and_encode(enc: "tiktoken.Encoding", text: str) -> List[int]:
+    """Encode ``text`` for chunk sizing, tolerating literal special-token strings."""
+    return enc.encode(text, disallowed_special=_DISALLOWED_SPECIAL)
+
+
+# ============================================
 # SENTENCE SEGMENTATION
 # ============================================
 
@@ -377,7 +415,7 @@ def chunk_section_content(
         List of chunk dictionaries with metadata
     """
     enc = tiktoken.get_encoding("cl100k_base")
-    tokens = enc.encode(content)
+    tokens = count_and_encode(enc, content)
 
     # If section fits in one chunk, return it as-is
     if len(tokens) <= max_chunk_size:
@@ -399,7 +437,7 @@ def chunk_section_content(
     chunk_index = 0
 
     for sentence in sentences:
-        sentence_tokens = len(enc.encode(sentence))
+        sentence_tokens = len(count_and_encode(enc, sentence))
 
         # Check if adding this sentence would exceed max_chunk_size
         if current_chunk_tokens + sentence_tokens > max_chunk_size and current_chunk_sentences:
@@ -418,7 +456,7 @@ def chunk_section_content(
             overlap_sentences = []
             overlap_tokens = 0
             for s in reversed(current_chunk_sentences):
-                s_tokens = len(enc.encode(s))
+                s_tokens = len(count_and_encode(enc, s))
                 if overlap_tokens + s_tokens <= overlap:
                     overlap_sentences.insert(0, s)
                     overlap_tokens += s_tokens

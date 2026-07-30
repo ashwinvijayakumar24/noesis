@@ -145,7 +145,18 @@ def _encoder():
 
 
 def count_tokens(text: str) -> int:
-    return len(_encoder().encode(text))
+    # disallowed_special=() or this raises on any document quoting a special-token
+    # string. Not hypothetical: a paper in this very corpus (greshake_2023, on
+    # prompt injection) contains "<|endoftext|>" three times, and tiktoken's
+    # default disallowed_special="all" turns that into a hard crash mid-ingest.
+    #
+    # () rather than allowed_special={"<|endoftext|>"}: the latter would encode
+    # the literal string AS the control-token id -- promoting document text to a
+    # control token, which is the risk the default actually guards against, and it
+    # would undercount 13 characters as 1 token. With () nothing is forbidden and
+    # nothing is promoted; the text encodes as ordinary bytes. This is a counting
+    # path, never a generation path.
+    return len(_encoder().encode(text, disallowed_special=()))
 
 
 # --------------------------------------------------------------------------
