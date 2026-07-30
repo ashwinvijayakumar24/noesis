@@ -161,6 +161,98 @@ EVAL_DB_HOST/PORT/NAME/USER/PASSWORD   # local pgvector on :5433
 
 ---
 
-## Wave 2 — not started
+## Wave 2 — COMPLETE (2026-07-30)
 
-Gate to enter: none outstanding. Two decisions pending — apply 037 to production, and whether to finish the two uncommitted reviewer-panel tests.
+Six tasks: one serial, five agents in parallel.
+
+| Task | Commit | Result |
+|---|---|---|
+| 2.0 keyword-search failure made audible | `a4b7a9c` | 9 tests |
+| Model pricing table | `91bd336` | 84 → 100 tests; dollar ceiling now fires |
+| Tracing wired into the graph | `c743387` | 10 tests; 21-span tree, one trace id |
+| Corpus ingested into pgvector | `83e47eb` | 15 tests; 698 chunks, 38 docs, $0.148 |
+| Precision that can fail + eval history | `64cbd61` | 37 tests |
+| Reference denominator + retrieval join | `0fa556a` | 19 tests |
+
+### Test totals
+
+| Suite | Count |
+|---|---|
+| `services/backend/tests` (excl. e2e) | **860 passed, 2 failed** (the 2 pre-existing) |
+| `scripts/eval/*` (5 suites) | **274 passed**, green with `NOESIS_LLM_KILL_SWITCH=1` forced on |
+
+---
+
+### 🔴 Eval precision was structurally incapable of failing
+
+`judge_openreview.py:307-324` counted an item correct if it matched a gold review unit **OR** its anchor appeared in the PDF **OR** an LLM judged it grounded. An item no human reviewer raised counted as a hit the moment a model blessed it.
+
+| Metric | Shipped scoreboard | Honest value |
+|---|---|---|
+| `mean_precision` → `mean_precision_vs_gold` | **1.0** | **0.27** |
+| `mean_hallucination_rate` | **0.0** | **0.1109** |
+| `mean_groundedness` | folded into precision | 0.8891 |
+| `mean_weakness_recall` | 0.1872 | 0.1872 (unchanged) |
+
+Per paper, distinct matched items over items produced: `rhgIgTSSxW` 7/22 · `miGpIhquyB` 7/24 · `rp5vfyp5Np` 6/30.
+
+**So ~73% of what Noesis raises was raised by no human reviewer, and ~11% points at text not findable in the paper.**
+
+Numerator subtlety worth carrying: `confirmed_matches` counts match *pairs* (10/17/15) and one item can match several gold units, so a pair-based figure reads **0.554** and double-counts. Precision must be distinct-items-over-items. **n=3** — real, not stable.
+
+Recomputed entirely from cached exports and gold on disk. Zero LLM calls.
+
+### 🔴 `build_corpus.py` has been unrunnable in the repo
+
+`git show HEAD:scripts/eval/build_corpus.py` → `SyntaxError: expected an indented block after 'if' statement` at line 384. The tool that builds the eval corpora did not parse. Fixed as a prerequisite to everything else in that lane.
+
+### ✅ The retrieval join is open
+
+| | |
+|---|---|
+| references attempted | **145** (was `UNKNOWN`) |
+| references resolved | **80** |
+| resolution rate | **55.2%** — vs the ≤19.5% upper bound the old data supported |
+| queries joined | **59**, all 59 with ≥1 relevant document |
+| relevant judgments | 903 across 4 topics |
+
+### Two bugs that would have produced confident wrong answers
+
+- **Empty TLS trust store.** macOS framework Python failed every OpenAlex handshake, and the resolver swallowed the exception — indistinguishable from "OpenAlex has never heard of this paper." The first build wrote **120 false `no_openalex_match` entries**. A 0% resolution rate would have read as a finding rather than a broken client. Now uses `certifi`.
+- **Rate limiting that did not limit.** `RATE_DELAY` was slept *inside* each coroutine before `asyncio.gather`, so all N requests slept concurrently then fired simultaneously.
+
+### Two live production bugs found
+
+- **NUL bytes in 11 of 38 corpus PDFs** (95 chars; worst is 55 in one file). PostgreSQL `text` cannot store `\x00`, so ingestion crashes on insert. Stripped in the eval path only — **the same documents would fail ingestion through PostgREST today.** `rag_ingest.py` untouched.
+- **Progress bar runs backwards twice per run.** Constants are non-monotonic in execution order (`run_quality_diagnostics` 78 → `structural_checks` 76; `meta_review` 95 → `synthesize_report_start` 90) and `useAnalysisStream.ts` assigns unconditionally.
+
+### LangGraph behaviour, verified rather than assumed
+
+- An unknown key in the **initial** `ainvoke` state is **silently dropped** and never reaches a node — so seeding trace context through initial state fails silently.
+- An unknown key in a **`Send` payload** does reach the node and does not persist into state afterward.
+- A node **returning** an unknown key is tolerated and dropped.
+
+`_noesis_span_context` is therefore confined by the framework; stripping it would be dead code. Pinned by a test so a LangGraph upgrade fails loudly rather than leaking.
+
+### Other findings
+
+- **Spend ceiling was decorative** until the pricing table landed: every rate `None` → every call unpriced → `NOESIS_LLM_MAX_SPEND_USD` unable to fire. Now verified live — three `gpt-5.2` calls to $0.3465, fourth raises `LLMBudgetExceeded`.
+- **Embeddings needed `output_per_1m = 0.0`, not `None`.** The endpoint emits no completion tokens, so zero is a *verified* rate; `None` would have scored every embedding call as unpriced and silently dropped its cost.
+- **Ingest extractor is PyMuPDF, not production's Docling/GROBID chain**, so results describe the basic-chunking arm. Recorded per manifest row.
+- **Tier assignment is by page count, which does not track content length** — a 9-page/39,880-token paper lands in SHORT tier and yields 34 chunks where similar MEDIUM papers yield ~15. Confounds cross-document comparison.
+- **`labels.py` title-token matching is lenient**: it counted 44 unresolved where the sidecar records 65, leniently matching 21 to downloaded filenames. Inflates recall slightly. Not yet addressed.
+- **A mocked test must not depend on ambient env.** Six ingest tests failed under `NOESIS_LLM_KILL_SWITCH=1` despite spending nothing, because the guard reads env at call time. Fixed with an autouse fixture.
+
+### Blocked
+
+**OpenAlex is now a metered paid API.** Free tier $0.10/day ≈ 100 lookups; 544 parsed references need ~600–1000. 4 of 15 papers built; 11 remain (399 more references) plus 19 `pending`. Budget had not reset as of the last check (~3.9h to midnight UTC). Fully resumable — re-running built papers costs 1.2s and zero network calls.
+
+Options: fund ~$1 for a single ~40-minute run · re-run after each daily reset for ~10 days · build a Crossref + Unpaywall fallback (free, unmetered, but a different id space and match semantics than the sidecar schema assumes).
+
+---
+
+## Wave 2b — not started
+
+The wave that turns the benchmark board into numbers: first traced run (per-node p50/p95, `$/run`, fallback-invocation rate) and first retrieval baseline over the 59 joined queries.
+
+Gate to enter: none for the traced run. The retrieval baseline can run on 4 topics now, or on all 15 once OpenAlex is unblocked.
