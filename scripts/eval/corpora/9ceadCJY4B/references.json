@@ -1,0 +1,452 @@
+{
+  "corpus": "9ceadCJY4B",
+  "source_pdf": "9ceadCJY4B.pdf",
+  "source_sha256": "0d70026e1e6c10969044f29dc6c68e76d1889b1d0c14ddfa9e78d9b14bb8f3be",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T20:03:43.931015Z",
+  "references_attempted": 49,
+  "references_resolved": 37,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W4377121468",
+      "title": "PaLM 2 Technical Report",
+      "doi": "10.48550/arxiv.2305.10403",
+      "status": "resolved",
+      "filename": "anil_2023_palm_2_technical_report.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.10403",
+      "raw": "Rohan Anil, Andrew M Dai, Orhan Firat, Melvin Johnson, Dmitry Lepikhin, Alexandre Passos, Siamak Shakeri, Emanuel Taropa, Paige Bailey, Zhifeng Chen, et al. Palm 2 technical report. arXiv preprint arXiv:2305.10403, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3215698779",
+      "title": "A General Language Assistant as a Laboratory for Alignment",
+      "doi": "10.48550/arxiv.2112.00861",
+      "status": "resolved",
+      "filename": "askell_2021_a_general_language_assistant_as_a_laboratory_for_alignment.pdf",
+      "oa_url": "https://arxiv.org/pdf/2112.00861",
+      "raw": "Amanda Askell, Yuntao Bai, Anna Chen, Dawn Drain, Deep Ganguli, Tom Henighan, Andy Jones, Nicholas Joseph, Ben Mann, Nova DasSarma, et al. A general language assistant as a laboratory for alignment. arXiv preprint arXiv:2112.00861, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4223908421",
+      "title": "Training a Helpful and Harmless Assistant with Reinforcement Learning from Human Feedback",
+      "doi": "10.48550/arxiv.2204.05862",
+      "status": "resolved",
+      "filename": "bai_2022_training_a_helpful_and_harmless_assistant_with_reinforcement_learning_f.pdf",
+      "oa_url": "https://arxiv.org/pdf/2204.05862",
+      "raw": "Yuntao Bai, Andy Jones, Kamal Ndousse, Amanda Askell, Anna Chen, Nova DasSarma, Dawn Drain, Stanislav Fort, Deep Ganguli, Tom Henighan, et al. Training a helpful and harmless assistant with reinforcement learning from human feedback. arXiv preprint arXiv:2204.05862, 2022a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4311991106",
+      "title": "Affective Coherence Monitoring for Transformer-Based Language Models",
+      "doi": "10.48550/arxiv.2212.08073",
+      "status": "resolved",
+      "filename": "yuntao_2022_affective_coherence_monitoring_for_transformer_based_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2212.08073",
+      "raw": "Yuntao Bai, Saurav Kadavath, Sandipan Kundu, Amanda Askell, Jackson Kernion, Andy Jones, Anna Chen, Anna Goldie, Azalia Mirhoseini, Cameron McKinnon, et al. Constitutional ai: Harmlessness from ai feedback. arXiv preprint arXiv:2212.08073, 2022b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4319793302",
+      "title": "A Multitask, Multilingual, Multimodal Evaluation of ChatGPT on Reasoning, Hallucination, and Interactivity",
+      "doi": "10.48550/arxiv.2302.04023",
+      "status": "resolved",
+      "filename": "bang_2023_a_multitask_multilingual_multimodal_evaluation_of_chatgpt_on_reasoning.pdf",
+      "oa_url": "https://arxiv.org/pdf/2302.04023",
+      "raw": "Yejin Bang, Samuel Cahyawijaya, Nayeon Lee, Wenliang Dai, Dan Su, Bryan Wilie, Holy Lovenia, Ziwei Ji, Tiezheng Yu, Willy Chung, et al. A multitask, multilingual, multimodal evaluation of chatgpt on reasoning, hallucination, and interactivity. arXiv preprint arXiv:2302.04023, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3195577433",
+      "title": "On the Opportunities and Risks of Foundation Models",
+      "doi": "10.48550/arxiv.2108.07258",
+      "status": "resolved",
+      "filename": "bommasani_2021_on_the_opportunities_and_risks_of_foundation_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2108.07258",
+      "raw": "Rishi Bommasani, Drew A Hudson, Ehsan Adeli, Russ Altman, Simran Arora, Sydney von Arx, Michael S Bernstein, Jeannette Bohg, Antoine Bosselut, Emma Brunskill, et al. On the opportunities and risks of foundation models. arXiv preprint arXiv:2108.07258, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3030163527",
+      "title": "Language Models are Few-Shot Learners",
+      "doi": "10.48550/arxiv.2005.14165",
+      "status": "resolved",
+      "filename": "brown_2020_language_models_are_few_shot_learners.pdf",
+      "oa_url": "https://arxiv.org/pdf/2005.14165",
+      "raw": "Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, et al. Language models are few-shot learners. Advances in neural information processing systems, 33:1877–1901, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4323050332",
+      "title": "Evaluating the Feasibility of ChatGPT in Healthcare: An Analysis of Multiple Clinical and Research Scenarios",
+      "doi": "10.1007/s10916-023-01925-4",
+      "status": "resolved",
+      "filename": "cascella_2023_evaluating_the_feasibility_of_chatgpt_in_healthcare_an_analysis_of.pdf",
+      "oa_url": "https://link.springer.com/content/pdf/10.1007/s10916-023-01925-4.pdf",
+      "raw": "Marco Cascella, Jonathan Montomoli, Valentina Bellini, and Elena Bignami. Evaluating the feasibility of chatgpt in healthcare: an analysis of multiple clinical and research scenarios. Journal of Medical Systems, 47(1):33, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385738962",
+      "title": "From fiction to fact: the growing role of generative AI in business and finance",
+      "doi": "10.1080/14765284.2023.2245279",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://www.research.ed.ac.uk/en/publications/b24823ff-b68e-468f-9ce4-f33384705a58",
+      "raw": "Boyang Chen, Zongxiao Wu, and Ruoran Zhao. From fiction to fact: the growing role of generative ai in business and finance. Journal of Chinese Economic and Business Studies, pp. 1–26, 2023."
+    },
+    {
+      "openalex_id": null,
+      "title": "Vicuna: An open-source chatbot impressing gpt-4 with 90%* chatgpt quality",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng, Zhanghao Wu, Hao Zhang, Lianmin Zheng, Siyuan Zhuang, Yonghao Zhuang, Joseph E Gonzalez, et al. Vicuna: An open-source chatbot impressing gpt-4 with 90%* chatgpt quality. See https://vicuna. lmsys. org (accessed 14 April 2023), 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4224308101",
+      "title": "PaLM: Scaling Language Modeling with Pathways",
+      "doi": "10.48550/arxiv.2204.02311",
+      "status": "resolved",
+      "filename": "chowdhery_2022_palm_scaling_language_modeling_with_pathways.pdf",
+      "oa_url": "https://arxiv.org/pdf/2204.02311",
+      "raw": "Aakanksha Chowdhery, Sharan Narang, Jacob Devlin, Maarten Bosma, Gaurav Mishra, Adam Roberts, Paul Barham, Hyung Won Chung, Charles Sutton, Sebastian Gehrmann, et al. Palm: Scaling language modeling with pathways. arXiv preprint arXiv:2204.02311, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3210904070",
+      "title": "Training Verifiers to Solve Math Word Problems",
+      "doi": "10.48550/arxiv.2110.14168",
+      "status": "resolved",
+      "filename": "cobbe_2021_training_verifiers_to_solve_math_word_problems.pdf",
+      "oa_url": "https://arxiv.org/pdf/2110.14168",
+      "raw": "Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, et al. Training verifiers to solve math word problems. arXiv preprint arXiv:2110.14168, 2021. Luigi De Angelis, Francesco Baglivo, Guglielmo Arzilli, Gaetano Pierpaolo Privitera, Paolo Ferragina, Alberto Eugenio Tozzi, and Caterina Rizzo. Chatgpt and the rise of large language models: the new ai-driven infodemic threat in public health. Frontiers in Public Health, 11:1166120, 2023. Erik Derner and Kristina Batistiˇc. Beyond the safeguards: Exploring the security risks of chatgpt. arXiv preprint arXiv:2305.08005, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4313483544",
+      "title": "A Survey on In-context Learning",
+      "doi": "10.48550/arxiv.2301.00234",
+      "status": "resolved",
+      "filename": "dong_2022_a_survey_on_in_context_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/2301.00234",
+      "raw": "Qingxiu Dong, Lei Li, Damai Dai, Ce Zheng, Zhiyong Wu, Baobao Chang, Xu Sun, Jingjing Xu, and Zhifang Sui. A survey for in-context learning. arXiv preprint arXiv:2301.00234, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4296413526",
+      "title": "Red Teaming Language Models to Reduce Harms: Methods, Scaling Behaviors, and Lessons Learned",
+      "doi": "10.48550/arxiv.2209.07858",
+      "status": "resolved",
+      "filename": "ganguli_2022_red_teaming_language_models_to_reduce_harms_methods_scaling_behavio.pdf",
+      "oa_url": "https://arxiv.org/pdf/2209.07858",
+      "raw": "Deep Ganguli, Liane Lovitt, Jackson Kernion, Amanda Askell, Yuntao Bai, Saurav Kadavath, Ben Mann, Ethan Perez, Nicholas Schiefer, Kamal Ndousse, et al. Red teaming language models to reduce harms: Methods, scaling behaviors, and lessons learned. arXiv preprint arXiv:2209.07858, 2022. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": null,
+      "title": "Did aristotle use a laptop? a question answering benchmark with implicit reasoning strategies",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mor Geva, Daniel Khashabi, Elad Segal, Tushar Khot, Dan Roth, and Jonathan Berant. Did aristotle use a laptop? a question answering benchmark with implicit reasoning strategies. Transactions of the Association for Computational Linguistics, 9:346–361, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4321855128",
+      "title": "Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection",
+      "doi": "10.48550/arxiv.2302.12173",
+      "status": "resolved",
+      "filename": "greshake_2023_not_what_youve_signed_up_for_compromising_real_world_llm_integrate.pdf",
+      "oa_url": "https://arxiv.org/pdf/2302.12173",
+      "raw": "Kai Greshake, Sahar Abdelnabi, Shailesh Mishra, Christoph Endres, Thorsten Holz, and Mario Fritz. More than you’ve asked for: A comprehensive analysis of novel prompt injection threats to application-integrated large language models. arXiv preprint arXiv:2302.12173, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3083410900",
+      "title": "Measuring Massive Multitask Language Understanding",
+      "doi": "10.48550/arxiv.2009.03300",
+      "status": "resolved",
+      "filename": "hendrycks_2020_measuring_massive_multitask_language_understanding.pdf",
+      "oa_url": "https://arxiv.org/pdf/2009.03300",
+      "raw": "Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn Song, and Jacob Steinhardt. Measuring massive multitask language understanding. arXiv preprint arXiv:2009.03300, 2020."
+    },
+    {
+      "openalex_id": null,
+      "title": "An exploratory survey about using chatgpt in education, healthcare, and research. medRxiv, pp. 2023–03, 2023",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mohammad Hosseini, Catherine A Gao, David M Liebovitz, Alexandre M Carvalho, Faraz S Ahmad, Yuan Luo, Ngan MacDonald, Kristi L Holmes, and Abel Kho. An exploratory survey about using chatgpt in education, healthcare, and research. medRxiv, pp. 2023–03, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4379089610",
+      "title": "Revisiting the Reliability of Psychological Scales on Large Language Models",
+      "doi": "10.48550/arxiv.2305.19926",
+      "status": "resolved",
+      "filename": "huang_2023_revisiting_the_reliability_of_psychological_scales_on_large_language_.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.19926",
+      "raw": "Jen-tse Huang, Wenxuan Wang, Man Ho Lam, Eric John Li, Wenxiang Jiao, and Michael R. Lyu. Chatgpt an enfj, bard an ISTJ: empirical study on personalities of large language models. arXiv preprint arXiv:2305.19926, 2023. Simon Humphries. Please teach me how to teach”: The emotional impact of educational change. The emotional rollercoaster of language teaching, pp. 150–172, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4309674289",
+      "title": "Survey of Hallucination in Natural Language Generation",
+      "doi": "10.1145/3571730",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Ziwei Ji, Nayeon Lee, Rita Frieske, Tiezheng Yu, Dan Su, Yan Xu, Etsuko Ishii, Ye Jin Bang, Andrea Madotto, and Pascale Fung. Survey of hallucination in natural language generation. ACM Comput. Surv., 55(12), mar 2023. ISSN 0360-0300. doi: 10.1145/3571730. URL https: //doi.org/10.1145/3571730."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4320167623",
+      "title": "Is ChatGPT A Good Translator? Yes With GPT-4 As The Engine",
+      "doi": "10.48550/arxiv.2301.08745",
+      "status": "resolved",
+      "filename": "jiao_2023_is_chatgpt_a_good_translator_yes_with_gpt_4_as_the_engine.pdf",
+      "oa_url": "https://arxiv.org/pdf/2301.08745",
+      "raw": "Wenxiang Jiao, Wenxuan Wang, Jen-tse Huang, Xing Wang, and Zhaopeng Tu. Is chatgpt a good translator? a preliminary study. arXiv preprint arXiv:2301.08745, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385374442",
+      "title": "Matching Patients to Clinical Trials with Large Language Models",
+      "doi": "10.48550/arxiv.2307.15051",
+      "status": "resolved",
+      "filename": "jin_2023_matching_patients_to_clinical_trials_with_large_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2307.15051",
+      "raw": "Qiao Jin, Zifeng Wang, Charalampos S Floudas, Jimeng Sun, and Zhiyong Lu. Matching patients to clinical trials with large language models. arXiv preprint arXiv:2307.15051, 2023. Kevin B Johnson, Wei-Qi Wei, Dilhan Weeraratne, Mark E Frisse, Karl Misulis, Kyu Rhee, Juan Zhao, and Jane L Snowdon. Precision medicine, ai, and the future of personalized health care. Clinical and translational science, 14(1):86–93, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4285429195",
+      "title": "Language Models (Mostly) Know What They Know",
+      "doi": "10.48550/arxiv.2207.05221",
+      "status": "resolved",
+      "filename": "kadavath_2022_language_models_mostly_know_what_they_know.pdf",
+      "oa_url": "https://arxiv.org/pdf/2207.05221",
+      "raw": "Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, et al. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281557260",
+      "title": "Large Language Models are Zero-Shot Reasoners",
+      "doi": "10.48550/arxiv.2205.11916",
+      "status": "resolved",
+      "filename": "kojima_2022_large_language_models_are_zero_shot_reasoners.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.11916",
+      "raw": "Takeshi Kojima, Shixiang Shane Gu, Machel Reid, Yutaka Matsuo, and Yusuke Iwasawa. Large language models are zero-shot reasoners. Advances in neural information processing systems, 35:22199–22213, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385291101",
+      "title": "Large Language Models Understand and Can be Enhanced by Emotional Stimuli",
+      "doi": "10.48550/arxiv.2307.11760",
+      "status": "resolved",
+      "filename": "li_2023_large_language_models_understand_and_can_be_enhanced_by_emotional_stimul.pdf",
+      "oa_url": "https://arxiv.org/pdf/2307.11760",
+      "raw": "Cheng Li, Jindong Wang, Kaijie Zhu, Yixuan Zhang, Wenxin Hou, Jianxun Lian, and Xing Xie. Emotionprompt: Leveraging psychology for large language models enhancement via emotional stimulus. arXiv preprint arXiv:2307.11760, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281748205",
+      "title": "Teaching Models to Express Their Uncertainty in Words",
+      "doi": "10.48550/arxiv.2205.14334",
+      "status": "resolved",
+      "filename": "lin_2022_teaching_models_to_express_their_uncertainty_in_words.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.14334",
+      "raw": "Stephanie Lin, Jacob Hilton, and Owain Evans. Teaching models to express their uncertainty in words. Transactions on Machine Learning Research, 2022. ISSN 2835-8856."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4379258778",
+      "title": "ReviewerGPT? An Exploratory Study on Using Large Language Models for Paper Reviewing",
+      "doi": "10.48550/arxiv.2306.00622",
+      "status": "resolved",
+      "filename": "liu_2023_reviewergpt_an_exploratory_study_on_using_large_language_models_for_pap.pdf",
+      "oa_url": "https://arxiv.org/pdf/2306.00622",
+      "raw": "Pengfei Liu, Weizhe Yuan, Jinlan Fu, Zhengbao Jiang, Hiroaki Hayashi, and Graham Neubig. Pretrain, prompt, and predict: A systematic survey of prompting methods in natural language processing. ACM Computing Surveys, 55(9):1–35, 2023. Ryan Liu and Nihar B Shah. Reviewergpt? an exploratory study on using large language models for paper reviewing. arXiv preprint arXiv:2306.00622, 2023. Alejandro Lopez-Lira and Yuehua Tang. Can chatgpt forecast stock price movements? return predictability and large language models. arXiv preprint arXiv:2304.07619, 2023. 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4287207937",
+      "title": "Fantastically Ordered Prompts and Where to Find Them: Overcoming Few-Shot Prompt Order Sensitivity",
+      "doi": "10.48550/arxiv.2104.08786",
+      "status": "resolved",
+      "filename": "lu_2021_fantastically_ordered_prompts_and_where_to_find_them_overcoming_few_shot.pdf",
+      "oa_url": "https://arxiv.org/pdf/2104.08786",
+      "raw": "Yao Lu, Max Bartolo, Alastair Moore, Sebastian Riedel, and Pontus Stenetorp. Fantastically ordered prompts and where to find them: Overcoming few-shot prompt order sensitivity. arXiv preprint arXiv:2104.08786, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221160826",
+      "title": "Rethinking the Role of Demonstrations: What Makes In-Context Learning Work?",
+      "doi": "10.48550/arxiv.2202.12837",
+      "status": "resolved",
+      "filename": "min_2022_rethinking_the_role_of_demonstrations_what_makes_in_context_learning_wo.pdf",
+      "oa_url": "https://arxiv.org/pdf/2202.12837",
+      "raw": "Sewon Min, Xinxi Lyu, Ari Holtzman, Mikel Artetxe, Mike Lewis, Hannaneh Hajishirzi, and Luke Zettlemoyer. Rethinking the role of demonstrations: What makes in-context learning work? arXiv preprint arXiv:2202.12837, 2022. OpenAI. Introducing chatgpt. 2022. OpenAI. Gpt-4 technical report. 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226278401",
+      "title": "Training language models to follow instructions with human feedback",
+      "doi": "10.48550/arxiv.2203.02155",
+      "status": "resolved",
+      "filename": "ouyang_2022_training_language_models_to_follow_instructions_with_human_feedback.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.02155",
+      "raw": "Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al. Training language models to follow instructions with human feedback. Advances in Neural Information Processing Systems, 35: 27730–27744, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Are nlp models really able to solve simple math word problems? arXiv preprint arXiv:2103.07191, 2021",
+      "doi": "10.48550/arXiv.2103.07191",
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Arkil Patel, Satwik Bhattamishra, and Navin Goyal. Are nlp models really able to solve simple math word problems? arXiv preprint arXiv:2103.07191, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4312050653",
+      "title": "Discovering Language Model Behaviors with Model-Written Evaluations",
+      "doi": "10.48550/arxiv.2212.09251",
+      "status": "resolved",
+      "filename": "perez_2022_discovering_language_model_behaviors_with_model_written_evaluations.pdf",
+      "oa_url": "https://arxiv.org/pdf/2212.09251",
+      "raw": "Ethan Perez, Sam Ringer, Kamil˙e Lukoˇsi¯ut˙e, Karina Nguyen, Edwin Chen, Scott Heiner, Craig Pettit, Catherine Olsson, Sandipan Kundu, Saurav Kadavath, et al. Discovering language model behaviors with model-written evaluations. arXiv preprint arXiv:2212.09251, 2022. F´abio Perez and Ian Ribeiro. Ignore previous prompt: Attack techniques for language models. arXiv preprint arXiv:2211.09527, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385291106",
+      "title": "Question Decomposition Improves the Faithfulness of Model-Generated Reasoning",
+      "doi": "10.48550/arxiv.2307.11768",
+      "status": "resolved",
+      "filename": "radhakrishnan_2023_question_decomposition_improves_the_faithfulness_of_model_gen.pdf",
+      "oa_url": "https://arxiv.org/pdf/2307.11768",
+      "raw": "Ansh Radhakrishnan, Karina Nguyen, Anna Chen, Carol Chen, Carson Denison, Danny Hernandez, Esin Durmus, Evan Hubinger, Jackson Kernion, Kamil˙e Lukoˇsi¯ut˙e, et al. Question decomposition improves the faithfulness of model-generated reasoning. arXiv preprint arXiv:2307.11768, 2023. Subhro Roy and Dan Roth. Solving general arithmetic word problems. arXiv preprint arXiv:1608.01413, 2016. Malik Sallam. Chatgpt utility in healthcare education, research, and practice: systematic review on the promising perspectives and valid concerns. In Healthcare, volume 11, pp. 887. MDPI, 2023. Elizabeth Shaunessy. Questioning strategies for teaching the gifted. PRUFROCK PRESS INC., 2005."
+    },
+    {
+      "openalex_id": null,
+      "title": "Chi, Nathanael Sch¨arli, and Denny Zhou",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Freda Shi, Xinyun Chen, Kanishka Misra, Nathan Scales, David Dohan, Ed H. Chi, Nathanael Sch¨arli, and Denny Zhou. Large language models can be easily distracted by irrelevant context. In Andreas Krause, Emma Brunskill, Kyunghyun Cho, Barbara Engelhardt, Sivan Sabato, and Jonathan Scarlett (eds.), Proceedings of the 40th International Conference on Machine Learning, volume 202 of Proceedings of Machine Learning Research, pp. 31210–31227. PMLR, 23–29 Jul 2023a."
+    },
+    {
+      "openalex_id": null,
+      "title": "Freda Shi, Xinyun Chen, Kanishka Misra, Nathan Scales, David Dohan, Ed H Chi, Nathanael Sch¨arli, and Denny Zhou. Large language models can be easily",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Freda Shi, Xinyun Chen, Kanishka Misra, Nathan Scales, David Dohan, Ed H Chi, Nathanael Sch¨arli, and Denny Zhou. Large language models can be easily distracted by irrelevant context. In International Conference on Machine Learning, pp. 31210–31227. PMLR, 2023b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2898695519",
+      "title": "CommonsenseQA: A Question Answering Challenge Targeting Commonsense Knowledge",
+      "doi": "10.48550/arxiv.1811.00937",
+      "status": "resolved",
+      "filename": "talmor_2018_commonsenseqa_a_question_answering_challenge_targeting_commonsense_k.pdf",
+      "oa_url": "https://arxiv.org/pdf/1811.00937",
+      "raw": "Alon Talmor, Jonathan Herzig, Nicholas Lourie, and Jonathan Berant. Commonsenseqa: A question answering challenge targeting commonsense knowledge. arXiv preprint arXiv:1811.00937, 2018. Arun James Thirunavukarasu, Darren Shu Jeng Ting, Kabilan Elangovan, Laura Gutierrez, Ting Fang Tan, and Daniel Shu Wei Ting. Large language models in medicine. Nature medicine, pp. 1–11, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1966354121",
+      "title": "Best Practice Strategies for Effective Use of Questions as a Teaching Tool",
+      "doi": "10.5688/ajpe777155",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://www.ajpe.org/content/ajpe/77/7/155.full.pdf",
+      "raw": "Toyin Tofade, Jamie Elsner, and Stuart T Haines. Best practice strategies for effective use of questions as a teaching tool. American journal of pharmaceutical education, 77(7), 2013."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4322718191",
+      "title": "LLaMA: Open and Efficient Foundation Language Models",
+      "doi": "10.48550/arxiv.2302.13971",
+      "status": "resolved",
+      "filename": "touvron_2023_llama_open_and_efficient_foundation_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2302.13971",
+      "raw": "Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timoth´ee Lacroix, Baptiste Rozi`ere, Naman Goyal, Eric Hambro, Faisal Azhar, et al. Llama: Open and efficient foundation language models. arXiv preprint arXiv:2302.13971, 2023. 12 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4375958700",
+      "title": "Language Models Don't Always Say What They Think: Unfaithful Explanations in Chain-of-Thought Prompting",
+      "doi": "10.48550/arxiv.2305.04388",
+      "status": "resolved",
+      "filename": "turpin_2023_language_models_dont_always_say_what_they_think_unfaithful_explanati.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.04388",
+      "raw": "Miles Turpin, Julian Michael, Ethan Perez, and Samuel R Bowman. Language models don’t always say what they think: Unfaithful explanations in chain-of-thought prompting. arXiv preprint arXiv:2305.04388, 2023."
+    },
+    {
+      "openalex_id": null,
+      "title": "Krzysztof Wach, Cong Doanh Duong, Joanna Ejdys, R¯uta Kazlauskait˙e, Pawel Korzynski, Grzegorz Mazurek, Joanna Paliszkiewicz, and Ewa Ziemba. The dark",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Krzysztof Wach, Cong Doanh Duong, Joanna Ejdys, R¯uta Kazlauskait˙e, Pawel Korzynski, Grzegorz Mazurek, Joanna Paliszkiewicz, and Ewa Ziemba. The dark side of generative artificial intelligence: A critical analysis of controversies and risks of chatgpt. Entrepreneurial Business and Economics Review, 11(2):7–24, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4377865274",
+      "title": "Can ChatGPT Defend its Belief in Truth? Evaluating LLM Reasoning via Debate",
+      "doi": "10.48550/arxiv.2305.13160",
+      "status": "resolved",
+      "filename": "wang_2023_can_chatgpt_defend_its_belief_in_truth_evaluating_llm_reasoning_via_de.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.13160",
+      "raw": "Boshi Wang, Xiang Yue, and Huan Sun. Can chatgpt defend the truth? automatic dialectical evaluation elicits llms’ deficiencies in reasoning. arXiv preprint arXiv:2305.13160, 2023a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4364385323",
+      "title": "Is ChatGPT a Good Sentiment Analyzer? A Preliminary Study",
+      "doi": "10.48550/arxiv.2304.04339",
+      "status": "resolved",
+      "filename": "wang_2023_is_chatgpt_a_good_sentiment_analyzer_a_preliminary_study.pdf",
+      "oa_url": "https://arxiv.org/pdf/2304.04339",
+      "raw": "Zengzhi Wang, Qiming Xie, Zixiang Ding, Yi Feng, and Rui Xia. Is chatgpt a good sentiment analyzer? a preliminary study. arXiv preprint arXiv:2304.04339, 2023b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W7133224126",
+      "title": "Chain-Of-Thought Prompting Elicits Reasoning in Large Language Models",
+      "doi": "10.52202/068431-1800",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, et al. Chain-of-thought prompting elicits reasoning in large language models. Advances in Neural Information Processing Systems, 35:24824–24837, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385714610",
+      "title": "Simple synthetic data reduces sycophancy in large language models",
+      "doi": "10.48550/arxiv.2308.03958",
+      "status": "resolved",
+      "filename": "wei_2023_simple_synthetic_data_reduces_sycophancy_in_large_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2308.03958",
+      "raw": "Jerry Wei, Da Huang, Yifeng Lu, Denny Zhou, and Quoc V Le. Simple synthetic data reduces sycophancy in large language models. arXiv preprint arXiv:2308.03958, 2023. Benjamin Weiser. Here’s what happens when your lawyer uses chatgpt. https://www. nytimes.com/2023/05/27/nyregion/avianca-airline-lawsuit-chatgpt. html, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4381797997",
+      "title": "Can LLMs Express Their Uncertainty? An Empirical Evaluation of Confidence Elicitation in LLMs",
+      "doi": "10.48550/arxiv.2306.13063",
+      "status": "resolved",
+      "filename": "xiong_2023_can_llms_express_their_uncertainty_an_empirical_evaluation_of_confide.pdf",
+      "oa_url": "https://arxiv.org/pdf/2306.13063",
+      "raw": "Miao Xiong, Zhiyuan Hu, Xinyang Lu, Yifei Li, Jie Fu, Junxian He, and Bryan Hooi. Can llms express their uncertainty? an empirical evaluation of confidence elicitation in llms. arXiv preprint arXiv:2306.13063, 2023."
+    },
+    {
+      "openalex_id": null,
+      "title": "Do large language models know what they don’t know? In Findings of the Association for Computational Linguistics: ACL 2023, pp. 8653–8665, Toronto, Canada, July 2023",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Zhangyue Yin, Qiushi Sun, Qipeng Guo, Jiawen Wu, Xipeng Qiu, and Xuanjing Huang. Do large language models know what they don’t know? In Findings of the Association for Computational Linguistics: ACL 2023, pp. 8653–8665, Toronto, Canada, July 2023. Association for Computational Linguistics. Adam Zaremba and Ender Demir. Chatgpt: Unlocking the future of nlp in finance. Available at SSRN 4323643, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3132736064",
+      "title": "Calibrate Before Use: Improving Few-Shot Performance of Language Models",
+      "doi": "10.48550/arxiv.2102.09690",
+      "status": "resolved",
+      "filename": "zhao_2021_calibrate_before_use_improving_few_shot_performance_of_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2102.09690",
+      "raw": "Zihao Zhao, Eric Wallace, Shi Feng, Dan Klein, and Sameer Singh. Calibrate before use: Improving few-shot performance of language models. In International Conference on Machine Learning, pp. 12697–12706. PMLR, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4386555476",
+      "title": "Large Language Models Are Not Robust Multiple Choice Selectors",
+      "doi": "10.48550/arxiv.2309.03882",
+      "status": "resolved",
+      "filename": "zheng_2023_large_language_models_are_not_robust_multiple_choice_selectors.pdf",
+      "oa_url": "https://arxiv.org/pdf/2309.03882",
+      "raw": "Chujie Zheng, Hao Zhou, Fandong Meng, Jie Zhou, and Minlie Huang. On large language models’ selection bias in multi-choice questions. arXiv preprint arXiv:2309.03882, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385374425",
+      "title": "Code of \"Sirens' Whisper: Inaudible Near-Ultrasonic Jailbreaks of Speech-Driven LLMs\"",
+      "doi": "10.48550/arxiv.2307.15043",
+      "status": "resolved",
+      "filename": "zou_2023_code_of_sirens_whisper_inaudible_near_ultrasonic_jailbreaks_of_speech_d.pdf",
+      "oa_url": "https://arxiv.org/pdf/2307.15043",
+      "raw": "Andy Zou, Zifan Wang, J Zico Kolter, and Matt Fredrikson. Universal and transferable adversarial attacks on aligned language models. arXiv preprint arXiv:2307.15043, 2023. 13 Under review as a conference paper at ICLR 2024 Appendices A Appendix 14 A.1 Formal Definitions of Metrics . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14 A.2 Implementation Details . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14 A.3 Full Experiment Results . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15 A.3.1 Full Results on ChatGPT . . . . . . . . . . . . . . . . . . . . . . . . . . . 15 A.3.2 Full Results on PaLM2-Bison . . . . . . . . . . . . . . . . . . . . . . . . 15 A.3.3 Full Results on Vicuna-13B . . . . . . . . . . . . . . . . . . . . . . . . . 15 A.3.4 Results of the Latest Models Under the Mechanism . . . . . . . . . . . . . . . 15 A.4 Error Examples Under FOLLOWING-UP QUESTIONING MECHANISM . . . . . . . 16 A.5 The Impact of Tone Intensity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16 A.6 The Experimental Results of Additional Disturbance Scenarios. . . . . . . . . . . . . . . 18 A.7 Examples of Mitigation Methods . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 A.8 Full Results of Mitigation Methods . . . . . . . . . . . . . . . . . . . . . . . . . . 19 A.9 Examples of Few-shot Prompting . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 A.10 Discussion and Future Work . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 A"
+    }
+  ]
+}

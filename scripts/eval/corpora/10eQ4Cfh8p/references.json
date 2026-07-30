@@ -1,0 +1,308 @@
+{
+  "corpus": "10eQ4Cfh8p",
+  "source_pdf": "10eQ4Cfh8p.pdf",
+  "source_sha256": "b4d865ac6a01c53d6cbb19ef9a93fb8ea40d9c98748f8a662297d7a14e058b7d",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T20:03:43.769292Z",
+  "references_attempted": 33,
+  "references_resolved": 8,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W2951307174",
+      "title": "A review on swarm intelligence and evolutionary algorithms for solving flexible job shop scheduling problems",
+      "doi": "10.1109/jas.2019.1911540",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://scholarbank.nus.edu.sg/handle/10635/167429",
+      "raw": "Gao, Kaizhou, Zhiguang Cao, Le Zhang, Zhenghua Chen, Yuyan Han, and Quanke Pan. ”A review on swarm intelligence and evolutionary algorithms for solving flexible job shop scheduling problems.” IEEE/CAA Journal of Automatica Sinica 6, no. 4 (2019): 904-916."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2098650167",
+      "title": "A research survey: review of flexible job shop scheduling techniques",
+      "doi": "10.1111/itor.12199",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Xie, Jin, Liang Gao, Kunkun Peng, Xinyu Li, and Haoran Li. ”Review on flexible job shop scheduling.” IET Collaborative Intelligent Manufacturing 1, no. 3 (2019): 67-77."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2040789431",
+      "title": "Mathematical models for job-shop scheduling problems with routing and process plan flexibility",
+      "doi": "10.1016/j.apm.2009.09.002",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "¨Ozg¨uven, Cemal, Lale ¨Ozbakır, and Yasemin Yavuz. ”Mathematical models for job-shop scheduling problems with routing and process plan flexibility.” Applied Mathematical Modelling 34, no. 6 (2010): 1539-1548."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226210625",
+      "title": "An algorithm selection approach for the flexible job shop scheduling problem: Choosing constraint programming solvers through machine learning",
+      "doi": "10.1016/j.ejor.2022.01.034",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "M¨uller, David, Marcus G. M¨uller, Dominik Kress, and Erwin Pesch. ”An algorithm selection approach for the flexible job shop scheduling problem: Choosing constraint programming solvers through machine learning.” European Journal of Operational Research 302, no. 3 (2022): 874-891."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2761608996",
+      "title": "Dispatching algorithm for production programming of flexible job-shop systems in the smart factory industry",
+      "doi": "10.1007/s10479-017-2678-x",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Ort´ız, Miguel A., Leidy E. Betancourt, Kevin Parra Negrete, Fabio De Felice, and Antonella Petrillo. ”Dispatching algorithm for production programming of flexible job-shop systems in the smart factory industry.” Annals of Operations Research 264 (2018): 409-433."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2334243711",
+      "title": "Scheduling of flexible manufacturing systems based on Petri nets and hybrid heuristic search",
+      "doi": "10.1080/00207540600698878",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Huang, Bo, Yu Sun, and YaMin Sun. ”Scheduling of flexible manufacturing systems based on Petri nets and hybrid heuristic search.” International Journal of Production Research 46, no. 16 (2008): 4553-4565."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2227399030",
+      "title": "Heuristic approaches for scheduling jobs in large-scale flexible job shops",
+      "doi": "10.1016/j.cor.2015.11.004",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Sobeyko, Oleh, and Lars M¨onch. ”Heuristic approaches for scheduling jobs in large-scale flexible job shops.” Computers & Operations Research 68 (2016): 97-109."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1853568431",
+      "title": "An object-oriented approach for multi-objective flexible job-shop scheduling problem",
+      "doi": "10.1016/j.eswa.2015.09.050",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Kaplano˘glu, Vahit. ”An object-oriented approach for multi-objective flexible job-shop scheduling problem.” Expert Systems with Applications 45 (2016): 71-84."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1969772048",
+      "title": "Path-relinking Tabu search for the multi-objective flexible job shop scheduling problem",
+      "doi": "10.1016/j.cor.2014.01.010",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jia, Shuai, and Zhi-Hua Hu. ”Path-relinking Tabu search for the multi-objective flexible job shop scheduling problem.” Computers & Operations Research 47 (2014): 11-26."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3082377584",
+      "title": "A self-learning genetic algorithm based on reinforcement learning for flexible job-shop scheduling problem",
+      "doi": "10.1016/j.cie.2020.106778",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Chen, Ronghua, Bo Yang, Shi Li, and Shilong Wang. ”A self-learning genetic algorithm based on reinforcement learning for flexible job-shop scheduling problem.” Computers & Industrial Engineering 149 (2020): 106778."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3039856838",
+      "title": "An efficient two-stage genetic algorithm for a flexible job-shop scheduling problem with sequence dependent attached/detached setup, machine release date and lag-time",
+      "doi": "10.1016/j.cie.2020.106605",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Defersha, Fantahun M., and Danial Rooyani. ”An efficient two-stage genetic algorithm for a flexible job-shop scheduling problem with sequence dependent attached/detached setup, machine release date and lag-time.” Computers & Industrial Engineering 147 (2020): 106605."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2932097000",
+      "title": "Smart Manufacturing Scheduling With Edge Computing Using Multiclass Deep Q Network",
+      "doi": "10.1109/tii.2019.2908210",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Lin, Chun-Cheng, Der-Jiunn Deng, Yen-Ling Chih, and Hsin-Ting Chiu. ”Smart manufacturing scheduling with edge computing using multiclass deep Q network.” IEEE Transactions on Industrial Informatics 15, no. 7 (2019): 4276-4284."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3134664017",
+      "title": "Dynamic job-shop scheduling in smart manufacturing using deep reinforcement learning",
+      "doi": "10.1016/j.comnet.2021.107969",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Wang, Libing, Xin Hu, Yin Wang, Sujie Xu, Shijun Ma, Kexin Yang, Zhijun Liu, and Weidong Wang. ”Dynamic job-shop scheduling in smart manufacturing using deep reinforcement learning.” Computer Networks 190 (2021): 107969."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2807766588",
+      "title": "Deep reinforcement learning for semiconductor production scheduling",
+      "doi": "10.1109/asmc.2018.8373191",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Waschneck, Bernd, Andr´e Reichstaller, Lenz Belzner, Thomas Altenm¨uller, Thomas Bauernhansl, Alexander Knapp, and Andreas Kyek. ”Deep reinforcement learning for semiconductor production scheduling.” In 2018 29th annual SEMI advanced semiconductor manufacturing conference (ASMC), pp. 301-306. IEEE, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3002239905",
+      "title": "Intelligent scheduling of discrete automated production line via deep reinforcement learning",
+      "doi": "10.1080/00207543.2020.1717008",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Shi, Daming, Wenhui Fan, Yingying Xiao, Tingyu Lin, and Chi Xing. ”Intelligent scheduling of discrete automated production line via deep reinforcement learning.” International journal of production research 58, no. 11 (2020): 3362-3380."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3016938688",
+      "title": "Actor-Critic Deep Reinforcement Learning for Solving Job Shop Scheduling Problems",
+      "doi": "10.1109/access.2020.2987820",
+      "status": "resolved",
+      "filename": "liu_2020_actor_critic_deep_reinforcement_learning_for_solving_job_shop_schedulin.pdf",
+      "oa_url": "https://ieeexplore.ieee.org/ielx7/6287639/8948470/09066984.pdf",
+      "raw": "Liu, Chien-Liang, Chuan-Chin Chang, and Chun-Jan Tseng. ”Actor-critic deep reinforcement learning for solving job shop scheduling problems.” Ieee Access 8 (2020): 71752-71762. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3175764193",
+      "title": "Matrix Encoding Networks for Neural Combinatorial Optimization",
+      "doi": "10.48550/arxiv.2106.11113",
+      "status": "resolved",
+      "filename": "kwon_2021_matrix_encoding_networks_for_neural_combinatorial_optimization.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.11113",
+      "raw": "Kwon, Yeong-Dae, Jinho Choo, Iljoo Yoon, Minah Park, Duwon Park, and Youngjune Gwon. ”Matrix encoding networks for neural combinatorial optimization.” Advances in Neural Information Processing Systems 34 (2021): 5138-5149."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2626778328",
+      "title": "Attention Is All You Need",
+      "doi": "10.65215/2q58a426",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://langtaosha.org.cn/index.php/lts/preprint/download/10/108",
+      "raw": "Vaswani, Ashish, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Łukasz Kaiser, and Illia Polosukhin. ”Attention is all you need.” Advances in neural information processing systems 30 (2017)."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3209989022",
+      "title": "Deep Reinforcement Learning Based Optimization Algorithm for Permutation Flow-Shop Scheduling",
+      "doi": "10.1109/tetci.2021.3098354",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Pan, Zixiao, Ling Wang, Jingjing Wang, and Jiawen Lu. ”Deep reinforcement learning based optimization algorithm for permutation flow-shop scheduling.” IEEE Transactions on Emerging Topics in Computational Intelligence (2021)."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2907492528",
+      "title": "A Comprehensive Survey on Graph Neural Networks",
+      "doi": "10.1109/tnnls.2020.2978386",
+      "status": "resolved",
+      "filename": "wu_2020_a_comprehensive_survey_on_graph_neural_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1901.00596",
+      "raw": "Wu, Zonghan, Shirui Pan, Fengwen Chen, Guodong Long, Chengqi Zhang, and S. Yu Philip. ”A comprehensive survey on graph neural networks.” IEEE transactions on neural networks and learning systems 32, no. 1 (2020): 4-24."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3094181369",
+      "title": "Learning to Dispatch for Job Shop Scheduling via Deep Reinforcement Learning",
+      "doi": "10.48550/arxiv.2010.12367",
+      "status": "resolved",
+      "filename": "zhang_2020_learning_to_dispatch_for_job_shop_scheduling_via_deep_reinforcement_l.pdf",
+      "oa_url": "https://arxiv.org/pdf/2010.12367",
+      "raw": "Zhang, Cong, Wen Song, Zhiguang Cao, Jie Zhang, Puay Siew Tan, and Xu Chi. ”Learning to dispatch for job shop scheduling via deep reinforcement learning.” Advances in Neural Information Processing Systems 33 (2020): 1621-1632."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3166794154",
+      "title": "A Multi-Graph Attributed Reinforcement Learning based Optimization Algorithm for Large-scale Hybrid Flow Shop Scheduling Problem",
+      "doi": "10.1145/3447548.3467135",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Ni, Fei, Jianye Hao, Jiawen Lu, Xialiang Tong, Mingxuan Yuan, Jiahui Duan, Yi Ma, and Kun He. ”A multi-graph attributed reinforcement learning based optimization algorithm for large-scale hybrid flow shop scheduling problem.” In Proceedings of the 27th ACM SIGKDD Conference on Knowledge Discovery & Data Mining, pp. 3441-3451. 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3176897893",
+      "title": "Dynamic multi-objective scheduling for flexible job shop by deep reinforcement learning",
+      "doi": "10.1016/j.cie.2021.107489",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Luo, Shu, Linxuan Zhang, and Yushun Fan. ”Dynamic multi-objective scheduling for flexible job shop by deep reinforcement learning.” Computers & Industrial Engineering 159 (2021): 107489."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3173097263",
+      "title": "A Deep Reinforcement Learning Based Solution for Flexible Job Shop Scheduling Problem",
+      "doi": "10.2507/ijsimm20-2-co7",
+      "status": "resolved",
+      "filename": "han_2021_a_deep_reinforcement_learning_based_solution_for_flexible_job_shop_sche.pdf",
+      "oa_url": "https://doi.org/10.2507/ijsimm20-2-co7",
+      "raw": "Han, B., and J. Yang. ”A deep reinforcement learning based solution for flexible job shop scheduling problem.” International Journal of Simulation Modelling 20, no. 2 (2021): 375- 386."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2000099188",
+      "title": "Effective neighbourhood functions for the flexible job shop problem",
+      "doi": "10.1002/(sici)1099-1425(200001/02)3:1<3::aid-jos32>3.0.co;2-y",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mastrolilli, Monaldo, and Luca Maria Gambardella. ”Effective neighbourhood functions for the flexible job shop problem.” Journal of scheduling 3, no. 1 (2000): 3-20."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4297733535",
+      "title": "Graph Attention Networks",
+      "doi": "10.48550/arXiv.1710.10903",
+      "status": "resolved",
+      "filename": "petar_2017_graph_attention_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1710.10903",
+      "raw": "Veliˇckovi´c, Petar, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Lio, and Yoshua Bengio. ”Graph attention networks.” arXiv preprint arXiv:1710.10903 (2017)."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2173564293",
+      "title": "Dueling Network Architectures for Deep Reinforcement Learning",
+      "doi": "10.48550/arxiv.1511.06581",
+      "status": "resolved",
+      "filename": "wang_2015_dueling_network_architectures_for_deep_reinforcement_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/1511.06581",
+      "raw": "Wang, Ziyu, Tom Schaul, Matteo Hessel, Hado Hasselt, Marc Lanctot, and Nando Freitas. ”Dueling network architectures for deep reinforcement learning.” In International conference on machine learning, pp. 1995-2003. PMLR, 2016."
+    },
+    {
+      "openalex_id": "https://openalex.org/W159012016",
+      "title": "An integrated approach for modeling and solving the general multiprocessor job-shop scheduling problem using tabu search",
+      "doi": "10.1023/a:1018930406487",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Dauz`ere-P´er`es, St´ephane, and Jan Paulli. ”An integrated approach for modeling and solving the general multiprocessor job-shop scheduling problem using tabu search.” Annals of Operations Research 70, no. 0 (1997): 281-306."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4285024875",
+      "title": "Flexible Job-Shop Scheduling via Graph Neural Network and Deep Reinforcement Learning",
+      "doi": "10.1109/tii.2022.3189725",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://ink.library.smu.edu.sg/sis_research/8197",
+      "raw": "Song, Wen, Xinyang Chen, Qiqiang Li, and Zhiguang Cao. ”Flexible Job-Shop Scheduling via Graph Neural Network and Deep Reinforcement Learning.” IEEE Transactions on Industrial Informatics 19, no. 2 (2022): 1600-1610."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4282946405",
+      "title": "A multi-action deep reinforcement learning framework for flexible Job-shop scheduling problem",
+      "doi": "10.1016/j.eswa.2022.117796",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Lei, Kun, Peng Guo, Wenchao Zhao, Yi Wang, Linmao Qian, Xiangyin Meng, and Liansheng Tang. ”A multi-action deep reinforcement learning framework for flexible Job-shop scheduling problem.” Expert Systems with Applications 205 (2022): 117796."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2046437335",
+      "title": "Routing and scheduling in a flexible job shop by tabu search",
+      "doi": "10.1007/bf02023073",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "P. Brandimarte, “Routing and scheduling in a flexible job shop by tabu search,” Annals of Operations research, vol. 41, no. 3, pp. 157–183, 1993."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2064675550",
+      "title": "Long Short-Term Memory",
+      "doi": "10.1162/neco.1997.9.8.1735",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "S. Hochreiter and J. Schmidhuber, “Long short-term memory,” Neural computation, vol. 9, no. 8, pp. 1735–1780, 1997."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2122736695",
+      "title": "Tabu search for the job-shop scheduling problem with multi-purpose machines",
+      "doi": "10.1007/bf01719451",
+      "status": "resolved",
+      "filename": "hurink_1994_tabu_search_for_the_job_shop_scheduling_problem_with_multi_purpose_m.pdf",
+      "oa_url": "https://ris.utwente.nl/ws/files/6479568/ORS15.pdf",
+      "raw": "J. Hurink, B. Jurisch, and M. Thole, “Tabu search for the job-shop scheduling problem with multi-purpose machines,” Operations-Research-Spektrum, vol. 15, pp. 205–215, 1994. 11"
+    }
+  ]
+}
