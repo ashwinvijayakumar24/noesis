@@ -199,7 +199,30 @@ def test_regression_check_passes_dim_score():
 
 
 def test_regression_check_fails_on_scoreboard_drop():
+    """_regression_check now takes the append-only history rather than the single
+    previous scoreboard, and compares against the BEST score ever recorded for a
+    cell. Comparing only against the immediately previous run let slow drift
+    through: 8.0 -> 7.8 -> 7.6 -> 7.4 clears a 0.5 gate at every individual step
+    while losing 0.6 overall."""
     rows = [_row("d1", 7.0)]
-    prev = {"rows": [{"draft_stem": "d1", "corpus": "no-corpus", "overall": 9.0}]}
-    failures = _regression_check(rows, prev, {"min_overall": 0.0, "min_dim_score": 0.0, "max_mean_drop": 0.5})
+    history = [{"run_id": "r1", "cells": [{"draft_stem": "d1", "corpus": "no-corpus", "overall": 9.0}]}]
+    failures = _regression_check(rows, history, {"min_overall": 0.0, "min_dim_score": 0.0, "max_mean_drop": 0.5})
     assert any("REGRESSION" in f for f in failures)
+
+
+def test_regression_check_catches_drift_across_multiple_runs():
+    """The reason the signature changed. Each step is within threshold; the
+    cumulative drop is not."""
+    history = [
+        {"run_id": "r1", "cells": [{"draft_stem": "d1", "corpus": "no-corpus", "overall": 8.0}]},
+        {"run_id": "r2", "cells": [{"draft_stem": "d1", "corpus": "no-corpus", "overall": 7.8}]},
+        {"run_id": "r3", "cells": [{"draft_stem": "d1", "corpus": "no-corpus", "overall": 7.6}]},
+    ]
+    thresholds = {"min_overall": 0.0, "min_dim_score": 0.0, "max_mean_drop": 0.5}
+
+    # 7.6 -> 7.4 is only -0.2 against the previous run, but -0.6 against the best.
+    failures = _regression_check([_row("d1", 7.4)], history, thresholds)
+    assert any("REGRESSION" in f for f in failures)
+
+    # A drop within threshold of the best is still allowed.
+    assert not any("REGRESSION" in f for f in _regression_check([_row("d1", 7.7)], history, thresholds))

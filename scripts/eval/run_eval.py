@@ -8,13 +8,33 @@ Usage:
 
 Must run inside the backend container.
 
-Regression gate: exits non-zero if mean overall drops >0.5 vs previous scoreboard
-or any new hallucination appears.
+Regression gate: exits non-zero if mean overall drops >0.5 vs the best previously
+recorded score for that cell, or any new hallucination appears.
+
+Results are APPEND-ONLY (changed 2026-07-30). Before this change every run
+overwrote results/scoreboard.json in place, so each run destroyed the previous one
+and no before/after comparison existed anywhere in the project's history.
+
+  results/scoreboard.json             current-state pointer, still overwritten.
+                                      Same shape as before — existing readers are
+                                      unaffected.
+  results/history.jsonl               immutable append-only log, one JSON object
+                                      per run. Never rewritten.
+  results/openreview_history.jsonl    same, for the --openreview track.
+
+Each history record carries generated_at, run_id, the pipeline version hash from
+pipeline_cache.pipeline_version() (a SHA over every draft_analysis workflow file —
+reused, not reinvented), the config in force, aggregates, and per-cell scores.
+
+The regression gate reads history.jsonl, not just the last scoreboard, so slow
+multi-run drift is caught: a cell that loses 0.3 per run for three runs now fails
+even though no single step exceeded max_mean_drop.
 """
 
 import argparse
 import json
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,6 +51,109 @@ else:
 EVAL_DIR = Path(__file__).resolve().parent
 RESULTS_DIR = EVAL_DIR / "results"
 CONFIG_PATH = EVAL_DIR / "config.yaml"
+HISTORY_PATH = RESULTS_DIR / "history.jsonl"
+OPENREVIEW_HISTORY_PATH = RESULTS_DIR / "openreview_history.jsonl"
+
+
+def _pipeline_version() -> str:
+    """SHA over every draft_analysis workflow file. Reuses pipeline_cache."""
+    try:
+        from scripts.eval.pipeline_cache import pipeline_version
+    except ImportError:
+        try:
+            from pipeline_cache import pipeline_version  # type: ignore[no-redef]
+        except ImportError:
+            return "unavailable"
+    try:
+        return pipeline_version()
+    except Exception:
+        return "unavailable"
+
+
+def append_history(record: dict, path: Path = HISTORY_PATH) -> Path:
+    """Append one immutable JSON line. Never truncates or rewrites."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(record, default=str, sort_keys=True)
+    # A run killed mid-write leaves a truncated line with no newline. Start a fresh
+    # line so the new record is not concatenated onto the corrupt tail (which would
+    # make BOTH unreadable and lose this run too).
+    needs_newline = False
+    if path.exists() and path.stat().st_size:
+        with path.open("rb") as handle:
+            handle.seek(-1, 2)
+            needs_newline = handle.read(1) != b"\n"
+    with path.open("a", encoding="utf-8") as handle:
+        if needs_newline:
+            handle.write("\n")
+        handle.write(line + "\n")
+    return path
+
+
+def load_history(path: Path = HISTORY_PATH) -> list[dict]:
+    """Read history, skipping corrupt/partial lines rather than crashing the run."""
+    if not path.exists():
+        return []
+    records: list[dict] = []
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue  # truncated tail from a killed run, or hand-editing
+        if isinstance(record, dict):
+            records.append(record)
+    return records
+
+
+def build_history_record(
+    rows: list[dict],
+    cfg: dict,
+    mean_overall: float,
+    total_hallucinations: int,
+    *,
+    args: argparse.Namespace | None = None,
+) -> dict:
+    scored_rows = [r for r in rows if r.get("overall") is not None]
+    return {
+        "run_id": uuid.uuid4().hex,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "pipeline_version": _pipeline_version(),
+        "config": {
+            "drafts": cfg.get("drafts", []),
+            "corpora": cfg.get("corpora", []),
+            "auto_corpus": cfg.get("auto_corpus", False),
+            "thresholds": cfg.get("thresholds", {}),
+            "quick": bool(getattr(args, "quick", False)),
+            "stability": getattr(args, "stability", None),
+        },
+        "aggregates": {
+            "mean_overall": round(mean_overall, 4),
+            "total_hallucinations": total_hallucinations,
+            "total_cells": len(rows),
+            "scored_cells": len(scored_rows),
+        },
+        "cells": [
+            {
+                "cell_key": _cell_key(r.get("draft_stem", "?"), r.get("corpus", "?")),
+                "draft_stem": r.get("draft_stem"),
+                "corpus": r.get("corpus"),
+                "overall": r.get("overall"),
+                "dims": {
+                    dim: (dval.get("score") if isinstance(dval, dict) else dval)
+                    for dim, dval in (r.get("dims") or {}).items()
+                },
+                "hallucinations": len(r.get("hallucinations") or []),
+                "error": r.get("error"),
+            }
+            for r in rows
+        ],
+    }
 
 
 def _load_config() -> dict:
@@ -79,7 +202,36 @@ def _print_table(rows: list[dict]) -> None:
     print("=" * len(header))
 
 
-def _regression_check(current_rows: list[dict], prev_scoreboard: dict, thresholds: dict) -> list[str]:
+def _history_best_by_cell(history: list[dict]) -> dict[str, tuple[float, str]]:
+    """Best previously recorded overall per cell, with the run that produced it.
+
+    Uses the best (not merely the most recent) so that drift spread over several
+    runs is still caught: three consecutive -0.3 steps sum to -0.9 and fail a
+    max_mean_drop of 0.5, where a last-run-only comparison would pass every step.
+    """
+    best: dict[str, tuple[float, str]] = {}
+    for record in history:
+        if not isinstance(record, dict):
+            continue
+        run_id = str(record.get("run_id") or record.get("generated_at") or "?")
+        for cell in record.get("cells") or []:
+            if not isinstance(cell, dict):
+                continue
+            overall = cell.get("overall")
+            if not isinstance(overall, (int, float)):
+                continue
+            key = cell.get("cell_key")
+            if not key:
+                if not cell.get("draft_stem"):
+                    continue
+                key = _cell_key(str(cell["draft_stem"]), str(cell.get("corpus")))
+            key = str(key)
+            if key not in best or float(overall) > best[key][0]:
+                best[key] = (float(overall), run_id)
+    return best
+
+
+def _regression_check(current_rows: list[dict], history: list[dict], thresholds: dict) -> list[str]:
     failures = []
     min_overall = thresholds.get("min_overall", 0.0)
     min_dim_score = thresholds.get("min_dim_score", 0.0)
@@ -112,15 +264,21 @@ def _regression_check(current_rows: list[dict], prev_scoreboard: dict, threshold
         if r.get("hallucinations"):
             failures.append(f"HALLUCINATION: {r['draft_stem']}/{r['corpus']}: {r['hallucinations']}")
 
-    # Regression vs previous scoreboard
-    if prev_scoreboard.get("rows"):
-        prev_map = {_cell_key(r["draft_stem"], r["corpus"]): r["overall"] for r in prev_scoreboard["rows"]}
-        for r in current_rows:
-            key = _cell_key(r["draft_stem"], r["corpus"])
-            if key in prev_map and prev_map[key] is not None and r.get("overall") is not None:
-                drop = prev_map[key] - r["overall"]
-                if drop > max_mean_drop:
-                    failures.append(f"REGRESSION: {key} dropped {drop:.2f} (was {prev_map[key]:.2f}, now {r['overall']:.2f})")
+    # Regression vs the best score ever recorded for that cell, across all history.
+    best_map = _history_best_by_cell(history)
+    for r in current_rows:
+        if r.get("overall") is None:
+            continue
+        key = _cell_key(r["draft_stem"], r["corpus"])
+        if key not in best_map:
+            continue
+        best_overall, run_id = best_map[key]
+        drop = best_overall - r["overall"]
+        if drop > max_mean_drop:
+            failures.append(
+                f"REGRESSION: {key} dropped {drop:.2f} "
+                f"(best {best_overall:.2f} in run {run_id}, now {r['overall']:.2f})"
+            )
 
     return failures
 
@@ -221,10 +379,25 @@ def run_openreview_eval(args: argparse.Namespace) -> int:
         print(f"[eval-openreview] Fetching gold: venue={args.venue} limit={args.limit}")
         fetch_venue(args.venue, args.limit, openreview_dir)
         gold_paths = sorted(gold_dir.glob("*.json"))
-    gold_paths = gold_paths[:args.limit]
     if not gold_paths:
         print("[eval-openreview] No OpenReview gold files available.")
         return 1
+
+    if args.paper_ids:
+        requested = [paper_id.strip() for paper_id in args.paper_ids.split(",") if paper_id.strip()]
+        by_id = {path.stem: path for path in gold_paths}
+        missing = [paper_id for paper_id in requested if paper_id not in by_id]
+        if missing:
+            available = ", ".join(sorted(by_id)[:20])
+            print(
+                "[eval-openreview] Unknown --paper-ids: "
+                f"{', '.join(missing)}. Available examples: {available}"
+            )
+            return 1
+        gold_paths = [by_id[paper_id] for paper_id in requested]
+        print(f"[eval-openreview] --paper-ids: selected {len(gold_paths)} papers")
+    else:
+        gold_paths = gold_paths[:args.limit]
 
     rows: list[dict] = []
     for gold_path in gold_paths:
@@ -247,12 +420,38 @@ def run_openreview_eval(args: argparse.Namespace) -> int:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "venue": args.venue,
         "limit": args.limit,
+        "pipeline_version": _pipeline_version(),
         "aggregate": aggregate(rows),
         "rows": rows,
     }
     scoreboard_path = RESULTS_DIR / "openreview_scoreboard.json"
     scoreboard_path.write_text(json.dumps(scoreboard, indent=2, default=str) + "\n")
+
+    record = {
+        "run_id": uuid.uuid4().hex,
+        "generated_at": scoreboard["generated_at"],
+        "pipeline_version": scoreboard["pipeline_version"],
+        "config": {"venue": args.venue, "limit": args.limit, "paper_ids": args.paper_ids},
+        "aggregates": scoreboard["aggregate"],
+        "cells": [
+            {
+                "cell_key": str(row.get("paper_id")),
+                "paper_id": row.get("paper_id"),
+                "field": row.get("field"),
+                "weakness_recall": row.get("weakness_recall"),
+                "precision_vs_gold": row.get("precision_vs_gold"),
+                "groundedness": row.get("groundedness"),
+                "llm_relevance_rate": row.get("llm_relevance_rate"),
+                "ungrounded_rate": row.get("ungrounded_rate"),
+                "hallucinations": len(row.get("hallucinations") or []),
+            }
+            for row in rows
+        ],
+    }
+    append_history(record, OPENREVIEW_HISTORY_PATH)
+
     print(f"[eval-openreview] Scoreboard: {scoreboard_path}")
+    print(f"[eval-openreview] History (append-only): {OPENREVIEW_HISTORY_PATH}  run_id={record['run_id']}")
     print(json.dumps(scoreboard["aggregate"], indent=2, sort_keys=True))
     return 0
 
@@ -298,14 +497,11 @@ def main(args: argparse.Namespace) -> int:
 
     gold_dir = EVAL_DIR / "gold"
 
-    # Previous scoreboard for regression check
+    # Full history for regression check (not just the immediately previous run).
     scoreboard_path = RESULTS_DIR / "scoreboard.json"
-    prev_scoreboard: dict = {}
-    if scoreboard_path.exists():
-        try:
-            prev_scoreboard = json.loads(scoreboard_path.read_text())
-        except Exception:
-            pass
+    history = load_history(HISTORY_PATH)
+    if history:
+        print(f"[eval] History: {len(history)} prior run(s) in {HISTORY_PATH.name}")
 
     rows: list[dict] = []
 
@@ -367,11 +563,17 @@ def main(args: argparse.Namespace) -> int:
         "rows": rows,
         "thresholds": thresholds,
     }
+    scoreboard["pipeline_version"] = _pipeline_version()
     scoreboard_path.write_text(json.dumps(scoreboard, indent=2, default=str))
+
+    # Append-only history. Written BEFORE the gate so a failing run is still recorded.
+    record = build_history_record(rows, cfg, mean_overall, total_hallucinations, args=args)
+    append_history(record, HISTORY_PATH)
 
     _print_table(scored_rows)
     print(f"\n[eval] Mean overall: {mean_overall:.2f}/10   Hallucinations: {total_hallucinations}")
     print(f"[eval] Scoreboard: {scoreboard_path}")
+    print(f"[eval] History (append-only): {HISTORY_PATH}  run_id={record['run_id']}")
 
     # Stability failures
     stability_failures = [
@@ -384,7 +586,7 @@ def main(args: argparse.Namespace) -> int:
             print(f"  ✗ {r['draft_stem']}/{r['corpus']}: {r.get('stability_fail', '')} finding_mismatch={r.get('stability_finding_fail', False)}")
 
     # Regression gate
-    failures = _regression_check(scored_rows, prev_scoreboard, thresholds)
+    failures = _regression_check(scored_rows, history, thresholds)
     if failures:
         print("\n[eval] REGRESSION GATE FAILURES:")
         for f in failures:
@@ -405,6 +607,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--openreview", action="store_true", help="Run OpenReview human-review eval")
     p.add_argument("--venue", default="ICLR.cc/2024/Conference", help="OpenReview venue id")
     p.add_argument("--limit", type=int, default=15, help="OpenReview paper limit")
+    p.add_argument("--paper-ids", default=None, help="Comma-separated OpenReview paper ids to eval")
     p.add_argument("--field-map", default=None, help="Optional JSON map from OpenReview paper_id/title to field")
     return p.parse_args()
 

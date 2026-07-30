@@ -5,6 +5,47 @@ This judge consumes:
 - a Noesis export JSON from run_harness._export_result
 - an OpenReview gold JSON from fetch_openreview.py
 - matches from match.py
+
+!!! BREAKING METRIC CHANGE (2026-07-30) — read before comparing to old scoreboards !!!
+
+The old `precision` field counted a Noesis item as "correct" if it matched a gold
+review unit OR its anchor appeared in the PDF OR an LLM judged it grounded. Three
+different properties were OR'd into one number, so an item that no human reviewer
+ever raised still scored as a hit whenever a model blessed it. That definition
+could not produce a miss: it reported `mean_precision: 1.0` and, because
+`hallucination_rate` was defined as `1 - precision`, `mean_hallucination_rate: 0.0`.
+Both numbers were near-tautological and must not be quoted.
+
+Those three properties are now reported as three distinct metrics:
+
+  precision_vs_gold   matched a human review unit / total items.
+                      This is the honest precision. REPLACES `precision`.
+                      The `precision` key is GONE — it was not renamed in place,
+                      because a same-named field with a different meaning is worse
+                      than a rename. Consumers must migrate.
+
+  groundedness        anchor verifiable verbatim in the source PDF / total items.
+                      A real property, but NOT precision. Numerically identical to
+                      the pre-existing `anchor_quality`, which is retained unchanged
+                      as an alias for existing consumers (check_heldout.py).
+
+  llm_relevance_rate  fraction of LLM-adjudicated items the judge model called
+                      grounded. INFORMATIONAL ONLY. It can never promote an item
+                      into precision_vs_gold or into groundedness.
+
+  ungrounded_rate     items whose anchor cannot be verified in the source / total.
+                      This is what hallucination is now measured against.
+
+`hallucination_rate` KEEPS ITS NAME BUT ITS MEANING CHANGED: it is now exactly
+`ungrounded_rate` (unverifiable anchor), not the old `1 - precision`. It is kept
+because check_heldout.py gates on `hallucination_rate > 0.0` and dropping the key
+would silently weaken that guard to a `or 0.0` no-op. Under the new definition the
+guard is strictly stronger, never weaker. `ungrounded_rate` is the unambiguous name;
+prefer it in new code.
+
+Aggregate keys follow the same migration: `mean_precision` is GONE, replaced by
+`mean_precision_vs_gold`, `mean_groundedness`, `mean_llm_relevance_rate`, and
+`mean_ungrounded_rate`.
 """
 
 from __future__ import annotations
@@ -13,8 +54,10 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import re
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any, Callable
 
@@ -44,7 +87,35 @@ def _stable_hash(parts: list[str]) -> str:
 
 
 def _norm(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text or "")
+    text = text.replace("\u00ad", "")
+    text = text.translate(
+        str.maketrans(
+            {
+                "“": '"',
+                "”": '"',
+                "‘": "'",
+                "’": "'",
+                "–": "-",
+                "—": "-",
+                "−": "-",
+                "∼": "~",
+                "≈": "~",
+                "π": "pi",
+                "α": "alpha",
+                "ω": "omega",
+                "θ": "theta",
+                "η": "eta",
+                "ρ": "rho",
+            }
+        )
+    )
+    text = re.sub(r"-\s+", "", text)
     return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _compact_norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", _norm(text))
 
 
 def paper_field(gold: dict, field_map: dict[str, str] | None = None) -> str:
@@ -87,7 +158,7 @@ def extract_noesis_items(export: dict) -> list[dict]:
     items: list[dict] = []
 
     for task in export.get("durable_revision_tasks") or []:
-        text = task.get("problem") or task.get("why_it_matters") or task.get("suggested_action")
+        text = _critique_text(task)
         if not text:
             continue
         items.append(
@@ -101,15 +172,37 @@ def extract_noesis_items(export: dict) -> list[dict]:
 
     for panel in export.get("reviewer_panel_outputs") or []:
         reviewer_id = str(panel.get("reviewer_id") or panel.get("id") or "reviewer")
-        for idx, weakness in enumerate(panel.get("weaknesses") or [], start=1):
-            items.append(
-                {
-                    "id": f"{panel.get('id', reviewer_id)}::weakness::{idx}",
-                    "source": "reviewer_panel",
-                    "text": str(weakness),
-                    "anchor_text": "",
-                }
-            )
+        panel_id = str(panel.get("id") or reviewer_id)
+        issues = panel.get("issues") or []
+        if issues:
+            for idx, issue in enumerate(issues, start=1):
+                if not isinstance(issue, dict):
+                    continue
+                text = issue.get("problem") or issue.get("description") or issue.get("title")
+                if not text:
+                    continue
+                items.append(
+                    {
+                        "id": f"{panel_id}::{reviewer_id}::issue::{idx}",
+                        "source": "reviewer_panel_issue",
+                        "reviewer_id": reviewer_id,
+                        "issue_type": str(issue.get("issue_type") or ""),
+                        "problem": str(text),
+                        "text": str(text),
+                        "anchor_text": str(issue.get("anchor_text") or ""),
+                    }
+                )
+        else:
+            for idx, weakness in enumerate(panel.get("weaknesses") or [], start=1):
+                items.append(
+                    {
+                        "id": f"{panel_id}::weakness::{idx}",
+                        "source": "reviewer_panel",
+                        "reviewer_id": reviewer_id,
+                        "text": str(weakness),
+                        "anchor_text": "",
+                    }
+                )
 
     for gap in export.get("coverage_gaps") or []:
         text = gap.get("description") or gap.get("reasoning")
@@ -127,6 +220,31 @@ def extract_noesis_items(export: dict) -> list[dict]:
     return items
 
 
+def _critique_text(item: dict) -> str:
+    parts = [
+        str(item.get(key) or "").strip()
+        for key in ("problem", "why_it_matters", "suggested_action")
+    ]
+    combined = _strip_eval_boilerplate(" ".join(part for part in parts if part))
+    if combined:
+        return combined
+    for key in ("description", "title", "recommendation"):
+        value = item.get(key)
+        if value:
+            return str(value)
+    return ""
+
+
+def _strip_eval_boilerplate(text: str) -> str:
+    text = re.sub(
+        r"\bNamed by the meta-reviewer as a blocking item for acceptance\.\s*",
+        "",
+        text or "",
+    )
+    text = re.sub(r"\bAddress the issue described above\.\s*", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _readiness_score(export: dict) -> float | None:
     metadata = (export.get("analysis") or {}).get("analysis_metadata") or {}
     score = metadata.get("readiness_score")
@@ -140,10 +258,26 @@ def _anchor_found(anchor_text: str, paper_text: str) -> bool:
     text = _norm(paper_text)
     if anchor in text:
         return True
-    return anchor[:240] in text if len(anchor) > 240 else False
+    if len(anchor) > 240 and anchor[:240] in text:
+        return True
+
+    compact_anchor = _compact_norm(anchor_text)
+    if len(compact_anchor) < 40:
+        return False
+    compact_text = _compact_norm(paper_text)
+    if compact_anchor in compact_text:
+        return True
+    return compact_anchor[:240] in compact_text if len(compact_anchor) > 240 else False
 
 
 def _real_ground_claim(claim: str, paper_text: str) -> dict:
+    for var in ("NOESIS_LLM_KILL_SWITCH", "EVAL_REPLAY_ONLY"):
+        if os.environ.get(var, "").strip().lower() not in ("", "0", "false", "no"):
+            raise RuntimeError(
+                f"judge_openreview grounding call blocked: {var} is set. "
+                "Pass a grounder= stub or warm the grounding cache."
+            )
+
     from app.core.openai_client import get_completion_params, get_openai_client
 
     client = get_openai_client()
@@ -212,32 +346,47 @@ def score_paper(
     )
     weakness_recall = matched_weight / total_weight if total_weight else 0.0
 
-    anchored = [
+    total_items = len(noesis_items)
+
+    # --- precision against gold: matched a real human review unit. Nothing else. ---
+    matched_items = [item for item in noesis_items if item["id"] in matched_noesis_ids]
+    precision_vs_gold = len(matched_items) / total_items if total_items else 0.0
+
+    # --- groundedness: anchor verifiable verbatim in the source PDF. NOT precision. ---
+    grounded_items = [
         item
         for item in noesis_items
         if item.get("anchor_text") and _anchor_found(str(item.get("anchor_text")), paper_text)
     ]
-    anchor_quality = len(anchored) / len(noesis_items) if noesis_items else 0.0
+    grounded_ids = {item["id"] for item in grounded_items}
+    groundedness = len(grounded_items) / total_items if total_items else 0.0
 
+    # --- ungrounded items drive hallucination rate. The LLM judge cannot rescue them. ---
+    ungrounded_items = [item for item in noesis_items if item["id"] not in grounded_ids]
+    ungrounded_rate = len(ungrounded_items) / total_items if total_items else 0.0
+
+    # --- LLM-judged relevance: informational only, never promotes an item. ---
+    llm_judged = 0
+    llm_relevant = 0
     hallucinations = []
-    grounded_count = 0
-    for item in noesis_items:
-        if item["id"] in matched_noesis_ids:
-            grounded_count += 1
-            continue
-        if _anchor_found(str(item.get("anchor_text") or ""), paper_text):
-            grounded_count += 1
-            continue
-        if not paper_text:
-            continue
-        grounded = _ground_claim(item["text"], paper_text, cache_dir, grounder)
-        if grounded["grounded"]:
-            grounded_count += 1
-        else:
-            hallucinations.append({"noesis_id": item["id"], "text": item["text"], "reason": grounded["reason"]})
+    for item in ungrounded_items:
+        reason = "anchor not verifiable in source"
+        if paper_text:
+            verdict = _ground_claim(item["text"], paper_text, cache_dir, grounder)
+            llm_judged += 1
+            if verdict["grounded"]:
+                llm_relevant += 1
+            reason = f"{reason}; llm_relevance={verdict['grounded']}: {verdict['reason']}"
+        hallucinations.append(
+            {
+                "noesis_id": item["id"],
+                "text": item["text"],
+                "reason": reason,
+                "matched_gold": item["id"] in matched_noesis_ids,
+            }
+        )
 
-    precision = grounded_count / len(noesis_items) if noesis_items else 0.0
-    hallucination_rate = len(hallucinations) / len(noesis_items) if noesis_items else 0.0
+    llm_relevance_rate = llm_relevant / llm_judged if llm_judged else 0.0
 
     return {
         "paper_id": gold.get("paper_id"),
@@ -245,15 +394,27 @@ def score_paper(
         "accepted": bool(gold.get("accepted")),
         "readiness_score": _readiness_score(export),
         "weakness_recall": round(weakness_recall, 4),
-        "precision": round(precision, 4),
-        "hallucination_rate": round(hallucination_rate, 4),
-        "anchor_quality": round(anchor_quality, 4),
+        # Honest precision. Replaces the old, un-failable `precision` key.
+        "precision_vs_gold": round(precision_vs_gold, 4),
+        # Anchor verifiable in source. Same value as anchor_quality, clearer name.
+        "groundedness": round(groundedness, 4),
+        # Informational only.
+        "llm_relevance_rate": round(llm_relevance_rate, 4),
+        "ungrounded_rate": round(ungrounded_rate, 4),
+        # SAME NAME, NEW MEANING: now == ungrounded_rate, not 1 - precision.
+        "hallucination_rate": round(ungrounded_rate, 4),
+        "anchor_quality": round(groundedness, 4),
         "matched_unit_ids": sorted(matched_unit_ids),
         "hallucinations": hallucinations,
         "counts": {
-            "noesis_items": len(noesis_items),
+            "noesis_items": total_items,
             "review_units": len(review_units),
             "confirmed_matches": len(confirmed),
+            "matched_vs_gold": len(matched_items),
+            "grounded_items": len(grounded_items),
+            "ungrounded_items": len(ungrounded_items),
+            "llm_judged": llm_judged,
+            "llm_relevant": llm_relevant,
         },
     }
 
@@ -306,7 +467,10 @@ def aggregate(per_paper: list[dict]) -> dict:
         by_field[field] = {
             "papers": len(rows),
             "mean_weakness_recall": mean_for(rows, "weakness_recall"),
-            "mean_precision": mean_for(rows, "precision"),
+            "mean_precision_vs_gold": mean_for(rows, "precision_vs_gold"),
+            "mean_groundedness": mean_for(rows, "groundedness"),
+            "mean_llm_relevance_rate": mean_for(rows, "llm_relevance_rate"),
+            "mean_ungrounded_rate": mean_for(rows, "ungrounded_rate"),
             "mean_hallucination_rate": mean_for(rows, "hallucination_rate"),
             "mean_anchor_quality": mean_for(rows, "anchor_quality"),
         }
@@ -314,7 +478,10 @@ def aggregate(per_paper: list[dict]) -> dict:
     return {
         "papers": len(per_paper),
         "mean_weakness_recall": mean("weakness_recall"),
-        "mean_precision": mean("precision"),
+        "mean_precision_vs_gold": mean("precision_vs_gold"),
+        "mean_groundedness": mean("groundedness"),
+        "mean_llm_relevance_rate": mean("llm_relevance_rate"),
+        "mean_ungrounded_rate": mean("ungrounded_rate"),
         "mean_hallucination_rate": mean("hallucination_rate"),
         "mean_anchor_quality": mean("anchor_quality"),
         "decision_spearman_rho": rho,
