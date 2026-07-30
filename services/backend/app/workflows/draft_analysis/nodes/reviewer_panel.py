@@ -13,6 +13,8 @@ Reviewer types:
 
 from __future__ import annotations
 
+import asyncio
+import os
 import re
 
 from app.workflows.draft_analysis.state import DraftAnalysisState
@@ -25,10 +27,12 @@ from app.workflows.draft_analysis.domain_routing import domain_context_block
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_async_openai_client, get_completion_params
 from app.core.supabase_client import supabase
+from app.services.progress_publisher import publish_progress
 from app.services.retry_utils import parse_chat_completion_with_retries
 
 logger = get_logger(__name__)
 client = None
+REVIEWER_TIMEOUT_SECONDS = int(os.getenv("DRAFT_REVIEWER_TIMEOUT_SECONDS", "180"))
 
 
 def _get_client():
@@ -89,14 +93,44 @@ something is missing/absent/not reported, or demand an experiment, method, or de
 search the ENTIRE provided text first. If the manuscript already addresses it anywhere
 (even briefly, in any section including Methods/Supplement), DO NOT raise it. Only raise
 genuinely absent items. Quote the exact sentence you are critiquing.
+
+TRANSFERABLE REVIEW CHECKLIST:
+- Evaluation adequacy: dataset/sample/task coverage must match the claim's scope.
+- Baseline and ablation fairness: compare against current relevant alternatives, keep
+  runtime/resource/comparison conditions consistent, and ask for ablations only when
+  they fit the manuscript's evidence mode.
+- Practical applicability: deployment path, user/sample realism, expert effort, and
+  operational constraints should be clear when the paper makes practical claims.
+- Method clarity: notation, topology/state variables, figures, and tables should be
+  self-contained enough for readers to reconstruct the argument or method.
+- Limitations: scope constraints, scalability, failure modes, and marginal gains should
+  be acknowledged in proportion to the paper's claims.
 """
 
 # ---------------------------------------------------------------------------
-# Reviewer system prompts
+# Reviewer persona blocks
+#
+# PROMPT ORDERING / PREFIX CACHING
+# --------------------------------
+# OpenAI's automatic prompt cache keys on an exact *token prefix*. The three
+# panel calls for one draft share ~95% of their text (calibration block + the
+# full manuscript + profile context) and differ only in the persona block and a
+# small per-persona context slice. To let that shared text be cached once and
+# reused by the other two calls, everything invariant must come FIRST and
+# everything persona-specific LAST:
+#
+#   system : SHARED_REVIEWER_PREAMBLE  (byte-identical for all three personas)
+#   user   : shared base context       (metadata + profile + manuscript)
+#            then the persona block    (REVIEWER_PERSONAS[reviewer_type])
+#            then the persona context  (_build_*_context)
+#
+# Nothing in the shared prefix may vary per call or per run: no timestamps, no
+# uuid/run ids, no set/dict iteration whose order is not fixed. See
+# tests/test_prompt_cache_structure.py, which asserts these properties.
 # ---------------------------------------------------------------------------
 
-REVIEWER_PROMPTS: dict[str, str] = {
-    "literature_positioning": f"""You are Reviewer A: Literature, Positioning & Contribution expert.
+REVIEWER_PERSONAS: dict[str, str] = {
+    "literature_positioning": """You are Reviewer A: Literature, Positioning & Contribution expert.
 
 Your focus: contribution clarity, novelty over prior work, missing key papers,
 positioning accuracy, and whether conflicting evidence is acknowledged.
@@ -117,10 +151,9 @@ methods, or study-design validity (Reviewer B's lane). Do NOT comment on writing
 grammar, or figure clarity (Reviewer D's lane). If a methodology issue also affects
 positioning, name it once in one sentence and defer to Reviewer B. Your critiques must be
 about novelty, prior-work coverage, and contribution — not method soundness or prose.
+""",
 
-{RATING_CALIBRATION}""",
-
-    "methodology": f"""You are Reviewer B: Methodology & Evidence Soundness expert.
+    "methodology": """You are Reviewer B: Methodology & Evidence Soundness expert.
 
 Your focus: study design, evidence synthesis, statistical validity, reproducibility, and confounds.
 
@@ -150,10 +183,9 @@ YOUR LANE ONLY: methods, results interpretation, statistical and study-design va
 FORBIDDEN: Do NOT comment on novelty, literature coverage, or positioning (Reviewer A's
 lane). Do NOT comment on writing clarity, grammar, or exposition (Reviewer D's lane).
 Your critiques must be about method soundness and evidence validity — not contribution or prose.
+""",
 
-{RATING_CALIBRATION}""",
-
-    "clarity": f"""You are Reviewer D: Clarity, Presentation & Reproducibility expert.
+    "clarity": """You are Reviewer D: Clarity, Presentation & Reproducibility expert.
 
 Your focus: writing clarity, figure/table quality, abstract accuracy,
 limitations/caveat honesty, and whether the paper is reproducible from text alone.
@@ -171,8 +203,24 @@ YOUR LANE ONLY: exposition, argument structure, reporting completeness, terminol
 FORBIDDEN: Do NOT make causal or statistical claims about the evidence, and do NOT comment
 on novelty, literature positioning, protocol registration, risk of bias, or statistical
 methodology (other reviewers' lanes). Your job is communication quality, not the science.
+""",
+}
 
-{RATING_CALIBRATION}""",
+#: Invariant system prompt for every panel call. Byte-identical across the three
+#: personas on purpose — this is the cacheable prefix. Do not interpolate the
+#: reviewer type, the draft id, a timestamp, or anything else per-call in here.
+SHARED_REVIEWER_PREAMBLE = f"""You are one reviewer on a pre-submission peer-review panel for an academic
+manuscript. Your specific reviewer assignment and lane are stated at the END of
+the user message — read the manuscript first, then apply your assignment.
+{RATING_CALIBRATION}"""
+
+#: Persona block joined with the calibration block, kept for callers that need a
+#: single standalone reviewer system prompt (``reviewer_judge``). The panel node
+#: itself does NOT use this — it splits the two halves so the calibration text
+#: can sit in the shared cacheable prefix.
+REVIEWER_PROMPTS: dict[str, str] = {
+    reviewer_type: f"{persona}\n{RATING_CALIBRATION}"
+    for reviewer_type, persona in REVIEWER_PERSONAS.items()
 }
 
 # ---------------------------------------------------------------------------
@@ -239,7 +287,14 @@ def _build_methodology_context(state: DraftAnalysisState) -> str:
 
     diagnostics = [
         f for f in state.get("diagnostic_findings") or []
-        if f.get("finding_type") in {"systematic_review", "clinical_ai", "causal_inference"}
+        if f.get("finding_type") in {
+            "systematic_review",
+            "clinical_ai",
+            "causal_inference",
+            "causal_claim",
+            "methodology",
+            "deployment",
+        }
     ]
     if diagnostics:
         lines.append("\nPROFILE-AWARE DIAGNOSTICS:")
@@ -324,6 +379,32 @@ def _section_excerpts(draft_content: str, max_chars: int = 1400) -> str:
     return (draft_content or "")[:5000]
 
 
+#: Outer cap applied to the compacted manuscript when compaction is enabled.
+REVIEWER_MANUSCRIPT_MAX_CHARS = int(
+    os.getenv("DRAFT_REVIEWER_MANUSCRIPT_MAX_CHARS", "24000")
+)
+
+
+def reviewer_compaction_enabled() -> bool:
+    """True when the reviewer manuscript should be compacted to section excerpts.
+
+    OFF by default. Enabling it cuts reviewer input tokens substantially but the
+    reviewers then no longer see the full text, which weakens the GROUNDING RULE
+    (they can no longer verify that something really is absent). It is a real
+    token/quality trade, not a free win. Read at call time so it can be toggled
+    per process and in tests.
+    """
+    return os.getenv("DRAFT_REVIEWER_COMPACT_MANUSCRIPT", "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def _reviewer_manuscript_text(draft_content: str) -> str:
+    if not reviewer_compaction_enabled():
+        return draft_content or ""
+    return _section_excerpts(draft_content or "")[:REVIEWER_MANUSCRIPT_MAX_CHARS]
+
+
 def _profile_context(state: DraftAnalysisState) -> str:
     profile = state.get("manuscript_profile") or {}
     diagnostics = state.get("diagnostic_findings") or []
@@ -349,12 +430,17 @@ def _profile_context(state: DraftAnalysisState) -> str:
     return "\n".join(lines)
 
 
-def build_reviewer_context(state: DraftAnalysisState, reviewer_type: str) -> str:
+def build_shared_reviewer_prefix(state: DraftAnalysisState) -> str:
+    """The part of the user message that is identical for all three personas.
+
+    Must stay free of anything that varies per call or per run — it is the
+    cacheable prefix the three panel calls share.
+    """
     structure = state.get("structure") or {}
     sections = structure.get("sections") or []
     section_types = [s.get("type", "?") for s in sections]
 
-    base = f"""DRAFT METADATA:
+    return f"""DRAFT METADATA:
 - Paper type: {state.get('paper_type', 'unknown')}
 - Word count: {structure.get('word_count', 'unknown')}
 - Sections present: {', '.join(section_types) or 'unknown'}
@@ -362,15 +448,156 @@ def build_reviewer_context(state: DraftAnalysisState, reviewer_type: str) -> str
 {_profile_context(state)}
 
 FULL MANUSCRIPT TEXT (search this entire text before claiming anything is missing):
-{(state.get('draft_content', '') or '')[:24000]}
+{_reviewer_manuscript_text(state.get('draft_content', '') or '')}
 """
 
-    builders = {
-        "literature_positioning": _build_literature_positioning_context,
-        "methodology": _build_methodology_context,
-        "clarity": _build_clarity_context,
-    }
-    return base + builders[reviewer_type](state)
+
+_CONTEXT_BUILDERS = {
+    "literature_positioning": _build_literature_positioning_context,
+    "methodology": _build_methodology_context,
+    "clarity": _build_clarity_context,
+}
+
+
+def build_reviewer_context(state: DraftAnalysisState, reviewer_type: str) -> str:
+    """Shared prefix first, then this reviewer's tailored context slice."""
+    return build_shared_reviewer_prefix(state) + _CONTEXT_BUILDERS[reviewer_type](state)
+
+
+def build_reviewer_messages(
+    state: DraftAnalysisState, reviewer_type: str
+) -> list[dict[str, str]]:
+    """Assemble the panel call's messages with the variable persona block LAST.
+
+    Everything before ``YOUR REVIEWER ASSIGNMENT`` — the system preamble, the
+    draft metadata, the profile block and the manuscript — is byte-identical for
+    all three personas, so calls 2 and 3 hit the prompt cache for it.
+    """
+    return [
+        {"role": "system", "content": SHARED_REVIEWER_PREAMBLE},
+        {
+            "role": "user",
+            "content": (
+                f"Review this paper:\n\n{build_reviewer_context(state, reviewer_type)}"
+                f"\n\nYOUR REVIEWER ASSIGNMENT:\n{REVIEWER_PERSONAS[reviewer_type]}"
+            ),
+        },
+    ]
+
+
+_ABSENCE_PATTERNS = (
+    r"\bmissing\b",
+    r"\bnot specified\b",
+    r"\bnot reported\b",
+    r"\bnot provided\b",
+    r"\bnot described\b",
+    r"\bnot stated\b",
+    r"\bwithout reporting\b",
+    r"\bno concrete\b",
+    r"\bno explicit\b",
+    r"\bno single\b",
+    r"\bno ablation\b",
+    r"\bno baseline\b",
+    r"\blimited discussion\b",
+    r"\binsufficient discussion\b",
+    r"\blacks?\b",
+    r"\bdoes not include\b",
+    r"\bdoesn't include\b",
+    r"\bfails to include\b",
+    r"\babsent\b",
+)
+
+_CONTRADICTION_TERMS = {
+    "hyperparameter": (
+        "hyperparameter", "learning rate", "batch size", "epochs", "optimizer",
+        "dropout", "weight decay", "seed", "random seed",
+    ),
+    "ablation": ("ablation study", "ablation results", "we ablate", "we perform ablation", "ablated"),
+    "baseline": ("baseline model", "baseline method", "compared against", "comparison method", "state-of-the-art baseline"),
+    "runtime": ("runtime", "running time", "wall-clock", "latency", "throughput", "gpu hours"),
+    "scalability": ("scalability", "scales to", "scaling behavior", "computational complexity", "asymptotic"),
+    "limitation": ("limitation", "limitations", "threats to validity"),
+    "dataset": ("dataset", "datasets", "sample", "participants", "corpus", "benchmark"),
+    "code": ("code", "implementation", "repository", "github", "artifact"),
+    "notation": ("notation", "variables", "symbols", "state variables", "topology"),
+    "deployment": ("deployment", "deploy", "practical", "real-world", "operator", "user study"),
+    "seed_uncertainty_reporting": (
+        "uncertainty", "variability", "variance", "standard deviation",
+        "standard deviations", "std", "mean", "averaged over", "seeds",
+        "random seeds",
+    ),
+    "consolidated_definition": (
+        "single consolidated definition", "full forward-pass equation",
+        "algorithm box", "complete model definition", "formal complete description",
+        "complete description", "final model", "as follows",
+    ),
+    "neighbor_kernel_related_work": (
+        "classical kernel", "kernel regression", "learned metric knn", "knn",
+        "neighbor-based", "kernel methods", "deep kernel learning", "dknr",
+        "dnnr", "local learning",
+    ),
+}
+
+_ANYWHERE_CONTRADICTION_FAMILIES = {
+    "consolidated_definition",
+    "neighbor_kernel_related_work",
+    "seed_uncertainty_reporting",
+}
+
+
+def _norm_text(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").lower()).strip()
+
+
+def _is_absence_style_claim(text: str) -> bool:
+    normalized = _norm_text(text)
+    return any(re.search(pattern, normalized) for pattern in _ABSENCE_PATTERNS)
+
+
+def _contradiction_families(text: str) -> list[str]:
+    normalized = _norm_text(text)
+    families: list[str] = []
+    for family, terms in _CONTRADICTION_TERMS.items():
+        if any(term in normalized for term in terms):
+            families.append(family)
+    return families
+
+
+def _issue_contradicted_by_full_manuscript(issue: ReviewerIssue, draft_content: str) -> tuple[bool, str]:
+    issue_text = " ".join(
+        part for part in (issue.problem, issue.why_it_matters, issue.suggested_action)
+        if part
+    )
+    if getattr(issue, "audit_grounded", False) or not _is_absence_style_claim(issue_text):
+        return False, ""
+
+    families = _contradiction_families(issue_text)
+    if not families:
+        return False, ""
+
+    full_text = _norm_text(draft_content)
+    head_text = _norm_text((draft_content or "")[:24000])
+    later_text = _norm_text((draft_content or "")[24000:])
+    for family in families:
+        terms = _CONTRADICTION_TERMS[family]
+        if any(term in full_text for term in terms):
+            if family in _ANYWHERE_CONTRADICTION_FAMILIES:
+                return True, f"absence claim contradicted by manuscript text mentioning {family}"
+            location = "later manuscript text" if any(term in later_text for term in terms) else "manuscript text"
+            if any(term in later_text for term in terms) or not any(term in head_text for term in terms):
+                return True, f"absence claim contradicted by {location} mentioning {family}"
+    return False, ""
+
+
+def _filter_contradicted_absence_issues(issues: list[ReviewerIssue], draft_content: str) -> list[ReviewerIssue]:
+    kept: list[ReviewerIssue] = []
+    for issue in issues or []:
+        contradicted, reason = _issue_contradicted_by_full_manuscript(issue, draft_content)
+        if contradicted:
+            logger.info("[ReviewerPanel] Dropped absence-style issue: %s", reason)
+            continue
+        kept.append(issue)
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +669,24 @@ def _trigger_label(trigger: str) -> str:
     return head or (trigger or "")[:60]
 
 
+def _fallback_reviewer_output(reviewer_type: str, reason: str) -> ReviewerOutput:
+    return ReviewerOutput(
+        reviewer_id=reviewer_type,
+        summary=(
+            "This reviewer could not complete within the analysis deadline. "
+            "The final report is based on the completed reviewer lanes and deterministic checks."
+        ),
+        strengths=[],
+        weaknesses=[reason],
+        questions_to_authors=[],
+        limitations_to_address=[],
+        issues=[],
+        rating=5,
+        confidence=1,
+        recommendation="major_revision",
+    )
+
+
 async def audit_domain_triggers(
     triggers: list[str], draft_content: str
 ) -> list[dict]:
@@ -466,7 +711,7 @@ async def audit_domain_triggers(
     )
     user = (
         f"CHECKLIST (evaluate every item):\n{checklist}\n\n"
-        f"MANUSCRIPT:\n{(draft_content or '')[:24000]}"
+        f"MANUSCRIPT:\n{draft_content or ''}"
     )
     try:
         response = await parse_chat_completion_with_retries(
@@ -551,25 +796,37 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
     draft_id = state.get("draft_id", "")
 
     logger.info(f"[ReviewerPanel] Starting reviewer_type={reviewer_type} draft_id={draft_id}")
+    if draft_id:
+        try:
+            await publish_progress(
+                draft_id,
+                "reviewer_panel",
+                84,
+                f"Reviewer panel running: {reviewer_type.replace('_', ' ')}",
+            )
+        except Exception:
+            pass
 
     # Quality-v2 regenerates panel rows on each analysis run because profile and
     # diagnostic context can change even when draft_id stays the same.
 
-    system_prompt = REVIEWER_PROMPTS[reviewer_type]
-    context = build_reviewer_context(state, reviewer_type)
+    # Invariant system prompt + shared-prefix-first user message so the three
+    # parallel panel calls share a cacheable token prefix. See the ordering note
+    # above REVIEWER_PERSONAS.
+    messages = build_reviewer_messages(state, reviewer_type)
 
     try:
-        response = await parse_chat_completion_with_retries(
-            _get_client(),
-            model="gpt-5.2-chat-latest",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Review this paper:\n\n{context}"},
-            ],
-            max_completion_tokens=2500,
-            temperature=0,
-            response_format=ReviewerOutput,
-            **get_completion_params(),
+        response = await asyncio.wait_for(
+            parse_chat_completion_with_retries(
+                _get_client(),
+                model="gpt-5.2-chat-latest",
+                messages=messages,
+                max_completion_tokens=2500,
+                temperature=0,
+                response_format=ReviewerOutput,
+                **get_completion_params(),
+            ),
+            timeout=REVIEWER_TIMEOUT_SECONDS,
         )
 
         output = response.parsed
@@ -640,6 +897,11 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
         except Exception as _gate_exc:
             logger.warning("[ReviewerPanel] Evidence gate skipped: %s", _gate_exc)
 
+        output.issues = _filter_contradicted_absence_issues(
+            output.issues,
+            state.get("draft_content") or "",
+        )
+
         for issue in output.issues:
             if issue.problem and issue.problem not in output.weaknesses:
                 output.weaknesses.append(issue.problem)
@@ -678,10 +940,36 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
             f"[ReviewerPanel] {reviewer_type} complete: "
             f"rating={output.rating}, recommendation={output.recommendation}"
         )
+        if draft_id:
+            try:
+                await publish_progress(
+                    draft_id,
+                    "reviewer_panel",
+                    87,
+                    f"Reviewer complete: {reviewer_type.replace('_', ' ')}",
+                )
+            except Exception:
+                pass
 
+        return {"reviewer_outputs": [output.model_dump()]}
+
+    except asyncio.TimeoutError:
+        reason = f"{reviewer_type} reviewer timed out after {REVIEWER_TIMEOUT_SECONDS}s"
+        logger.error("[ReviewerPanel] %s", reason)
+        if draft_id:
+            try:
+                await publish_progress(
+                    draft_id,
+                    "reviewer_panel",
+                    87,
+                    f"Reviewer timed out: {reviewer_type.replace('_', ' ')}; continuing degraded",
+                )
+            except Exception:
+                pass
+        output = _fallback_reviewer_output(reviewer_type, reason)
         return {"reviewer_outputs": [output.model_dump()]}
 
     except Exception as exc:
         logger.error(f"[ReviewerPanel] {reviewer_type} failed: {exc}")
-        # Return empty — meta_reviewer handles missing reviewers gracefully
-        return {"reviewer_outputs": []}
+        output = _fallback_reviewer_output(reviewer_type, f"{reviewer_type} reviewer failed")
+        return {"reviewer_outputs": [output.model_dump()]}
