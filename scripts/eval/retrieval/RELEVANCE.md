@@ -112,20 +112,31 @@ prints counts and exits. Therefore, from disk alone, we know how many references
 resolved (= file count) but **not how many were attempted**. The true resolution
 rate is unknown-by-construction, not merely unmeasured.
 
-`labels.py` handles this honestly:
+`labels.py` handles this with three matchers, in descending order of trust:
 
-- It looks for an optional sidecar `corpora/<stem>/references.json` — a list of
-  `{title, doi, authors, year}` from the GROBID extraction.
-- **Present** → resolution rate is computed exactly, and each unresolved
-  reference is listed individually in the `unresolved` bucket.
-- **Absent** → `references_total` is `null`, `resolution_rate` is `null`, and
-  `denominator_recoverable` is `false`. The harness prints a loud warning and
-  **never substitutes the resolved count for the denominator**, because doing so
-  reports a 100% resolution rate, which is the exact silent-denominator-shrink
-  failure this lane exists to prevent.
+1. **Sidecar with per-reference `status`** (`MATCHER_SIDECAR`) — the authority.
+   `build_corpus.py` now writes `corpora/<stem>/references.json` recording every
+   attempted reference, its outcome (`resolved` / `no_oa_pdf` /
+   `no_openalex_match` / `download_failed` / `pending` / `skipped_max_papers`)
+   and, when resolved, the filename it wrote. A reference maps to a document if
+   and only if its status is `resolved` and that file is on disk. Everything else
+   is excluded from the denominator and counted **by reason**. Resolution rate is
+   exact.
+2. **Sidecar without statuses** (`MATCHER_TITLE_TOKEN`) — the legacy lenient
+   fallback: guess resolution from title-token overlap against filenames. It was
+   measurably wrong. Against the four corpora that now carry statuses it credited
+   **21** never-downloaded references as resolved (44 unresolved counted vs. 65
+   actual), inflating recall by handing the retriever credit for documents that
+   do not exist. It survives only for statusless sidecars, and `labels.py` and
+   the eval CLI both print a loud warning naming every topic where it fired.
+3. **No sidecar** (`MATCHER_NONE`) — `references_total` is `null`,
+   `resolution_rate` is `null`, `denominator_recoverable` is `false`. The
+   harness **never substitutes the resolved count for the denominator**, because
+   doing so reports a 100% resolution rate, which is the exact
+   silent-denominator-shrink failure this lane exists to prevent.
 
-Writing that sidecar requires a one-line change in `build_corpus.py`, which this
-lane does not own. It is the single highest-value follow-up.
+`LABELS_SCHEMA_VERSION` is part of the label cache key, so a cache written under
+the old lenient matcher can never be silently served for a run under the new one.
 
 ## 5. Graded vs. binary relevance
 
@@ -188,7 +199,30 @@ tomorrow's graded ones.
    is a strength versus LLM-generated labels and a weakness versus purpose-built
    ones.
 
-## 7. Actual state of the ground truth on disk (2026-07-30)
+## 7. Actual state of the ground truth on disk
+
+**Current — 2026-07-30, after the OpenReview corpora landed. Measured, not
+assumed. Headline numbers live in BASELINE.md.**
+
+- **118 unique corpus PDFs** across 15 topic directories; all 118 are ingested
+  into local pgvector as 2124 chunks.
+- **4 topics carry an authoritative sidecar** (`10eQ4Cfh8p`, `9ceadCJY4B`,
+  `ApjY32f3Xr`, `BQvbL2sFQx`): **145 references attempted, 80 resolved (55.2%)**,
+  65 excluded as corpus gaps (`no_oa_pdf` 27, `pending` 19, `no_openalex_match`
+  10, `download_failed` 9).
+- **The 11 `draft*` topics still have no sidecar**, so their denominator remains
+  unrecoverable and their resolution rate is reported as UNKNOWN. Their 39
+  documents serve as distractors.
+- **The join is non-empty**: 59 of 338 built queries have labels, carrying 903
+  relevant judgments across those 4 topics. The other 279 queries belong to the
+  11 OpenReview manuscripts with cached claims but no corpus (OpenAlex is now a
+  metered paid API), and are dropped rather than scored as zeros.
+- The database document id is `uuid5(ns, sha256_hex)` (`ingest.py`) while the
+  label doc id is `sha256_hex[:16]`. `run_retrieval_eval.db_doc_id_map`
+  translates; without it every DB-backed run scores a flat 0.0 while looking
+  healthy, so the CLI fails any run whose rows join to nothing.
+
+### Historical — the state that motivated this document (before the OpenReview corpora)
 
 Measured, not assumed:
 
@@ -203,7 +237,7 @@ Measured, not assumed:
 - **Cached claims exist for 15 OpenReview papers** (759 claims across 75 export
   files in `cache/exports/`), every one recorded with `corpus: "no-corpus"`.
 
-The join is therefore **empty**: the manuscripts with labels have no queries, and
+The join was therefore **empty**: the manuscripts with labels had no queries, and
 the manuscripts with queries have no labels. This is a real finding about the
 repo's eval assets, not a limitation of the harness. The harness is built,
 tested, and runnable end-to-end against `MockRetriever` today; feeding it real
@@ -214,4 +248,4 @@ data requires **one** of:
   for the same paper; or
 - restore a `draft1`–`draft10` PDF and extract its claims.
 
-Either unblocks real numbers. Neither is in this lane's file scope.
+Either unblocks real numbers. The first path is the one that was taken.

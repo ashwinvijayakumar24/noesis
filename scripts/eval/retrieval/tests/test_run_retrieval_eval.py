@@ -131,9 +131,15 @@ def test_cli_surfaces_empty_join(workspace, capsys):
     assert "JOIN                     : EMPTY" in capsys.readouterr().out
 
 
-def test_dense_retriever_requires_project_id(workspace):
-    with pytest.raises(SystemExit):
-        R.main(_argv(workspace)[2:] + ["--retriever", "dense"])
+def test_dense_retriever_defaults_to_the_ingested_eval_project(workspace):
+    """The eval corpus lives under exactly one project id, so requiring the flag
+    was busywork that invited typing the wrong uuid. It defaults to the one
+    scripts/eval/ingest.py writes."""
+    from scripts.eval.retrieval import adapters as A
+
+    parser_default = R.EVAL_PROJECT_ID
+    assert parser_default == A.EVAL_PROJECT_ID
+    assert parser_default == "e7a1c0b0-0000-4000-8000-000000000001"
 
 
 # ---------------------------------------------------------------------------
@@ -259,3 +265,125 @@ def test_record_notes_kill_switch(workspace, monkeypatch):
     R.main(_argv(workspace))
     rec = R.read_results(workspace["results"])[0]
     assert rec["environment"]["llm_kill_switch"] == "EVAL_REPLAY_ONLY"
+
+
+# ---------------------------------------------------------------------------
+# The degradation gate: a swallowed RPC failure must fail the run LOUDLY
+# ---------------------------------------------------------------------------
+
+
+class _FakeRun:
+    """Minimal stand-in for run_eval's output."""
+
+    def __init__(self, scored=5, rows=100, joined=100, empty=0):
+        self.result = type("R", (), {"n_queries_scored": scored})()
+        self.health = {"rows_returned": rows, "rows_joined_to_corpus": joined,
+                       "queries_with_empty_run": empty}
+
+    def as_dict(self):
+        return {"result": self.result, "retrieval_health": self.health}
+
+
+CLEAN = {"name": "keyword_search_chunks", "degraded": False,
+         "failure_count": 0, "last_error": None, "checked": True}
+
+
+def test_run_is_valid_when_the_flag_is_clear():
+    v = R.run_verdict(CLEAN, _FakeRun().as_dict(), "keyword")
+    assert v["valid"] is True and v["reasons"] == []
+
+
+def test_degraded_flag_invalidates_the_run():
+    """A plausible zero from a swallowed RPC error is worse than no number."""
+    degraded = {**CLEAN, "degraded": True, "failure_count": 3,
+                "last_error": "UndefinedColumn: dc.metadata"}
+    v = R.run_verdict(degraded, _FakeRun().as_dict(), "keyword")
+    assert v["valid"] is False
+    assert any("KEYWORD_SEARCH_DEGRADED" in r for r in v["reasons"])
+    assert any("dc.metadata" in r for r in v["reasons"])
+
+
+def test_zero_rows_for_every_query_invalidates_the_run():
+    v = R.run_verdict(CLEAN, _FakeRun(rows=0, joined=0, empty=5).as_dict(), "keyword")
+    assert v["valid"] is False
+    assert any("0 rows" in r for r in v["reasons"])
+
+
+def test_rows_that_join_to_nothing_invalidate_the_run():
+    """The id-space mismatch that would otherwise read as recall 0.0."""
+    v = R.run_verdict(CLEAN, _FakeRun(rows=100, joined=0).as_dict(), "dense")
+    assert v["valid"] is False
+    assert any("NONE joined" in r for r in v["reasons"])
+
+
+def test_unknown_degradation_state_is_not_reported_as_healthy():
+    from scripts.eval.retrieval import adapters as A
+
+    assert A.UNKNOWN_DEGRADATION["degraded"] is None   # not False
+    assert A.UNKNOWN_DEGRADATION["checked"] is False
+
+
+def test_record_carries_the_verdict_and_the_flag(workspace):
+    R.main(_argv(workspace))
+    record = json.loads(workspace["results"].read_text().splitlines()[0])
+    assert record["valid"] is True
+    assert record["invalidated_by"] == []
+    assert "degraded" in record["degradation"]
+    assert record["retrieval_health"]["rows_returned"] > 0
+
+
+def test_cli_exits_nonzero_and_shouts_when_the_run_is_invalid(workspace, capsys, monkeypatch):
+    monkeypatch.setattr(
+        R, "keyword_degradation_snapshot",
+        lambda: {**CLEAN, "degraded": True, "failure_count": 1,
+                 "last_error": "UndefinedColumn: dc.metadata"},
+    )
+    code = R.main(_argv(workspace))
+    out = capsys.readouterr().out
+
+    assert code == R.EXIT_INVALID_RUN
+    assert code != 0
+    assert "RUN INVALID -- DO NOT QUOTE THESE NUMBERS" in out
+    # The record is still appended: an invalid run is itself a finding.
+    assert len(workspace["results"].read_text().splitlines()) == 1
+    assert json.loads(workspace["results"].read_text())["valid"] is False
+
+
+def test_results_still_append_after_an_invalid_run(workspace, monkeypatch):
+    R.main(_argv(workspace))
+    monkeypatch.setattr(
+        R, "keyword_degradation_snapshot",
+        lambda: {**CLEAN, "degraded": True, "failure_count": 1, "last_error": "boom"},
+    )
+    R.main(_argv(workspace, seed=42))
+    monkeypatch.undo()
+    R.main(_argv(workspace, seed=99))
+
+    lines = workspace["results"].read_text().splitlines()
+    assert len(lines) == 3
+    assert [json.loads(l)["valid"] for l in lines] == [True, False, True]
+
+
+# ---------------------------------------------------------------------------
+# The document-id join
+# ---------------------------------------------------------------------------
+
+
+def test_db_doc_id_map_translates_the_ingest_uuid_back_to_the_label_id(workspace):
+    from scripts.eval.retrieval import adapters as A
+
+    ls = L.build_label_set(workspace["corpora"])
+    mapping = R.db_doc_id_map(ls)
+
+    assert len(mapping) == len(ls.docs)
+    for doc in ls.docs.values():
+        assert mapping[A.db_document_id(doc.content_sha256)] == doc.doc_id
+
+
+def test_remap_drops_documents_that_are_not_in_the_label_corpus():
+    from scripts.eval.retrieval.adapters import RetrievedDoc
+
+    rows = [RetrievedDoc("db-1", "c1", 0.9, 1), RetrievedDoc("db-unknown", "c2", 0.8, 2)]
+    out = R._remap(rows, {"db-1": "label-1"})
+    assert [d.doc_id for d in out] == ["label-1"]
+    assert out[0].score == 0.9 and out[0].chunk_id == "c1"

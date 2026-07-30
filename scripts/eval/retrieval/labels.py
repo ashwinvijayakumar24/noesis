@@ -38,6 +38,11 @@ REFERENCES_SIDECAR = "references.json"
 
 DOC_ID_LEN = 16
 
+#: Bumped whenever the label schema or the resolution rule changes. It is part of
+#: the cache key, so a stale cache written under the old lenient title-token
+#: matcher can never be silently served for a run under the sidecar matcher.
+LABELS_SCHEMA_VERSION = 2
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -53,6 +58,11 @@ class CorpusDoc:
     corpus: str          # owning corpus directory name
     filename: str
     size_bytes: int
+    #: Full sha256 of the PDF bytes. ``doc_id`` is its 16-char prefix; the full
+    #: digest is retained because scripts/eval/ingest.py derives the DATABASE
+    #: document id as uuid5(namespace, <this full hex digest>). Without it the
+    #: retrieved ids cannot be joined back to labels at all.
+    content_sha256: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -62,10 +72,10 @@ class CorpusDoc:
 class UnresolvedRef:
     """A reference that never became a corpus document.
 
-    ``reason`` is always ``"unresolved"`` when derived from a sidecar: the five
-    distinct failure modes (GROBID drop / OpenAlex miss / not open access /
-    download failure / max-papers truncation) are indistinguishable post-hoc.
-    See RELEVANCE.md §4.
+    ``reason`` carries the sidecar's authoritative ``status`` when one exists
+    (``no_oa_pdf`` / ``no_openalex_match`` / ``download_failed`` / ``pending`` /
+    ``skipped_max_papers``). Only when no per-reference status is recorded does
+    it fall back to the undifferentiated ``"unresolved"``. See RELEVANCE.md §4.
     """
 
     topic: str
@@ -77,6 +87,12 @@ class UnresolvedRef:
         return asdict(self)
 
 
+#: How a topic's references were mapped onto corpus documents.
+MATCHER_SIDECAR = "sidecar_status"        # authoritative: references.json status field
+MATCHER_TITLE_TOKEN = "title_token_fallback"  # guessed from filenames -- LENIENT
+MATCHER_NONE = "none"                     # no sidecar at all; denominator unknown
+
+
 @dataclass
 class TopicLabels:
     """Labels for one manuscript ("topic") against the pooled corpus."""
@@ -86,6 +102,20 @@ class TopicLabels:
     #: Total references attempted, or None when unrecoverable.
     references_total: int | None
     unresolved: list[UnresolvedRef]
+    #: Which of the three matchers produced the above. Recorded because the
+    #: title-token fallback is deliberately lenient and inflates recall.
+    matcher: str = MATCHER_NONE
+
+    @property
+    def uses_lenient_matcher(self) -> bool:
+        return self.matcher == MATCHER_TITLE_TOKEN
+
+    @property
+    def unresolved_by_reason(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for u in self.unresolved:
+            counts[u.reason] = counts.get(u.reason, 0) + 1
+        return dict(sorted(counts.items()))
 
     @property
     def denominator_recoverable(self) -> bool:
@@ -106,6 +136,8 @@ class TopicLabels:
             "n_unresolved": len(self.unresolved),
             "denominator_recoverable": self.denominator_recoverable,
             "resolution_rate": self.resolution_rate,
+            "matcher": self.matcher,
+            "unresolved_by_reason": self.unresolved_by_reason,
             "unresolved": [u.to_dict() for u in self.unresolved],
         }
 
@@ -159,16 +191,27 @@ class LabelSet:
             attempted = sum(t.references_total or 0 for t in recoverable)
             rate = (resolved / attempted) if attempted else None
 
+        by_reason: dict[str, int] = {}
+        for t in self.topics.values():
+            for reason, n in t.unresolved_by_reason.items():
+                by_reason[reason] = by_reason.get(reason, 0) + n
+
         return {
             "pooled_corpus_size": len(self.docs),
             "n_topics": len(self.topics),
             "n_topics_with_labels": sum(1 for t in self.topics.values() if t.relevant_doc_ids),
             "references_resolved": resolved,
             "references_unresolved_excluded": unresolved,
+            "references_unresolved_by_reason": dict(sorted(by_reason.items())),
             "references_attempted": attempted,
             "resolution_rate": rate,
             "denominator_recoverable": not unrecoverable,
             "topics_missing_denominator": sorted(t.topic for t in unrecoverable),
+            "topics_using_lenient_matcher": sorted(
+                t.topic for t in self.topics.values() if t.uses_lenient_matcher
+            ),
+            "matchers": {t.topic: t.matcher for t in sorted(
+                self.topics.values(), key=lambda x: x.topic)},
             "empty_topics": sorted(
                 t.topic for t in self.topics.values() if not t.relevant_doc_ids
             ),
@@ -187,10 +230,15 @@ class LabelSet:
         """Stable content hash of the label set, for the run config hash."""
         payload = json.dumps(
             {
+                "schema": LABELS_SCHEMA_VERSION,
                 "graded": self.graded,
                 "docs": sorted(self.docs),
                 "topics": {
-                    t: sorted(self.topics[t].relevant_doc_ids) for t in sorted(self.topics)
+                    t: {
+                        "relevant": sorted(self.topics[t].relevant_doc_ids),
+                        "matcher": self.topics[t].matcher,
+                    }
+                    for t in sorted(self.topics)
                 },
             },
             sort_keys=True,
@@ -203,13 +251,18 @@ class LabelSet:
 # ---------------------------------------------------------------------------
 
 
-def doc_id_for(pdf_path: Path) -> str:
-    """Content-addressed doc id. Identical papers in two corpora collapse to one."""
+def content_sha256_for(pdf_path: Path) -> str:
+    """Full sha256 hex of a PDF's bytes."""
     digest = hashlib.sha256()
     with pdf_path.open("rb") as fh:
         for block in iter(lambda: fh.read(1 << 20), b""):
             digest.update(block)
-    return digest.hexdigest()[:DOC_ID_LEN]
+    return digest.hexdigest()
+
+
+def doc_id_for(pdf_path: Path) -> str:
+    """Content-addressed doc id. Identical papers in two corpora collapse to one."""
+    return content_sha256_for(pdf_path)[:DOC_ID_LEN]
 
 
 def _load_sidecar(corpus_dir: Path) -> list[dict] | None:
@@ -235,13 +288,17 @@ def _title_tokens(title: str) -> set[str]:
 
 
 def _sidecar_matches_doc(ref: dict, doc: CorpusDoc) -> bool:
-    """Match an attempted reference to a downloaded file.
+    """LENIENT title-token match of an attempted reference to a downloaded file.
 
     build_corpus.py names files ``<lastname>_<year>_<slugified title>.pdf``, so we
-    match on title-token overlap against the filename stem. Deliberately lenient
-    on the resolved side and strict on the unresolved side: a false "resolved"
-    only loses one label, whereas a false "unresolved" would wrongly shrink the
-    denominator, which is the failure this module exists to prevent.
+    match on title-token overlap against the filename stem.
+
+    THIS IS A GUESS AND IT WAS MEASURABLY WRONG. Against the four corpora that
+    now carry an authoritative sidecar it credited 21 references as resolved that
+    build_corpus.py records as never having resolved (44 unresolved counted vs 65
+    actually non-resolved). Crediting an unresolvable reference as retrievable
+    inflates recall. It survives ONLY for corpora whose sidecar carries no
+    per-reference ``status`` field, and every caller is told when it fired.
     """
     tokens = _title_tokens(_ref_title(ref))
     if not tokens:
@@ -250,6 +307,61 @@ def _sidecar_matches_doc(ref: dict, doc: CorpusDoc) -> bool:
     if not stem_tokens:
         return False
     return len(tokens & stem_tokens) / min(len(tokens), len(stem_tokens)) >= 0.5
+
+
+#: A sidecar entry with this status resolved to a downloaded PDF. Anything else
+#: is a CORPUS GAP, not a retrieval miss.
+STATUS_RESOLVED = "resolved"
+
+#: Recorded when the sidecar claims a resolution whose file is not on disk. Still
+#: a corpus gap -- there is nothing for the retriever to return.
+STATUS_FILE_MISSING = "resolved_but_file_missing"
+
+
+def _sidecar_is_authoritative(refs: list[dict]) -> bool:
+    """True when the sidecar records a per-reference outcome we can defer to."""
+    return any(isinstance(r, dict) and r.get("status") for r in refs)
+
+
+def _resolve_by_status(
+    topic: str, refs: list[dict], docs_here: list[CorpusDoc]
+) -> tuple[list[str], list[UnresolvedRef]]:
+    """Sidecar-driven resolution. The sidecar's ``status`` field is the authority.
+
+    A reference maps to a document if and only if build_corpus.py recorded
+    ``status == "resolved"`` and named the file it wrote. Every other status is
+    excluded from the recall denominator and counted separately by reason: those
+    references were never downloadable, so no retriever could ever have returned
+    them, and scoring them as misses would be a measurement bug.
+    """
+    by_filename = {d.filename: d for d in docs_here}
+    relevant: list[str] = []
+    unresolved: list[UnresolvedRef] = []
+
+    for ref in refs:
+        if not isinstance(ref, dict):
+            continue
+        status = (ref.get("status") or "unknown").strip()
+        filename = ref.get("filename")
+        title = _ref_title(ref)
+        doi = ref.get("doi")
+
+        if status != STATUS_RESOLVED:
+            unresolved.append(UnresolvedRef(topic, title, doi, reason=status))
+            continue
+
+        doc = by_filename.get(filename) if filename else None
+        if doc is None:
+            # Claimed resolved but the file is gone. Still a corpus gap.
+            unresolved.append(UnresolvedRef(topic, title, doi, reason=STATUS_FILE_MISSING))
+            continue
+        relevant.append(doc.doc_id)
+
+    # Dedupe while preserving order: two references can name the same file only
+    # if build_corpus.py double-resolved, and a doc is relevant at most once.
+    seen: set[str] = set()
+    deduped = [d for d in relevant if not (d in seen or seen.add(d))]
+    return deduped, unresolved
 
 
 def build_label_set(
@@ -276,12 +388,14 @@ def build_label_set(
 
         docs_here: list[CorpusDoc] = []
         for pdf in sorted(corpus_dir.glob("*.pdf")):
+            sha = content_sha256_for(pdf)
             doc = CorpusDoc(
-                doc_id=doc_id_for(pdf),
+                doc_id=sha[:DOC_ID_LEN],
                 doc_key=f"{topic}/{pdf.stem}",
                 corpus=topic,
                 filename=pdf.name,
                 size_bytes=pdf.stat().st_size,
+                content_sha256=sha,
             )
             # First writer wins so doc_key is stable under pooling; the doc_id
             # is content-addressed so the duplicate is genuinely the same paper.
@@ -289,22 +403,36 @@ def build_label_set(
             docs_here.append(doc)
 
         sidecar = _load_sidecar(corpus_dir)
+        unresolved: list[UnresolvedRef] = []
+
         if sidecar is None:
+            # No sidecar: the denominator is unrecoverable and every file on disk
+            # is taken at face value as a resolved reference.
             references_total = None
-            unresolved: list[UnresolvedRef] = []
-        else:
+            relevant = [d.doc_id for d in docs_here]
+            matcher = MATCHER_NONE
+        elif _sidecar_is_authoritative(sidecar):
             references_total = len(sidecar)
+            relevant, unresolved = _resolve_by_status(topic, sidecar, docs_here)
+            matcher = MATCHER_SIDECAR
+        else:
+            # Sidecar present but statusless (an older format). Fall back to the
+            # lenient title-token guess, and say so -- see _sidecar_matches_doc.
+            references_total = len(sidecar)
+            relevant = [d.doc_id for d in docs_here]
             unresolved = [
                 UnresolvedRef(topic=topic, title=_ref_title(ref), doi=ref.get("doi"))
                 for ref in sidecar
                 if not any(_sidecar_matches_doc(ref, d) for d in docs_here)
             ]
+            matcher = MATCHER_TITLE_TOKEN
 
         label_set.topics[topic] = TopicLabels(
             topic=topic,
-            relevant_doc_ids=[d.doc_id for d in docs_here],
+            relevant_doc_ids=relevant,
             references_total=references_total,
             unresolved=unresolved,
+            matcher=matcher,
         )
 
     return label_set
@@ -351,6 +479,7 @@ def load_or_build(
 
     key_payload = json.dumps(
         {
+            "schema": LABELS_SCHEMA_VERSION,
             "corpora": corpora_fingerprint(root),
             "topics": sorted(topics) if topics else None,
             "graded": graded,
@@ -378,14 +507,18 @@ def _from_dict(payload: dict) -> LabelSet:
         graded=payload.get("graded", False),
         corpora_root=payload.get("corpora_root", ""),
     )
+    doc_fields = {f for f in CorpusDoc.__dataclass_fields__}
     for d in payload.get("docs", []):
-        label_set.docs[d["doc_id"]] = CorpusDoc(**d)
+        # Ignore unknown keys so an older cache file loads instead of exploding.
+        doc = CorpusDoc(**{k: v for k, v in d.items() if k in doc_fields})
+        label_set.docs[doc.doc_id] = doc
     for t in payload.get("topics", []):
         label_set.topics[t["topic"]] = TopicLabels(
             topic=t["topic"],
             relevant_doc_ids=list(t["relevant_doc_ids"]),
             references_total=t["references_total"],
             unresolved=[UnresolvedRef(**u) for u in t.get("unresolved", [])],
+            matcher=t.get("matcher", MATCHER_NONE),
         )
     return label_set
 
@@ -436,6 +569,23 @@ def _main() -> int:
             "Reporting resolved/resolved would show 100% by construction; refusing."
         )
 
+    if rep["references_unresolved_by_reason"]:
+        print("[labels] corpus gaps by recorded reason:")
+        for reason, n in rep["references_unresolved_by_reason"].items():
+            print(f"    {reason:<28} {n}")
+
+    if rep["topics_using_lenient_matcher"]:
+        print(
+            "\n[labels] *** WARNING: LENIENT TITLE-TOKEN FALLBACK IN USE ***\n"
+            f"[labels] topics: {', '.join(rep['topics_using_lenient_matcher'])}\n"
+            "[labels] These corpora have a references.json with no per-reference "
+            "'status' field, so resolution is GUESSED from filename token overlap. "
+            "That guess is known to over-credit: on the four corpora that do carry "
+            "statuses it called 21 non-resolved references resolved. Recall for "
+            "these topics is INFLATED. Re-run build_corpus.py to write a "
+            "status-bearing sidecar."
+        )
+
     if rep["empty_topics"]:
         print(f"[labels] empty topics (0 labels): {', '.join(rep['empty_topics'])}")
 
@@ -443,7 +593,12 @@ def _main() -> int:
     for topic in sorted(label_set.topics):
         t = label_set.topics[topic]
         rate = "n/a" if t.resolution_rate is None else f"{t.resolution_rate:.1%}"
-        print(f"    {topic:<12} relevant={len(t.relevant_doc_ids):>3}  unresolved={len(t.unresolved):>3}  rate={rate}")
+        flag = "  <-- LENIENT" if t.uses_lenient_matcher else ""
+        print(
+            f"    {topic:<12} relevant={len(t.relevant_doc_ids):>3}  "
+            f"unresolved={len(t.unresolved):>3}  rate={rate:<7} "
+            f"matcher={t.matcher}{flag}"
+        )
 
     print(f"\n[labels] fingerprint: {label_set.fingerprint()}")
     if os.environ.get("NOESIS_LLM_KILL_SWITCH") or os.environ.get("EVAL_REPLAY_ONLY"):

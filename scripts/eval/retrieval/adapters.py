@@ -17,12 +17,37 @@ connection lifetime; it does not own embedding (see ``DenseRetriever``).
 from __future__ import annotations
 
 import hashlib
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 EVAL_DIR = Path(__file__).resolve().parent.parent
 DB_MODULE_PATH = EVAL_DIR / "db.py"
+INGEST_MODULE_PATH = EVAL_DIR / "ingest.py"
+
+# ---------------------------------------------------------------------------
+# The doc-id join
+# ---------------------------------------------------------------------------
+#
+# labels.py identifies a document by sha256(pdf_bytes)[:16]. The database
+# identifies the same document by uuid5(EVAL_DOC_NAMESPACE, <full sha256 hex>),
+# because that is what scripts/eval/ingest.py writes. Those two ids never
+# collide, so without an explicit translation every DB-backed run scores 0.0 on
+# every metric while looking perfectly healthy -- the exact class of silent
+# failure this harness exists to catch.
+#
+# These two constants MIRROR scripts/eval/ingest.py, which is owned by another
+# lane and is not imported here (importing it pulls in PyMuPDF, tiktoken and the
+# whole backend app package). test_adapters.py reads that file textually and
+# fails if either value drifts.
+EVAL_DOC_NAMESPACE = uuid.UUID("6f9619ff-8b86-d011-b42d-00cf4fc964ff")
+EVAL_PROJECT_ID = "e7a1c0b0-0000-4000-8000-000000000001"
+
+
+def db_document_id(content_sha256: str) -> str:
+    """The database document id ingest.py assigns to a PDF with this content hash."""
+    return str(uuid.uuid5(EVAL_DOC_NAMESPACE, content_sha256))
 
 
 @dataclass(frozen=True)
@@ -261,6 +286,120 @@ class HybridRetriever:
             "measure dense and keyword separately on this harness first so the "
             "fusion has a baseline to beat."
         )
+
+
+# ---------------------------------------------------------------------------
+# Degradation flag -- app.services.rag_retrieval.KEYWORD_SEARCH_DEGRADED
+# ---------------------------------------------------------------------------
+
+
+#: What a run reports when the backend module is not importable. Deliberately
+#: NOT ``degraded: False``: "we could not check" and "we checked and it is fine"
+#: are different claims and must not be confused in a results record.
+UNKNOWN_DEGRADATION = {
+    "name": "keyword_search_chunks",
+    "degraded": None,
+    "failure_count": None,
+    "last_error": None,
+    "checked": False,
+    "note": "app.services.rag_retrieval not importable; degradation state UNKNOWN",
+}
+
+
+def _keyword_degradation_flag():
+    """Return ``KEYWORD_SEARCH_DEGRADED`` or None if the backend is unavailable.
+
+    Imported lazily and by path so the harness still collects and runs against
+    MockRetriever on a machine with no backend dependencies installed.
+    """
+    import sys
+
+    backend = EVAL_DIR.parent.parent / "services" / "backend"
+    if str(backend) not in sys.path:
+        sys.path.insert(0, str(backend))
+    try:
+        from app.services.rag_retrieval import KEYWORD_SEARCH_DEGRADED  # type: ignore
+        return KEYWORD_SEARCH_DEGRADED
+    except Exception:
+        return None
+
+
+def keyword_degradation_snapshot() -> dict:
+    """Current state of the keyword-search degradation flag.
+
+    ``rag_retrieval.keyword_search`` swallows RPC failures and returns ``[]``,
+    which is how the keyword leg of hybrid retrieval silently returned nothing
+    for the entire life of the feature. A run that completes with this flag set
+    has produced a plausible zero, not a measurement, and must say so.
+    """
+    flag = _keyword_degradation_flag()
+    if flag is None:
+        return dict(UNKNOWN_DEGRADATION)
+    snap = flag.snapshot()
+    snap["checked"] = True
+    return snap
+
+
+def reset_keyword_degradation() -> None:
+    """Clear the flag before a run so it reflects THIS run, not process history."""
+    flag = _keyword_degradation_flag()
+    if flag is not None:
+        flag.clear()
+
+
+# ---------------------------------------------------------------------------
+# Query embedding
+# ---------------------------------------------------------------------------
+
+
+def production_embed_fn(model: str = "text-embedding-3-large"):
+    """An ``embed_fn`` using the SAME production call the index was built with.
+
+    scripts/eval/ingest.py embeds chunks with
+    ``app.services.rag_ingest.embed_chunks(..., model="text-embedding-3-large")``
+    at 1536 dimensions. Querying a vector index with a different embedding model
+    than it was built with produces numbers that look like a bad retriever and
+    are actually a bad ruler, so this reuses that exact function rather than
+    re-deriving one.
+    """
+    import os
+    import sys
+
+    backend = EVAL_DIR.parent.parent / "services" / "backend"
+    if str(backend) not in sys.path:
+        sys.path.insert(0, str(backend))
+
+    # app.core.config reads env_file=".env" relative to the PROCESS cwd, so the
+    # settings object is empty when the harness runs from anywhere else and the
+    # embedding call dies with "OPENAI_API_KEY not configured". Same fix as
+    # scripts/eval/ingest.py:_load_backend_env. Existing env vars always win.
+    env_path = backend / ".env"
+    if env_path.exists():
+        for raw in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if key and key not in os.environ:
+                os.environ[key] = value.strip().strip('"').strip("'")
+
+    from app.core.llm_budget import check_llm_allowed, record_usage  # type: ignore
+    from app.services.rag_ingest import embed_chunks  # type: ignore
+
+    cache: dict[str, list[float]] = {}
+
+    def embed(query: str) -> list[float]:
+        if query in cache:
+            return cache[query]
+        check_llm_allowed("retrieval_eval_query_embed")
+        vector = list(embed_chunks([query], model=model)[0].embedding)
+        record_usage(model=model, prompt_tokens=max(1, len(query) // 4),
+                     label="retrieval_eval_query_embed")
+        cache[query] = vector
+        return vector
+
+    return embed
 
 
 def build_retriever(name: str, **kwargs) -> Retriever:

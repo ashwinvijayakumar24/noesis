@@ -201,3 +201,64 @@ def test_factory():
     assert isinstance(build_retriever("dense", project_id="p"), DenseRetriever)
     with pytest.raises(ValueError, match="Unknown retriever"):
         build_retriever("magic")
+
+
+# ---------------------------------------------------------------------------
+# The document-id join, and the constants it is mirrored from
+# ---------------------------------------------------------------------------
+
+
+def test_db_document_id_matches_the_uuid5_scheme_ingest_writes():
+    import uuid
+
+    from scripts.eval.retrieval.adapters import EVAL_DOC_NAMESPACE, db_document_id
+
+    sha = "a" * 64
+    assert db_document_id(sha) == str(uuid.uuid5(EVAL_DOC_NAMESPACE, sha))
+
+
+def test_db_document_id_is_stable_and_content_dependent():
+    from scripts.eval.retrieval.adapters import db_document_id
+
+    assert db_document_id("a" * 64) == db_document_id("a" * 64)
+    assert db_document_id("a" * 64) != db_document_id("b" * 64)
+
+
+def test_mirrored_ingest_constants_have_not_drifted():
+    """adapters.py copies two constants out of scripts/eval/ingest.py rather than
+    importing it (that import pulls in PyMuPDF, tiktoken and the backend app).
+    A copy is only safe if drift is detected, so read the source textually."""
+    from scripts.eval.retrieval.adapters import (
+        EVAL_DOC_NAMESPACE,
+        EVAL_PROJECT_ID,
+        INGEST_MODULE_PATH,
+    )
+
+    if not INGEST_MODULE_PATH.exists():
+        pytest.skip("scripts/eval/ingest.py not present")
+    source = INGEST_MODULE_PATH.read_text()
+    assert f'EVAL_PROJECT_ID = "{EVAL_PROJECT_ID}"' in source
+    assert f'EVAL_DOC_NAMESPACE = uuid.UUID("{EVAL_DOC_NAMESPACE}")' in source
+
+
+def test_degradation_snapshot_never_claims_health_it_did_not_check(monkeypatch):
+    from scripts.eval.retrieval import adapters as A
+
+    monkeypatch.setattr(A, "_keyword_degradation_flag", lambda: None)
+    snap = A.keyword_degradation_snapshot()
+    assert snap["checked"] is False
+    assert snap["degraded"] is None          # NOT False
+    assert "UNKNOWN" in snap["note"]
+
+
+def test_degradation_snapshot_reports_a_recorded_failure(monkeypatch):
+    from scripts.eval.retrieval import adapters as A
+
+    class _Flag:
+        def snapshot(self):
+            return {"name": "keyword_search_chunks", "degraded": True,
+                    "failure_count": 2, "last_error": "UndefinedColumn: dc.metadata"}
+
+    monkeypatch.setattr(A, "_keyword_degradation_flag", lambda: _Flag())
+    snap = A.keyword_degradation_snapshot()
+    assert snap["degraded"] is True and snap["checked"] is True

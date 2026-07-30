@@ -73,7 +73,13 @@ class FakeDownloader:
         self.calls.append(url)
         if url in self.fails:
             return False
-        dest.write_bytes(b"%PDF-1.4\n" + b"x" * 6000)
+        # Distinct bytes per URL. Document ids downstream are content-addressed
+        # (uuid5 over the file's sha256), so identical bytes collapse to ONE
+        # document -- the same dedup that turned 39 real corpus files into 38.
+        # Writing the same payload for every reference made two resolved refs
+        # look like one document, which read as a matcher bug rather than the
+        # fixture bug it was.
+        dest.write_bytes(b"%PDF-1.4\n" + url.encode() + b"\n" + b"x" * 6000)
         return True
 
 
