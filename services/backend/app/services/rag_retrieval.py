@@ -17,6 +17,55 @@ from app.services.embedding_cache import get_cached_embedding, cache_embedding
 from app.services.retry_utils import retry_openai
 from typing import List, Dict, Any
 import json
+import logging
+import threading
+
+logger = logging.getLogger(__name__)
+
+
+class _DegradationFlag:
+    """Records that a retrieval leg silently degraded, so callers can see it.
+
+    A bare ``except`` that returns ``[]`` turns a hard failure into a plausible
+    empty result. That is how the keyword leg of hybrid search returned nothing
+    for the entire life of the feature without anyone noticing. Logging alone is
+    not enough -- nothing reads the logs during an eval run -- so the state is
+    also queryable, and an eval harness can assert on it.
+    """
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self._lock = threading.Lock()
+        self._count = 0
+        self._last_error: str | None = None
+
+    def record(self, exc: BaseException) -> None:
+        with self._lock:
+            self._count += 1
+            self._last_error = f"{type(exc).__name__}: {exc}"
+
+    def clear(self) -> None:
+        """Called on a successful call, so the flag reflects current state."""
+        with self._lock:
+            self._count = 0
+            self._last_error = None
+
+    @property
+    def degraded(self) -> bool:
+        with self._lock:
+            return self._count > 0
+
+    def snapshot(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "name": self.name,
+                "degraded": self._count > 0,
+                "failure_count": self._count,
+                "last_error": self._last_error,
+            }
+
+
+KEYWORD_SEARCH_DEGRADED = _DegradationFlag("keyword_search_chunks")
 
 
 def embed_query(query: str, model: str = "text-embedding-3-large") -> List[float]:
@@ -403,10 +452,26 @@ def keyword_search(
                 "match_count": limit
             }
         ).execute()
+        KEYWORD_SEARCH_DEGRADED.clear()
         return response.data if response.data else []
-    except Exception:
-        # Some deployed schemas only have vector search RPCs. Hybrid retrieval
-        # should degrade to semantic search rather than fail the draft analysis.
+    except Exception as exc:
+        # Degrade to semantic-only rather than failing the whole draft analysis --
+        # but SAY SO. This handler previously swallowed the exception silently, and
+        # that is how `keyword_search_chunks` raising 42703 ("column dc.metadata
+        # does not exist") went unnoticed for the entire life of hybrid retrieval:
+        # every call returned [], hybrid_search fused 0.7*semantic + 0.3*nothing,
+        # and no signal ever reached a log or a metric. Fixed in migration 037,
+        # but the next schema drift would have been just as invisible.
+        KEYWORD_SEARCH_DEGRADED.record(exc)
+        logger.error(
+            "[keyword_search] RPC keyword_search_chunks failed; hybrid retrieval is "
+            "degrading to semantic-only for project=%s. This is NOT a silent fallback -- "
+            "results are now missing their lexical leg. error=%s: %s",
+            project_id,
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
         return []
 
 
