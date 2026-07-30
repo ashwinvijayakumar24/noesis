@@ -22,7 +22,10 @@ from tenacity import (
 from openai import RateLimitError, APIError, APIConnectionError
 from pydantic import ValidationError
 
+from contextlib import contextmanager
+
 from app.core.llm_budget import check_llm_allowed, record_response_usage
+from app.core.tracing import SpanKind, get_tracer, llm_call_attributes
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +134,12 @@ async def parse_chat_completion_with_retries(
 
     for attempt in range(max_validation_retries + 1):
         try:
-            raw_response = await _parse_once(current_messages)
-            record_response_usage(raw_response, model=kwargs.get("model"), label=usage_label)
+            with _llm_call_span(kwargs.get("model"), attempt) as span:
+                raw_response = await _parse_once(current_messages)
+                event = record_response_usage(
+                    raw_response, model=kwargs.get("model"), label=usage_label
+                )
+                _annotate_llm_span(span, kwargs.get("model"), event)
             return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc
@@ -183,8 +190,12 @@ def parse_chat_completion_with_retries_sync(
 
     for attempt in range(max_validation_retries + 1):
         try:
-            raw_response = _parse_once(current_messages)
-            record_response_usage(raw_response, model=kwargs.get("model"), label=usage_label)
+            with _llm_call_span(kwargs.get("model"), attempt) as span:
+                raw_response = _parse_once(current_messages)
+                event = record_response_usage(
+                    raw_response, model=kwargs.get("model"), label=usage_label
+                )
+                _annotate_llm_span(span, kwargs.get("model"), event)
             return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc
@@ -219,3 +230,53 @@ retry_http = retry(
 )
 
 
+# ---------------------------------------------------------------------------
+# LLM call spans
+# ---------------------------------------------------------------------------
+#
+# Every LLM call in the pipeline funnels through the two wrappers below, so this
+# is the one place an `llm_call` span can be emitted for all of them. Without it
+# the trace analyser has node spans but no token or cost data underneath them,
+# and every `$/run` figure reads $0.00 -- the span kind and the attribute helper
+# both existed, but nothing was emitting them.
+#
+# The span is opened INSIDE the validation-retry loop, so a call that is retried
+# emits one span per attempt with `noesis.llm.attempt` set. Retry latency and
+# retry cost are then separable, which they are not if the whole loop shares one
+# span.
+
+
+@contextmanager
+def _llm_call_span(model: Any, attempt: int):
+    """An `llm_call` span. Never lets a tracing failure break the call."""
+    attrs = {"noesis.llm.attempt": attempt}
+    if model:
+        attrs["gen_ai.request.model"] = str(model)
+    with get_tracer().start_span(
+        "openai.chat", kind=SpanKind.LLM_CALL, attributes=attrs
+    ) as span:
+        yield span
+
+
+def _annotate_llm_span(span: Any, model: Any, event: Any) -> None:
+    """Copy the usage llm_budget just recorded onto the span.
+
+    Reuses the same numbers rather than re-extracting them, so the trace and the
+    budget accumulator can never disagree. A missing usage object leaves the
+    attributes absent rather than zero -- absent and zero are different facts,
+    and the analyser counts unpriced spans to mark a run incomplete.
+    """
+    if event is None:
+        return
+    try:
+        span.set_attributes(
+            llm_call_attributes(
+                model=str(model) if model else None,
+                prompt_tokens=getattr(event, "prompt_tokens", None),
+                completion_tokens=getattr(event, "completion_tokens", None),
+                cached_tokens=getattr(event, "cached_tokens", None),
+                estimated_usd=getattr(event, "estimated_usd", None),
+            )
+        )
+    except Exception:  # tracing must never break a real call
+        logger.debug("[retry_utils] could not annotate llm_call span", exc_info=True)
