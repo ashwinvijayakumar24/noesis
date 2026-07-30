@@ -26,13 +26,15 @@ process/run (and monkeypatched in tests).
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
 import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict
-from typing import Any
+from typing import Any, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +197,71 @@ class UsageEvent:
     timestamp: float
 
 
+# ---------------------------------------------------------------------------
+# Ambient label (per-node token attribution)
+# ---------------------------------------------------------------------------
+#
+# ~20 call sites already pass a label, but they pass the *model name* (see
+# retry_utils: ``label = usage_label or model``). To get per-NODE attribution
+# without touching those call sites, a graph node wraps its work in
+# ``with llm_label("reviewer_panel:methodology"):`` and every LLM call inside
+# records under that label.
+#
+# NOTE ON THREADS: ``app/services/async_utils.run_coroutine_sync`` runs each
+# coroutine in a brand-new ``threading.Thread``. contextvars do NOT propagate
+# into a plain Thread, so that helper explicitly re-runs the target inside a
+# ``contextvars.copy_context()`` snapshot taken in the calling thread. Without
+# that, this label is silently lost on the busiest path in the codebase.
+
+_current_label: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "noesis_llm_label", default=None
+)
+
+# Labels that mean "nobody actually named this call". A label equal to the
+# model name is treated as absent for the same reason: that is precisely the
+# fallback the existing call sites emit when no explicit label was given, and
+# the ambient label must be able to win over it.
+_PLACEHOLDER_LABELS = {"", "unknown", "none"}
+
+
+@contextmanager
+def llm_label(label: str) -> Iterator[str]:
+    """Attribute every LLM call made inside this block to ``label``.
+
+    Nesting is supported; the innermost active label wins and the outer one is
+    restored on exit (including on exception). Safe under asyncio concurrency:
+    each task gets its own copy of the context, so sibling tasks cannot see
+    each other's labels.
+    """
+    token = _current_label.set(str(label))
+    try:
+        yield str(label)
+    finally:
+        _current_label.reset(token)
+
+
+def current_label() -> str | None:
+    """The ambient label, or None when no ``llm_label`` block is active."""
+    return _current_label.get()
+
+
+def _resolve_label(label: str | None, model_name: str) -> str:
+    """Priority: explicit ``label=`` -> ambient contextvar -> model name.
+
+    ``retry_utils`` passes ``label=None`` when no caller supplied one, so absence
+    is genuinely distinguishable here and no heuristic is needed. Placeholder
+    strings are still treated as absent, since a caller threading through a
+    literal ``"unknown"`` means the same thing as passing nothing.
+    """
+    explicit = str(label).strip() if label is not None else ""
+    if explicit and explicit.lower() not in _PLACEHOLDER_LABELS:
+        return explicit
+    ambient = _current_label.get()
+    if ambient:
+        return str(ambient)
+    return model_name or "unknown"
+
+
 _lock = threading.Lock()
 _events: list[UsageEvent] = []
 _total_usd: float = 0.0
@@ -207,9 +274,13 @@ def record_usage(
     prompt_tokens: int = 0,
     completion_tokens: int = 0,
     cached_tokens: int = 0,
-    label: str = "unknown",
+    label: str | None = None,
 ) -> UsageEvent:
-    """Record one LLM call. Never raises on accounting or sink problems."""
+    """Record one LLM call. Never raises on accounting or sink problems.
+
+    The recorded label is resolved as: explicit ``label=`` argument, then the
+    ambient ``llm_label(...)`` contextvar, then the model name.
+    """
     model_name = str(model or "unknown")
     prompt_tokens = max(0, int(prompt_tokens or 0))
     completion_tokens = max(0, int(completion_tokens or 0))
@@ -218,7 +289,7 @@ def record_usage(
     cost = estimate_usd(model_name, prompt_tokens, completion_tokens, cached_tokens)
     event = UsageEvent(
         model=model_name,
-        label=str(label or "unknown"),
+        label=_resolve_label(label, model_name),
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         cached_tokens=cached_tokens,
@@ -276,7 +347,7 @@ def extract_usage(response: Any) -> tuple[int, int, int] | None:
     return prompt, completion, cached
 
 
-def record_response_usage(response: Any, *, model: str | None, label: str = "unknown") -> UsageEvent:
+def record_response_usage(response: Any, *, model: str | None, label: str | None = None) -> UsageEvent:
     """Record usage from an SDK response, tolerating a missing ``usage`` block."""
     extracted = extract_usage(response)
     if extracted is None:

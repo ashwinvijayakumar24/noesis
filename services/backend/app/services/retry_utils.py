@@ -110,8 +110,12 @@ async def parse_chat_completion_with_retries(
     - validation retries that append the schema error to the prompt
     - LLM spend guardrails (kill switch / replay-only / ceiling) + usage recording
     """
-    label = usage_label or str(kwargs.get("model") or "unknown")
-    check_llm_allowed(label)
+    # Guard messaging wants *a* name; usage attribution needs to know whether a
+    # label was genuinely supplied. Keep them separate: collapsing None into the
+    # model name here would hide "no label given" from llm_budget, which resolves
+    # label -> ambient llm_label() contextvar -> model name.
+    guard_label = usage_label or str(kwargs.get("model") or "unknown")
+    check_llm_allowed(guard_label)
 
     current_messages = deepcopy(messages)
     sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
@@ -128,7 +132,7 @@ async def parse_chat_completion_with_retries(
     for attempt in range(max_validation_retries + 1):
         try:
             raw_response = await _parse_once(current_messages)
-            record_response_usage(raw_response, model=kwargs.get("model"), label=label)
+            record_response_usage(raw_response, model=kwargs.get("model"), label=usage_label)
             return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc
@@ -159,8 +163,12 @@ def parse_chat_completion_with_retries_sync(
     This is used by legacy sync LangGraph nodes and sync services. Async nodes
     should use parse_chat_completion_with_retries().
     """
-    label = usage_label or str(kwargs.get("model") or "unknown")
-    check_llm_allowed(label)
+    # Guard messaging wants *a* name; usage attribution needs to know whether a
+    # label was genuinely supplied. Keep them separate: collapsing None into the
+    # model name here would hide "no label given" from llm_budget, which resolves
+    # label -> ambient llm_label() contextvar -> model name.
+    guard_label = usage_label or str(kwargs.get("model") or "unknown")
+    check_llm_allowed(guard_label)
 
     current_messages = deepcopy(messages)
     sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
@@ -176,7 +184,7 @@ def parse_chat_completion_with_retries_sync(
     for attempt in range(max_validation_retries + 1):
         try:
             raw_response = _parse_once(current_messages)
-            record_response_usage(raw_response, model=kwargs.get("model"), label=label)
+            record_response_usage(raw_response, model=kwargs.get("model"), label=usage_label)
             return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc

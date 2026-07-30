@@ -13,9 +13,69 @@ Key Features:
 
 from typing import Dict, Tuple, List, Any
 import logging
+import os
+import threading
+
+import pysbd
 import tiktoken
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================
+# SENTENCE SEGMENTATION
+# ============================================
+
+# `pysbd.Segmenter` is NOT thread-safe: `segment()` stashes the input on
+# `self.original_text` and later reads it back, so two threads sharing one
+# instance can splice each other's documents. Constructing a Segmenter is also
+# not free (it compiles the language module), so we keep exactly one instance
+# per thread rather than one per call.
+_segmenter_local = threading.local()
+
+
+def _get_segmenter() -> "pysbd.Segmenter":
+    segmenter = getattr(_segmenter_local, "segmenter", None)
+    if segmenter is None:
+        segmenter = pysbd.Segmenter(language="en", clean=False)
+        _segmenter_local.segmenter = segmenter
+    return segmenter
+
+
+def _legacy_split_sentences(content: str) -> List[str]:
+    """The original naive splitter, kept as a measurable experiment arm.
+
+    It shatters on academic abbreviations -- `et al.`, `Fig. 3`, `p. 12`,
+    `p < 0.05.` -- fragmenting chunks mid-citation. Selected with
+    CHUNKING_SPLITTER=legacy so the retrieval-recall cost of that behaviour can
+    be quantified against the pysbd arm. Do not delete.
+    """
+    return content.replace('! ', '!|').replace('? ', '?|').replace('. ', '.|').split('|')
+
+
+def split_sentences(content: str) -> List[str]:
+    """Split text into sentences.
+
+    CHUNKING_SPLITTER=pysbd (default) uses real sentence boundary detection;
+    CHUNKING_SPLITTER=legacy restores the naive punctuation split.
+
+    Returns stripped, non-empty segments -- the shape every caller already
+    expects from the old expression.
+    """
+    if not content or not content.strip():
+        return []
+
+    mode = os.getenv("CHUNKING_SPLITTER", "pysbd").strip().lower() or "pysbd"
+    if mode == "legacy":
+        raw = _legacy_split_sentences(content)
+    else:
+        if mode != "pysbd":
+            logger.warning(
+                "Unknown CHUNKING_SPLITTER=%r; falling back to pysbd", mode
+            )
+        raw = _get_segmenter().segment(content)
+
+    return [s.strip() for s in raw if s and s.strip()]
 
 # Cost control: Maximum chunks allowed per document
 MAX_CHUNKS_PER_DOCUMENT = 50
@@ -331,8 +391,7 @@ def chunk_section_content(
 
     # Section is too large - need to split at sentence boundaries
     # Split content into sentences
-    sentences = content.replace('! ', '!|').replace('? ', '?|').replace('. ', '.|').split('|')
-    sentences = [s.strip() for s in sentences if s.strip()]
+    sentences = split_sentences(content)
 
     chunks = []
     current_chunk_sentences = []

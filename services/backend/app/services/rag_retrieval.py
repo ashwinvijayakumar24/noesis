@@ -343,13 +343,38 @@ Output: ["transformer architecture attention mechanisms", "self-attention neural
         )
 
         result = json.loads(response.choices[0].message.content)
-        variations = result.get("queries", result.get("variations", [query]))
+        variations = _coerce_variations(result)
 
         return [query] + variations[:3]  # Original + 3 variations
 
     except Exception as e:
         # Fallback: return original query
         return [query]
+
+
+def _coerce_variations(result: Any) -> List[str]:
+    """Pull the query list out of whatever shape the model returned.
+
+    The prompt asks for a bare JSON array, but models routinely wrap it in an
+    object instead, so both are accepted. (Previously only the object shape was
+    handled -- a bare array hit `list.get`, raised AttributeError, and the whole
+    expansion silently degraded to the original query on EVERY call.)
+
+    Returns [] when nothing usable is present, so the caller still emits the
+    original query rather than raising.
+    """
+    if isinstance(result, list):
+        candidates = result
+    elif isinstance(result, dict):
+        candidates = result.get("queries", result.get("variations"))
+        if not isinstance(candidates, list):
+            # Single-key object wrapping the array under some other name.
+            list_values = [v for v in result.values() if isinstance(v, list)]
+            candidates = list_values[0] if len(list_values) == 1 else []
+    else:
+        candidates = []
+
+    return [str(item).strip() for item in candidates if isinstance(item, str) and item.strip()]
 
 
 def keyword_search(

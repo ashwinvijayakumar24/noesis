@@ -1,5 +1,6 @@
 """Unit tests for LLM spend guardrails (app/core/llm_budget.py)."""
 
+import asyncio
 import json
 import threading
 from types import SimpleNamespace
@@ -12,8 +13,10 @@ from app.core.llm_budget import (
     LLMCallBlocked,
     ModelPrice,
     check_llm_allowed,
+    current_label,
     env_truthy,
     estimate_usd,
+    llm_label,
     record_usage,
 )
 
@@ -172,6 +175,273 @@ class TestThreadSafety:
 
         assert llm_budget.unpriced_calls() == threads_count * per_thread
         assert llm_budget.totals()["unpriced_calls"] == threads_count * per_thread
+
+
+# ---------------------------------------------------------------------------
+# Ambient node label (contextvar)
+# ---------------------------------------------------------------------------
+
+class TestLabelContextManager:
+    def test_sets_and_restores(self, priced_model):
+        assert current_label() is None
+        with llm_label("reviewer_panel:methodology"):
+            assert current_label() == "reviewer_panel:methodology"
+            record_usage(model=priced_model, prompt_tokens=10, completion_tokens=1)
+        assert current_label() is None
+
+        assert llm_budget.by_label()["reviewer_panel:methodology"]["calls"] == 1
+
+    def test_restores_on_exception(self):
+        with pytest.raises(ValueError):
+            with llm_label("outer"):
+                raise ValueError("boom")
+        assert current_label() is None
+
+    def test_nesting_inner_wins_outer_restored(self, priced_model):
+        with llm_label("a"):
+            record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1)
+            with llm_label("b"):
+                assert current_label() == "b"
+                record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1)
+            assert current_label() == "a"
+            record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1)
+
+        grouped = llm_budget.by_label()
+        assert grouped["a"]["calls"] == 2
+        assert grouped["b"]["calls"] == 1
+
+    def test_nesting_survives_inner_exception(self):
+        with llm_label("a"):
+            with pytest.raises(RuntimeError):
+                with llm_label("b"):
+                    raise RuntimeError("boom")
+            assert current_label() == "a"
+        assert current_label() is None
+
+
+class TestLabelPriority:
+    def test_explicit_label_beats_contextvar(self, priced_model):
+        with llm_label("ambient"):
+            record_usage(
+                model=priced_model, prompt_tokens=1, completion_tokens=1, label="explicit"
+            )
+        assert set(llm_budget.by_label()) == {"explicit"}
+
+    def test_contextvar_beats_model_name(self, priced_model):
+        with llm_label("ambient"):
+            record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1)
+        assert set(llm_budget.by_label()) == {"ambient"}
+
+    def test_model_name_used_when_nothing_else(self, priced_model):
+        record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1)
+        assert set(llm_budget.by_label()) == {priced_model}
+
+    def test_explicit_label_matching_model_name_is_still_explicit(self, priced_model):
+        """retry_utils passes label=None when no caller supplied one, so absence is
+        genuinely distinguishable and no model-name heuristic is needed. A caller
+        that deliberately labels a call with the model name means it."""
+        with llm_label("reviewer_panel"):
+            record_usage(
+                model=priced_model, prompt_tokens=1, completion_tokens=1, label=priced_model
+            )
+        assert set(llm_budget.by_label()) == {priced_model}
+
+    def test_none_label_lets_ambient_win(self, priced_model):
+        """The path that matters: retry_utils forwards usage_label unchanged, so a
+        node wrapped in llm_label() attributes correctly without editing call sites."""
+        with llm_label("reviewer_panel"):
+            record_usage(
+                model=priced_model, prompt_tokens=1, completion_tokens=1, label=None
+            )
+        assert set(llm_budget.by_label()) == {"reviewer_panel"}
+
+    def test_placeholder_label_is_treated_as_absent(self, priced_model):
+        with llm_label("editor_pass"):
+            record_usage(
+                model=priced_model, prompt_tokens=1, completion_tokens=1, label="unknown"
+            )
+        assert set(llm_budget.by_label()) == {"editor_pass"}
+
+    def test_placeholder_label_without_ambient_falls_back_to_model(self, priced_model):
+        """A placeholder means "no label", so with nothing ambient the model name is
+        the honest answer — better than bucketing real spend under "unknown"."""
+        record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1, label="unknown")
+        assert set(llm_budget.by_label()) == {priced_model}
+
+    def test_record_response_usage_honours_contextvar(self, priced_model):
+        response = SimpleNamespace(
+            usage=SimpleNamespace(prompt_tokens=100, completion_tokens=10)
+        )
+        with llm_label("diagnostic_findings"):
+            llm_budget.record_response_usage(response, model=priced_model)
+        assert llm_budget.by_label()["diagnostic_findings"]["prompt_tokens"] == 100
+
+    def test_retry_utils_call_site_picks_up_ambient_label(self, monkeypatch):
+        """End-to-end through an unmodified call site."""
+        from app.services.retry_utils import parse_chat_completion_with_retries_sync
+
+        client = _RecordingClient()
+        with llm_label("reviewer_panel:novelty"):
+            parse_chat_completion_with_retries_sync(
+                client,
+                model="gpt-5.2-chat-latest",
+                messages=[{"role": "user", "content": "hi"}],
+                response_format=object,
+            )
+
+        by_label = llm_budget.by_label()
+        assert by_label["reviewer_panel:novelty"]["calls"] == 1
+        assert "gpt-5.2-chat-latest" not in by_label
+        # model attribution is unaffected
+        assert llm_budget.by_model()["gpt-5.2-chat-latest"]["calls"] == 1
+
+
+class TestLabelThreadPropagation:
+    """THE regression test for `run_coroutine_sync`.
+
+    That helper starts a bare `threading.Thread` running `asyncio.run(...)`.
+    ContextVars do not cross a plain Thread boundary, so without the explicit
+    `contextvars.copy_context()` snapshot the ambient label is silently dropped
+    exactly on the hottest path -- every node's tokens would land under the
+    model name instead of the node. Deleting the `ctx.run(...)` in
+    app/services/async_utils.py must make this test fail.
+    """
+
+    def test_label_survives_run_coroutine_sync(self, priced_model):
+        from app.services.async_utils import run_coroutine_sync
+
+        async def do_call():
+            record_usage(model=priced_model, prompt_tokens=10, completion_tokens=1)
+            return current_label()
+
+        with llm_label("reviewer_panel:methodology"):
+            seen = run_coroutine_sync(do_call())
+
+        assert seen == "reviewer_panel:methodology"
+        assert set(llm_budget.by_label()) == {"reviewer_panel:methodology"}
+
+    def test_label_reaches_nested_tasks_inside_the_worker_thread(self, priced_model):
+        from app.services.async_utils import run_coroutine_sync
+
+        async def leaf(i: int):
+            record_usage(model=priced_model, prompt_tokens=i, completion_tokens=0)
+
+        async def fan_out():
+            await asyncio.gather(*(leaf(i) for i in range(1, 4)))
+
+        with llm_label("editor_pass"):
+            run_coroutine_sync(fan_out())
+
+        assert llm_budget.by_label()["editor_pass"]["calls"] == 3
+        assert llm_budget.by_label()["editor_pass"]["prompt_tokens"] == 6
+
+    def test_no_label_still_falls_back_to_model_name(self, priced_model):
+        from app.services.async_utils import run_coroutine_sync
+
+        async def do_call():
+            record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1)
+
+        run_coroutine_sync(do_call())
+        assert set(llm_budget.by_label()) == {priced_model}
+
+    def test_worker_thread_label_does_not_leak_back_to_caller(self, priced_model):
+        from app.services.async_utils import run_coroutine_sync
+
+        async def do_call():
+            with llm_label("inner_only"):
+                record_usage(model=priced_model, prompt_tokens=1, completion_tokens=1)
+
+        with llm_label("outer"):
+            run_coroutine_sync(do_call())
+            assert current_label() == "outer"
+
+        assert set(llm_budget.by_label()) == {"inner_only"}
+
+    def test_plain_thread_without_propagation_loses_the_label(self, priced_model):
+        """Pins WHY the fix is needed: a naive Thread drops the contextvar."""
+        seen = {}
+
+        def worker():
+            seen["label"] = current_label()
+
+        with llm_label("ambient"):
+            thread = threading.Thread(target=worker)
+            thread.start()
+            thread.join()
+
+        assert seen["label"] is None
+
+    def test_exceptions_still_propagate_through_the_context(self, priced_model):
+        from app.services.async_utils import run_coroutine_sync
+
+        async def boom():
+            raise ValueError("kaboom")
+
+        with llm_label("node"):
+            with pytest.raises(ValueError, match="kaboom"):
+                run_coroutine_sync(boom())
+        assert current_label() is None
+
+
+class TestLabelAsyncConcurrency:
+    def test_concurrent_tasks_do_not_bleed(self, priced_model):
+        async def task(name: str, prompt_tokens: int):
+            with llm_label(name):
+                # Force interleaving: both tasks are inside their block at once.
+                await asyncio.sleep(0)
+                assert current_label() == name
+                record_usage(
+                    model=priced_model, prompt_tokens=prompt_tokens, completion_tokens=0
+                )
+                await asyncio.sleep(0)
+                assert current_label() == name
+                record_usage(
+                    model=priced_model, prompt_tokens=prompt_tokens, completion_tokens=0
+                )
+
+        async def main():
+            await asyncio.gather(task("node_a", 10), task("node_b", 100))
+            assert current_label() is None
+
+        asyncio.run(main())
+
+        grouped = llm_budget.by_label()
+        assert grouped["node_a"]["calls"] == 2
+        assert grouped["node_a"]["prompt_tokens"] == 20
+        assert grouped["node_b"]["calls"] == 2
+        assert grouped["node_b"]["prompt_tokens"] == 200
+
+    def test_many_concurrent_tasks_are_exact(self, priced_model):
+        async def task(i: int):
+            with llm_label(f"node_{i}"):
+                await asyncio.sleep(0)
+                record_usage(model=priced_model, prompt_tokens=1, completion_tokens=0)
+
+        async def main():
+            await asyncio.gather(*(task(i) for i in range(50)))
+
+        asyncio.run(main())
+
+        grouped = llm_budget.by_label()
+        assert len(grouped) == 50
+        assert all(bucket["calls"] == 1 for bucket in grouped.values())
+
+    def test_concurrent_threads_do_not_bleed(self, priced_model):
+        barrier = threading.Barrier(10)
+
+        def worker(i: int):
+            with llm_label(f"thread_{i}"):
+                barrier.wait()
+                record_usage(model=priced_model, prompt_tokens=1, completion_tokens=0)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        grouped = llm_budget.by_label()
+        assert set(grouped) == {f"thread_{i}" for i in range(10)}
 
 
 # ---------------------------------------------------------------------------
