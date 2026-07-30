@@ -251,8 +251,91 @@ Options: fund ~$1 for a single ~40-minute run · re-run after each daily reset f
 
 ---
 
-## Wave 2b — not started
+## Wave 2b — COMPLETE (2026-07-30) — **the board has numbers**
 
-The wave that turns the benchmark board into numbers: first traced run (per-node p50/p95, `$/run`, fallback-invocation rate) and first retrieval baseline over the 59 joined queries.
+| Task | Commit | Result |
+|---|---|---|
+| Production bugs: NUL bytes, backwards progress | `af4997a` | 35 tests |
+| Trace analysis tooling | `9153484` | 48 tests |
+| Measured node replay + `llm_call` spans | `3d350f8` | 18 tests |
+| First retrieval baseline | `cdbeb93` | 123 tests |
 
-Gate to enter: none for the traced run. The retrieval baseline can run on 4 topics now, or on all 15 once OpenAlex is unblocked.
+Suites: **895 backend** (2 deferred failures), **365 eval**.
+
+---
+
+## 📊 BENCHMARK BOARD — measured, not estimated
+
+### Retrieval (document unit, k=10, 59 queries, 903 judgments, 118 docs / 2,124 chunks)
+
+| metric | dense | keyword | ceiling |
+|---|---|---|---|
+| recall@1 | **0.0896** | 0.0034 | 0.106 |
+| recall@5 | **0.3051** | 0.0040 | 0.531 |
+| recall@10 | **0.4221** | 0.0040 | 0.779 |
+| recall@20 | **0.5299** | 0.0040 | 0.880 |
+| MRR | **0.8836** | 0.0339 | — |
+| NDCG@10 | **0.6526** | 0.0112 | — |
+| MAP | **0.4391** | 0.0040 | — |
+
+**recall@k is capped by construction** — a query inherits its manuscript's entire reference list, so one with 37 relevant documents cannot exceed recall@10 = 10/37. Dense achieves 84% / 58% / 54% / 60% of what is attainable. **Quote the ceiling with the number or the number is misleading.**
+
+### Cost and latency (per replay)
+
+| node | wall | LLM calls | input (cached) | $ |
+|---|---|---|---|---|
+| `reviewer_panel_node[methodology]` | ~19.8s | 1–2 | ~18k (varies) | **~$0.043** |
+| `editor_pass_node` | ~7.1s | 1 | ~894 | $0.00133 |
+| `run_quality_diagnostics` | ~0.06s | 0 | 0 | $0.00 |
+
+One reviewer is **~330× the wall time** of the entire diagnostics node. The conditional domain-trigger audit branch doubles calls and takes input to 53.5k — the largest single cost variable measured.
+
+### Reliability
+
+| | |
+|---|---|
+| latency CV (same node, same fixture, n=3) | **~7%** |
+| **quality CV** (recall 0.0, 0.0116, 0.0) | **~172%** |
+| prompt-cache hit rate on repeats | **29.3%** (27,264 / 27,510 tokens) |
+
+**Any single-run node score on this pipeline is noise.** Consistent with `retry_utils.py:33-46` stripping `temperature` for every `gpt-5.2*` model with no seed anywhere.
+
+The cache number reframes N6: OpenAI's **automatic** prefix caching is already working without any `cache_control`, so that work is about raising a measured 29.3%, not switching caching on.
+
+---
+
+### 🔴 Nothing had ever emitted an `llm_call` span
+
+Running the analyser against the first real span file showed latency but **$0.00 for everything**. The span kind existed, the GenAI attribute helper existed, the analyser attributed cost to the nearest node ancestor of each `llm_call` — and **no producer existed anywhere in the repo**. Every `$/run` the tool could print would have been `$0.00`, silently and forever.
+
+Fixed at the source: both `retry_utils` wrappers now emit one, inside the validation-retry loop with `noesis.llm.attempt`, so retried calls are separable. Verified end to end at $0.0353/run against hand arithmetic.
+
+### 🔴 Keyword retrieval is mismatched, not broken
+
+`keyword_search_chunks` uses `plainto_tsquery`, which **ANDs every lemma**, against ~20-word claim queries. Reproduced directly: `'job shop scheduling'` → **38 rows**; `'we highlight the superior generalizability of our approach trained on small-scale instances'` → **0 rows**. 55 of 59 queries return nothing.
+
+**A hybrid built today would fuse dense with almost nothing.** Fix query formulation before implementing RRF.
+
+### 🔴 A silent join bug that would have reported flat zeros
+
+`labels.py` identified documents by `sha256[:16]`; `ingest.py` by `uuid5(ns, sha256_hex)`. The id spaces never overlap, so **every DB-backed run would have reported 0.0 on every metric while looking perfectly healthy.**
+
+### Other findings
+
+- **`tiktoken` raises on the literal `<|endoftext|>`** under its default `disallowed_special="all"`, and one corpus paper contains it. **Production has the identical bug** (`rag_ingest.py:121`, `rag_chunking.py:380`) — that paper would fail production ingestion.
+- **Label matcher inflated recall**: unresolved 44 → 65. The title-token matcher credited 21 never-downloaded references by matching titles against filenames.
+- **NUL bytes also break `jsonb`**, so `documents.metadata` fails too — and the "mark document failed" path would itself throw on the same text, leaving documents stuck with no error recorded.
+- **The progress bar went backwards four times per run**, not two.
+- **`match.py` bypasses the budget system** — it calls the OpenAI client directly, so its calls are neither recorded nor bounded by the ceilings.
+- **`get_pdf_page_count` fabricates `10` on any exception**, and that value feeds the adaptive chunking tier.
+- Hand-checked two queries rather than trusting aggregates. Explains why MRR 0.88 reads so much better than recall 0.42: one strongly on-topic paper dominates rank 1 while the other 7–36 cited references never surface.
+
+### Caveats that travel with every number above
+
+n=59 queries across only **4 of 15 topics** · measures "would we have found what the author cited", not "what is relevant", so **MAP/NDCG are lower bounds — never quote MAP as precision** · PyMuPDF extraction means this is the **basic-chunking arm**, not production's section-aware one · distractors come from topically distant areas, so retrieval is easier here than reality and every metric is optimistic · no human made a relevance judgment.
+
+---
+
+## Wave 3 — not started
+
+Candidates, now that measurement exists: N3 ANN sweep (`ef_search`/`m`, unblocked — corpus is ingested), N6 prompt caching against the 29.3% baseline, N7 hybrid + RRF (**blocked on the query-formulation finding**), gate calibration labelling.
