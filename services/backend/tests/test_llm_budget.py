@@ -484,10 +484,11 @@ class TestReplayOnly:
 class TestCallCeiling:
     """The pricing-independent ceiling.
 
-    With MODEL_PRICING_USD_PER_1M unpriced, the dollar ceiling can never trip:
-    every call is unpriced, contributes 0 to spend, and NOESIS_LLM_MAX_SPEND_USD
-    stays inert. These tests use an UNPRICED model on purpose, to prove the call
-    ceiling still fires under exactly the conditions that defeat the dollar one.
+    The shipped table is now populated, so the dollar ceiling fires for the five
+    models in use. These tests deliberately use an UNPRICED model, because that
+    is the condition the call ceiling exists for: a model missing from the table
+    or renamed upstream contributes 0 to spend and slips past
+    NOESIS_LLM_MAX_SPEND_USD entirely. The call ceiling still stops it.
     """
 
     def test_under_ceiling_passes(self, monkeypatch):
@@ -558,9 +559,17 @@ class TestUnknownPricing:
     def test_estimate_is_none_for_unknown_model(self):
         assert estimate_usd("totally-unknown-model", 1000, 1000) is None
 
-    def test_estimate_is_none_when_price_entry_has_none_rates(self):
-        # The shipped table deliberately leaves rates as None until verified.
-        assert estimate_usd("gpt-5.2", 1000, 1000) is None
+    def test_estimate_is_none_when_price_entry_has_none_rates(self, monkeypatch):
+        # An entry whose rates are still unverified must estimate to None rather
+        # than to $0. (This previously asserted against "gpt-5.2" while the
+        # shipped table was all-None; gpt-5.2 now has a verified price, so the
+        # invariant is pinned with a synthetic entry instead.)
+        monkeypatch.setitem(
+            llm_budget.MODEL_PRICING_USD_PER_1M,
+            "unverified-model",
+            ModelPrice(None, None, None),
+        )
+        assert estimate_usd("unverified-model", 1000, 1000) is None
 
     def test_estimate_is_none_when_cached_rate_unknown(self, monkeypatch):
         monkeypatch.setitem(
@@ -601,6 +610,130 @@ class TestUnknownPricing:
         )
         assert llm_budget.get_price("test-priced-2026-01-01") == ModelPrice(1.0, 2.0, 0.5)
         assert llm_budget.get_price(None) is None
+
+
+# ---------------------------------------------------------------------------
+# The real, shipped pricing table
+# ---------------------------------------------------------------------------
+
+class TestShippedPricingTable:
+    """Pins the verified rates in MODEL_PRICING_USD_PER_1M.
+
+    Every expected dollar figure below is computed by hand from the published
+    per-1M rate, so a silent edit to the table fails here rather than showing up
+    as a quietly wrong cost report. Rates retrieved 2026-07-30 from
+    developers.openai.com/api/docs/pricing and each model's own docs page.
+    """
+
+    def test_no_entry_is_half_priced(self):
+        """All-None (honestly unknown) or a real input price. Never in between.
+
+        A half-filled entry would let estimate_usd emit a partial figure that
+        looks authoritative -- the exact failure this table exists to avoid.
+        """
+        for model, price in llm_budget.MODEL_PRICING_USD_PER_1M.items():
+            fields = (price.input_per_1m, price.output_per_1m, price.cached_input_per_1m)
+            if all(field is None for field in fields):
+                continue
+            assert price.input_per_1m is not None, f"{model}: priced entry with no input rate"
+            assert price.output_per_1m is not None, f"{model}: priced entry with no output rate"
+            assert price.input_per_1m >= 0
+            assert price.output_per_1m >= 0
+            if price.cached_input_per_1m is not None:
+                assert 0 <= price.cached_input_per_1m <= price.input_per_1m
+
+    def test_gpt_5_2_exact_cost(self):
+        # 200_000 in @ $1.75/1M = $0.35 ; 10_000 out @ $14.00/1M = $0.14
+        assert estimate_usd("gpt-5.2", 200_000, 10_000) == pytest.approx(0.49)
+
+    def test_gpt_5_2_cached_input_exact_cost(self):
+        # 20_000 uncached @ $1.75/1M = $0.035 ; 80_000 cached @ $0.175/1M = $0.014
+        assert estimate_usd("gpt-5.2", 100_000, 0, 80_000) == pytest.approx(0.049)
+
+    def test_gpt_5_2_chat_latest_exact_cost(self):
+        # same published rates as gpt-5.2
+        assert estimate_usd("gpt-5.2-chat-latest", 1_000_000, 1_000_000) == pytest.approx(15.75)
+
+    def test_gpt_5_mini_exact_cost(self):
+        # 1M in @ $0.25/1M = $0.25 ; 500_000 out @ $2.00/1M = $1.00
+        assert estimate_usd("gpt-5-mini", 1_000_000, 500_000) == pytest.approx(1.25)
+
+    def test_gpt_5_mini_cached_exact_cost(self):
+        # 400_000 uncached @ $0.25/1M = $0.10 ; 600_000 cached @ $0.025/1M = $0.015
+        assert estimate_usd("gpt-5-mini", 1_000_000, 0, 600_000) == pytest.approx(0.115)
+
+    def test_embedding_large_is_priced_not_unpriced(self):
+        """Embeddings emit no completion tokens, so a $0 output rate is a real
+        verified rate, not an unknown. Without it every embedding call would be
+        miscounted as unpriced and its cost would vanish from the total."""
+        assert estimate_usd("text-embedding-3-large", 1_000_000, 0) == pytest.approx(0.13)
+
+    def test_embedding_small_is_priced_not_unpriced(self):
+        assert estimate_usd("text-embedding-3-small", 1_000_000, 0) == pytest.approx(0.02)
+
+    def test_embedding_call_contributes_to_recorded_spend(self):
+        record_usage(model="text-embedding-3-small", prompt_tokens=500_000, label="rag_ingest")
+        totals = llm_budget.totals()
+        assert totals["unpriced_calls"] == 0
+        assert totals["estimated_usd"] == pytest.approx(0.01)
+
+    def test_embedding_with_cached_tokens_is_unpriced_not_guessed(self):
+        """No cached rate is published for embeddings, so if one were ever
+        reported the honest answer is None rather than an invented discount."""
+        assert estimate_usd("text-embedding-3-small", 1000, 0, 500) is None
+
+    def test_model_not_in_table_is_unpriced(self):
+        assert estimate_usd("gpt-4o", 1000, 1000) is None
+        event = record_usage(model="gpt-4o", prompt_tokens=1000, completion_tokens=1000, label="x")
+        assert event.estimated_usd is None
+        assert llm_budget.unpriced_calls() == 1
+        assert llm_budget.total_spend_usd() == 0.0
+
+    def test_dated_snapshot_resolves_to_base_entry(self):
+        table = llm_budget.MODEL_PRICING_USD_PER_1M
+        assert llm_budget.get_price("gpt-5.2-2026-11-04") is table["gpt-5.2"]
+        assert llm_budget.get_price("gpt-5-mini-2026-08-01") is table["gpt-5-mini"]
+        assert estimate_usd("gpt-5.2-2026-11-04", 200_000, 10_000) == pytest.approx(0.49)
+
+    def test_longest_prefix_wins_over_shorter_one(self):
+        """"gpt-5.2-chat-latest-..." starts with BOTH "gpt-5.2" and
+        "gpt-5.2-chat-latest"; the more specific entry must win."""
+        table = llm_budget.MODEL_PRICING_USD_PER_1M
+        resolved = llm_budget.get_price("gpt-5.2-chat-latest-2026-11-04")
+        assert resolved is table["gpt-5.2-chat-latest"]
+        assert resolved is not table["gpt-5.2"]
+
+
+class TestSpendCeilingWithRealPrices:
+    """The capability that did not exist while the table was all-None.
+
+    NOESIS_LLM_MAX_SPEND_USD was inert: every call was unpriced, spend stayed at
+    $0, and the dollar ceiling could never fire. With verified prices it does.
+    """
+
+    def test_dollar_ceiling_now_fires_on_a_real_model(self, monkeypatch):
+        monkeypatch.setenv("NOESIS_LLM_MAX_SPEND_USD", "0.10")
+        # 100_000 in @ $1.75/1M = $0.175 -> over a $0.10 ceiling
+        record_usage(model="gpt-5.2", prompt_tokens=100_000, completion_tokens=0, label="node")
+        assert llm_budget.total_spend_usd() == pytest.approx(0.175)
+        assert llm_budget.unpriced_calls() == 0
+
+        with pytest.raises(LLMBudgetExceeded) as exc:
+            check_llm_allowed("node")
+        assert "NOESIS_LLM_MAX_SPEND_USD" in str(exc.value)
+
+    def test_under_ceiling_still_allowed_on_a_real_model(self, monkeypatch):
+        monkeypatch.setenv("NOESIS_LLM_MAX_SPEND_USD", "1.00")
+        record_usage(model="gpt-5.2", prompt_tokens=100_000, completion_tokens=0, label="node")
+        check_llm_allowed("node")  # $0.175 < $1.00
+
+    def test_ceiling_accumulates_across_mixed_real_models(self, monkeypatch):
+        monkeypatch.setenv("NOESIS_LLM_MAX_SPEND_USD", "0.30")
+        record_usage(model="gpt-5-mini", prompt_tokens=1_000_000, label="a")          # $0.25
+        record_usage(model="text-embedding-3-large", prompt_tokens=1_000_000, label="b")  # $0.13
+        assert llm_budget.total_spend_usd() == pytest.approx(0.38)
+        with pytest.raises(LLMBudgetExceeded):
+            check_llm_allowed("c")
 
 
 # ---------------------------------------------------------------------------

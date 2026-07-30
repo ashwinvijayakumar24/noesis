@@ -54,19 +54,42 @@ class ModelPrice:
     cached_input_per_1m: float | None = None
 
 
-# !!! PRICES BELOW ARE PLACEHOLDERS AND MUST BE VERIFIED AGAINST CURRENT OPENAI
-# !!! PRICING (https://openai.com/api/pricing/) BEFORE ANY DOLLAR FIGURE DERIVED
-# !!! FROM THIS TABLE IS QUOTED EXTERNALLY, PUT IN A DECK, OR USED TO SET A REAL
-# !!! SPEND CEILING. Unknown prices are deliberately ``None`` so that
-# !!! ``estimate_usd()`` returns None rather than a confidently wrong number;
-# !!! those calls are counted in ``totals()["unpriced_calls"]`` so the gap in
-# !!! the accounting is visible rather than silent.
+# PRICES BELOW WERE TRANSCRIBED FROM OPENAI'S OFFICIAL PUBLISHED API PRICING ON
+# THE DATE NOTED PER ENTRY. Every rate was cross-checked against two official
+# pages: the pricing index (https://developers.openai.com/api/docs/pricing) and
+# that model's own page (https://developers.openai.com/api/docs/models/<model>).
+#
+# RE-VERIFY BEFORE QUOTING EXTERNALLY. OpenAI changes list prices without notice
+# and these numbers carry a retrieval date precisely so a stale figure is
+# detectable. A rate that could not be verified stays ``None`` -- never guessed,
+# never interpolated. ``None`` makes ``estimate_usd()`` return None instead of a
+# confidently wrong number, and those calls land in
+# ``totals()["unpriced_calls"]`` so the gap is visible rather than silent.
+#
+# EMBEDDINGS AND ``output_per_1m``: the embeddings endpoint emits no completion
+# tokens at all, so its output rate is a real, verified $0.00 -- not an unknown
+# standing in as zero. Recording it as 0.0 (rather than None) is what makes an
+# embedding call priced instead of being miscounted as unpriced; the alternative
+# would be a special case inside ``estimate_usd``. ``cached_input_per_1m`` stays
+# None for embeddings because OpenAI publishes no cached rate for them (prompt
+# caching does not apply); if a response ever did report cached tokens for an
+# embedding model, that call is correctly scored unpriced rather than guessed.
 MODEL_PRICING_USD_PER_1M: dict[str, ModelPrice] = {
-    "gpt-5.2": ModelPrice(None, None, None),
-    "gpt-5.2-chat-latest": ModelPrice(None, None, None),
-    "gpt-5-mini": ModelPrice(None, None, None),
-    "text-embedding-3-large": ModelPrice(None, None, None),
-    "text-embedding-3-small": ModelPrice(None, None, None),
+    # https://developers.openai.com/api/docs/models/gpt-5.2 -- retrieved 2026-07-30
+    # input $1.75 / cached input $0.175 / output $14.00 per 1M tokens
+    "gpt-5.2": ModelPrice(1.75, 14.00, 0.175),
+    # https://developers.openai.com/api/docs/models/gpt-5.2-chat-latest -- retrieved 2026-07-30
+    # input $1.75 / cached input $0.175 / output $14.00 per 1M tokens
+    "gpt-5.2-chat-latest": ModelPrice(1.75, 14.00, 0.175),
+    # https://developers.openai.com/api/docs/models/gpt-5-mini -- retrieved 2026-07-30
+    # input $0.25 / cached input $0.025 / output $2.00 per 1M tokens
+    "gpt-5-mini": ModelPrice(0.25, 2.00, 0.025),
+    # https://developers.openai.com/api/docs/models/text-embedding-3-large -- retrieved 2026-07-30
+    # $0.13 per 1M tokens; no output tokens exist, no cached rate published
+    "text-embedding-3-large": ModelPrice(0.13, 0.0, None),
+    # https://developers.openai.com/api/docs/models/text-embedding-3-small -- retrieved 2026-07-30
+    # $0.02 per 1M tokens; no output tokens exist, no cached rate published
+    "text-embedding-3-small": ModelPrice(0.02, 0.0, None),
 }
 
 
@@ -165,10 +188,15 @@ def max_spend_usd() -> float | None:
 def max_calls() -> int | None:
     """Call-count ceiling.
 
-    NOESIS_LLM_MAX_SPEND_USD is inert while MODEL_PRICING_USD_PER_1M is unpriced:
-    every call lands in _unpriced_calls, contributes 0 to _total_usd, and the
-    dollar ceiling can never trip. This ceiling is pricing-independent, so it is
-    the guardrail that actually works today.
+    Originally added because the dollar ceiling was inert: with every rate in
+    MODEL_PRICING_USD_PER_1M set to None, each call landed in _unpriced_calls,
+    contributed 0 to _total_usd, and NOESIS_LLM_MAX_SPEND_USD could never trip.
+    The table is now populated and the dollar ceiling does fire.
+
+    This one stays, because it is the only bound that survives price drift. A
+    model absent from the table, or renamed upstream, silently becomes unpriced
+    again and stops counting toward spend; a call ceiling still bounds the run.
+    Belt and braces, cheap to keep.
     """
     raw = os.getenv("NOESIS_LLM_MAX_CALLS", "").strip()
     if not raw:
