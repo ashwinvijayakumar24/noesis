@@ -1,0 +1,12 @@
+# Eval-harness-only dependencies.
+#
+# Deliberately NOT in services/backend/requirements.txt: ranx pulls numba+llvmlite,
+# which are large and have no place in the production backend image. The eval
+# harness runs on the host, not in the container.
+#
+# Install:  python3 -m pip install -r scripts/eval/requirements.txt
+
+# IR metrics: recall@k, MRR, NDCG@k, MAP. Used instead of hand-rolled metric math
+# because NDCG has real convention traps (log base, tie handling, whether ideal-DCG
+# comes from the full label set) and a subtle bug silently invalidates every number.
+ranx>=0.3.20

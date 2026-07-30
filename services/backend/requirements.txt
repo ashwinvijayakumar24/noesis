@@ -80,3 +80,8 @@ pytest-asyncio==0.24.0
 pytest-mock==3.14.0
 pytest-timeout==2.3.1
 rank-bm25==0.2.2
+
+# Sentence segmentation for chunking. Replaces a naive str.replace splitter that
+# shattered on "et al.", "Fig. 3", "p. 12", and "p < 0.05." — i.e. on every
+# academic PDF. See rag_chunking.py.
+pysbd==0.3.4
