@@ -22,6 +22,8 @@ from tenacity import (
 from openai import RateLimitError, APIError, APIConnectionError
 from pydantic import ValidationError
 
+from app.core.llm_budget import check_llm_allowed, record_response_usage
+
 logger = logging.getLogger(__name__)
 
 # Shared semaphore caps concurrent OpenAI calls across the entire process.
@@ -96,6 +98,7 @@ async def parse_chat_completion_with_retries(
     *,
     messages: list[dict[str, Any]],
     max_validation_retries: int = 2,
+    usage_label: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -105,7 +108,11 @@ async def parse_chat_completion_with_retries(
     - global OpenAI semaphore
     - transient OpenAI API retries
     - validation retries that append the schema error to the prompt
+    - LLM spend guardrails (kill switch / replay-only / ceiling) + usage recording
     """
+    label = usage_label or str(kwargs.get("model") or "unknown")
+    check_llm_allowed(label)
+
     current_messages = deepcopy(messages)
     sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
     last_exc: ValidationError | None = None
@@ -120,7 +127,9 @@ async def parse_chat_completion_with_retries(
 
     for attempt in range(max_validation_retries + 1):
         try:
-            return _normalize_parsed_chat_completion(await _parse_once(current_messages))
+            raw_response = await _parse_once(current_messages)
+            record_response_usage(raw_response, model=kwargs.get("model"), label=label)
+            return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc
             logger.warning(
@@ -141,6 +150,7 @@ def parse_chat_completion_with_retries_sync(
     *,
     messages: list[dict[str, Any]],
     max_validation_retries: int = 2,
+    usage_label: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -149,6 +159,9 @@ def parse_chat_completion_with_retries_sync(
     This is used by legacy sync LangGraph nodes and sync services. Async nodes
     should use parse_chat_completion_with_retries().
     """
+    label = usage_label or str(kwargs.get("model") or "unknown")
+    check_llm_allowed(label)
+
     current_messages = deepcopy(messages)
     sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
     last_exc: ValidationError | None = None
@@ -162,7 +175,9 @@ def parse_chat_completion_with_retries_sync(
 
     for attempt in range(max_validation_retries + 1):
         try:
-            return _normalize_parsed_chat_completion(_parse_once(current_messages))
+            raw_response = _parse_once(current_messages)
+            record_response_usage(raw_response, model=kwargs.get("model"), label=label)
+            return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc
             logger.warning(

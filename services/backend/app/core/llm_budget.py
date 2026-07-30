@@ -1,0 +1,421 @@
+"""Process-wide LLM spend accounting and guardrails.
+
+Three jobs, no dependencies beyond the stdlib:
+
+1. **Accounting** — every LLM call records its token usage into a thread-safe
+   process-wide accumulator (this codebase spawns worker threads that each run
+   their own event loop, so a plain dict is not enough).
+2. **Guardrails** — a kill switch, a replay-only flag, and a cumulative spend
+   ceiling. ``check_llm_allowed()`` is called *before* any network request so a
+   runaway measurement run can be halted from the environment.
+3. **Visibility** — an optional append-only JSONL sink so a run's usage can be
+   inspected after the fact.
+
+Environment variables (all optional):
+
+- ``NOESIS_LLM_KILL_SWITCH``   truthy -> every LLM call raises ``LLMCallBlocked``
+- ``EVAL_REPLAY_ONLY``         truthy -> every LLM call raises ``LLMCallBlocked``
+                               (distinct message: eval runs must hit cache only)
+- ``NOESIS_LLM_MAX_SPEND_USD`` float  -> once cumulative recorded spend exceeds
+                               it, calls raise ``LLMBudgetExceeded``
+- ``NOESIS_LLM_USAGE_LOG``     path   -> append one JSON object per usage event
+
+Env vars are read at call time, not import time, so they can be toggled per
+process/run (and monkeypatched in tests).
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import threading
+import time
+from dataclasses import dataclass, asdict
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+# ---------------------------------------------------------------------------
+# Pricing
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ModelPrice:
+    """USD per 1M tokens. ``None`` means *unknown*, never *free*."""
+
+    input_per_1m: float | None = None
+    output_per_1m: float | None = None
+    cached_input_per_1m: float | None = None
+
+
+# !!! PRICES BELOW ARE PLACEHOLDERS AND MUST BE VERIFIED AGAINST CURRENT OPENAI
+# !!! PRICING (https://openai.com/api/pricing/) BEFORE ANY DOLLAR FIGURE DERIVED
+# !!! FROM THIS TABLE IS QUOTED EXTERNALLY, PUT IN A DECK, OR USED TO SET A REAL
+# !!! SPEND CEILING. Unknown prices are deliberately ``None`` so that
+# !!! ``estimate_usd()`` returns None rather than a confidently wrong number;
+# !!! those calls are counted in ``totals()["unpriced_calls"]`` so the gap in
+# !!! the accounting is visible rather than silent.
+MODEL_PRICING_USD_PER_1M: dict[str, ModelPrice] = {
+    "gpt-5.2": ModelPrice(None, None, None),
+    "gpt-5.2-chat-latest": ModelPrice(None, None, None),
+    "gpt-5-mini": ModelPrice(None, None, None),
+    "text-embedding-3-large": ModelPrice(None, None, None),
+    "text-embedding-3-small": ModelPrice(None, None, None),
+}
+
+
+def get_price(model: str | None) -> ModelPrice | None:
+    """Exact match first, then longest known prefix (handles dated snapshots)."""
+    if not model:
+        return None
+    price = MODEL_PRICING_USD_PER_1M.get(model)
+    if price is not None:
+        return price
+    candidates = [k for k in MODEL_PRICING_USD_PER_1M if model.startswith(k)]
+    if not candidates:
+        return None
+    return MODEL_PRICING_USD_PER_1M[max(candidates, key=len)]
+
+
+def estimate_usd(
+    model: str | None,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cached_tokens: int = 0,
+) -> float | None:
+    """Estimated cost in USD, or ``None`` when pricing is not known.
+
+    ``prompt_tokens`` is assumed to *include* ``cached_tokens`` (OpenAI's
+    convention), so cached tokens are billed at the cached rate and the
+    remainder at the full input rate. If any rate needed for this call is
+    unknown the whole estimate is None -- a partial number would be wrong.
+    """
+    price = get_price(model)
+    if price is None:
+        return None
+    if price.input_per_1m is None or price.output_per_1m is None:
+        return None
+
+    cached = max(0, int(cached_tokens or 0))
+    uncached = max(0, int(prompt_tokens or 0) - cached)
+
+    total = uncached * price.input_per_1m / 1_000_000
+    total += max(0, int(completion_tokens or 0)) * price.output_per_1m / 1_000_000
+    if cached:
+        if price.cached_input_per_1m is None:
+            return None
+        total += cached * price.cached_input_per_1m / 1_000_000
+    return total
+
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+class LLMGuardrailError(RuntimeError):
+    """Base class for guardrail trips."""
+
+
+class LLMCallBlocked(LLMGuardrailError):
+    """An LLM call was blocked by the kill switch or by replay-only mode."""
+
+
+class LLMBudgetExceeded(LLMGuardrailError):
+    """Cumulative recorded spend exceeded ``NOESIS_LLM_MAX_SPEND_USD``."""
+
+
+# ---------------------------------------------------------------------------
+# Env helpers
+# ---------------------------------------------------------------------------
+
+def env_truthy(name: str) -> bool:
+    """Match the existing convention (see draft_publish_gate.FAIL_CLOSED)."""
+    return os.getenv(name, "").strip().lower() in _TRUTHY
+
+
+def _env_float(name: str) -> float | None:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning("[llm_budget] %s=%r is not a float; ignoring ceiling", name, raw)
+        return None
+
+
+def kill_switch_enabled() -> bool:
+    return env_truthy("NOESIS_LLM_KILL_SWITCH")
+
+
+def replay_only_enabled() -> bool:
+    return env_truthy("EVAL_REPLAY_ONLY")
+
+
+def max_spend_usd() -> float | None:
+    return _env_float("NOESIS_LLM_MAX_SPEND_USD")
+
+
+def max_calls() -> int | None:
+    """Call-count ceiling.
+
+    NOESIS_LLM_MAX_SPEND_USD is inert while MODEL_PRICING_USD_PER_1M is unpriced:
+    every call lands in _unpriced_calls, contributes 0 to _total_usd, and the
+    dollar ceiling can never trip. This ceiling is pricing-independent, so it is
+    the guardrail that actually works today.
+    """
+    raw = os.getenv("NOESIS_LLM_MAX_CALLS", "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning(
+            "[llm_budget] NOESIS_LLM_MAX_CALLS=%r is not an int; ignoring ceiling", raw
+        )
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Accumulator
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class UsageEvent:
+    model: str
+    label: str
+    prompt_tokens: int
+    completion_tokens: int
+    cached_tokens: int
+    estimated_usd: float | None
+    timestamp: float
+
+
+_lock = threading.Lock()
+_events: list[UsageEvent] = []
+_total_usd: float = 0.0
+_unpriced_calls: int = 0
+
+
+def record_usage(
+    *,
+    model: str | None,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    cached_tokens: int = 0,
+    label: str = "unknown",
+) -> UsageEvent:
+    """Record one LLM call. Never raises on accounting or sink problems."""
+    model_name = str(model or "unknown")
+    prompt_tokens = max(0, int(prompt_tokens or 0))
+    completion_tokens = max(0, int(completion_tokens or 0))
+    cached_tokens = max(0, int(cached_tokens or 0))
+
+    cost = estimate_usd(model_name, prompt_tokens, completion_tokens, cached_tokens)
+    event = UsageEvent(
+        model=model_name,
+        label=str(label or "unknown"),
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        cached_tokens=cached_tokens,
+        estimated_usd=cost,
+        timestamp=time.time(),
+    )
+
+    global _total_usd, _unpriced_calls
+    with _lock:
+        _events.append(event)
+        if cost is None:
+            _unpriced_calls += 1
+        else:
+            _total_usd += cost
+
+    _append_to_sink(event)
+    return event
+
+
+def extract_usage(response: Any) -> tuple[int, int, int] | None:
+    """Pull ``(prompt_tokens, completion_tokens, cached_tokens)`` off an SDK response.
+
+    Accepts the response object or the usage object itself. Returns None when no
+    usage information is available (caller should record an unpriced call).
+    """
+    if response is None:
+        return None
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        # Maybe a nested/normalized wrapper kept the original under `.raw`.
+        raw = getattr(response, "raw", None)
+        if raw is not None:
+            usage = getattr(raw, "usage", None)
+    if usage is None and hasattr(response, "prompt_tokens"):
+        usage = response
+    if usage is None:
+        return None
+
+    def _get(obj: Any, key: str, default: int = 0) -> int:
+        if isinstance(obj, dict):
+            value = obj.get(key, default)
+        else:
+            value = getattr(obj, key, default)
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return default
+
+    prompt = _get(usage, "prompt_tokens")
+    completion = _get(usage, "completion_tokens")
+
+    details = usage.get("prompt_tokens_details") if isinstance(usage, dict) else getattr(usage, "prompt_tokens_details", None)
+    cached = _get(details, "cached_tokens") if details is not None else 0
+
+    return prompt, completion, cached
+
+
+def record_response_usage(response: Any, *, model: str | None, label: str = "unknown") -> UsageEvent:
+    """Record usage from an SDK response, tolerating a missing ``usage`` block."""
+    extracted = extract_usage(response)
+    if extracted is None:
+        logger.debug("[llm_budget] no usage on response for model=%s label=%s", model, label)
+        return record_usage(model=model, label=label)
+    prompt, completion, cached = extracted
+    return record_usage(
+        model=model,
+        prompt_tokens=prompt,
+        completion_tokens=completion,
+        cached_tokens=cached,
+        label=label,
+    )
+
+
+def _blank_bucket() -> dict[str, Any]:
+    return {
+        "calls": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cached_tokens": 0,
+        "total_tokens": 0,
+        "estimated_usd": 0.0,
+        "unpriced_calls": 0,
+    }
+
+
+def _fold(bucket: dict[str, Any], event: UsageEvent) -> None:
+    bucket["calls"] += 1
+    bucket["prompt_tokens"] += event.prompt_tokens
+    bucket["completion_tokens"] += event.completion_tokens
+    bucket["cached_tokens"] += event.cached_tokens
+    bucket["total_tokens"] += event.prompt_tokens + event.completion_tokens
+    if event.estimated_usd is None:
+        bucket["unpriced_calls"] += 1
+    else:
+        bucket["estimated_usd"] += event.estimated_usd
+
+
+def totals() -> dict[str, Any]:
+    with _lock:
+        snapshot = list(_events)
+    bucket = _blank_bucket()
+    for event in snapshot:
+        _fold(bucket, event)
+    return bucket
+
+
+def _group_by(key: str) -> dict[str, dict[str, Any]]:
+    with _lock:
+        snapshot = list(_events)
+    grouped: dict[str, dict[str, Any]] = {}
+    for event in snapshot:
+        bucket = grouped.setdefault(getattr(event, key), _blank_bucket())
+        _fold(bucket, event)
+    return grouped
+
+
+def by_model() -> dict[str, dict[str, Any]]:
+    return _group_by("model")
+
+
+def by_label() -> dict[str, dict[str, Any]]:
+    return _group_by("label")
+
+
+def events() -> list[UsageEvent]:
+    with _lock:
+        return list(_events)
+
+
+def total_spend_usd() -> float:
+    with _lock:
+        return _total_usd
+
+
+def unpriced_calls() -> int:
+    with _lock:
+        return _unpriced_calls
+
+
+def reset() -> None:
+    global _total_usd, _unpriced_calls
+    with _lock:
+        _events.clear()
+        _total_usd = 0.0
+        _unpriced_calls = 0
+
+
+# ---------------------------------------------------------------------------
+# Guard
+# ---------------------------------------------------------------------------
+
+def check_llm_allowed(label: str = "unknown") -> None:
+    """Raise if an LLM call must not be made. Call BEFORE any network request."""
+    if kill_switch_enabled():
+        raise LLMCallBlocked(
+            f"LLM call '{label}' blocked: NOESIS_LLM_KILL_SWITCH is set. "
+            "Unset it to allow live OpenAI calls."
+        )
+    if replay_only_enabled():
+        raise LLMCallBlocked(
+            f"LLM call '{label}' blocked: EVAL_REPLAY_ONLY is set, so this run may "
+            "only use cached results. A cache miss reached the live API."
+        )
+    call_ceiling = max_calls()
+    if call_ceiling is not None:
+        with _lock:
+            made = len(_events)
+        if made >= call_ceiling:
+            raise LLMBudgetExceeded(
+                f"LLM call '{label}' blocked: {made} call(s) already recorded, "
+                f"reaching NOESIS_LLM_MAX_CALLS={call_ceiling}. This ceiling is "
+                "pricing-independent and fires even when model pricing is unknown."
+            )
+    ceiling = max_spend_usd()
+    if ceiling is not None:
+        with _lock:
+            spent = _total_usd
+            unpriced = _unpriced_calls
+        if spent > ceiling:
+            raise LLMBudgetExceeded(
+                f"LLM call '{label}' blocked: recorded spend ${spent:.4f} exceeds "
+                f"NOESIS_LLM_MAX_SPEND_USD=${ceiling:.4f} "
+                f"({unpriced} call(s) had unknown pricing and are NOT included)."
+            )
+
+
+# ---------------------------------------------------------------------------
+# JSONL sink
+# ---------------------------------------------------------------------------
+
+def _append_to_sink(event: UsageEvent) -> None:
+    path = os.getenv("NOESIS_LLM_USAGE_LOG", "").strip()
+    if not path:
+        return
+    try:
+        line = json.dumps(asdict(event), sort_keys=True)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+    except Exception as exc:  # sink must never break the caller
+        logger.warning("[llm_budget] could not append usage to %s: %s", path, exc)
