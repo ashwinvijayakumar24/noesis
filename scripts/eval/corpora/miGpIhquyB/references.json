@@ -1,0 +1,542 @@
+{
+  "corpus": "miGpIhquyB",
+  "source_pdf": "miGpIhquyB.pdf",
+  "source_sha256": "a45d60db5505a775706bb0def669ce1b7fbd7a4b0c31a1cf2f0f1e69dc1466dc",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:56.168517Z",
+  "references_attempted": 59,
+  "references_resolved": 43,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W4389157038",
+      "title": "The Falcon Series of Open Language Models",
+      "doi": "10.48550/arxiv.2311.16867",
+      "status": "resolved",
+      "filename": "almazrouei_2023_the_falcon_series_of_open_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2311.16867",
+      "raw": "Ebtesam Almazrouei, Hamza Alobeidli, Abdulaziz Alshamsi, Alessandro Cappelli, Ruxandra Cojocaru, Merouane Debbah, Etienne Goffinet, Daniel Heslow, Julien Launay, Quentin Malartic, Badreddine Noune, Baptiste Pannier, and Guilherme Penedo. Falcon-40B: an open large language model with state-of-the-art performance. 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4223908421",
+      "title": "Training a Helpful and Harmless Assistant with Reinforcement Learning from Human Feedback",
+      "doi": "10.48550/arxiv.2204.05862",
+      "status": "resolved",
+      "filename": "bai_2022_training_a_helpful_and_harmless_assistant_with_reinforcement_learning_f.pdf",
+      "oa_url": "https://arxiv.org/pdf/2204.05862",
+      "raw": "Yuntao Bai, Andy Jones, Kamal Ndousse, Amanda Askell, Anna Chen, Nova DasSarma, Dawn Drain, Stanislav Fort, Deep Ganguli, Tom Henighan, Nicholas Joseph, Saurav Kadavath, Jackson Kernion, Tom Conerly, Sheer El Showk, Nelson Elhage, Zac Hatfield-Dodds, Danny Hernandez, Tristan Hume, Scott Johnston, Shauna Kravec, Liane Lovitt, Neel Nanda, Catherine Olsson, Dario Amodei, Tom B. Brown, Jack Clark, Sam McCandlish, Chris Olah, Benjamin Mann, and Jared Kaplan. Training a helpful and harmless assistant with reinforcement learning from human feedback. CoRR, abs/2204.05862, 2022a. doi: 10.48550/arXiv.2204.05862. URL https: //doi.org/10.48550/arXiv.2204.05862."
+    },
+    {
+      "openalex_id": null,
+      "title": "Constitutional ai: Harmlessness from ai feedback, 2022b",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Yuntao Bai, Saurav Kadavath, Sandipan Kundu, Amanda Askell, Jackson Kernion, Andy Jones, Anna Chen, Anna Goldie, Azalia Mirhoseini, Cameron McKinnon, Carol Chen, Catherine Olsson, Christopher Olah, Danny Hernandez, Dawn Drain, Deep Ganguli, Dustin Li, Eli Tran-Johnson, Ethan Perez, Jamie Kerr, Jared Mueller, Jeffrey Ladish, Joshua Landau, Kamal Ndousse, Kamile Lukosuite, Liane Lovitt, Michael Sellitto, Nelson Elhage, Nicholas Schiefer, Noemi Mercado, Nova DasSarma, Robert Lasenby, Robin Larson, Sam Ringer, Scott Johnston, Shauna Kravec, Sheer El Showk, Stanislav Fort, Tamera Lanham, Timothy Telleen-Lawton, Tom Conerly, Tom Henighan, Tristan Hume, Samuel R. Bowman, Zac Hatfield-Dodds, Ben Mann, Dario Amodei, Nicholas Joseph, Sam McCandlish, Tom Brown, and Jared Kaplan. Constitutional ai: Harmlessness from ai feedback, 2022b."
+    },
+    {
+      "openalex_id": null,
+      "title": "Think you have solved direct-answer question answering? try arc-da, the direct-answer AI2 reasoning challenge",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Sumithra Bhakthavatsalam, Daniel Khashabi, Tushar Khot, Bhavana Dalvi Mishra, Kyle Richardson, Ashish Sabharwal, Carissa Schoenick, Oyvind Tafjord, and Peter Clark. Think you have solved direct-answer question answering? try arc-da, the direct-answer AI2 reasoning challenge. CoRR, abs/2102.03315, 2021. URL https://arxiv.org/abs/2102.03315."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3195577433",
+      "title": "On the Opportunities and Risks of Foundation Models",
+      "doi": "10.48550/arxiv.2108.07258",
+      "status": "resolved",
+      "filename": "bommasani_2021_on_the_opportunities_and_risks_of_foundation_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2108.07258",
+      "raw": "Rishi Bommasani, Drew A. Hudson, Ehsan Adeli, Russ B. Altman, Simran Arora, Sydney von Arx, Michael S. Bernstein, Jeannette Bohg, Antoine Bosselut, Emma Brunskill, Erik Brynjolfsson, Shyamal Buch, Dallas Card, Rodrigo Castellon, Niladri S. Chatterji, Annie S. Chen, Kathleen Creel, Jared Quincy Davis, Dorottya Demszky, Chris Donahue, Moussa Doumbouya, Esin Durmus, Stefano Ermon, John Etchemendy, Kawin Ethayarajh, Li Fei-Fei, Chelsea Finn, Trevor Gale, Lauren Gillespie, Karan Goel, Noah D. Goodman, Shelby Grossman, Neel Guha, Tatsunori Hashimoto, Peter Henderson, John Hewitt, Daniel E. Ho, Jenny Hong, Kyle Hsu, Jing Huang, Thomas Icard, Saahil Jain, Dan Jurafsky, Pratyusha Kalluri, Siddharth Karamcheti, Geoff Keeling, Fereshte Khani, Omar Khattab, Pang Wei Koh, Mark S. Krass, Ranjay Krishna, Rohith Kuditipudi, and et al. On the opportunities and risks of foundation models. CoRR, abs/2108.07258, 2021. URL https://arxiv.org/abs/2108.07258."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4313680149",
+      "title": "InPars-v2: Large Language Models as Efficient Dataset Generators for Information Retrieval",
+      "doi": "10.48550/arxiv.2301.01820",
+      "status": "resolved",
+      "filename": "jeronymo_2023_inpars_v2_large_language_models_as_efficient_dataset_generators_fo.pdf",
+      "oa_url": "https://arxiv.org/pdf/2301.01820",
+      "raw": "Luiz Bonifacio, Hugo Abonizio, Marzieh Fadaee, and Rodrigo Nogueira. Inpars: Data augmentation for information retrieval using large language models, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3030163527",
+      "title": "Language Models are Few-Shot Learners",
+      "doi": "10.48550/arxiv.2005.14165",
+      "status": "resolved",
+      "filename": "brown_2020_language_models_are_few_shot_learners.pdf",
+      "oa_url": "https://arxiv.org/pdf/2005.14165",
+      "raw": "Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, Sandhini Agarwal, Ariel Herbert-Voss, Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh, Daniel M. Ziegler, Jeffrey Wu, Clemens Winter, Christopher Hesse, Mark Chen, Eric Sigler, Mateusz Litwin, Scott Gray, Benjamin Chess, Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford, Ilya Sutskever, and Dario Amodei. Language models are few-shot learners. In Hugo Larochelle, Marc’Aurelio Ranzato, Raia Hadsell, Maria-Florina Balcan, and Hsuan-Tien Lin, editors, Advances in Neural Information Processing Systems 33: Annual Conference on Neural Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual, 2020. URL https://proceedings.neurips.cc/paper/2020/hash/ 1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html."
+    },
+    {
+      "openalex_id": null,
+      "title": "Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Pondé de Oliveira Pinto, Jared Kaplan, Harrison Edwards, Yuri Burda, Nicholas Joseph, Greg",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Pondé de Oliveira Pinto, Jared Kaplan, Harrison Edwards, Yuri Burda, Nicholas Joseph, Greg Brockman, Alex Ray, Raul Puri, 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3177813494",
+      "title": "Evaluating Large Language Models Trained on Code",
+      "doi": "10.48550/arxiv.2107.03374",
+      "status": "resolved",
+      "filename": "chen_2021_evaluating_large_language_models_trained_on_code.pdf",
+      "oa_url": "https://arxiv.org/pdf/2107.03374",
+      "raw": "Gretchen Krueger, Michael Petrov, Heidy Khlaaf, Girish Sastry, Pamela Mishkin, Brooke Chan, Scott Gray, Nick Ryder, Mikhail Pavlov, Alethea Power, Lukasz Kaiser, Mohammad Bavarian, Clemens Winter, Philippe Tillet, Felipe Petroski Such, Dave Cummings, Matthias Plappert, Fotios Chantzis, Elizabeth Barnes, Ariel Herbert-Voss, William Hebgen Guss, Alex Nichol, Alex Paino, Nikolas Tezak, Jie Tang, Igor Babuschkin, Suchir Balaji, Shantanu Jain, William Saunders, Christopher Hesse, Andrew N. Carr, Jan Leike, Joshua Achiam, Vedant Misra, Evan Morikawa, Alec Radford, Matthew Knight, Miles Brundage, Mira Murati, Katie Mayer, Peter Welinder, Bob McGrew, Dario Amodei, Sam McCandlish, Ilya Sutskever, and Wojciech Zaremba. Evaluating large language models trained on code. CoRR, abs/2107.03374, 2021. URL https://arxiv.org/ abs/2107.03374."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4386566609",
+      "title": "PLACES: Prompting Language Models for Social Conversation Synthesis",
+      "doi": "10.18653/v1/2023.findings-eacl.63",
+      "status": "resolved",
+      "filename": "chen_2023_places_prompting_language_models_for_social_conversation_synthesis.pdf",
+      "oa_url": "https://aclanthology.org/2023.findings-eacl.63.pdf",
+      "raw": "Maximillian Chen, Alexandros Papangelis, Chenyang Tao, Seokhwan Kim, Andy Rosenbaum, Yang Liu, and Dilek Hakkani-Tür. Places: Prompting language models for social conversation synthesis. In EACL 2023, 2023. URL https://www.amazon.science/publications/ places-prompting-language-models-for-social-conversation-synthesis. Yew Ken Chia, Lidong Bing, Soujanya Poria, and Luo Si. Relationprompt: Leveraging prompts to generate synthetic data for zero-shot relation triplet extraction, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Vicuna: An open-source chatbot impressing gpt-4 with 90%* chatgpt quality, March 2023",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng, Zhanghao Wu, Hao Zhang, Lianmin Zheng, Siyuan Zhuang, Yonghao Zhuang, Joseph E. Gonzalez, Ion Stoica, and Eric P. Xing. Vicuna: An open-source chatbot impressing gpt-4 with 90%* chatgpt quality, March 2023. URL https: //lmsys.org/blog/2023-03-30-vicuna/."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4224308101",
+      "title": "PaLM: Scaling Language Modeling with Pathways",
+      "doi": "10.48550/arxiv.2204.02311",
+      "status": "resolved",
+      "filename": "chowdhery_2022_palm_scaling_language_modeling_with_pathways.pdf",
+      "oa_url": "https://arxiv.org/pdf/2204.02311",
+      "raw": "Aakanksha Chowdhery, Sharan Narang, Jacob Devlin, Maarten Bosma, Gaurav Mishra, Adam Roberts, Paul Barham, Hyung Won Chung, Charles Sutton, Sebastian Gehrmann, Parker Schuh, Kensen Shi, Sasha Tsvyashchenko, Joshua Maynez, Abhishek Rao, Parker Barnes, Yi Tay, Noam Shazeer, Vinodkumar Prabhakaran, Emily Reif, Nan Du, Ben Hutchinson, Reiner Pope, James Bradbury, Jacob Austin, Michael Isard, Guy Gur-Ari, Pengcheng Yin, Toju Duke, Anselm Levskaya, Sanjay Ghemawat, Sunipa Dev, Henryk Michalewski, Xavier Garcia, Vedant Misra, Kevin Robinson, Liam Fedus, Denny Zhou, Daphne Ippolito, David Luan, Hyeontaek Lim, Barret Zoph, Alexander Spiridonov, Ryan Sepassi, David Dohan, Shivani Agrawal, Mark Omernick, Andrew M. Dai, Thanumalayan Sankaranarayana Pillai, Marie Pellat, Aitor Lewkowycz, Erica Moreira, Rewon Child, Oleksandr Polozov, Katherine Lee, Zongwei Zhou, Xuezhi Wang, Brennan Saeta, Mark Diaz, Orhan Firat, Michele Catasta, Jason Wei, Kathy Meier-Hellstern, Douglas Eck, Jeff Dean, Slav Petrov, and Noah Fiedel. Palm: Scaling language modeling with pathways. CoRR, abs/2204.02311, 2022. doi: 10.48550/arXiv.2204.02311. URL https://doi.org/10.48550/arXiv.2204.02311."
+    },
+    {
+      "openalex_id": null,
+      "title": "Think you have solved question answering? try arc, the AI2 reasoning challenge",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Peter Clark, Isaac Cowhey, Oren Etzioni, Tushar Khot, Ashish Sabharwal, Carissa Schoenick, and Oyvind Tafjord. Think you have solved question answering? try arc, the AI2 reasoning challenge. CoRR, abs/1803.05457, 2018. URL http://arxiv.org/abs/1803.05457."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3022113899",
+      "title": "GoEmotions: A Dataset of Fine-Grained Emotions",
+      "doi": "10.18653/v1/2020.acl-main.372",
+      "status": "resolved",
+      "filename": "demszky_2020_goemotions_a_dataset_of_fine_grained_emotions.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/2020.acl-main.372.pdf",
+      "raw": "Dorottya Demszky, Dana Movshovitz-Attias, Jeongwoo Ko, Alan Cowen, Gaurav Nemade, and Sujith Ravi. GoEmotions: A Dataset of Fine-Grained Emotions. In 58th Annual Meeting of the Association for Computational Linguistics (ACL), 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3031696893",
+      "title": "Attention in Natural Language Processing",
+      "doi": "10.1109/tnnls.2020.3019893",
+      "status": "resolved",
+      "filename": "galassi_2020_attention_in_natural_language_processing.pdf",
+      "oa_url": "https://ieeexplore.ieee.org/ielx7/5962385/9559436/09194070.pdf",
+      "raw": "Florian E. Dorner, Momchil Peychev, Nikola Konstantinov, Naman Goel, Elliott Ash, and Martin Vechev. Human-guided fair classification for natural language processing. In The Eleventh International Conference on Learning Representations, 2023. URL https://openreview.net/ forum?id=N_g8TT9Cy7f."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2950681488",
+      "title": "ELI5: Long Form Question Answering",
+      "doi": "10.18653/v1/p19-1346",
+      "status": "resolved",
+      "filename": "fan_2019_eli5_long_form_question_answering.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/P19-1346.pdf",
+      "raw": "Angela Fan, Yacine Jernite, Ethan Perez, David Grangier, Jason Weston, and Michael Auli. ELI5: long form question answering. In Anna Korhonen, David R. Traum, and Lluís Màrquez, editors, Proceedings of the 57th Conference of the Association for Computational Linguistics, ACL 2019,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2950681488",
+      "title": "ELI5: Long Form Question Answering",
+      "doi": "10.18653/v1/p19-1346",
+      "status": "resolved",
+      "filename": "fan_2019_eli5_long_form_question_answering_2.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/P19-1346.pdf",
+      "raw": "Florence, Italy, July 28- August 2, 2019, Volume 1: Long Papers, pages 3558–3567. Association for Computational Linguistics, 2019. doi: 10.18653/v1/p19-1346. URL https://doi.org/10. 18653/v1/p19-1346."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281790610",
+      "title": "Self-Guided Noise-Free Data Generation for Efficient Zero-Shot Learning",
+      "doi": "10.48550/arxiv.2205.12679",
+      "status": "resolved",
+      "filename": "gao_2022_self_guided_noise_free_data_generation_for_efficient_zero_shot_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.12679",
+      "raw": "Jiahui Gao, Renjie Pi, LIN Yong, Hang Xu, Jiacheng Ye, Zhiyong Wu, WEIZHONG ZHANG, Xiaodan Liang, Zhenguo Li, and Lingpeng Kong. Self-guided noise-free data generation for efficient zero-shot learning. In The Eleventh International Conference on Learning Representations, 2023. URL https://openreview.net/forum?id=h5OpjGd_lo6. 12 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W6893809404",
+      "title": "EleutherAI/lm-evaluation-harness: v0.4.12",
+      "doi": "10.5281/zenodo.5371628",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.5281/zenodo.5371628",
+      "raw": "Leo Gao, Jonathan Tow, Stella Biderman, Sid Black, Anthony DiPofi, Charles Foster, Laurence Golding, Jeffrey Hsu, Kyle McDonell, Niklas Muennighoff, Jason Phang, Laria Reynolds, Eric Tang, Anish Thite, Ben Wang, Kevin Wang, and Andy Zou. A framework for few-shot language model evaluation, September 2021a. URL https://doi.org/10.5281/zenodo.5371628."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3156636935",
+      "title": "SimCSE: Simple Contrastive Learning of Sentence Embeddings",
+      "doi": "10.18653/v1/2021.emnlp-main.552",
+      "status": "resolved",
+      "filename": "gao_2021_simcse_simple_contrastive_learning_of_sentence_embeddings.pdf",
+      "oa_url": "https://aclanthology.org/2021.emnlp-main.552.pdf",
+      "raw": "Tianyu Gao, Xingcheng Yao, and Danqi Chen. Simcse: Simple contrastive learning of sentence embeddings. In Marie-Francine Moens, Xuanjing Huang, Lucia Specia, and Scott Wen-tau Yih, editors, Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing, EMNLP 2021, Virtual Event / Punta Cana, Dominican Republic, 7-11 November, 2021, pages 6894–6910. Association for Computational Linguistics, 2021b. doi: 10.18653/v1/2021. emnlp-main.552. URL https://doi.org/10.18653/v1/2021.emnlp-main.552."
+    },
+    {
+      "openalex_id": null,
+      "title": "Koala: A dialogue model for academic research",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Xinyang Geng, Arnav Gudibande, Hao Liu, Eric Wallace, Pieter Abbeel, Sergey Levine, and Dawn Song. Koala: A dialogue model for academic research. Blog post, April 2023. URL https://bair.berkeley.edu/blog/2023/04/03/koala/."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4386114274",
+      "title": "LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models",
+      "doi": "10.48550/arxiv.2308.11462",
+      "status": "resolved",
+      "filename": "guha_2023_legalbench_a_collaboratively_built_benchmark_for_measuring_legal_reaso.pdf",
+      "oa_url": "https://arxiv.org/pdf/2308.11462",
+      "raw": "Neel Guha, Julian Nyarko, Daniel E. Ho, Christopher Ré, Adam Chilton, Aditya Narayana, Alex Chohlas-Wood, Austin Peters, Brandon Waldon, Daniel N. Rockmore, Diego Zambrano, Dmitry Talisman, Enam Hoque, Faiz Surani, Frank Fagan, Galit Sarfaty, Gregory M. Dickinson, Haggai Porat, Jason Hegland, Jessica Wu, Joe Nudell, Joel Niklaus, John J. Nay, Jonathan H. Choi, Kevin Tobia, Margaret Hagan, Megan Ma, Michael A. Livermore, Nikon Rasumov-Rahe, Nils Holzenberger, Noam Kolt, Peter Henderson, Sean Rehaag, Sharad Goel, Shang Gao, Spencer Williams, Sunny Gandhi, Tom Zur, Varun Iyer, and Zehua Li. Legalbench: A collaboratively built benchmark for measuring legal reasoning in large language models. CoRR, abs/2308.11462, 2023. doi: 10.48550/arXiv.2308.11462. URL https://doi.org/10.48550/arXiv.2308.11462."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4289445724",
+      "title": "Language Models Can Teach Themselves to Program Better",
+      "doi": "10.48550/arxiv.2207.14502",
+      "status": "resolved",
+      "filename": "haluptzok_2022_language_models_can_teach_themselves_to_program_better.pdf",
+      "oa_url": "https://arxiv.org/pdf/2207.14502",
+      "raw": "Patrick Haluptzok, Matthew Bowers, and Adam Tauman Kalai. Language models can teach themselves to program better. In The Eleventh International Conference on Learning Representations, 2023. URL https://openreview.net/forum?id=SaRj2ka1XZ3."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221166075",
+      "title": "ToxiGen: A Large-Scale Machine-Generated Dataset for Adversarial and Implicit Hate Speech Detection",
+      "doi": "10.18653/v1/2022.acl-long.234",
+      "status": "resolved",
+      "filename": "hartvigsen_2022_toxigen_a_large_scale_machine_generated_dataset_for_adversarial_.pdf",
+      "oa_url": "https://aclanthology.org/2022.acl-long.234.pdf",
+      "raw": "Thomas Hartvigsen, Saadia Gabriel, Hamid Palangi, Maarten Sap, Dipankar Ray, and Ece Kamar. ToxiGen: A large-scale machine-generated dataset for adversarial and implicit hate speech detection. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pages 3309–3326, Dublin, Ireland, May 2022. Association for Computational Linguistics. doi: 10.18653/v1/2022.acl-long.234. URL https://aclanthology.org/2022.acl-long.234."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3121904249",
+      "title": "Measuring Massive Multitask Language Understanding",
+      "doi": null,
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn Song, and Jacob Steinhardt. Measuring massive multitask language understanding. In 9th International Conference on Learning Representations, ICLR 2021, Virtual Event, Austria, May 3-7, 2021. OpenReview.net, 2021. URL https://openreview.net/forum?id=d7KBjmI3GmQ."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4368755730",
+      "title": "Distilling Step-by-Step! Outperforming Larger Language Models with Less Training Data and Smaller Model Sizes",
+      "doi": "10.48550/arxiv.2305.02301",
+      "status": "resolved",
+      "filename": "hsieh_2023_distilling_step_by_step_outperforming_larger_language_models_with_les.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.02301",
+      "raw": "Cheng-Yu Hsieh, Chun-Liang Li, Chih-Kuan Yeh, Hootan Nakhost, Yasuhisa Fujii, Alexander Ratner, Ranjay Krishna, Chen-Yu Lee, and Tomas Pfister. Distilling step-by-step! outperforming larger language models with less training data and smaller model sizes. CoRR, abs/2305.02301, 2023. doi: 10.48550/arXiv.2305.02301. URL https://doi.org/10.48550/arXiv.2305.02301."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3168867926",
+      "title": "LoRA: Low-Rank Adaptation of Large Language Models",
+      "doi": "10.48550/arxiv.2106.09685",
+      "status": "resolved",
+      "filename": "hu_2021_lora_low_rank_adaptation_of_large_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.09685",
+      "raw": "Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. Lora: Low-rank adaptation of large language models. In The Tenth International Conference on Learning Representations, ICLR 2022, Virtual Event, April 25-29, 2022. OpenReview.net, 2022. URL https://openreview.net/forum?id=nZeVKeeFYf9."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4362656079",
+      "title": "LLM-Adapters: An Adapter Family for Parameter-Efficient Fine-Tuning of Large Language Models",
+      "doi": "10.48550/arxiv.2304.01933",
+      "status": "resolved",
+      "filename": "hu_2023_llm_adapters_an_adapter_family_for_parameter_efficient_fine_tuning_of_la.pdf",
+      "oa_url": "https://arxiv.org/pdf/2304.01933",
+      "raw": "Zhiqiang Hu, Yihuai Lan, Lei Wang, Wanyu Xu, Ee-Peng Lim, Roy Ka-Wei Lee, Lidong Bing, and Soujanya Poria. Llm-adapters: An adapter family for parameter-efficient fine-tuning of large language models. CoRR, abs/2304.01933, 2023. doi: 10.48550/arXiv.2304.01933. URL https://doi.org/10.48550/arXiv.2304.01933."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4362515116",
+      "title": "A Survey of Large Language Models",
+      "doi": "10.1007/s11704-026-60308-3",
+      "status": "resolved",
+      "filename": "zhao_2026_a_survey_of_large_language_models.pdf",
+      "oa_url": "https://link.springer.com/content/pdf/10.1007/s11704-026-60308-3.pdf",
+      "raw": "Jiaxin Huang, Shixiang Shane Gu, Le Hou, Yuexin Wu, Xuezhi Wang, Hongkun Yu, and Jiawei Han. Large language models can self-improve, 2023. URL https://openreview.net/forum?id= NiEtU7blzN."
+    },
+    {
+      "openalex_id": null,
+      "title": "Exploiting asymmetry for synthetic training data generation: Synthie and the case of information extraction, 2023. 13 Under review as a conference paper at ICLR 2024",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Martin Josifoski, Marija Sakota, Maxime Peyrard, and Robert West. Exploiting asymmetry for synthetic training data generation: Synthie and the case of information extraction, 2023. 13 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2963206148",
+      "title": "A Diversity-Promoting Objective Function for Neural Conversation Models",
+      "doi": "10.18653/v1/n16-1014",
+      "status": "resolved",
+      "filename": "li_2016_a_diversity_promoting_objective_function_for_neural_conversation_models.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/N16-1014.pdf",
+      "raw": "Jiwei Li, Michel Galley, Chris Brockett, Jianfeng Gao, and Bill Dolan. A diversity-promoting objective function for neural conversation models. In Kevin Knight, Ani Nenkova, and Owen Rambow, editors, NAACL HLT 2016, The 2016 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, San Diego California,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2963206148",
+      "title": "A Diversity-Promoting Objective Function for Neural Conversation Models",
+      "doi": "10.18653/v1/n16-1014",
+      "status": "resolved",
+      "filename": "li_2016_a_diversity_promoting_objective_function_for_neural_conversation_models_2.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/N16-1014.pdf",
+      "raw": "USA, June 12-17, 2016, pages 110–119. The Association for Computational Linguistics, 2016. doi: 10.18653/v1/n16-1014. URL https://doi.org/10.18653/v1/n16-1014."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4320003957",
+      "title": "Holistic Evaluation of Language Models",
+      "doi": "10.48550/arxiv.2211.09110",
+      "status": "resolved",
+      "filename": "liang_2022_holistic_evaluation_of_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2211.09110",
+      "raw": "Percy Liang, Rishi Bommasani, Tony Lee, Dimitris Tsipras, Dilara Soylu, Michihiro Yasunaga, Yian Zhang, Deepak Narayanan, Yuhuai Wu, Ananya Kumar, Benjamin Newman, Binhang Yuan, Bobby Yan, Ce Zhang, Christian Cosgrove, Christopher D. Manning, Christopher Ré, Diana Acosta-Navas, Drew A. Hudson, Eric Zelikman, Esin Durmus, Faisal Ladhak, Frieda Rong, Hongyu Ren, Huaxiu Yao, Jue Wang, Keshav Santhanam, Laurel J. Orr, Lucia Zheng, Mert Yüksekgönül, Mirac Suzgun, Nathan Kim, Neel Guha, Niladri S. Chatterji, Omar Khattab, Peter Henderson, Qian Huang, Ryan Chi, Sang Michael Xie, Shibani Santurkar, Surya Ganguli, Tatsunori Hashimoto, Thomas Icard, Tianyi Zhang, Vishrav Chaudhary, William Wang, Xuechen Li, Yifan Mai, Yuhui Zhang, and Yuta Koreeda. Holistic evaluation of language models. CoRR, abs/2211.09110, 2022. doi: 10.48550/arXiv.2211.09110. URL https://doi.org/10.48550/arXiv.2211.09110."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3201174429",
+      "title": "TruthfulQA: Measuring How Models Mimic Human Falsehoods",
+      "doi": "10.18653/v1/2022.acl-long.229",
+      "status": "resolved",
+      "filename": "lin_2022_truthfulqa_measuring_how_models_mimic_human_falsehoods.pdf",
+      "oa_url": "https://aclanthology.org/2022.acl-long.229.pdf",
+      "raw": "Stephanie Lin, Jacob Hilton, and Owain Evans. Truthfulqa: Measuring how models mimic human falsehoods. In Smaranda Muresan, Preslav Nakov, and Aline Villavicencio, editors, Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), ACL 2022, Dublin, Ireland, May 22-27, 2022, pages 3214–3252. Association for Computational Linguistics, 2022. doi: 10.18653/v1/2022.acl-long.229. URL https://doi.org/10.18653/v1/ 2022.acl-long.229. Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. In 7th International Conference on Learning Representations, ICLR 2019, New Orleans, LA, USA, May 6-9, 2019. OpenReview.net, 2019. URL https://openreview.net/forum?id=Bkg6RiCqY7. Yu Meng, Jiaxin Huang, Yu Zhang, and Jiawei Han. Generating training data with language models: Towards zero-shot language understanding. In NeurIPS, 2022. URL http://papers.nips.cc/paper_files/paper/2022/hash/ 0346c148ba1c21c6b4780a961ea141dc-Abstract-Conference.html. OpenAI. GPT-4 technical report. CoRR, abs/2303.08774, 2023. doi: 10.48550/arXiv.2303.08774. URL https://doi.org/10.48550/arXiv.2303.08774."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226278401",
+      "title": "Training language models to follow instructions with human feedback",
+      "doi": "10.48550/arxiv.2203.02155",
+      "status": "resolved",
+      "filename": "ouyang_2022_training_language_models_to_follow_instructions_with_human_feedback.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.02155",
+      "raw": "Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll L. Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, John Schulman, Jacob Hilton, Fraser Kelton, Luke Miller, Maddie Simens, Amanda Askell, Peter Welinder, Paul F. Christiano, Jan Leike, and Ryan Lowe. Training language models to follow instructions with human feedback. In NeurIPS, 2022. URL http://papers.nips.cc/paper_files/paper/2022/hash/ b1efde53be364a73914f58805a001731-Abstract-Conference.html."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3212136196",
+      "title": "MAUVE: Measuring the Gap Between Neural Text and Human Text using Divergence Frontiers",
+      "doi": "10.48550/arxiv.2102.01454",
+      "status": "resolved",
+      "filename": "pillutla_2021_mauve_measuring_the_gap_between_neural_text_and_human_text_using_d.pdf",
+      "oa_url": "https://arxiv.org/pdf/2102.01454",
+      "raw": "Krishna Pillutla, Swabha Swayamdipta, Rowan Zellers, John Thickstun, Sean Welleck, Yejin Choi, and Zaïd Harchaoui. MAUVE: measuring the gap between neural text and human text using divergence frontiers. In Marc’Aurelio Ranzato, Alina Beygelzimer, Yann N. Dauphin, Percy Liang, and Jennifer Wortman Vaughan, editors, Advances in Neural Information Processing Systems 34: Annual Conference on Neural Information Processing Systems 2021, NeurIPS 2021, December 6-14, 2021, virtual, pages 4816–4828, 2021. URL https://proceedings.neurips.cc/paper/ 2021/hash/260c2432a0eecc28ce03c10dadc078a4-Abstract.html."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3092806700",
+      "title": "CoDA: Contrast-enhanced and Diversity-promoting Data Augmentation for Natural Language Understanding",
+      "doi": "10.48550/arxiv.2010.08670",
+      "status": "resolved",
+      "filename": "qu_2020_coda_contrast_enhanced_and_diversity_promoting_data_augmentation_for_nat.pdf",
+      "oa_url": "https://arxiv.org/pdf/2010.08670",
+      "raw": "Yanru Qu, Dinghan Shen, Yelong Shen, Sandra Sajeev, Weizhu Chen, and Jiawei Han. Coda: Contrast-enhanced and diversity-promoting data augmentation for natural language understanding. In 9th International Conference on Learning Representations, ICLR 2021, Virtual Event, Austria, May 3-7, 2021. OpenReview.net, 2021. URL https://openreview.net/forum?id=Ozk9MrX1hvA."
+    },
+    {
+      "openalex_id": null,
+      "title": "Francis Song, John Aslanides, Sarah Henderson, Roman Ring, Susannah Young, Eliza Rutherford, Tom Hennigan, Jacob Menick, Albin Cassirer, Richard Powell, George van den Driessche, Lisa Anne Hendricks, Maribeth Rauh, Po-Sen Huang, Amelia Glaese, Johannes Welbl, Sumanth Dathathri, Saffron Huang, Jonath",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jack W. Rae, Sebastian Borgeaud, Trevor Cai, Katie Millican, Jordan Hoffmann, H. Francis Song, John Aslanides, Sarah Henderson, Roman Ring, Susannah Young, Eliza Rutherford, Tom Hennigan, Jacob Menick, Albin Cassirer, Richard Powell, George van den Driessche, Lisa Anne Hendricks, Maribeth Rauh, Po-Sen Huang, Amelia Glaese, Johannes Welbl, Sumanth Dathathri, Saffron Huang, Jonathan Uesato, John Mellor, Irina Higgins, Antonia Creswell, Nat McAleese, Amy Wu, 14 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": null,
+      "title": "Jayakumar, Elena Buchatskaya, David Budden, Esme Sutherland, Karen Simonyan, Michela Paganini, Laurent Sifre, Lena Martens, Xiang Lorraine Li, Adhiguna Kuncoro, Aida Nematzadeh, Elena Gribovskaya, Domenic Donato, Angeliki Lazaridou, Arthur Mensch, Jean-Baptiste Lespiau, Maria Tsimpoukelli, Nikolai G",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Erich Elsen, Siddhant M. Jayakumar, Elena Buchatskaya, David Budden, Esme Sutherland, Karen Simonyan, Michela Paganini, Laurent Sifre, Lena Martens, Xiang Lorraine Li, Adhiguna Kuncoro, Aida Nematzadeh, Elena Gribovskaya, Domenic Donato, Angeliki Lazaridou, Arthur Mensch, Jean-Baptiste Lespiau, Maria Tsimpoukelli, Nikolai Grigorev, Doug Fritz, Thibault Sottiaux, Mantas Pajarskas, Toby Pohlen, Zhitao Gong, Daniel Toyama, Cyprien de Masson d’Autume, Yujia Li, Tayfun Terzi, Vladimir Mikulik, Igor Babuschkin, Aidan Clark, Diego de Las Casas, Aurelia Guy, Chris Jones, James Bradbury, Matthew J. Johnson, Blake A. Hechtman, Laura Weidinger, Iason Gabriel, William Isaac, Edward Lockhart, Simon Osindero, Laura Rimell, Chris Dyer, Oriol Vinyals, Kareem Ayoub, Jeff Stanway, Lorrayne Bennett, Demis Hassabis, Koray Kavukcuoglu, and Geoffrey Irving. Scaling language models: Methods, analysis & insights from training gopher. CoRR, abs/2112.11446, 2021. URL https://arxiv.org/abs/2112.11446."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3154863804",
+      "title": "Generating Datasets with Pretrained Language Models",
+      "doi": "10.18653/v1/2021.emnlp-main.555",
+      "status": "resolved",
+      "filename": "schick_2021_generating_datasets_with_pretrained_language_models.pdf",
+      "oa_url": "https://aclanthology.org/2021.emnlp-main.555.pdf",
+      "raw": "Victor Sanh, Lysandre Debut, Julien Chaumond, and Thomas Wolf. Distilbert, a distilled version of BERT: smaller, faster, cheaper and lighter. CoRR, abs/1910.01108, 2019. URL http://arxiv. org/abs/1910.01108. Timo Schick and Hinrich Schütze. Generating datasets with pretrained language models. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing, pages 6943–6951, Online and Punta Cana, Dominican Republic, November 2021. Association for Computational Linguistics. doi: 10.18653/v1/2021.emnlp-main.555. URL https: //aclanthology.org/2021.emnlp-main.555."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2284660317",
+      "title": "Improving Neural Machine Translation Models with Monolingual Data",
+      "doi": "10.18653/v1/p16-1009",
+      "status": "resolved",
+      "filename": "sennrich_2016_improving_neural_machine_translation_models_with_monolingual_data.pdf",
+      "oa_url": "https://aclanthology.org/P16-1009.pdf",
+      "raw": "Rico Sennrich, Barry Haddow, and Alexandra Birch. Improving neural machine translation models with monolingual data. In Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics, ACL 2016, August 7-12, 2016, Berlin, Germany, Volume 1: Long Papers. The Association for Computer Linguistics, 2016. doi: 10.18653/v1/p16-1009. URL https://doi.org/10.18653/v1/p16-1009."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2251939518",
+      "title": "Recursive Deep Models for Semantic Compositionality Over a Sentiment Treebank",
+      "doi": "10.18653/v1/d13-1170",
+      "status": "resolved",
+      "filename": "socher_2013_recursive_deep_models_for_semantic_compositionality_over_a_sentiment.pdf",
+      "oa_url": "https://aclanthology.org/D13-1170.pdf",
+      "raw": "Richard Socher, Alex Perelygin, Jean Wu, Jason Chuang, Christopher D. Manning, Andrew Ng, and Christopher Potts. Recursive deep models for semantic compositionality over a sentiment treebank. In Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, pages 1631–1642, Seattle, Washington, USA, October 2013. Association for Computational Linguistics. URL https://www.aclweb.org/anthology/D13-1170."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3082115681",
+      "title": "Learning to summarize from human feedback",
+      "doi": "10.48550/arxiv.2009.01325",
+      "status": "resolved",
+      "filename": "stiennon_2020_learning_to_summarize_from_human_feedback.pdf",
+      "oa_url": "https://arxiv.org/pdf/2009.01325",
+      "raw": "Nisan Stiennon, Long Ouyang, Jeff Wu, Daniel M. Ziegler, Ryan Lowe, Chelsea Voss, Alec Radford, Dario Amodei, and Paul F. Christiano. Learning to summarize from human feedback. CoRR, abs/2009.01325, 2020. URL https://arxiv.org/abs/2009.01325."
+    },
+    {
+      "openalex_id": null,
+      "title": "Stanford alpaca: An instruction-following llama model. https://github.com/tatsu-lab/stanford_alpaca, 2023",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Rohan Taori, Ishaan Gulrajani, Tianyi Zhang, Yann Dubois, Xuechen Li, Carlos Guestrin, Percy Liang, and Tatsunori B. Hashimoto. Stanford alpaca: An instruction-following llama model. https://github.com/tatsu-lab/stanford_alpaca, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4322718191",
+      "title": "LLaMA: Open and Efficient Foundation Language Models",
+      "doi": "10.48550/arxiv.2302.13971",
+      "status": "resolved",
+      "filename": "touvron_2023_llama_open_and_efficient_foundation_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2302.13971",
+      "raw": "Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, Eric Hambro, Faisal Azhar, Aurélien Rodriguez, Armand Joulin, Edouard Grave, and Guillaume Lample. Llama: Open and efficient foundation language models. CoRR, abs/2302.13971, 2023a. doi: 10.48550/arXiv.2302.13971. URL https://doi. org/10.48550/arXiv.2302.13971."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4384918448",
+      "title": "Llama 2: Open Foundation and Fine-Tuned Chat Models",
+      "doi": "10.48550/arxiv.2307.09288",
+      "status": "resolved",
+      "filename": "touvron_2023_llama_2_open_foundation_and_fine_tuned_chat_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2307.09288",
+      "raw": "Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, et al. Llama 2: Open foundation and fine-tuned chat models. arXiv preprint arXiv:2307.09288, 2023b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2943552823",
+      "title": "SuperGLUE: A Stickier Benchmark for General-Purpose Language Understanding Systems",
+      "doi": "10.48550/arxiv.1905.00537",
+      "status": "resolved",
+      "filename": "wang_2019_superglue_a_stickier_benchmark_for_general_purpose_language_understand.pdf",
+      "oa_url": "https://arxiv.org/pdf/1905.00537",
+      "raw": "Alex Wang, Yada Pruksachatkun, Nikita Nangia, Amanpreet Singh, Julian Michael, Felix Hill, Omer Levy, and Samuel R. Bowman. Superglue: A stickier benchmark for general-purpose language understanding systems. In Hanna M. Wallach, Hugo Larochelle, Alina Beygelzimer, Florence d’Alché- Buc, Emily B. Fox, and Roman Garnett, editors, Advances in Neural Information Processing Systems 32: Annual Conference on Neural Information Processing Systems 2019, NeurIPS 2019, December 8-14, 2019, Vancouver, BC, Canada, pages 3261–3275, 2019. URL https://proceedings. neurips.cc/paper/2019/hash/4496bf24afe7fab6f046bf4923da8de6-Abstract.html."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4391591738",
+      "title": "Building Guardrails for Large Language Models",
+      "doi": "10.48550/arxiv.2402.01822",
+      "status": "resolved",
+      "filename": "dong_2024_building_guardrails_for_large_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2402.01822",
+      "raw": "Boxin Wang, Wei Ping, Chaowei Xiao, Peng Xu, Mostofa Patwary, Mohammad Shoeybi, Bo Li, Anima Anandkumar, and Bryan Catanzaro. Exploring the limits of domain-adaptive training for detoxifying large-scale language models, 2022a. 15 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385572634",
+      "title": "Self-Instruct: Aligning Language Models with Self-Generated Instructions",
+      "doi": "10.18653/v1/2023.acl-long.754",
+      "status": "resolved",
+      "filename": "wang_2023_self_instruct_aligning_language_models_with_self_generated_instruction.pdf",
+      "oa_url": "https://aclanthology.org/2023.acl-long.754.pdf",
+      "raw": "Yizhong Wang, Yeganeh Kordi, Swaroop Mishra, Alisa Liu, Noah A. Smith, Daniel Khashabi, and Hannaneh Hajishirzi. Self-instruct: Aligning language model with self generated instructions, 2022b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2905266130",
+      "title": "Conditional BERT Contextual Augmentation",
+      "doi": "10.1007/978-3-030-22747-0_7",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Xing Wu, Shangwen Lv, Liangjun Zang, Jizhong Han, and Songlin Hu. Conditional BERT contextual augmentation. In João M. F. Rodrigues, Pedro J. S. Cardoso, Jânio M. Monteiro, Roberto Lam, Valeria V. Krzhizhanovskaya, Michael Harold Lees, Jack J. Dongarra, and Peter M. A. Sloot, editors, Computational Science - ICCS 2019 - 19th International Conference, Faro, Portugal, June 12-14, 2019, Proceedings, Part IV, volume 11539 of Lecture Notes in Computer Science, pages 84–95. Springer, 2019. doi: 10.1007/978-3-030-22747-0\\_7. URL https://doi.org/10.1007/ 978-3-030-22747-0_7."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3103291112",
+      "title": "Generative Data Augmentation for Commonsense Reasoning",
+      "doi": "10.18653/v1/2020.findings-emnlp.90",
+      "status": "resolved",
+      "filename": "yang_2020_generative_data_augmentation_for_commonsense_reasoning.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/2020.findings-emnlp.90.pdf",
+      "raw": "Yiben Yang, Chaitanya Malaviya, Jared Fernandez, Swabha Swayamdipta, Ronan Le Bras, Ji-Ping Wang, Chandra Bhagavatula, Yejin Choi, and Doug Downey. Generative data augmentation for commonsense reasoning. In Findings of the Association for Computational Linguistics: EMNLP 2020, pages 1008–1025, Online, November 2020. Association for Computational Linguistics. doi: 10.18653/v1/2020.findings-emnlp.90. URL https://aclanthology.org/2020.findings-emnlp. 90."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385573325",
+      "title": "ZeroGen: Efficient Zero-shot Learning via Dataset Generation",
+      "doi": "10.18653/v1/2022.emnlp-main.801",
+      "status": "resolved",
+      "filename": "ye_2022_zerogen_efficient_zero_shot_learning_via_dataset_generation.pdf",
+      "oa_url": "https://aclanthology.org/2022.emnlp-main.801.pdf",
+      "raw": "Jiacheng Ye, Jiahui Gao, Qintong Li, Hang Xu, Jiangtao Feng, Zhiyong Wu, Tao Yu, and Lingpeng Kong. ZeroGen: Efficient zero-shot learning via dataset generation. In Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing, pages 11653–11669, Abu"
+    },
+    {
+      "openalex_id": null,
+      "title": "Dhabi, United Arab Emirates, December 2022a. Association for Computational Linguistics. URL https://aclanthology.org/2022.emnlp-main.801",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Dhabi, United Arab Emirates, December 2022a. Association for Computational Linguistics. URL https://aclanthology.org/2022.emnlp-main.801."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385567101",
+      "title": "ProGen: Progressive Zero-shot Dataset Generation via In-context Feedback",
+      "doi": "10.18653/v1/2022.findings-emnlp.269",
+      "status": "resolved",
+      "filename": "ye_2022_progen_progressive_zero_shot_dataset_generation_via_in_context_feedback.pdf",
+      "oa_url": "https://aclanthology.org/2022.findings-emnlp.269.pdf",
+      "raw": "Jiacheng Ye, Jiahui Gao, Zhiyong Wu, Jiangtao Feng, Tao Yu, and Lingpeng Kong. ProGen: Progressive zero-shot dataset generation via in-context feedback. In Findings of the Association for Computational Linguistics: EMNLP 2022, pages 3671–3683, Abu Dhabi, United Arab Emirates, December 2022b. Association for Computational Linguistics. URL https://aclanthology.org/ 2022.findings-emnlp.269."
+    },
+    {
+      "openalex_id": null,
+      "title": "Synthbio: A case study in human-ai collaborative curation of text datasets, 2022",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Ann Yuan, Daphne Ippolito, Vitaly Nikolaev, Chris Callison-Burch, Andy Coenen, and Sebastian Gehrmann. Synthbio: A case study in human-ai collaborative curation of text datasets, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2946609015",
+      "title": "HellaSwag: Can a Machine Really Finish Your Sentence?",
+      "doi": "10.18653/v1/p19-1472",
+      "status": "resolved",
+      "filename": "zellers_2019_hellaswag_can_a_machine_really_finish_your_sentence.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/P19-1472.pdf",
+      "raw": "Rowan Zellers, Ari Holtzman, Yonatan Bisk, Ali Farhadi, and Yejin Choi. Hellaswag: Can a machine really finish your sentence? In Anna Korhonen, David R. Traum, and Lluís Màrquez, editors, Proceedings of the 57th Conference of the Association for Computational Linguistics, ACL 2019, Florence, Italy, July 28- August 2, 2019, Volume 1: Long Papers, pages 4791–4800. Association for Computational Linguistics, 2019. doi: 10.18653/v1/p19-1472. URL https: //doi.org/10.18653/v1/p19-1472."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2170240176",
+      "title": "Character-level Convolutional Networks for Text Classification",
+      "doi": "10.48550/arxiv.1509.01626",
+      "status": "resolved",
+      "filename": "zhang_2015_character_level_convolutional_networks_for_text_classification.pdf",
+      "oa_url": "https://arxiv.org/pdf/1509.01626",
+      "raw": "Xiang Zhang, Junbo Jake Zhao, and Yann LeCun. Character-level convolutional networks for text classification. In NIPS, 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2785896739",
+      "title": "Texygen: A Benchmarking Platform for Text Generation Models",
+      "doi": "10.48550/arxiv.1802.01886",
+      "status": "resolved",
+      "filename": "zhu_2018_texygen_a_benchmarking_platform_for_text_generation_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/1802.01886",
+      "raw": "Yaoming Zhu, Sidi Lu, Lei Zheng, Jiaxian Guo, Weinan Zhang, Jun Wang, and Yong Yu. Texygen: A benchmarking platform for text generation models. In Kevyn Collins-Thompson, Qiaozhu Mei, Brian D. Davison, Yiqun Liu, and Emine Yilmaz, editors, The 41st International ACM SIGIR Conference on Research & Development in Information Retrieval, SIGIR 2018, Ann Arbor, MI,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2963456134",
+      "title": "Texygen",
+      "doi": "10.1145/3209978.3210080",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "USA, July 08-12, 2018, pages 1097–1100. ACM, 2018. doi: 10.1145/3209978.3210080. URL https://doi.org/10.1145/3209978.3210080. 16 Under review as a conference paper at ICLR 2024 0 1000 2000 3000 4000 5000 6000 Dataset size 0.15 0.20 0.25 0.30 0.35 0.40 0.45 0.50 0.55 Distinctness-1 0 1000 2000 3000 4000 5000 6000 Dataset size 0.05 0.10 0.15 0.20 0.25 0.30 0.35 0.40 Self-BLEU-4 Figure 3: The dependence of Distinctness-n and Self-BLEU on dataset size. A SIZE-DEPENDENCE DIVERSITY We show that Self-BLEU (Zhu et al., 2018) and Distinctness-n (Li et al., 2016) metrics are dependent on the dataset size, making them unsuitable for our analysis. To illustrate this, we take our SST-2 dataset and truncate it at different sizes. A desirable property of any diversity metric is its consistency across these different sizes, as it enables us to assess the inherent diversity of the dataset generation process. However, Fig. 3 reveals that both Self-BLEU and Distinctness-n do not exhibit this property. In particular, Self-BLEU increases as the dataset size grows, whereas Distinctness-n decreases. We note that both results are expected. Indeed, Distinctness-n, defined as the ratio of unique tokens to the total tokens, remains constant only if this proportion is maintained throughout the generation process. However, this constancy is improbable due to increased word repetitions with a larger number of previous words. Moreover, since Distinctness-n relies on token count, it may differ even for two datasets of identical size but with varying generated sample lengths, deeming it an unsuitable metric for our study. Self-BLEU’s dependence on dataset size on the other hand stems from the fact that it is calculated as the mean over the BLEU scores of each sample with respect to all other samples. As the dataset size grows, the number of samples to compare to grows as well, and thus the mean BLEU score increases. Therefore, we conclude that Self-BLEU is also not a suitable metric for our analysis. B DATASETS AND PROMPTS In this section, we provide an overview of each data domain and reference dataset used in our study, along with the prompts designed for each domain. Movie reviews To investigate sentiment classification in the prevalent domain of movie reviews, we use the Stanford Sentiment Treebank (SST-2) dataset Socher et al. (2013). This dataset comprises movie reviews accompanied by binary sentiment labels (positive/negative). We create datasets specifically for movie sentiment analysis for this data domain. News Headlines To incorporate a domain demanding more world knowledge and generally characterized by more formal language, we generate datasets for news headline classification using the AGNews dataset Zhang et al. (2015). This dataset contains news headlines accompanied by brief descriptions, organized into four categories (Business, Sci/Tech, World, Sports). We use the news headlines from this dataset in our study and generate new ones with our procedure. Subreddits With the intention of including an informal task common in internet data analysis, we generate datasets for subreddit classification using the eli5 dataset Fan et al. (2019). This dataset consists of questions and answers posted on three distinct subreddits (AskScience, AskHistorians, and ExplainLikeImFive), where we use the questions of the dataset in this paper. We formulate questions that could potentially be posed in each of these subreddits. 17 Under review as a conference paper at ICLR 2024 Table 5: Prompts used for each task. Variables indicated by {class} are replaced by the respective class label. Variables indicated by {examples} are 3 example samples from the dataset. These samples are always selected from 10 random and fixed samples from the dataset. Task Setting Prompt Movie Reviews Standard The movie review in positive {class} is: \" Chat Generate a very short {class} movie review. Few-Shot The movie reviews in {class} sentiment are: {examples} \\n 4. Chat Few-Shot Generate one very short {class} movie review similar in style to the following ones: {examples} News Headlines Standard The following news article title is in the category of ’{class}’: \" Chat Generate a news article title is in the category of ’{class}’. Few-Shot The following news article titles are in the category of ’{class}’: {examples} \\n 4. Chat Few-Shot Generate a news article title in the category of ’{class}’ similar in style to the following ones: {examples} Subreddits Standard A question that appeared on the subreddit ’{class}’: \" Chat Generate a question that could appear on the subreddit ’{class}’. Few-Shot Questions that could appear on the subreddit ’{class}’: {examples} \\n 4. Chat Few-Shot Generate a question that could appear in the subreddit ’{class}’ in a similar in style to the following ones: {examples} Emotions Standard The following reddit comment displays the emotion ’{class}’: \" Chat Generate a reddit comment that displays the emotion ’{class}’. Few-Shot The following reddit comments display the emotion ’{class}’: {examples} \\n 4. Chat Few-Shot Generate a reddit comment that displays the emotion ’{class}’ similar in style to the following ones: {examples} Emotions Recognizing the significance of emotional language in various tasks like customer support, we create datasets for emotion classification using the GoEmotions dataset Demszky et al. (2020). This dataset features Reddit comments labeled with 27 distinct emotions. We limit our scope to 5 specific emotions (surprise, grief, nervousness, desire, gratitude) and generate datasets for emotion classification. Prompts We outline the prompts designed for all tasks in Table 5. While we use the same prompt for each model, we make an exception for INSTRUCTGPT-3.5-175BChat, which requires slightly different prompts to maintain comparability. For each dataset, we chose separate prompts for the normal and few-shot setups. C EVALUATION DETAILS Training We fine-tune a DistilBERT Sanh et al. (2019) model for each experiment using a batch size of 8 and at most 5000 training steps or 5 epochs (whichever comes first). We use the AdamW optimizer Loshchilov and Hutter (2019) with a learning rate of 1e−5. We use a learning rate scheduler with 600 warmup steps that decays the learning rate linearly to 0 after the warmup steps. Additionally, we also use temporal ensembling and label smoothing as regularization techniques as in Meng et al. (2022). Evaluation We fine-tune the model as described above on five datasets consisting of 3000 samples for each generated datapoints to measure complexity and performance. For faithfulness, we fine-tune the model on the real dataset and evaluate the accuracy of the model on each of the five generated datasets. Finally, to calculate diversity we set the hyperparameter in our definition to k = 5000 for our experiments. 18 Under review as a conference paper at ICLR 2024 350M 1.2B 6.7B 175B Model Size 0.2 0.4 0.6 0.8 1.0 Conformity 350M 1.2B 6.7B 175B Model Size 0.30 0.35 0.40 0.45 0.50 0.55 Diversity 350M 1.2B 6.7B 175B Model Size 0.05 0.10 0.15 0.20 0.25 0.30 0.35 Complexity 350M 1.2B 6.7B 175B Model Size 0.60 0.65 0.70 0.75 0.80 0.85 Faithfulness Vanilla Instruction-Tuned Reference Figure 4: Metric values for all metrics in the zero-shot setting for the GPT-3 model family for sampling temperature T = 1. Results ordered by model size. D TRADEOFFS FOR MODEL SIZE In §4.1, we explore tradeoffs in relation to model size within the GPT-3 model family, for both vanilla and instruction-tuned variants. The impact of these tradeoffs on key characteristics is illustrated in Fig. 4. Our findings show that the tradeoffs identified in §4.1 are also true when the dependent variable is model size. Specifically, faithfulness improves with size in both model types, probably because of their stronger capabilities. Conversely, both diversity and complexity drop, aligning with the tradeoffs outlined in §4.1. When examining conformity in relation to model diversity, vanilla models, show an inverse relationship: as diversity decreases, conformity increases. However, in instruction-tuned models, a decrease in diversity leads to reduced conformity. This difference can be explained by the quadratic relationship between diversity and conformity. Specifically, as the diversity of vanilla models decreases, it converges towards the diversity seen in the reference data, thus increasing conformity. In contrast, for instruction-tuned models, a decrease in diversity results in a divergence from the reference data’s diversity, thereby lowering conformity. 19 Under review as a conference paper at ICLR 2024 0.0 0.2 0.4 0.6 Conformity 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Reference Diversity Diversity 0.5 0.6 0.7 0.8 0.9 Faithfulness 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Diversity 0.5 0.6 0.7 0.8 0.9 Faithfulness 0.0 0.1 0.2 0.3 0.4 0.5 Complexity 0.0 0.2 0.4 0.6 0.8 1.0 0.0 0.2 0.4 0.6 0.8 1.0 CodeLlama-7B Llama-2-7B Llama-2-13B Llama-2-Chat-7B Llama-2-Chat-13B Llama-7B Llama-13B Vicuna-7B Vicuna-13b Falcon-7B Falcon-Instruct-7B GPT-3-350M GPT-3-1.2B GPT-3-6.7B GPT-3-175B InstructGPT-3-350M InstructGPT-3-1.2B InstructGPT-3-6.7B InstructGPT-3-175B InstructGPT-3.5-175B InstructGPT-3.5-175Bchat GPT-3.5-175Bchat-instruct Figure 5: Tradeoffs between various metrics in the zero-shot setting. From left to right: Tradeoffs in diversity and conformity, diversity and faithfulness, and complexity and faithfulness. Arrows indicate the direction of higher sampling temperature for the same model. For vanilla models, temperatures range 0.7 −1.3 in steps of 0.3 and for instruction-tuned models temperatures range between 0.7 −1.9. Additionally, for each open-source model and GPT-3-175B, INSTRUCTGPT-3- 175B and INSTRUCTGPT-3.5-175BPPO one point is added using nucleus sampling with p = 0.9. Table 6: Comparing LLAMA-based and LLAMA-2-based model for sampling temperature T = 1 in the zero-shot setting. Metrics for real data are measured with respect to a held-out validation set. Model Name Temperature Complexity Faithfulness Diversity Conformity Performance Real data - 0.145 0.855 0.466 0.963 0.855 LLAMA-7B 0.7 0.161 0.782 0.346 0.226 0.745 LLAMA-2-7B 0.7 0.163 0.779 0.361 0.292 0.760 LLAMA-7B 1.0 0.235 0.708 0.439 0.357 0.749 LLAMA-2-7B 1.0 0.238 0.714 0.449 0.440 0.755 LLAMA-7B 1.3 0.305 0.655 0.495 0.376 0.745 LLAMA-2-7B 1.3 0.298 0.662 0.502 0.474 0.750 LLAMA-2-CHAT-7B 0.7 0.036 0.867 0.254 0.081 0.727 VICUNA-7B 0.7 0.075 0.835 0.285 0.106 0.735 LLAMA-2-CHAT-7B 1.0 0.064 0.860 0.334 0.173 0.749 VICUNA-7B 1.0 0.113 0.815 0.365 0.222 0.746 LLAMA-2-CHAT-7B 1.3 0.087 0.834 0.414 0.270 0.754 VICUNA-7B 1.3 0.148 0.784 0.435 0.336 0.755 LLAMA-2-CHAT-7B 1.6 0.123 0.794 0.476 0.335 0.755 VICUNA-7B 1.6 0.181 0.750 0.494 0.436 0.753 LLAMA-2-CHAT-7B 1.9 0.158 0.751 0.520 0.312 0.752 VICUNA-7B 1.9 0.219 0.712 0.536 0.452 0.756 E FULL RESULTS We provide extra plots for the various tradeoffs between characteristics for all models averaged in Fig. 5 and for each dataset separately in Fig. 6. Full tables for Table 2, Table 3 and Table 4 are provided in resp. Table 6, Table 7 and Table 8. We also provide the metrics with respect to the reference datasets for all datasets separately in Table 9. 20 Under review as a conference paper at ICLR 2024 0.0 0.2 0.4 Conformity 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Diversity 0.5 0.6 0.7 0.8 Faithfulness 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Diversity 0.5 0.6 0.7 0.8 Faithfulness 0.0 0.1 0.2 0.3 0.4 0.5 Complexity AGNews Dataset 0.0 0.1 0.2 0.3 0.4 Conformity 0.2 0.4 0.6 0.8 Diversity 0.4 0.6 0.8 1.0 Faithfulness 0.2 0.4 0.6 0.8 Diversity 0.4 0.6 0.8 1.0 Faithfulness 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 Complexity GoEmotions Dataset 0.0 0.2 0.4 0.6 0.8 Conformity 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Diversity 0.5 0.6 0.7 0.8 0.9 Faithfulness 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Diversity 0.5 0.6 0.7 0.8 0.9 Faithfulness 0.0 0.1 0.2 0.3 0.4 Complexity ELI5 Dataset 0.0 0.2 0.4 0.6 Conformity 0.2 0.4 0.6 0.8 Diversity 0.6 0.7 0.8 0.9 1.0 Faithfulness 0.2 0.4 0.6 0.8 Diversity 0.6 0.7 0.8 0.9 1.0 Faithfulness 0.0 0.1 0.2 0.3 Complexity SST Dataset 0.2 0.4 0.6 0.8 1.0 CodeLlama-7B Llama-2-7B Llama-2-13B Llama-2-Chat-7B Llama-2-Chat-13B Llama-7B Llama-13B Vicuna-7B Vicuna-13b Falcon-7B Falcon-Instruct-7B GPT-3-350M GPT-3-1.2B GPT-3-6.7B GPT-3-175B InstructGPT-3-350M InstructGPT-3-1.2B InstructGPT-3-6.7B InstructGPT-3-175B InstructGPT-3.5-175B InstructGPT-3.5-175Bchat GPT-3.5-175Bchat-instruct Figure 6: Tradeoffs between various metrics in the zero-shot setting. Arrows indicate the direction of higher sampling temperature for the same model. Sampling temperatures start at 0.7 in spaces of 0.3. Additionally, for each open-source model and GPT-3-175B, INSTRUCTGPT-3-175B and INSTRUCTGPT-3.5-175BPPO one point is added using nucleus sampling with p = 0.9. 21 Under review as a conference paper at ICLR 2024 Table 7: Comparing models for the best performing temperature in the zero-shot setting. T is the optimal sampling temperature. Model Name Temperature Performance INSTRUCTGPT-3-175B 1.9 0.767 LLAMA-2-7B 0.7 0.760 LLAMA-13B 0.7 0.758 VICUNA-7B 1.9 0.756 LLAMA-2-CHAT-7B 1.6 0.755 FALCON7B 1.0 0.754 INSTRUCTGPT-3.5-175BPPO 1.6 0.750 LLAMA-7B 1.0 0.749 GPT-3-6.7B 1.0 0.749 LLAMA-2-13B 1.3 0.749 LLAMA-2-CHAT-13B 1.9 0.748 VICUNA-13B 1.6 0.748 INSTRUCTGPT-3-6.7B 1.3 0.743 GPT-3-175B 0.7 0.737 FALCON-INSTRUCT-7B 1.0 0.733 INSTRUCTGPT-3.5-175Bchat-instruct 1.9 0.732 INSTRUCTGPT-3-1.2B 1.9 0.728 GPT-3-1.2B 1.0 0.722 CODELLAMA-7B 0.7 0.722 INSTRUCTGPT-3.5-175Bchat 1.9 0.715 GPT-3-350M 1.0 0.707 INSTRUCTGPT-3-350M 1.3 0.707 Table 8: Comparing models for the best performing temperature in the few-shot setting. T is the optimal sampling temperature. Model Name Temperature Performance LLAMA-2-CHAT-13B 1.6 0.775 INSTRUCTGPT-3-175B 1.3 0.775 VICUNA-13B 1.6 0.768 LLAMA-2-CHAT-7B 1.6 0.764 VICUNA-7B 1.6 0.764 LLAMA-13B 1.0 0.763 INSTRUCTGPT-3.5-175BPPO 1.0 0.762 GPT-3-175B 1.0 0.760 LLAMA-2-13B 1.0 0.759 INSTRUCTGPT-3-6.7B 1.0 0.758 CODELLAMA-7B 1.6 0.756 LLAMA-2-7B 1.0 0.751 INSTRUCTGPT-3-1.2B 1.3 0.746 INSTRUCTGPT-3.5-175Bchat-instruct 1.3 0.744 INSTRUCTGPT-3-350M 0.7 0.723 INSTRUCTGPT-3.5-175Bchat 1.3 0.711 22 Under review as a conference paper at ICLR 2024 Table 9: Metrics for reference datasets on all datasets separately. Dataset Complexity Faithfulness Diversity Conformity Performance AGNews 0.142 0.858 0.560 0.959 0.858 SST-2 0.093 0.907 0.382 0.959 0.904 ELI5 0.163 0.838 0.522 0.960 0.838 GoEmotions 0.184 0.816 0.378 0.976 0.819 Table 10: Standard deviations of all metrics across all models. Characteristic Maximum std Mean std Complexity 0.0030 0.0008 Conformity 0.0077 0.0018 Diversity 0.0022 0.0006 Faithfulness 0.0008 0.0006 Performance 0.0193 0.0006 F STANDARD DEVIATION METRICS We briefly analyze the standard deviation of the reported numbers in §4. The maximum and mean standard deviations for all characteristics across the generated datasets are displayed in Table 10. It is evident that the standard deviation is relatively low, especially when compared to the reported differences between models. The performance characteristic exhibits the highest standard deviation, but even in this case, the maximum value is above 0.01, which is very low when compared to typical values ranging from 0.7 to 0.8. 23"
+    }
+  ]
+}

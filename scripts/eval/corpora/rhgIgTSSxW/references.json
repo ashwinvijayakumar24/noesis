@@ -1,0 +1,479 @@
+{
+  "corpus": "rhgIgTSSxW",
+  "source_pdf": "rhgIgTSSxW.pdf",
+  "source_sha256": "feec976974e73b858466227a749375ac6c2ec9320f98006aca0678883469f0bd",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:56.752072Z",
+  "references_attempted": 52,
+  "references_resolved": 36,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W2962897394",
+      "title": "Optuna: A Next-generation Hyperparameter Optimization Framework",
+      "doi": "10.4230/oasics.dx.2024.30",
+      "status": "resolved",
+      "filename": "swantje_2019_optuna_a_next_generation_hyperparameter_optimization_framework.pdf",
+      "oa_url": "https://arxiv.org/pdf/1907.10902",
+      "raw": "T. Akiba, S. Sano, T. Yanase, T. Ohta, and M. Koyama. Optuna: A next-generation hyperparameter optimization framework. In KDD, 2019. 23, 24, 27, 28, 29, 30"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3037932933",
+      "title": "Layer Normalization",
+      "doi": "10.48550/arxiv.1607.06450",
+      "status": "resolved",
+      "filename": "ba_2016_layer_normalization.pdf",
+      "oa_url": "https://arxiv.org/pdf/1607.06450",
+      "raw": "J. L. Ba, J. R. Kiros, and G. E. Hinton. Layer normalization. arXiv, 1607.06450v1, 2016. 4"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3174001429",
+      "title": "SCARF: Self-Supervised Contrastive Learning using Random Feature Corruption",
+      "doi": "10.48550/arxiv.2106.15147",
+      "status": "resolved",
+      "filename": "bahri_2021_scarf_self_supervised_contrastive_learning_using_random_feature_corru.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.15147",
+      "raw": "D. Bahri, H. Jiang, Y. Tay, and D. Metzler. Scarf: Self-supervised contrastive learning using random feature corruption. In ICLR, 2021. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2125621954",
+      "title": "Searching for exotic particles in high-energy physics with deep learning",
+      "doi": "10.1038/ncomms5308",
+      "status": "resolved",
+      "filename": "baldi_2014_searching_for_exotic_particles_in_high_energy_physics_with_deep_learn.pdf",
+      "oa_url": "https://arxiv.org/pdf/1402.4735",
+      "raw": "P. Baldi, P. Sadowski, and D. Whiteson. Searching for exotic particles in high-energy physics with deep learning. Nature Communications, 5, 2014. 20"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2015627422",
+      "title": "Comparative accuracies of artificial neural networks and discriminant analysis in predicting forest cover types from cartographic variables",
+      "doi": "10.1016/s0168-1699(99)00046-0",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "J. A. Blackard and D. J. Dean. Comparative accuracies of artificial neural networks and discriminant analysis in predicting forest cover types from cartographic variables. Computers and Electronics in Agriculture, 24(3):131–151, 2000. 20"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226082499",
+      "title": "Improving language models by retrieving from trillions of tokens",
+      "doi": "10.48550/arxiv.2112.04426",
+      "status": "resolved",
+      "filename": "borgeaud_2021_improving_language_models_by_retrieving_from_trillions_of_tokens.pdf",
+      "oa_url": "https://arxiv.org/pdf/2112.04426",
+      "raw": "S. Borgeaud, A. Mensch, J. Hoffmann, T. Cai, E. Rutherford, K. Millican, G. van den Driessche, J. Lespiau, B. Damoc, A. Clark, D. de Las Casas, A. Guy, J. Menick, R. Ring, T. Hennigan, S. Huang, L. Maggiore, C. Jones, A. Cassirer, A. Brock, M. Paganini, G. Irving, O. Vinyals, S. Osindero, K. Simonyan, J. W. Rae, E. Elsen, and L. Sifre. Improving language models by retrieving from trillions of tokens. In ICML, 2022. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2056763477",
+      "title": "Local Learning Algorithms",
+      "doi": "10.1162/neco.1992.4.6.888",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "L. Bottou and V. Vapnik. Local learning algorithms. Neural Computation, 4, 1992. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2295598076",
+      "title": "XGBoost",
+      "doi": "10.1145/2939672.2939785",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "http://dl.acm.org/ft_gateway.cfm?id=2939785&type=pdf",
+      "raw": "T. Chen and C. Guestrin. Xgboost: A scalable tree boosting system. In SIGKDD, 2016. 1, 7"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3152740956",
+      "title": "Case-based Reasoning for Natural Language Queries over Knowledge Bases",
+      "doi": "10.18653/v1/2021.emnlp-main.755",
+      "status": "resolved",
+      "filename": "das_2021_case_based_reasoning_for_natural_language_queries_over_knowledge_bases.pdf",
+      "oa_url": "https://aclanthology.org/2021.emnlp-main.755.pdf",
+      "raw": "R. Das, M. Zaheer, D. Thai, A. Godbole, E. Perez, J. Y. Lee, L. Tan, L. Polymenakos, and A. McCallum. Case-based reasoning for natural language queries over knowledge bases. In EMNLP, 2021. 2"
+    },
+    {
+      "openalex_id": null,
+      "title": "Learning enhanced representation for tabular data via neighborhood propagation",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "K. Du, W. Zhang, R. Zhou, Y. Wang, X. Zhao, J. Jin, Q. Gan, Z. Zhang, and D. P. Wipf. Learning enhanced representation for tabular data via neighborhood propagation. In NeurIPS, 2022. 2"
+    },
+    {
+      "openalex_id": null,
+      "title": "Gpytorch: Blackbox matrixmatrix gaussian process inference with gpu acceleration",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "J. R. Gardner, G. Pleiss, D. Bindel, K. Q. Weinberger, and A. G. Wilson. Gpytorch: Blackbox matrixmatrix gaussian process inference with gpu acceleration. In Advances in Neural Information Processing Systems, 2018. 26"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3174082502",
+      "title": "Revisiting Deep Learning Models for Tabular Data",
+      "doi": "10.48550/arxiv.2106.11959",
+      "status": "resolved",
+      "filename": "gorishniy_2021_revisiting_deep_learning_models_for_tabular_data.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.11959",
+      "raw": "Y. Gorishniy, I. Rubachev, V. Khrulkov, and A. Babenko. Revisiting deep learning models for tabular data. In NeurIPS, 2021. 1, 2, 20, 28, 29"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221156845",
+      "title": "On Embeddings for Numerical Features in Tabular Deep Learning",
+      "doi": "10.48550/arxiv.2203.05556",
+      "status": "resolved",
+      "filename": "gorishniy_2022_on_embeddings_for_numerical_features_in_tabular_deep_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.05556",
+      "raw": "Y. Gorishniy, I. Rubachev, and A. Babenko. On embeddings for numerical features in tabular deep learning. In NeurIPS, 2022. 1, 2, 3, 4, 6, 14, 20, 22, 24, 28, 29"
+    },
+    {
+      "openalex_id": null,
+      "title": "Datasets and Benchmarks",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "L. Grinsztajn, E. Oyallon, and G. Varoquaux. Why do tree-based models still outperform deep learning on typical tabular data? In NeurIPS, the \"Datasets and Benchmarks\" track, 2022. 1, 2, 3, 7, 8, 20, 23, 24, 30, 33"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3007672467",
+      "title": "REALM: Retrieval-Augmented Language Model Pre-Training",
+      "doi": "10.48550/arxiv.2002.08909",
+      "status": "resolved",
+      "filename": "guu_2020_realm_retrieval_augmented_language_model_pre_training.pdf",
+      "oa_url": "https://arxiv.org/pdf/2002.08909",
+      "raw": "K. Guu, K. Lee, Z. Tung, P. Pasupat, and M. Chang. Retrieval augmented language model pre-training. In ICML, 2020. 2 10 Published as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3005854269",
+      "title": "The Tree Ensemble Layer: Differentiability meets Conditional Computation",
+      "doi": "10.48550/arxiv.2002.07772",
+      "status": "resolved",
+      "filename": "hazimeh_2020_the_tree_ensemble_layer_differentiability_meets_conditional_computa.pdf",
+      "oa_url": "https://arxiv.org/pdf/2002.07772",
+      "raw": "H. Hazimeh, N. Ponomareva, P. Mol, Z. Tan, and R. Mazumder. The tree ensemble layer: Differentiability meets conditional computation. In ICML, 2020. 1"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4302009014",
+      "title": "TabPFN: A Transformer That Solves Small Tabular Classification Problems in a Second",
+      "doi": "10.48550/arxiv.2207.01848",
+      "status": "resolved",
+      "filename": "hollmann_2022_tabpfn_a_transformer_that_solves_small_tabular_classification_prob.pdf",
+      "oa_url": "https://arxiv.org/pdf/2207.01848",
+      "raw": "N. Hollmann, S. Müller, K. Eggensperger, and F. Hutter. Tabpfn: A transformer that solves small tabular classification problems in a second. In ICLR, 2023. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3111356309",
+      "title": "TabTransformer: Tabular Data Modeling Using Contextual Embeddings",
+      "doi": "10.48550/arxiv.2012.06678",
+      "status": "resolved",
+      "filename": "huang_2020_tabtransformer_tabular_data_modeling_using_contextual_embeddings.pdf",
+      "oa_url": "https://arxiv.org/pdf/2012.06678",
+      "raw": "X. Huang, A. Khetan, M. Cvitkovic, and Z. Karnin. Tabtransformer: Tabular data modeling using contextual embeddings. arXiv, 2012.06678v1, 2020. 1"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4304731020",
+      "title": "A Memory Transformer Network for Incremental Learning",
+      "doi": "10.48550/arxiv.2210.04485",
+      "status": "resolved",
+      "filename": "işcen_2022_a_memory_transformer_network_for_incremental_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/2210.04485",
+      "raw": "A. Iscen, T. Bird, M. Caron, A. Fathi, and C. Schmid. A memory transformer network for incremental learning. arXiv, abs/2210.04485v1, 2022. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4301243929",
+      "title": "Atlas: Few-shot Learning with Retrieval Augmented Language Models",
+      "doi": "10.48550/arxiv.2208.03299",
+      "status": "resolved",
+      "filename": "izacard_2022_atlas_few_shot_learning_with_retrieval_augmented_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2208.03299",
+      "raw": "G. Izacard, P. S. H. Lewis, M. Lomeli, L. Hosseini, F. Petroni, T. Schick, J. Dwivedi-Yu, A. Joulin, S. Riedel, and E. Grave. Few-shot learning with retrieval augmented language models. arXiv, abs/2208.03299v3, 2022. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2487770199",
+      "title": "An Introduction to Statistical Learning",
+      "doi": "10.1007/978-1-4614-7138-7",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "G. James, D. Witten, T. Hastie, and R. Tibshirani. An Introduction to Statistical Learning. Springer, 2013. https://www.statlearning.com/. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4323927491",
+      "title": "TANGOS: Regularizing Tabular Neural Networks through Gradient Orthogonalization and Specialization",
+      "doi": "10.48550/arxiv.2303.05506",
+      "status": "resolved",
+      "filename": "jeffares_2023_tangos_regularizing_tabular_neural_networks_through_gradient_ortho.pdf",
+      "oa_url": "https://arxiv.org/pdf/2303.05506",
+      "raw": "A. Jeffares, T. Liu, J. Crabbé, F. Imrie, and M. van der Schaar. Tangos: Regularizing tabular neural networks through gradient orthogonalization and specialization. In ICLR, 2023. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226084426",
+      "title": "Rethinking Nearest Neighbors for Visual Classification",
+      "doi": "10.48550/arxiv.2112.08459",
+      "status": "resolved",
+      "filename": "jia_2021_rethinking_nearest_neighbors_for_visual_classification.pdf",
+      "oa_url": "https://arxiv.org/pdf/2112.08459",
+      "raw": "M. Jia, B.-C. Chen, Z. Wu, C. Cardie, S. Belongie, and S.-N. Lim. Rethinking nearest neighbors for visual classification. arXiv preprint arXiv:2112.08459, 2021. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3213949891",
+      "title": "Well-tuned Simple Nets Excel on Tabular Datasets",
+      "doi": "10.48550/arxiv.2106.11189",
+      "status": "resolved",
+      "filename": "kadra_2021_well_tuned_simple_nets_excel_on_tabular_datasets.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.11189",
+      "raw": "A. Kadra, M. Lindauer, F. Hutter, and J. Grabocka. Well-tuned simple nets excel on tabular datasets. In NeurIPS, 2021. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2768348081",
+      "title": "LightGBM: A Highly Efficient Gradient Boosting Decision Tree",
+      "doi": null,
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://hal.science/hal-03953007",
+      "raw": "G. Ke, Q. Meng, T. Finley, T. Wang, W. Chen, W. Ma, Q. Ye, and T.-Y. Liu. Lightgbm: A highly efficient gradient boosting decision tree. Advances in neural information processing systems, 30: 3146–3154, 2017. 7"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2023320048",
+      "title": "Sparse spatial autoregressions",
+      "doi": "10.1016/s0167-7152(96)00140-x",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "R. Kelley Pace and R. Barry. Sparse spatial autoregressions. Statistics & Probability Letters, 33(3): 291–297, 1997. 19"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2988841832",
+      "title": "Generalization through Memorization: Nearest Neighbor Language Models",
+      "doi": "10.48550/arxiv.1911.00172",
+      "status": "resolved",
+      "filename": "khandelwal_2019_generalization_through_memorization_nearest_neighbor_language_mo.pdf",
+      "oa_url": "https://arxiv.org/pdf/1911.00172",
+      "raw": "U. Khandelwal, O. Levy, D. Jurafsky, L. Zettlemoyer, and M. Lewis. Generalization through memorization: Nearest neighbor language models. In ICLR, 2020. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2910612230",
+      "title": "Attentive Neural Processes",
+      "doi": "10.48550/arxiv.1901.05761",
+      "status": "resolved",
+      "filename": "kim_2019_attentive_neural_processes.pdf",
+      "oa_url": "https://arxiv.org/pdf/1901.05761",
+      "raw": "H. Kim, A. Mnih, J. Schwarz, M. Garnelo, S. M. A. Eslami, D. Rosenbaum, O. Vinyals, and Y. W. Teh. Attentive neural processes. In ICLR, 2019. 2, 7, 26"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2624413595",
+      "title": "Self-Normalizing Neural Networks",
+      "doi": "10.48550/arxiv.1706.02515",
+      "status": "resolved",
+      "filename": "klambauer_2017_self_normalizing_neural_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1706.02515",
+      "raw": "G. Klambauer, T. Unterthiner, A. Mayr, and S. Hochreiter. Self-normalizing neural networks. In NIPS, 2017. 1, 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W1559060276",
+      "title": "Scaling up the accuracy of Naive-Bayes classifiers: a decision-tree hybrid",
+      "doi": null,
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "R. Kohavi. Scaling up the accuracy of naive-bayes classifiers: a decision-tree hybrid. In KDD, 1996. 20"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3172170405",
+      "title": "Self-Attention Between Datapoints: Going Beyond Individual Input-Output Pairs in Deep Learning",
+      "doi": "10.48550/arxiv.2106.02584",
+      "status": "resolved",
+      "filename": "kossen_2021_self_attention_between_datapoints_going_beyond_individual_input_outp.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.02584",
+      "raw": "J. Kossen, N. Band, C. Lyle, A. N. Gomez, T. Rainforth, and Y. Gal. Self-attention between datapoints: Going beyond individual input-output pairs in deep learning. In NeurIPS, 2021. 1, 2, 3, 5, 6, 7, 16, 27"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3098425262",
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "doi": null,
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "P. S. H. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. Küttler, M. Lewis, W. Yih, T. Rocktäschel, S. Riedel, and D. Kiela. Retrieval-augmented generation for knowledge-intensive NLP tasks. In NeurIPS, 2020. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4312920106",
+      "title": "Retrieval Augmented Classification for Long-Tail Visual Recognition",
+      "doi": "10.1109/cvpr52688.2022.00683",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "A. Long, W. Yin, T. Ajanthan, V. Nguyen, P. Purkait, R. Garg, A. Blair, C. Shen, and A. van den Hengel. Retrieval augmented classification for long-tail visual recognition. In CVPR, 2022. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2908510526",
+      "title": "Decoupled Weight Decay Regularization",
+      "doi": "10.48550/arxiv.1711.05101",
+      "status": "resolved",
+      "filename": "loshchilov_2017_decoupled_weight_decay_regularization.pdf",
+      "oa_url": "https://arxiv.org/pdf/1711.05101",
+      "raw": "I. Loshchilov and F. Hutter. Decoupled weight decay regularization. In ICLR, 2019. 22"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3180750393",
+      "title": "Shifts: A Dataset of Real Distributional Shift Across Multiple Large-Scale Tasks",
+      "doi": "10.48550/arxiv.2107.07455",
+      "status": "resolved",
+      "filename": "malinin_2021_shifts_a_dataset_of_real_distributional_shift_across_multiple_large.pdf",
+      "oa_url": "https://arxiv.org/pdf/2107.07455",
+      "raw": "A. Malinin, N. Band, G. Chesnokov, Y. Gal, M. J. F. Gales, A. Noskov, A. Ploskonosov, L. Prokhorenkova, I. Provilkov, V. Raina, V. Raina, M. Shmatova, P. Tigas, and B. Yangel. Shifts: A dataset of real distributional shift across multiple large-scale tasks. ArXiv, abs/2107.07455v3, 2021. 8, 20 11 Published as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4280618224",
+      "title": "DNNR: Differential Nearest Neighbors Regression",
+      "doi": "10.48550/arxiv.2205.08434",
+      "status": "resolved",
+      "filename": "nader_2022_dnnr_differential_nearest_neighbors_regression.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.08434",
+      "raw": "Y. Nader, L. Sixt, and T. Landgraf. Dnnr: Differential nearest neighbors regression. In ICML, 2022. 2, 5, 7, 14"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2101234009",
+      "title": "Scikit-learn: Machine Learning in Python",
+      "doi": "10.48550/arxiv.1201.0490",
+      "status": "resolved",
+      "filename": "pedregosa_2012_scikit_learn_machine_learning_in_python.pdf",
+      "oa_url": "https://arxiv.org/pdf/1201.0490",
+      "raw": "F. Pedregosa, G. Varoquaux, A. Gramfort, V. Michel, B. Thirion, O. Grisel, M. Blondel, P. Prettenhofer, R. Weiss, V. Dubourg, J. Vanderplas, A. Passos, D. Cournapeau, M. Brucher, M. Perrot, and E. Duchesnay. Scikit-learn: Machine learning in Python. Journal of Machine Learning Research, 12:2825–2830, 2011. 22"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2972470287",
+      "title": "Neural Oblivious Decision Ensembles for Deep Learning on Tabular Data",
+      "doi": "10.48550/arxiv.1909.06312",
+      "status": "resolved",
+      "filename": "попов_2019_neural_oblivious_decision_ensembles_for_deep_learning_on_tabular_data.pdf",
+      "oa_url": "https://arxiv.org/pdf/1909.06312",
+      "raw": "S. Popov, S. Morozov, and A. Babenko. Neural oblivious decision ensembles for deep learning on tabular data. In ICLR, 2020. 1"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2798476254",
+      "title": "CatBoost: unbiased boosting with categorical features",
+      "doi": "10.48550/arxiv.1706.09516",
+      "status": "resolved",
+      "filename": "prokhorenkova_2017_catboost_unbiased_boosting_with_categorical_features.pdf",
+      "oa_url": "https://arxiv.org/pdf/1706.09516",
+      "raw": "L. Prokhorenkova, G. Gusev, A. Vorobev, A. V. Dorogush, and A. Gulin. Catboost: unbiased boosting with categorical features. In NeurIPS, 2018. 7"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3032044946",
+      "title": "User Behavior Retrieval for Click-Through Rate Prediction",
+      "doi": "10.1145/3397271.3401440",
+      "status": "resolved",
+      "filename": "qin_2020_user_behavior_retrieval_for_click_through_rate_prediction.pdf",
+      "oa_url": "https://arxiv.org/pdf/2005.14171",
+      "raw": "J. Qin, W. Zhang, X. Wu, J. Jin, Y. Fang, and Y. Yu. User behavior retrieval for click-through rate prediction. In SIGIR, 2020. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3170163874",
+      "title": "Retrieval &amp; Interaction Machine for Tabular Data Prediction",
+      "doi": "10.1145/3447548.3467216",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "J. Qin, W. Zhang, R. Su, Z. Liu, W. Liu, R. Tang, X. He, and Y. Yu. Retrieval & interaction machine for tabular data prediction. In KDD, 2021. 1, 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W1530210183",
+      "title": "Introducing LETOR 4.0 Datasets",
+      "doi": "10.48550/arxiv.1306.2597",
+      "status": "resolved",
+      "filename": "qin_2013_introducing_letor_40_datasets.pdf",
+      "oa_url": "https://arxiv.org/pdf/1306.2597",
+      "raw": "T. Qin and T. Liu. Introducing LETOR 4.0 datasets. arXiv, 1306.2597v1, 2013. 20"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3127151792",
+      "title": "Hopfield Networks is All You Need",
+      "doi": null,
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "H. Ramsauer, B. Schäfl, J. Lehner, P. Seidl, M. Widrich, L. Gruber, M. Holzleitner, T. Adler, D. P. Kreil, M. K. Kopp, G. Klambauer, J. Brandstetter, and S. Hochreiter. Hopfield networks is all you need. In ICLR, 2021. 2, 3"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281720665",
+      "title": "Hopular: Modern Hopfield Networks for Tabular Data",
+      "doi": "10.48550/arxiv.2206.00664",
+      "status": "resolved",
+      "filename": "schäfl_2022_hopular_modern_hopfield_networks_for_tabular_data.pdf",
+      "oa_url": "https://arxiv.org/pdf/2206.00664",
+      "raw": "B. Schäfl, L. Gruber, A. Bitto-Nemling, and S. Hochreiter. Hopular: Modern hopfield networks for tabular data. arXiv, abs/2206.00664, 2022. 3, 5, 27"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3170720134",
+      "title": "SAINT: Improved Neural Networks for Tabular Data via Row Attention and Contrastive Pre-Training",
+      "doi": "10.48550/arxiv.2106.01342",
+      "status": "resolved",
+      "filename": "somepalli_2021_saint_improved_neural_networks_for_tabular_data_via_row_attention.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.01342",
+      "raw": "G. Somepalli, M. Goldblum, A. Schwarzschild, C. B. Bruss, and T. Goldstein. SAINT: improved neural networks for tabular data via row attention and contrastive pre-training. arXiv, 2106.01342v1, 2021. 1, 3, 5, 7, 27"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2132862423",
+      "title": "OpenML",
+      "doi": "10.1145/2641190.2641198",
+      "status": "resolved",
+      "filename": "vanschoren_2014_openml.pdf",
+      "oa_url": "https://arxiv.org/pdf/1407.7722",
+      "raw": "J. Vanschoren, J. N. van Rijn, B. Bischl, and L. Torgo. Openml: networked science in machine learning. arXiv, 1407.7722v1, 2014. 20"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2626778328",
+      "title": "Attention Is All You Need",
+      "doi": "10.65215/2q58a426",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://langtaosha.org.cn/index.php/lts/preprint/download/10/108",
+      "raw": "A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin. Attention is all you need. In NIPS, 2017. 5"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4310922560",
+      "title": "A Flexible Nadaraya-Watson Head Can Offer Explainable and Calibrated Classification",
+      "doi": "10.48550/arxiv.2212.03411",
+      "status": "resolved",
+      "filename": "wang_2022_a_flexible_nadaraya_watson_head_can_offer_explainable_and_calibrated_c.pdf",
+      "oa_url": "https://arxiv.org/pdf/2212.03411",
+      "raw": "A. Q. Wang and M. R. Sabuncu. A flexible nadaraya-watson head can offer explainable and calibrated classification. In TMLR, 2023. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3093945404",
+      "title": "DCN V2: Improved Deep &amp; Cross Network and Practical Lessons for Web-scale Learning to Rank Systems",
+      "doi": "10.1145/3442381.3450078",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1145/3442381.3450078",
+      "raw": "R. Wang, R. Shivanna, D. Z. Cheng, S. Jain, D. Lin, L. Hong, and E. H. Chi. Dcn v2: Improved deep & cross network and practical lessons for web-scale learning to rank systems. arXiv, 2008.13535v2, 2020. 1, 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226470480",
+      "title": "Training Data is More Valuable than You Think: A Simple and Effective\\n Method by Retrieving from Training Data",
+      "doi": "10.48550/arxiv.2203.08773",
+      "status": "resolved",
+      "filename": "wang_2022_training_data_is_more_valuable_than_you_think_a_simple_and_effectiven_.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.08773",
+      "raw": "S. Wang, Y. Xu, Y. Fang, Y. Liu, S. Sun, R. Xu, C. Zhu, and M. Zeng. Training data is more valuable than you think: A simple and effective method by retrieving from training data. arXiv preprint arXiv:2203.08773, 2022. 2"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2954996726",
+      "title": "A survey on Image Data Augmentation for Deep Learning",
+      "doi": "10.1186/s40537-019-0197-0",
+      "status": "resolved",
+      "filename": "shorten_2019_a_survey_on_image_data_augmentation_for_deep_learning.pdf",
+      "oa_url": "https://journalofbigdata.springeropen.com/track/pdf/10.1186/s40537-019-0197-0",
+      "raw": "A. G. Wilson, Z. Hu, R. Salakhutdinov, and E. P. Xing. Deep kernel learning. In AISTATS, 2016. 2, 7"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2788475065",
+      "title": "Retrieval-Augmented Convolutional Neural Networks for Improved Robustness against Adversarial Examples",
+      "doi": "10.48550/arxiv.1802.09502",
+      "status": "resolved",
+      "filename": "zhao_2018_retrieval_augmented_convolutional_neural_networks_for_improved_robustn.pdf",
+      "oa_url": "https://arxiv.org/pdf/1802.09502",
+      "raw": "J. Zhao and K. Cho. Retrieval-augmented convolutional neural networks for improved robustness against adversarial examples. arXiv preprint arXiv:1802.09502, 2018. 2 12 Published as a conference paper at ICLR 2024"
+    }
+  ]
+}

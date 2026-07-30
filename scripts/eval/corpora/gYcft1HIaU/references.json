@@ -1,0 +1,272 @@
+{
+  "corpus": "gYcft1HIaU",
+  "source_pdf": "gYcft1HIaU.pdf",
+  "source_sha256": "4e48b5da11a82fb558f15d53a96fd52f4206f8a81d1983383373d67db75c0012",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:55.663388Z",
+  "references_attempted": 29,
+  "references_resolved": 16,
+  "references": [
+    {
+      "openalex_id": null,
+      "title": "Bianque-1.0: Improving the ”question” ability of medical chat model through finetuning with hybrid instructions and multi-turn doctor qa datasets. 2023",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Yirong Chen, Zhenyu Wang, Xiaofen Xing, Zhipei Xu, Kai Fang, Sihang Li, Junhong Wang, and Xiangmin Xu. Bianque-1.0: Improving the ”question” ability of medical chat model through finetuning with hybrid instructions and multi-turn doctor qa datasets. 2023. URL https:// github.com/scutcyr/BianQue."
+    },
+    {
+      "openalex_id": null,
+      "title": "Bert: Pre-training of deep bidirectional transformers for language understanding",
+      "doi": "10.48550/arXiv.1810.04805",
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of deep bidirectional transformers for language understanding. arXiv preprint arXiv:1810.04805, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4285294723",
+      "title": "GLM: General Language Model Pretraining with Autoregressive Blank Infilling",
+      "doi": "10.18653/v1/2022.acl-long.26",
+      "status": "resolved",
+      "filename": "du_2022_glm_general_language_model_pretraining_with_autoregressive_blank_infilli.pdf",
+      "oa_url": "https://aclanthology.org/2022.acl-long.26.pdf",
+      "raw": "Zhengxiao Du, Yujie Qian, Xiao Liu, Ming Ding, Jiezhong Qiu, Zhilin Yang, and Jie Tang. Glm: General language model pretraining with autoregressive blank infilling. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pp. 320–335, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2939876107",
+      "title": "Applying deep matching networks to Chinese medical question answering: a study and a dataset",
+      "doi": "10.1186/s12911-019-0761-8",
+      "status": "resolved",
+      "filename": "he_2019_applying_deep_matching_networks_to_chinese_medical_question_answering_a_.pdf",
+      "oa_url": "https://bmcmedinformdecismak.biomedcentral.com/track/pdf/10.1186/s12911-019-0761-8",
+      "raw": "Junqing He, Mingming Fu, and Manshu Tu. Applying deep matching networks to chinese medical question answering: A study and a dataset. BMC Medical Informatics and Decision Making, 19 (2):52, 2019. doi: 10.1186/s12911-019-0761-8."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3121904249",
+      "title": "Measuring Massive Multitask Language Understanding",
+      "doi": null,
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn Song, and Jacob Steinhardt. Measuring massive multitask language understanding. In International Conference on Learning Representations, 2020."
+    },
+    {
+      "openalex_id": null,
+      "title": "What disease does this patient have? a large-scale open domain question answering dataset from medical exams",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Di Jin, Eileen Pan, Nassim Oufattole, Wei-Hung Weng, Hanyi Fang, and Peter Szolovits. What disease does this patient have? a large-scale open domain question answering dataset from medical exams. Applied Sciences, 11(14):6421, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2970482702",
+      "title": "PubMedQA: A Dataset for Biomedical Research Question Answering",
+      "doi": "10.18653/v1/d19-1259",
+      "status": "resolved",
+      "filename": "jin_2019_pubmedqa_a_dataset_for_biomedical_research_question_answering.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/D19-1259.pdf",
+      "raw": "Qiao Jin, Bhuwan Dhingra, Zhengping Liu, William Cohen, and Xinghua Lu. PubMedQA: A dataset for biomedical research question answering. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP), pp. 2567–2577, Hong Kong, China, November 2019. Association for Computational Linguistics. doi: 10.18653/v1/D19-1259. URL https://aclanthology.org/D19-1259."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3090480605",
+      "title": "Multi-domain clinical natural language processing with MedCAT: The Medical Concept Annotation Toolkit",
+      "doi": "10.1016/j.artmed.2021.102083",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://kclpure.kcl.ac.uk/portal/en/publications/6cc30e42-af92-4ac3-87ba-c749a4a0c04a",
+      "raw": "Zeljko Kraljevic, Thomas Searle, Anthony Shek, Lukasz Roguski, Kawsar Noor, Daniel Bean, Aurelie Mascio, Leilei Zhu, Amos A Folarin, Angus Roberts, et al. Multi-domain clinical natural language processing with medcat: the medical concept annotation toolkit. Artificial intelligence in medicine, 117:102083, 2021. Tiffany H Kung, Morgan Cheatham, Arielle Medenilla, Czarina Sillos, Lorie De Leon, Camille Elepa˜no, Maria Madriaga, Rimel Aggabao, Giezel Diaz-Candido, James Maningo, et al. Performance of chatgpt on usmle: Potential for ai-assisted medical education using large language models. PLoS digital health, 2(2):e0000198, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2911489562",
+      "title": "BioBERT: a pre-trained biomedical language representation model for biomedical text mining",
+      "doi": "10.1093/bioinformatics/btz682",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1093/bioinformatics/btz682",
+      "raw": "Jinhyuk Lee, Wonjin Yoon, Sungdong Kim, Donghyeon Kim, Sunkyu Kim, Chan Ho So, and Jaewoo Kang. Biobert: a pre-trained biomedical language representation model for biomedical text mining. Bioinformatics, 36(4):1234–1240, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4381930847",
+      "title": "ChatDoctor: A Medical Chat Model Fine-Tuned on a Large Language Model Meta-AI (LLaMA) Using Medical Domain Knowledge",
+      "doi": "10.7759/cureus.40895",
+      "status": "resolved",
+      "filename": "li_2023_chatdoctor_a_medical_chat_model_fine_tuned_on_a_large_language_model_met.pdf",
+      "oa_url": "https://assets.cureus.com/uploads/original_article/pdf/152858/20230624-18254-1clgx5t.pdf",
+      "raw": "Yunxiang Li, Zihan Li, Kai Zhang, Ruilong Dan, Steve Jiang, and You Zhang. Chatdoctor: A medical chat model fine-tuned on a large language model meta-ai (llama) using medical domain knowledge. Cureus, 15(6), 2023. Chin-Yew Lin. ROUGE: A package for automatic evaluation of summaries. In Text Summarization"
+    },
+    {
+      "openalex_id": null,
+      "title": "Branches Out, pp. 74–81, Barcelona, Spain, July 2004. Association for Computational Linguistics. URL https://aclanthology.org/W04-1013",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Branches Out, pp. 74–81, Barcelona, Spain, July 2004. Association for Computational Linguistics. URL https://aclanthology.org/W04-1013."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385571124",
+      "title": "Crosslingual Generalization through Multitask Finetuning",
+      "doi": "10.18653/v1/2023.acl-long.891",
+      "status": "resolved",
+      "filename": "muennighoff_2023_crosslingual_generalization_through_multitask_finetuning.pdf",
+      "oa_url": "https://aclanthology.org/2023.acl-long.891.pdf",
+      "raw": "Niklas Muennighoff, Thomas Wang, Lintang Sutawika, Adam Roberts, Stella Biderman, Teven Le Scao, M Saiful Bari, Sheng Shen, Zheng Xin Yong, Hailey Schoelkopf, Xiangru Tang, Dragomir Radev, Alham Fikri Aji, Khalid Almubarak, Samuel Albanie, Zaid Alyafeai, Albert Webson, Edward Raff, and Colin Raffel. Crosslingual generalization through multitask finetuning. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pp. 15991–16111, Toronto, Canada, July 2023. Association for Computational Linguistics. doi: 10.18653/v1/2023.acl-long.891. URL https: //aclanthology.org/2023.acl-long.891. 10 Under review as a conference paper at ICLR 2024 OpenMEDLab. Pulse, 2023. URL https://github.com/openmedlab/PULSE."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226278401",
+      "title": "Training language models to follow instructions with human feedback",
+      "doi": "10.48550/arxiv.2203.02155",
+      "status": "resolved",
+      "filename": "ouyang_2022_training_language_models_to_follow_instructions_with_human_feedback.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.02155",
+      "raw": "Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al. Training language models to follow instructions with human feedback. Advances in Neural Information Processing Systems, 35: 27730–27744, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2101105183",
+      "title": "BLEU",
+      "doi": "10.3115/1073083.1073135",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://dl.acm.org/doi/pdf/10.3115/1073083.1073135",
+      "raw": "Kishore Papineni, Salim Roukos, Todd Ward, and Wei-Jing Zhu. Bleu: a method for automatic evaluation of machine translation. In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics, pp. 311–318, Philadelphia, Pennsylvania, USA, July 2002. Association for Computational Linguistics. doi: 10.3115/1073083.1073135. URL https: //aclanthology.org/P02-1040."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2970476646",
+      "title": "Language Models as Knowledge Bases?",
+      "doi": "10.18653/v1/d19-1250",
+      "status": "resolved",
+      "filename": "petroni_2019_language_models_as_knowledge_bases.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/D19-1250.pdf",
+      "raw": "Fabio Petroni, Tim Rockt¨aschel, Sebastian Riedel, Patrick Lewis, Anton Bakhtin, Yuxiang Wu, and Alexander Miller. Language models as knowledge bases? In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP), pp. 2463–2473, Hong Kong, China, November 2019. Association for Computational Linguistics. doi: 10.18653/v1/D19-1250. URL https://aclanthology.org/D19-1250."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4384071683",
+      "title": "Large language models encode clinical knowledge",
+      "doi": "10.1038/s41586-023-06291-2",
+      "status": "resolved",
+      "filename": "singhal_2023_large_language_models_encode_clinical_knowledge.pdf",
+      "oa_url": "https://www.nature.com/articles/s41586-023-06291-2.pdf",
+      "raw": "Karan Singhal, Shekoofeh Azizi, Tao Tu, S Sara Mahdavi, Jason Wei, Hyung Won Chung, Nathan Scales, Ajay Tanwani, Heather Cole-Lewis, Stephen Pfohl, et al. Large language models encode clinical knowledge. Nature, pp. 1–9, 2023a."
+    },
+    {
+      "openalex_id": null,
+      "title": "Karan Singhal, Tao Tu, Juraj Gottweis, Rory Sayres, Ellery Wulczyn, Le Hou, Kevin Clark, Stephen Pfohl, Heather Cole-Lewis, Darlene Neal, Mike Schaeke",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Karan Singhal, Tao Tu, Juraj Gottweis, Rory Sayres, Ellery Wulczyn, Le Hou, Kevin Clark, Stephen Pfohl, Heather Cole-Lewis, Darlene Neal, Mike Schaekermann, Amy Wang, Mohamed Amin, Sami Lachgar, Philip Mansfield, Sushant Prakash, Bradley Green, Ewa Dominowska, Blaise Aguera y Arcas, Nenad Tomasev, Yun Liu, Renee Wong, Christopher Semturs, S. Sara Mahdavi, Joelle Barral, Dale Webster, Greg S. Corrado, Yossi Matias, Shekoofeh Azizi, Alan Karthikesalingam, and Vivek Natarajan. Towards expert-level medical question answering with large language models, 2023b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4300166660",
+      "title": "Global Pointer: Novel Efficient Span-based Approach for Named Entity Recognition",
+      "doi": "10.48550/arxiv.2208.03054",
+      "status": "resolved",
+      "filename": "su_2022_global_pointer_novel_efficient_span_based_approach_for_named_entity_reco.pdf",
+      "oa_url": "https://arxiv.org/pdf/2208.03054",
+      "raw": "Jianlin Su, Ahmed Murtadha, Shengfeng Pan, Jing Hou, Jun Sun, Wanwei Huang, Bo Wen, and Yunfeng Liu. Global pointer: Novel efficient span-based approach for named entity recognition. arXiv preprint arXiv:2208.03054, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Can language models be biomedical knowledge bases? In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing, pp. 4723–4734, Online and Punta Cana, Dominican",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mujeen Sung, Jinhyuk Lee, Sean Yi, Minji Jeon, Sungdong Kim, and Jaewoo Kang. Can language models be biomedical knowledge bases? In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing, pp. 4723–4734, Online and Punta Cana, Dominican"
+    },
+    {
+      "openalex_id": null,
+      "title": "Republic, November 2021. Association for Computational Linguistics. doi: 10.18653/v1/2021. emnlp-main.388. URL https://aclanthology.org/2021.emnlp-mai",
+      "doi": "10.18653/v1/2021",
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Republic, November 2021. Association for Computational Linguistics. doi: 10.18653/v1/2021. emnlp-main.388. URL https://aclanthology.org/2021.emnlp-main.388."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4322718191",
+      "title": "LLaMA: Open and Efficient Foundation Language Models",
+      "doi": "10.48550/arxiv.2302.13971",
+      "status": "resolved",
+      "filename": "touvron_2023_llama_open_and_efficient_foundation_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2302.13971",
+      "raw": "Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timoth´ee Lacroix, Baptiste Rozi`ere, Naman Goyal, Eric Hambro, Faisal Azhar, et al. Llama: Open and efficient foundation language models. arXiv preprint arXiv:2302.13971, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4366198844",
+      "title": "HuaTuo: Tuning LLaMA Model with Chinese Medical Knowledge",
+      "doi": "10.48550/arxiv.2304.06975",
+      "status": "resolved",
+      "filename": "wang_2023_huatuo_tuning_llama_model_with_chinese_medical_knowledge.pdf",
+      "oa_url": "https://arxiv.org/pdf/2304.06975",
+      "raw": "Haochun Wang, Chi Liu, Nuwa Xi, Zewen Qiang, Sendong Zhao, Bing Qin, and Ting Liu. Huatuo: Tuning llama model with chinese medical knowledge, 2023. He sicheng Wang Yuxin, Sun Qingxuan. M3e: Moka massive mixed embedding model, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4394782456",
+      "title": "PMC-LLaMA: toward building open-source language models for medicine",
+      "doi": "10.1093/jamia/ocae045",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://academic.oup.com/jamia/advance-article-pdf/doi/10.1093/jamia/ocae045/57229449/ocae045.pdf",
+      "raw": "Chaoyi Wu, Weixiong Lin, Xiaoman Zhang, Ya Zhang, Yanfeng Wang, and Weidi Xie. Pmc-llama: Towards building open-source language models for medicine, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4362598952",
+      "title": "DoctorGLM: Fine-tuning your Chinese Doctor is not a Herculean Task",
+      "doi": "10.48550/arxiv.2304.01097",
+      "status": "resolved",
+      "filename": "xiong_2023_doctorglm_fine_tuning_your_chinese_doctor_is_not_a_herculean_task.pdf",
+      "oa_url": "https://arxiv.org/pdf/2304.01097",
+      "raw": "Honglin Xiong, Sheng Wang, Yitao Zhu, Zihao Zhao, Yuxiao Liu, Qian Wang, and Dinggang Shen. Doctorglm: Fine-tuning your chinese doctor is not a herculean task. arXiv preprint arXiv:2304.01097, 2023."
+    },
+    {
+      "openalex_id": null,
+      "title": "Aiyuan Yang, Bin Xiao, Bingning Wang, Borong Zhang, Chao Yin, Chenxu Lv, Da Pan, Dian Wang, Dong Yan, Fan Yang, Fei Deng, Feng Wang, Feng Liu, Guangwe",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Aiyuan Yang, Bin Xiao, Bingning Wang, Borong Zhang, Chao Yin, Chenxu Lv, Da Pan, Dian Wang, Dong Yan, Fan Yang, Fei Deng, Feng Wang, Feng Liu, Guangwei Ai, Guosheng Dong Haizhou Zhao, Hang Xu, Haoze Sun, Hongda Zhang, Hui Liu, Jiaming Ji, Jian Xie, Juntao Dai, Kun Fang, Lei Su Liang Song, Lifeng Liu, Liyun Ru, Luyao Ma, Mang Wang, Mickel Liu, MingAn Lin, Nuolan Nie, Peidong Guo, Ruiyang Sun, Tao Zhang, Tianpeng Li, Tianyu Li, Wei Cheng, 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4386942538",
+      "title": "Baichuan 2: Open Large-scale Language Models",
+      "doi": "10.48550/arxiv.2309.10305",
+      "status": "resolved",
+      "filename": "aiyuan_2023_baichuan_2_open_large_scale_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2309.10305",
+      "raw": "Weipeng Chen, Xiangrong Zeng, Xiaochuan Wang, Xiaoxi Chen, Xin Men, Xin Yu, Xuehai Pan, Yanjun Shen, Yiding Wang, Yiyu Li, Youxin Jiang, Yuchen Gao, Yupeng Zhang, Zenan Zhou, and Zhiying Wu. Baichuan 2: Open large-scale language models, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4378468480",
+      "title": "HuatuoGPT, towards Taming Language Model to Be a Doctor",
+      "doi": "10.48550/arxiv.2305.15075",
+      "status": "resolved",
+      "filename": "zhang_2023_huatuogpt_towards_taming_language_model_to_be_a_doctor.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.15075",
+      "raw": "Hongbo Zhang, Junying Chen, Feng Jiang, Fei Yu, Zhihong Chen, Jianquan Li, Guiming Chen, Xiangbo Wu, Zhiyi Zhang, Qingying Xiao, Xiang Wan, Benyou Wang, and Haizhou Li. Huatuogpt, towards taming language models to be a doctor. arXiv preprint arXiv:2305.15075, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2936695845",
+      "title": "BERTScore: Evaluating Text Generation with BERT",
+      "doi": "10.48550/arxiv.1904.09675",
+      "status": "resolved",
+      "filename": "zhang_2019_bertscore_evaluating_text_generation_with_bert.pdf",
+      "oa_url": "https://arxiv.org/pdf/1904.09675",
+      "raw": "Tianyi Zhang, Varsha Kishore, Felix Wu, Kilian Q Weinberger, and Yoav Artzi. Bertscore: Evaluating text generation with bert. In International Conference on Learning Representations, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4380353763",
+      "title": "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena",
+      "doi": "10.48550/arxiv.2306.05685",
+      "status": "resolved",
+      "filename": "lianmin_2023_judging_llm_as_a_judge_with_mt_bench_and_chatbot_arena.pdf",
+      "oa_url": "https://arxiv.org/pdf/2306.05685",
+      "raw": "Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric Xing, et al. Judging llm-as-a-judge with mt-bench and chatbot arena. arXiv preprint arXiv:2306.05685, 2023. 12 Under review as a conference paper at ICLR 2024 A DETAILS OF MEDDISK CONSTRUCTION A.1 SUPPLEMENTARY OF MEDDISK CONSTRUCTION The construction of MedDisK involves a total of two phases: selection of diseases, and knowledge annotation. In phase 1, we first conduct a statistical analysis on the occurrence of 27,000 ICD-10 diseases in 4 million highly de-identified electronic health records (EHRs) from over 100 hospitals across 5 cities. Then we selected diseases with a frequency > 10−4, resulting in 1,048 diseases. To broaden the coverage of MedDisK, we further requested clinical experts to choose a subset of clinically important diseases from the remaining, resulting in another 9,584 diseases. In phase 2, we employed a retrieve-and-proofread knowledge annotation method. We first exploit an information retrieval module that retrieves disease-related information from medical books and literature. Subsequently, we requested clinical experts to proofread the retrieved information and supplement missing knowledge. We find that such human-machine collaboration is helpful for minimizing human bias introduced in annotation: we have requested two experts to annotate the knowledge related to 20 diseases (involving around 1,000 disease-related knowledge points) using the human-machine collaborative method introduced above, and the results revealed a disagreement rate of less than 2%, indicating the reliability and effectiveness of our knowledge base construction method. The statistics of MedDisK, including the frequency of disseases in EHRs and the number of unique entities, are presented in Figure 6 and Table 6, respectively. Figure 6: Frequency of diseases covered by MedDisk in 4 million EHRs. Low: frequency < 10−4, Medium: 10−4 ≤ frequency< 10−3, High: frequency ≥10−3. Knowledge Aspects Total Amount Patient Population 701 Prevalence Ages 146 Onset Ages 17 Primary Symptoms 16884 Associated Symptoms 4619 Differential Symptoms 12749 Anatomical Sites 1345 Affected Sites 1021 Treatment Principles 3526 Secondary Diseases 638 Surgical Procedures 5097 Medications 3826 Departments 89 Affected Body Systems 89 Table 6: Number of unique entities across 14 enumerated-type knowledge aspects. 13 Under review as a conference paper at ICLR 2024 A.2 MEDDISK VERSUS OTHER MEDICAL DATASETS We have conducted a comprehensive comparison between MedDisK and existing medical QA datasets in terms of coverage of common diseases, disease-based knowledge and public availability. For QA datasets, we leverage Medical Concept Annotation Tool (Kraljevic et al., 2021) to identify all the diseases and count the number of diseases in each QA dataset. We included in the comparison all QA datasets in MultiMedQA (Singhal et al., 2023b) except PubMedQA, because PubMedQA is primarily a reading comprehension dataset where answers can be directly derived from the provided context. Consequently, it is not designed to evaluate models’ mastery of medical knowledge. The results listed in Table 7 demonstrate that our proposed database covers a significantly larger amount of diseases and more types of disease-based knowledge than existing QA-based datasets. It is also worth noting that most of existing medical databases have released labeled data, which may result in data contamination that some LLMs have seen the test set of these datasets in the training phase. In contrast, we will release evaluation interface instead of the whole database to balance both the public accessibility of our evaluation and the reduction of data contamination. Datasets Type # diseases Publicly available? MedQA QA dataset 1391 Yes MedMCQA QA dataset 3475 Yes MMLU (medical) QA dataset 383 Yes MedicationQA QA dataset 172 Yes LiveQA QA dataset 480 Yes HealthSearchQA QA dataset 262 Yes Total of Above QA datasets 3907 Yes MedDisK (Ours) Knowledge base 10632 Yes (evaluation platform) Table 7: Comparison of existing medical evaluation datasets across the number of diseases and public availability. Results in Table 8 show that existing medical QA evaluation sets have not covered as many diseaseknowledge-related entities as MedDisK does. It is worth noting that MedDisK covers even more entities than the sum of these 6 medical QA datasets, indicating that our evaluation benchmark obtains a much broader coverage of disease-related clinical knowledge than existing medical evaluation benchmarks. Dataset #Popu. #Symp. #Part. #Syst. #Proc. #Medi. #Dept. MedQA 197 377 574 15 429 62 36 MedMCQA 241 452 1245 33 811 56 54 MMLU (medical) 92 114 250 10 111 6 9 MedicationQA 27 64 52 7 70 67 3 LiveQA 75 108 141 9 166 14 19 HealthSearchQA 10 63 40 3 4 2 2 Total of Above 349 570 1362 34 997 183 83 MedDisK (Ours) 701 18737 1585 89 5097 3826 89 Table 8: Comparison of existing medical QA datasets with the proposed MedDisK database across 7 medical entities, including patient population (Popu.), symptoms (Symp.), body parts (Part.), body systems (Syst.), therapeutic procedure (Proc.), medication (Medi.), and departments (Dept.). Note that for MedDisK, we count unique anatomic/affected sites for the number of body parts, and unique primary/associated/differential symptoms for the number of symtoms. 14 Under review as a conference paper at ICLR 2024 B DETAILS OF LLMS’ KNOWLEDGE RETRIEVAL We employ distinct prompting strategies tailored to various types of LLMs. For pretraining models, we provide a set of five examples preceding the question. In the case of instruction-tuning models, our approach begins with explicit instructions detailing the knowledge aspect, followed by five illustrative examples, and culminates with the question itself. Exemplars of these prompts are showcased in Figure 7, while a comprehensive compilation of instructions for each knowledge aspect is available in Appendix C. Figure 7: Examples of the disease-oriented clinical knowledge retrieval process in the proposed evaluation method, each includes a Chinese prompt (used in our experiments) and its English translation. The few-shot examples are directly extracted from our knowledge base and transformed into text with templates. The blue text is the test sample, and the violet underlined text is the response from LLMs. 15 Under review as a conference paper at ICLR 2024 C LIST OF INSTRUCTIONS Table 9: Instructions employed for each knowledge aspect, comprising the Chinese version and English translation. {} in instructions will be filled with disease name during experiment. We meticulously crafted instructions for each knowledge aspect, encompassing both a detailed description of the knowledge element and specific constraints regarding the output format. Importantly, 16 Under review as a conference paper at ICLR 2024 Table 10: Instructions employed for each knowledge aspect, comprising the Chinese version and English translation. {} in instructions will be filled with disease name during experiment. these prompts were developed in collaboration with domain experts in the medical field to ensure their high quality. 17 Under review as a conference paper at ICLR 2024 D DETAILS OF POST-PROCESSING Figure 8: The pattern extracted from LLM’s responses using regular expression, wherein <disease name >and <knowledge aspect >correspond to the question. We leverage simple heuristic rules to extract relevant segments in the original responses, as illustrated in Figure 8. Given the disease name and the knowlegde aspect, we search patterns that appear in our crafted instructions and demonstrative examples and extract the answer part in patterns. The response will remain unchanged if no pattern is discovered in the response. E DETAILS OF THE NER TOOL The NER model that we leverage to process responses of enumerated types is trained and constructed following the method proposed in Su et al. (2022). We first pretrained a BERT-base model on 3.5 million highly de-identified EHRs from 7 hospitals with MLM objective proposed in Devlin et al. (2018). Then we finetuned the model on 200k labeled EHR segments by following the method proposed in Su et al. (2022), teaching the model to extract medical entities in EHRs. On a test set of 10k+ real-world EHRs involving 40k+ medical entities, our NER model achieves 0.88 micro-f1 score across a total of 116 types of medical entities, even surpassing 0.9 on several common medical entities, such as anatomical sites, symptoms, medication. This model has already been applied in a wide range of medical scenarios, including assisted consultations and diagnosis, as well as EHR- based semantic parsing, demonstrating consistent and reliable performance. F CONSISTENCY BETWEEN AUTOMATED SCORE AND CLINICAL EXPERT Metrics Correlation with Clinical Experts BLEU-1 0.757* ROUGE-1 0.772* Cosine Similarity 0.762* BERTScore 0.650* Table 11: Consistency between clinical experts and automated score prior to expert alignment, measured by Spearman correlation. Asterisks denote statistically significance (p-value < 0.05). The correlation coefficient of BERTScore is below 0.7, indicating misalignment with human judgment. G EXPERT-ALIGNED GRADING THRESHOLD Metrics Type Completely Wrong Partially Correct Basically Correct BLEU-1 enumerate [0, 0.05) [0.05, 0.25) [0.25, 1] declarative [0, 0.05) [0.05, 0.45) [0.45, 1] ROUGE-1 enumerate [0, 0.05) [0.05, 0.75) [0.75, 1] declarative [0, 0.05) [0.05, 0.55) [0.55, 1] Cosine Similarity enumerate [-1, 0.35) [0.35, 0.75) [0.75, 1] declarative [-1, 0.55) [0.55, 0.65) [0.65, 1] Table 12: Thresholds used in expert-aligned automated grading. Distinct thresholds are applied to various metrics and types. Note that the grading of numetric types is relied on exact matching. 18 Under review as a conference paper at ICLR 2024 H PERFORMANCE ACROSS KNOWLEDGE ASPECTS We further analysis the detailed performance of LLMs across 18 knowledge aspects, and present the results in Figure 9 and 10, respectively. The results in Figure 9 indicates that LLMs achieve relatively better performance on Treatment Principles and Onset Ages, and poorer performance on several aspects such as Secondary Diseases and Laboratory Examination. Figure 9: The average performance of LLMs across 18 clinical knowledge aspects. PP: Patient Population; PA: Prevalence Ages; OA: Onset Ages; PS: Primary Symptoms; AS: Associated Symptoms; DS: Differential Symptoms; PE: Physical Examination; AnS: Anatomical Sites; AfS: Affected Body Systems; TP: Treatment Principles; SD: Secondary Diseases; SP: Surgical Procedures; Med: Medications; AE: Auxiliary Examinations; LE: Laboratory Examinations; Dept: Departments; SL: Severity Level; ABS: Affected Body System. Results in Figure 10 further suggest that different LLMs perform distinctly on the same knowledge aspect. For example, GPT-3.5-turbo achieves around 5 on Primary Symptoms (PS), while models such as LLaMA, BenTsao, and ChatDoctor achieve under 1 on this aspect. It is worth noting that GPT-3.5-turbo achieves relatively stable performance across all knowledge aspects. 19 Under review as a conference paper at ICLR 2024 Figure 10: Performance of LLMs across 18 clinical knowledge aspects. PP: Patient Population; PA: Prevalence Ages; OA: Onset Ages; PS: Primary Symptoms; AS: Associated Symptoms; DS: Differential Symptoms; PE: Physical Examination; AnS: Anatomical Sites; AfS: Affected Body Systems; TP: Treatment Principles; SD: Secondary Diseases; SP: Surgical Procedures; Med: Medications; AE: Auxiliary Examinations; LE: Laboratory Examinations; Dept: Departments; SL: Severity Level; ABS: Affected Body System. 20 Under review as a conference paper at ICLR 2024 I SIGNIFICANCE ANALYSIS Backbone Models ChatGLM-6B Bloomz-7B Baichuan-7B LLaMA-7B Medical LLMs BianQue-2 DoctorGLM PULSE HuatuoGpt BenTsao ChatDoctor Patient Population 16.2* 39.7* 36.8* 40.3* 43.9* 43.5* Prevalence Ages 36.3* 64.1* 9.0* -7.4* -37.8* -0.8 Onset Ages 66.6* 155.4* 25.3* -111.8* -102.9* 5.4* Primary Symptoms -5.6* -23.9* 43.9* 45.9* -0.4 7.9* Associated Symptoms -0.1 -3.6* 24.7* 13.4* 4.2* -6.5* Differential Symptoms -11.3* -14.0* 23.3* 26.9* 7.4* -4.7* Physical Examination -44.1* -16.7* 23.9* -29.2* 10.8* -52.5* Anatomical Sites -20.9* -3.0* 36.6* -24.3* -10.6* -68.5* Affected Sites -27.2* -3.1* 22.6* -16.1* -19.2* -29.9* Affected Body Systems -57.7* -41.4* 31.7* 6.6* 32.1* 39.8* Treatment Principles 24.6* 21.5* -1.4 12.5* 19.7* -3.3* Secondary Diseases -12.0* -48.9* 40.2* -21.8* -35.0* -14.2* Medications -12.5* -14.6* 36.4* 10.4* -35.2* -26.5* Surgical Procedures -20.6* -3.7* 61.5* 19.7* -30.0* -7.3* Auxiliary Examinations -29.0* -17.4* 18.2* 9.1* -7.2* -38.7* Laboratory Examinations -49.1* -46.0* 37.5* 25.9* 1.5 -25.0* Departments -11.0* -4.0* 74.2* -6.2* 0.8 11.5* Severity Level 17.9* -18.5* -41.3* 43.3* 86.7* 4.5* Table 13: The results of Welch’s T-test between each medical LLM and its backbone model across different aspects of diseases. The BLEU-1 similarities are applied in this analysis. Values in the table are the t-statistics that measure the difference of average scores between the medical LLM and its backbone model on different aspects. Asterisks indicate that the differences are significant (pvalue<0.05). Note that we denote Bloomz-7.1B-mt as Bloomz-7B for name consistence with other backbone models. 21 Under review as a conference paper at ICLR 2024 Backbone Models ChatGLM-6B Bloomz-7B Baichuan-7B LLaMA-7B Medical LLMs BianQue-2 DoctorGLM PULSE HuatuoGpt BenTsao ChatDoctor Patient Population 15.6* 39.1* 35.4* 39.8* 40.4* 40.9* Prevalence Ages 32.7* 58.8* 3.6* -4.1* -36.3* 1.3 Onset Ages 66.5* 155.0* 24.8* -111.6* -102.9* 5.4* Primary Symptoms -17.5* -25.5* 61.6* 38.2* 2.6* -2.2* Associated Symptoms 0.5 -4.4* 24.7* 13.5* 5.2* -5.7* Differential Symptoms -15.4* -13.4* 27.1* 26.7* 5.1* -8.4* Physical Examination -59.5* -29.4* 29.0* -17.9* 8.5* -68.7* Anatomical Sites -26.3* -3.4* 48.4* -18.9* -10.7* -70.1* Affected Sites -28.9* -2.7* 25.3* -16.6* -21.5* -33.5* Affected Body Systems -56.3* -36.6* 33.3* 0.3 34.4* 43.1* Treatment Principles 27.6* 30.4* -16.7* 10.5* 24.8* -18.6* Secondary Diseases -12.1* -48.9* 39.9* -21.9* -34.9* -14.2* Medications -11.7* -13.1* 38.0* 6.3* -34.5* -26.0* Surgical Procedures -21.3* -4.2* 62.1* 20.4* -28.8* -8.5* Auxiliary Examinations -38.2* -25.4* 9.3* 11.3* 6.0* -50.9* Laboratory Examinations -56.2* -52.0* 27.6* 28.7* 6.3* -28.4* Departments -11.1* -0.2 84.5* -12.6* 10.0* 10.4* Severity Level 17.9* -18.5* -41.3* 43.3* 86.7* 4.5* Table 14: The results of Welch’s T-test between each medical LLM and its backbone model across different aspects of diseases. The ROUGE-1 similarities are applied in this analysis. Values in the table are the t-statistics that measure the difference of average scores between the medical LLM and its backbone model on different aspects. Asterisks indicate that the differences are significant (pvalue<0.05). Note that we denote Bloomz-7.1B-mt as Bloomz-7B for name consistence with other backbone models. 22 Under review as a conference paper at ICLR 2024 J AN EXAMPLE OF KNOWLEDGE ASPECTS Table 15: An illustrative instance showcasing comprehensive knowledge across 18 aspects pertaining to ”cephalohematoma caused by birth injury” 23 Under review as a conference paper at ICLR 2024 K EXAMPLES OF LLMS’ RESPONSES IN THREE CATEGORIES Table 16: Examples of LLM responses in three tiers. 24 Under review as a conference paper at ICLR 2024 L EVALUATION PLATFORM PLANNING We plan to make our evaluation benchmark freely accessible for any researchers and organizations by releasing an online evaluation platform. The platform provides participants who are seeking to evaluate their LLMs a list of diseases, prompts we employ in this work, and several demonstrative examples. Participants can either choose to directly test their LLMs with the provided prompts, or DIY prompts by themselves. Once the participants upload the LLMs’ response on the platform, the evaluation script will be running automatically. The evaluation results, including the performance on various knowledge aspects, will be available for downloading once the evaluation process ends. Participants can choose whether to update their performance on a leaderboard and compare the performance with others. 25"
+    }
+  ]
+}

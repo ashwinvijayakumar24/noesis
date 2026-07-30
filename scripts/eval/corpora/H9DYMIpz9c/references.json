@@ -1,0 +1,569 @@
+{
+  "corpus": "H9DYMIpz9c",
+  "source_pdf": "H9DYMIpz9c.pdf",
+  "source_sha256": "7a3e8ffd49df804ef220ce164e9a80ff2ec32ceedb8f4e1a51669803e602d063",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:54.996600Z",
+  "references_attempted": 62,
+  "references_resolved": 41,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W4327811112",
+      "title": "SemDeDup: Data-efficient learning at web-scale through semantic deduplication",
+      "doi": "10.48550/arxiv.2303.09540",
+      "status": "resolved",
+      "filename": "abbas_2023_semdedup_data_efficient_learning_at_web_scale_through_semantic_dedupl.pdf",
+      "oa_url": "https://arxiv.org/pdf/2303.09540",
+      "raw": "Amro Abbas, Kushal Tirumala, Dániel Simig, Surya Ganguli, and Ari S Morcos. Semdedup: Dataefficient learning at web-scale through semantic deduplication. arXiv preprint arXiv:2303.09540, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4327810158",
+      "title": "GPT-4 Technical Report",
+      "doi": "10.4230/lipics.cosit.2024.11",
+      "status": "resolved",
+      "filename": "openai_2023_gpt_4_technical_report.pdf",
+      "oa_url": "https://arxiv.org/pdf/2303.08774",
+      "raw": "Rohan Anil, Andrew M. Dai, Orhan Firat, Melvin Johnson, Dmitry Lepikhin, Alexandre Passos, Siamak Shakeri, Emanuel Taropa, Paige Bailey, and Zhifeng Chen et al. Palm 2 technical report, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3037469196",
+      "title": "Influence Functions in Deep Learning Are Fragile",
+      "doi": "10.48550/arxiv.2006.14651",
+      "status": "resolved",
+      "filename": "basu_2020_influence_functions_in_deep_learning_are_fragile.pdf",
+      "oa_url": "https://arxiv.org/pdf/2006.14651",
+      "raw": "Samyadeep Basu, Phil Pope, and Soheil Feizi. Influence functions in deep learning are fragile. In International Conference on Learning Representations, 2021. URL https://openreview. net/forum?id=xHKVVHGDOEk."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221163538",
+      "title": "Submodularity In Machine Learning and Artificial Intelligence",
+      "doi": "10.48550/arxiv.2202.00132",
+      "status": "resolved",
+      "filename": "bilmes_2022_submodularity_in_machine_learning_and_artificial_intelligence.pdf",
+      "oa_url": "https://arxiv.org/pdf/2202.00132",
+      "raw": "James Bennett, Stan Lanning, et al. The netflix prize. In Proceedings of KDD cup and workshop, volume 2007, pp. 35. New York, 2007. Jeff Bilmes. Submodularity in machine learning and artificial intelligence. arXiv preprint arXiv:2202.00132, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3195577433",
+      "title": "On the Opportunities and Risks of Foundation Models",
+      "doi": "10.48550/arxiv.2108.07258",
+      "status": "resolved",
+      "filename": "bommasani_2021_on_the_opportunities_and_risks_of_foundation_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2108.07258",
+      "raw": "Rishi Bommasani, Drew A Hudson, Ehsan Adeli, Russ Altman, Simran Arora, Sydney von Arx, Michael S Bernstein, Jeannette Bohg, Antoine Bosselut, Emma Brunskill, et al. On the opportunities and risks of foundation models. arXiv preprint arXiv:2108.07258, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226082499",
+      "title": "Improving language models by retrieving from trillions of tokens",
+      "doi": "10.48550/arxiv.2112.04426",
+      "status": "resolved",
+      "filename": "borgeaud_2021_improving_language_models_by_retrieving_from_trillions_of_tokens.pdf",
+      "oa_url": "https://arxiv.org/pdf/2112.04426",
+      "raw": "Sebastian Borgeaud, Arthur Mensch, Jordan Hoffmann, Trevor Cai, Eliza Rutherford, Katie Millican, George Bm Van Den Driessche, Jean-Baptiste Lespiau, Bogdan Damoc, Aidan Clark, et al. Improving language models by retrieving from trillions of tokens. In International conference on machine learning, pp. 2206–2240. PMLR, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3032949543",
+      "title": "Coresets via Bilevel Optimization for Continual Learning and Streaming",
+      "doi": "10.48550/arxiv.2006.03875",
+      "status": "resolved",
+      "filename": "borsos_2020_coresets_via_bilevel_optimization_for_continual_learning_and_streami.pdf",
+      "oa_url": "https://arxiv.org/pdf/2006.03875",
+      "raw": "Zalán Borsos, Mojmir Mutny, and Andreas Krause. Coresets via bilevel optimization for continual learning and streaming. Advances in Neural Information Processing Systems, 33:14879–14890, 2020a."
+    },
+    {
+      "openalex_id": null,
+      "title": "JAX: composable transformations of Python+NumPy programs, 2018",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "James Bradbury, Roy Frostig, Peter Hawkins, Matthew James Johnson, Chris Leary, Dougal Maclaurin, George Necula, Adam Paszke, Jake VanderPlas, Skye Wanderman-Milne, and Qiao Zhang. JAX: composable transformations of Python+NumPy programs, 2018. URL http://github.com/google/jax."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4312412605",
+      "title": "Dataset Distillation by Matching Training Trajectories",
+      "doi": "10.1109/cvpr52688.2022.01045",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "George Cazenavette, Tongzhou Wang, Antonio Torralba, Alexei A Efros, and Jun-Yan Zhu. Dataset distillation by matching training trajectories. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 4750–4759, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "One-pass diversified sampling with application to terabyte-scale genomic sequence streams",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Benjamin Coleman, Benito Geordie, Li Chou, RA Leo Elworth, Todd Treangen, and Anshumali Shrivastava. One-pass diversified sampling with application to terabyte-scale genomic sequence streams. In International Conference on Machine Learning, pp. 4202–4218. PMLR, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2954732411",
+      "title": "Selection via Proxy: Efficient Data Selection for Deep Learning",
+      "doi": "10.48550/arxiv.1906.11829",
+      "status": "resolved",
+      "filename": "coleman_2019_selection_via_proxy_efficient_data_selection_for_deep_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/1906.11829",
+      "raw": "Cody Coleman, Christopher Yeh, Stephen Mussmann, Baharan Mirzasoleiman, Peter Bailis, Percy Liang, Jure Leskovec, and Matei Zaharia. Selection via proxy: Efficient data selection for deep learning. In ICLR, 2020. Zhiwei Deng and Olga Russakovsky. Remember the past: Distilling datasets into addressable memories for neural networks. In Advances in Neural Information Processing Systems, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Privacy for free: How does dataset condensation help privacy? In Proceedings of the 39th International Conference on Machine Learning",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Tian Dong, Bo Zhao, and Lingjuan Lyu. Privacy for free: How does dataset condensation help privacy? In Proceedings of the 39th International Conference on Machine Learning. PMLR, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4200634402",
+      "title": "GLaM: Efficient Scaling of Language Models with Mixture-of-Experts",
+      "doi": "10.48550/arxiv.2112.06905",
+      "status": "resolved",
+      "filename": "du_2021_glam_efficient_scaling_of_language_models_with_mixture_of_experts.pdf",
+      "oa_url": "https://arxiv.org/pdf/2112.06905",
+      "raw": "Nan Du, Yanping Huang, Andrew M Dai, Simon Tong, Dmitry Lepikhin, Yuanzhong Xu, Maxim Krikun, Yanqi Zhou, Adams Wei Yu, Orhan Firat, et al. Glam: Efficient scaling of language models with mixture-of-experts. In International Conference on Machine Learning, pp. 5547–5569. PMLR, 2022. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2604763608",
+      "title": "Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks",
+      "doi": "10.48550/arxiv.1703.03400",
+      "status": "resolved",
+      "filename": "finn_2017_model_agnostic_meta_learning_for_fast_adaptation_of_deep_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1703.03400",
+      "raw": "Chelsea Finn, Pieter Abbeel, and Sergey Levine. Model-agnostic meta-learning for fast adaptation of deep networks. In International conference on machine learning, pp. 1126–1135. PMLR, 2017. Amirata Ghorbani and James Zou. Data shapley: Equitable valuation of data for machine learning. In International Conference on Machine Learning, pp. 2242–2251. PMLR, 2019."
+    },
+    {
+      "openalex_id": null,
+      "title": "Openwebtext corpus. http: //Skylion007.github.io/OpenWebTextCorpus, 2019",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Aaron Gokaslan, Vanya Cohen, Ellie Pavlick, and Stefanie Tellex. Openwebtext corpus. http: //Skylion007.github.io/OpenWebTextCorpus, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2978409868",
+      "title": "Generalized Inner Loop Meta-Learning",
+      "doi": "10.48550/arxiv.1910.01727",
+      "status": "resolved",
+      "filename": "grefenstette_2019_generalized_inner_loop_meta_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/1910.01727",
+      "raw": "Edward Grefenstette, Brandon Amos, Denis Yarats, Phu Mon Htut, Artem Molchanov, Franziska Meier, Douwe Kiela, Kyunghyun Cho, and Soumith Chintala. Generalized inner loop meta-learning. arXiv preprint arXiv:1910.01727, 2019. F Maxwell Harper and Joseph A Konstan. The movielens datasets: History and context. Acm transactions on interactive intelligent systems (tiis), 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1677182931",
+      "title": "Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification",
+      "doi": "10.1109/iccv.2015.123",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Delving deep into rectifiers: Surpassing human-level performance on imagenet classification. In Proceedings of the IEEE international conference on computer vision, pp. 1026–1034, 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2262817822",
+      "title": "Session-based Recommendations with Recurrent Neural Networks",
+      "doi": "10.48550/arxiv.1511.06939",
+      "status": "resolved",
+      "filename": "hidasi_2015_session_based_recommendations_with_recurrent_neural_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1511.06939",
+      "raw": "Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, and Domonkos Tikk. Session-based recommendations with recurrent neural networks. In 4th International Conference on Learning Representations, ICLR 2016, San Juan, Puerto Rico, May 2-4, 2016, Conference Track Proceedings, 2016."
+    },
+    {
+      "openalex_id": null,
+      "title": "An empirical analysis of compute-optimal large language model training",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jordan Hoffmann, Sebastian Borgeaud, Arthur Mensch, Elena Buchatskaya, Trevor Cai, Eliza Rutherford, Diego de Las Casas, Lisa Anne Hendricks, Johannes Welbl, Aidan Clark, et al. An empirical analysis of compute-optimal large language model training. Advances in Neural Information Processing Systems, 35:30016–30030, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3015606043",
+      "title": "Meta-Learning in Neural Networks: A Survey",
+      "doi": "10.1109/tpami.2021.3079209",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://ieeexplore.ieee.org/ielx7/34/4359286/09428530.pdf",
+      "raw": "Timothy Hospedales, Antreas Antoniou, Paul Micaelli, and Amos Storkey. Meta-learning in neural networks: A survey. IEEE transactions on pattern analysis and machine intelligence, 44(9): 5149–5169, 2021. Angela H Jiang, Daniel L-K Wong, Giulio Zhou, David G Andersen, Jeffrey Dean, Gregory R Ganger,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2978290191",
+      "title": "Accelerating Deep Learning by Focusing on the Biggest Losers",
+      "doi": "10.48550/arxiv.1910.00762",
+      "status": "resolved",
+      "filename": "jiang_2019_accelerating_deep_learning_by_focusing_on_the_biggest_losers.pdf",
+      "oa_url": "https://arxiv.org/pdf/1910.00762",
+      "raw": "Gauri Joshi, Michael Kaminksy, Michael Kozuch, Zachary C Lipton, et al. Accelerating deep learning by focusing on the biggest losers. arXiv preprint arXiv:1910.00762, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4283076909",
+      "title": "Condensing Graphs via One-Step Gradient Matching",
+      "doi": "10.1145/3534678.3539429",
+      "status": "resolved",
+      "filename": "jin_2022_condensing_graphs_via_one_step_gradient_matching.pdf",
+      "oa_url": "https://arxiv.org/pdf/2206.07746",
+      "raw": "Wei Jin, Xianfeng Tang, Haoming Jiang, Zheng Li, Danqing Zhang, Jiliang Tang, and Bing Yin. Condensing graphs via one-step gradient matching. In Proceedings of the 28th ACM SIGKDD Conference on Knowledge Discovery and Data Mining, pp. 720–730, 2022a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3206450082",
+      "title": "Graph Condensation for Graph Neural Networks",
+      "doi": "10.48550/arxiv.2110.07580",
+      "status": "resolved",
+      "filename": "jin_2021_graph_condensation_for_graph_neural_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/2110.07580",
+      "raw": "Wei Jin, Lingxiao Zhao, Shichang Zhang, Yozen Liu, Jiliang Tang, and Neil Shah. Graph condensation for graph neural networks. In International Conference on Learning Representations, 2022b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2963367478",
+      "title": "Self-Attentive Sequential Recommendation",
+      "doi": "10.1109/icdm.2018.00035",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "W. Kang and J. McAuley. Self-attentive sequential recommendation. In 2018 IEEE International Conference on Data Mining, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3001279689",
+      "title": "Scaling Laws for Neural Language Models",
+      "doi": "10.48550/arxiv.2001.08361",
+      "status": "resolved",
+      "filename": "jared_2020_scaling_laws_for_neural_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2001.08361",
+      "raw": "Jared Kaplan, Sam McCandlish, Tom Henighan, Tom B Brown, Benjamin Chess, Rewon Child, Scott Gray, Alec Radford, Jeffrey Wu, and Dario Amodei. Scaling laws for neural language models. arXiv preprint arXiv:2001.08361, 2020. Zohar Karnin and Edo Liberty. Discrepancy, coresets, and sketches in machine learning. In Conference on Learning Theory, pp. 1975–1993. PMLR, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2907077903",
+      "title": "Learning From Less Data: A Unified Data Subset Selection and Active Learning Framework for Computer Vision",
+      "doi": "10.1109/wacv.2019.00142",
+      "status": "resolved",
+      "filename": "kaushal_2019_learning_from_less_data_a_unified_data_subset_selection_and_active_.pdf",
+      "oa_url": "https://arxiv.org/pdf/1901.01151",
+      "raw": "V. Kaushal, R. Iyer, S. Kothawade, R. Mahadev, K. Doctor, and G. Ramakrishnan. Learning from less data: A unified data subset selection and active learning framework for computer vision. In 2019 IEEE Winter Conference on Applications of Computer Vision (WACV), 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3004713861",
+      "title": "Regularized Submodular Maximization at Scale",
+      "doi": "10.48550/arxiv.2002.03503",
+      "status": "resolved",
+      "filename": "kazemi_2020_regularized_submodular_maximization_at_scale.pdf",
+      "oa_url": "https://arxiv.org/pdf/2002.03503",
+      "raw": "Ehsan Kazemi, Shervin Minaee, Moran Feldman, and Amin Karbasi. Regularized submodular maximization at scale. In Marina Meila and Tong Zhang (eds.), Proceedings of the 38th International Conference on Machine Learning, volume 139 of Proceedings of Machine Learning Research, pp. 5356–5366. PMLR, 18–24 Jul 2021. URL https://proceedings.mlr.press/v139/ kazemi21a.html. 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W1522301498",
+      "title": "Adam: A Method for Stochastic Optimization",
+      "doi": "10.48550/arxiv.1412.6980",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://handle.uba.uva.nl/personal/pure/en/publications/adam-a-method-for-stochastic-optimization(a20791d3-1aff-464a-8544-268383c33a75).html",
+      "raw": "Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization. In ICLR, 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3092813073",
+      "title": "Semi-Supervised Batch Active Learning Via Bilevel Optimization",
+      "doi": "10.1109/icassp39728.2021.9414206",
+      "status": "resolved",
+      "filename": "borsos_2021_semi_supervised_batch_active_learning_via_bilevel_optimization.pdf",
+      "oa_url": "https://arxiv.org/pdf/2010.09654",
+      "raw": "Andreas Krause, Marco Tagliasacchi, and Zalán Borsos. Semi-supervised batch active learning via bilevel optimization. In 2021 IEEE International Conference on Acoustics, Speech and Signal Processing, 2021. Walid Krichene and Steffen Rendle. On sampled metrics for item recommendation. In Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining, KDD ’20, 2020. I Elizabeth Kumar, Suresh Venkatasubramanian, Carlos Scheidegger, and Sorelle Friedler. Problems with shapley-value-based explanations as feature importance measures. In International Conference on Machine Learning, pp. 5491–5500. PMLR, 2020. Yongchan Kwon and James Zou. Data-oob: Out-of-bag estimate as a simple and efficient data value. In International conference on machine learning. PMLR, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3038644966",
+      "title": "Efficient computation and analysis of distributional Shapley values",
+      "doi": "10.48550/arxiv.2007.01357",
+      "status": "resolved",
+      "filename": "kwon_2020_efficient_computation_and_analysis_of_distributional_shapley_values.pdf",
+      "oa_url": "https://arxiv.org/pdf/2007.01357",
+      "raw": "Yongchan Kwon, Manuel A Rivas, and James Zou. Efficient computation and analysis of distributional shapley values. In International Conference on Artificial Intelligence and Statistics, pp. 793–801. PMLR, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3209410346",
+      "title": "The Effect of the Intrinsic Dimension on the Generalization of Quadratic Classifiers",
+      "doi": null,
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://infoscience.epfl.ch/handle/20.500.14299/182609",
+      "raw": "Fabian Latorre, Leello Tadesse Dadi, Paul Rolland, and Volkan Cevher. The effect of the intrinsic dimension on the generalization of quadratic classifiers. Advances in Neural Information Processing Systems, 34:21138–21149, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2963085847",
+      "title": "Variational Autoencoders for Collaborative Filtering",
+      "doi": "10.1145/3178876.3186150",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "http://dl.acm.org/ft_gateway.cfm?id=3186150&type=pdf",
+      "raw": "Dawen Liang, Rahul G. Krishnan, Matthew D. Hoffman, and Tony Jebara. Variational autoencoders for collaborative filtering. In Proceedings of the 2018 World Wide Web Conference, WWW ’18, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2983785293",
+      "title": "Optimizing Millions of Hyperparameters by Implicit Differentiation",
+      "doi": "10.48550/arxiv.1911.02590",
+      "status": "resolved",
+      "filename": "lorraine_2019_optimizing_millions_of_hyperparameters_by_implicit_differentiation.pdf",
+      "oa_url": "https://arxiv.org/pdf/1911.02590",
+      "raw": "Jonathan Lorraine, Paul Vicol, and David Duvenaud. Optimizing millions of hyperparameters by implicit differentiation. In International Conference on Artificial Intelligence and Statistics, pp. 1540–1552. PMLR, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1868018859",
+      "title": "Gradient-based Hyperparameter Optimization through Reversible Learning",
+      "doi": "10.48550/arxiv.1502.03492",
+      "status": "resolved",
+      "filename": "maclaurin_2015_gradient_based_hyperparameter_optimization_through_reversible_lea.pdf",
+      "oa_url": "https://arxiv.org/pdf/1502.03492",
+      "raw": "Dougal Maclaurin, David Duvenaud, and Ryan Adams. Gradient-based hyperparameter optimization through reversible learning. In International conference on machine learning, pp. 2113–2122. PMLR, 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1632114991",
+      "title": "Building a Large Annotated Corpus of English: The Penn Treebank",
+      "doi": "10.21236/ada273556",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mitchell P. Marcus, Beatrice Santorini, and Mary Ann Marcinkiewicz. Building a large annotated corpus of English: The Penn Treebank. Computational Linguistics, 19(2):313–330, 1993."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3156044630",
+      "title": "ECLARE: Extreme Classification with Label Graph Correlations",
+      "doi": "10.1145/3442381.3449815",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1145/3442381.3449815",
+      "raw": "A. Mittal, N. Sachdeva, S. Agrawal, S. Agarwal, P. Kar, and M. Varma. Eclare: Extreme classification with label graph correlations. In Proceedings of The ACM International World Wide Web Conference, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3187004776",
+      "title": "Dataset Distillation with Infinitely Wide Convolutional Networks",
+      "doi": "10.48550/arxiv.2107.13034",
+      "status": "resolved",
+      "filename": "nguyen_2021_dataset_distillation_with_infinitely_wide_convolutional_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/2107.13034",
+      "raw": "Timothy Nguyen, Roman Novak, Lechao Xiao, and Jaehoon Lee. Dataset distillation with infinitely wide convolutional networks. Advances in Neural Information Processing Systems, 34, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2971196067",
+      "title": "Justifying Recommendations using Distantly-Labeled Reviews and Fine-Grained Aspects",
+      "doi": "10.18653/v1/d19-1018",
+      "status": "resolved",
+      "filename": "ni_2019_justifying_recommendations_using_distantly_labeled_reviews_and_fine_grai.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/D19-1018.pdf",
+      "raw": "Jianmo Ni, Jiacheng Li, and Julian McAuley. Justifying recommendations using distantly-labeled reviews and fine-grained aspects. In Proceedings of the 2019 conference on empirical methods in natural language processing and the 9th international joint conference on natural language processing (EMNLP-IJCNLP), pp. 188–197, 2019a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2970971581",
+      "title": "PyTorch: An Imperative Style, High-Performance Deep Learning Library",
+      "doi": "10.48550/arxiv.1912.01703",
+      "status": "resolved",
+      "filename": "paszke_2019_pytorch_an_imperative_style_high_performance_deep_learning_library.pdf",
+      "oa_url": "https://arxiv.org/pdf/1912.01703",
+      "raw": "A. Paszke, S. Gross, F. Massa, A. Lerer, J. Bradbury, G. Chanan, T. Killeen, Z. Lin, N. Gimelshein, L. Antiga, A. Desmaison, A. Kopf, E. Yang, Z. DeVito, M. Raison, A. Tejani, S. Chilamkurthy, B. Steiner, L. Fang, J. Bai, and S. Chintala. Pytorch: An imperative style, high-performance deep learning library. In NeurIPS, 2019. 12 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3177900337",
+      "title": "Deep Learning on a Data Diet: Finding Important Examples Early in Training",
+      "doi": "10.48550/arxiv.2107.07075",
+      "status": "resolved",
+      "filename": "paul_2021_deep_learning_on_a_data_diet_finding_important_examples_early_in_train.pdf",
+      "oa_url": "https://arxiv.org/pdf/2107.07075",
+      "raw": "Mansheej Paul, Surya Ganguli, and Gintare Karolina Dziugaite. Deep learning on a data diet: Finding important examples early in training. Advances in Neural Information Processing Systems, 34: 20596–20607, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2945260553",
+      "title": "Unified Language Model Pre-training for Natural Language Understanding and Generation",
+      "doi": "10.48550/arxiv.1905.03197",
+      "status": "resolved",
+      "filename": "dong_2019_unified_language_model_pre_training_for_natural_language_understanding.pdf",
+      "oa_url": "https://arxiv.org/pdf/1905.03197",
+      "raw": "Alec Radford, Karthik Narasimhan, Tim Salimans, Ilya Sutskever, et al. Improving language understanding by generative pre-training. CoRR, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4311000453",
+      "title": "Robust Speech Recognition via Large-Scale Weak Supervision",
+      "doi": "10.48550/arxiv.2212.04356",
+      "status": "resolved",
+      "filename": "radford_2022_robust_speech_recognition_via_large_scale_weak_supervision.pdf",
+      "oa_url": "https://arxiv.org/pdf/2212.04356",
+      "raw": "Alec Radford, Jong Wook Kim, Tao Xu, Greg Brockman, Christine McLeavey, and Ilya Sutskever. Robust speech recognition via large-scale weak supervision. arXiv preprint arXiv:2212.04356, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2981852735",
+      "title": "Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer",
+      "doi": "10.48550/arxiv.1910.10683",
+      "status": "resolved",
+      "filename": "raffel_2019_exploring_the_limits_of_transfer_learning_with_a_unified_text_to_tex.pdf",
+      "oa_url": "https://arxiv.org/pdf/1910.10683",
+      "raw": "Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, and Peter J. Liu. Exploring the limits of transfer learning with a unified text-to-text transformer. arXiv e-prints, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4389523960",
+      "title": "Kandinsky: An Improved Text-to-Image Synthesis with Image Prior and Latent Diffusion",
+      "doi": "10.18653/v1/2023.emnlp-demo.25",
+      "status": "resolved",
+      "filename": "razzhigaev_2023_kandinsky_an_improved_text_to_image_synthesis_with_image_prior_a.pdf",
+      "oa_url": "https://aclanthology.org/2023.emnlp-demo.25.pdf",
+      "raw": "Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn Ommer. Highresolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 10684–10695, 2022. Noveen Sachdeva and Julian McAuley. Data distillation: A survey. Transactions on Machine"
+    },
+    {
+      "openalex_id": null,
+      "title": "Learning Research, 2023. ISSN 2835-8856. Survey Certification",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Learning Research, 2023. ISSN 2835-8856. Survey Certification."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2901227482",
+      "title": "Sequential Variational Autoencoders for Collaborative Filtering",
+      "doi": "10.1145/3289600.3291007",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Noveen Sachdeva, Giuseppe Manco, Ettore Ritacco, and Vikram Pudi. Sequential variational autoencoders for collaborative filtering. In Proceedings of the ACM International Conference on Web Search and Data Mining, WSDM ’19, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3182318323",
+      "title": "SVP-CF: Selection via Proxy for Collaborative Filtering Data",
+      "doi": "10.48550/arxiv.2107.04984",
+      "status": "resolved",
+      "filename": "sachdeva_2021_svp_cf_selection_via_proxy_for_collaborative_filtering_data.pdf",
+      "oa_url": "https://arxiv.org/pdf/2107.04984",
+      "raw": "Noveen Sachdeva, Carole-Jean Wu, and Julian McAuley. Svp-cf: Selection via proxy for collaborative filtering data. arXiv preprint arXiv:2107.04984, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4320814035",
+      "title": "Infinite Recommendation Networks: A Data-Centric Approach",
+      "doi": "10.48550/arxiv.2206.02626",
+      "status": "resolved",
+      "filename": "sachdeva_2022_infinite_recommendation_networks_a_data_centric_approach.pdf",
+      "oa_url": "https://arxiv.org/pdf/2206.02626",
+      "raw": "Noveen Sachdeva, Mehak Preet Dhaliwal, Carole-Jean Wu, and Julian McAuley. Infinite recommendation networks: A data-centric approach. In Advances in Neural Information Processing Systems, 2022a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4308069109",
+      "title": "GapFormer: Fast Autoregressive Transformers meet RNNs for Personalized Adaptive Cruise Control",
+      "doi": "10.1109/itsc55140.2022.9922275",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Noveen Sachdeva, Ziran Wang, Kyungtae Han, Rohit Gupta, and Julian McAuley. Gapformer: Fast autoregressive transformers meet rnns for personalized adaptive cruise control. In 2022 IEEE 25th International Conference on Intelligent Transportation Systems (ITSC), pp. 2528–2535. IEEE, 2022b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4212898959",
+      "title": "On Sampling Collaborative Filtering Datasets",
+      "doi": "10.1145/3488560.3498439",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://dl.acm.org/doi/pdf/10.1145/3488560.3498439",
+      "raw": "Noveen Sachdeva, Carole-Jean Wu, and Julian McAuley. On sampling collaborative filtering datasets. In Proceedings of the Fifteenth ACM International Conference on Web Search and Data Mining, WSDM ’22, pp. 842–850, New York, NY, USA, 2022c. Association for Computing Machinery. ISBN 9781450391320. doi: 10.1145/3488560.3498439. URL https://doi.org/10.1145/ 3488560.3498439. Ozan Sener and Silvio Savarese. Active learning for convolutional neural networks: A core-set approach. In ICLR, 2018. Shai Shalev-Shwartz and Shai Ben-David. Understanding machine learning: From theory to algorithms. Cambridge university press, 2014. Lloyd S Shapley. A value for n-person games. In Harold W. Kuhn and Albert W. Tucker (eds.), Contributions to the Theory of Games II, pp. 307–317. Princeton University Press, Princeton, 1953."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4283761305",
+      "title": "Beyond neural scaling laws: beating power law scaling via data pruning",
+      "doi": "10.48550/arxiv.2206.14486",
+      "status": "resolved",
+      "filename": "sorscher_2022_beyond_neural_scaling_laws_beating_power_law_scaling_via_data_prun.pdf",
+      "oa_url": "https://arxiv.org/pdf/2206.14486",
+      "raw": "Ben Sorscher, Robert Geirhos, Shashank Shekhar, Surya Ganguli, and Ari Morcos. Beyond neural scaling laws: beating power law scaling via data pruning. Advances in Neural Information Processing Systems, 35:19523–19536, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2937556626",
+      "title": "BERT4Rec: Sequential Recommendation with Bidirectional Encoder Representations from Transformer",
+      "doi": "10.48550/arxiv.1904.06690",
+      "status": "resolved",
+      "filename": "sun_2019_bert4rec_sequential_recommendation_with_bidirectional_encoder_represent.pdf",
+      "oa_url": "https://arxiv.org/pdf/1904.06690",
+      "raw": "Fei Sun, Jun Liu, Jian Wu, Changhua Pei, Xiao Lin, Wenwu Ou, and Peng Jiang. Bert4rec: Sequential recommendation with bidirectional encoder representations from transformer. In Proceedings of the 28th ACM international conference on information and knowledge management, pp. 1441–1450, 2019. 13 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2270070752",
+      "title": "“Cloze Procedure”: A New Tool for Measuring Readability",
+      "doi": "10.1177/107769905303000401",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Pei Sun, Henrik Kretzschmar, Xerxes Dotiwalla, Aurelien Chouard, et al. Scalability in perception for autonomous driving: Waymo open dataset. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 2446–2454, 2020. Wilson L Taylor. “cloze procedure”: A new tool for measuring readability. Journalism quarterly, 30 (4):415–433, 1953."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2903996579",
+      "title": "An Empirical Study of Example Forgetting during Deep Neural Network Learning",
+      "doi": "10.48550/arxiv.1812.05159",
+      "status": "resolved",
+      "filename": "toneva_2018_an_empirical_study_of_example_forgetting_during_deep_neural_network_.pdf",
+      "oa_url": "https://arxiv.org/pdf/1812.05159",
+      "raw": "M. Toneva, A. Sordoni, R. Combes, A. Trischler, Y. Bengio, and G. Gordon. An empirical study of example forgetting during deep neural network learning. In ICLR, 2019. Joel A Tropp et al. An introduction to matrix concentration inequalities. Foundations and Trends® in"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2588003345",
+      "title": "SoilGrids250m: Global gridded soil information based on machine learning",
+      "doi": "10.1371/journal.pone.0169748",
+      "status": "resolved",
+      "filename": "hengl_2017_soilgrids250m_global_gridded_soil_information_based_on_machine_learni.pdf",
+      "oa_url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0169748&type=printable",
+      "raw": "Machine Learning, 8(1-2):1–230, 2015."
+    },
+    {
+      "openalex_id": null,
+      "title": "Gomez, Ł",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. Gomez, Ł. Kaiser, and I. Polosukhin. Attention is all you need. In NeurIPS, 2017. Jiachen T Wang and Ruoxi Jia. Data banzhaf: A robust data valuation framework for machine learning. In International Conference on Artificial Intelligence and Statistics, pp. 6388–6421. PMLR, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2902287157",
+      "title": "Dataset Distillation",
+      "doi": "10.48550/arxiv.1811.10959",
+      "status": "resolved",
+      "filename": "wang_2018_dataset_distillation.pdf",
+      "oa_url": "https://arxiv.org/pdf/1811.10959",
+      "raw": "Tongzhou Wang, Jun-Yan Zhu, Antonio Torralba, and Alexei A Efros. Dataset distillation. arXiv preprint arXiv:1811.10959, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3172942063",
+      "title": "Scaling Vision Transformers",
+      "doi": "10.1109/cvpr52688.2022.01179",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Xiaohua Zhai, Alexander Kolesnikov, Neil Houlsby, and Lucas Beyer. Scaling vision transformers. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 12104–12113, 2022. Bo Zhao and Hakan Bilen. Dataset condensation with differentiable siamese augmentation. In International Conference on Machine Learning, pp. 12674–12685. PMLR, 2021. Bo Zhao and Hakan Bilen. Dataset condensation with distribution matching. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV), 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3034486793",
+      "title": "Dataset Condensation with Gradient Matching",
+      "doi": "10.48550/arxiv.2006.05929",
+      "status": "resolved",
+      "filename": "zhao_2020_dataset_condensation_with_gradient_matching.pdf",
+      "oa_url": "https://arxiv.org/pdf/2006.05929",
+      "raw": "Bo Zhao, Konda Reddy Mopuri, and Hakan Bilen. Dataset condensation with gradient matching. In International Conference on Learning Representations, 2021. URL https://openreview. net/forum?id=mSAKhLYLSsl."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4377297670",
+      "title": "LIMA: Less Is More for Alignment",
+      "doi": "10.48550/arxiv.2305.11206",
+      "status": "resolved",
+      "filename": "zhou_2023_lima_less_is_more_for_alignment.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.11206",
+      "raw": "Chunting Zhou, Pengfei Liu, Puxin Xu, Srini Iyer, Jiao Sun, Yuning Mao, Xuezhe Ma, Avia Efrat, Ping Yu, Lili Yu, et al. Lima: Less is more for alignment. arXiv preprint arXiv:2305.11206, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4220974940",
+      "title": "Filter-enhanced MLP is All You Need for Sequential Recommendation",
+      "doi": "10.1145/3485447.3512111",
+      "status": "resolved",
+      "filename": "zhou_2022_filter_enhanced_mlp_is_all_you_need_for_sequential_recommendation.pdf",
+      "oa_url": "https://arxiv.org/pdf/2202.13556",
+      "raw": "Kun Zhou, Hui Yu, Wayne Xin Zhao, and Ji-Rong Wen. Filter-enhanced mlp is all you need for sequential recommendation. In Proceedings of the ACM Web Conference 2022, pp. 2388–2399, 2022a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281768461",
+      "title": "Dataset Distillation using Neural Feature Regression",
+      "doi": "10.48550/arxiv.2206.00719",
+      "status": "resolved",
+      "filename": "zhou_2022_dataset_distillation_using_neural_feature_regression.pdf",
+      "oa_url": "https://arxiv.org/pdf/2206.00719",
+      "raw": "Yongchao Zhou, Ehsan Nezhadarya, and Jimmy Ba. Dataset distillation using neural feature regression. In Advances in Neural Information Processing Systems, 2022b. 14 Under review as a conference paper at ICLR 2024 A ALGORITHMS Algorithm 2 Adam optimization (Kingma & Ba, 2015) 1: Input: initial w0, decays (β1, β2), learning rate α, constant ϵ, loss function L(w, x) 2: Initialize: m0 ←0, v0 ←0 3: for t = 1 to T do 4: gt ≜∇wL(wt−1, x) ▷evaluate gradient 5: mt = β1 · mt−1 + (1 −β1) · gt ▷biased first moment estimate 6: vt = β2 · vt−1 + (1 −β2) · g2 t ▷biased second moment estimate 7: ˆmt ≜mt/(1 −βt 1) ▷bias-corrected first moment estimate 8: ˆvt ≜vt/(1 −βt 2) ▷bias-corrected second moment estimate 9: wt = wt−1 −α · ˆmt/(ˆvt + ϵ) ▷update parameters 10: Output: trained parameters wT , biased first moment mT , biased second moment vT B PROOFS B.1 PROOF OF THEOREM 3.1 Proof. We first begin by defining a few preliminary terms and properties: Definition B.1. (Representativeness of D) For a given function-class F, task loss function l(·), train-set D = {x1, x2, . . . , xn} sampled from the true data distribution Pn: Rep(F, D) ≜sup f∈F \u0010 E x∼P [l(f, x)] −E x∼D [l(f, x)] \u0011 , which intuitively measures the maximum discrepancy between the empirical risk and the true risk for a given training set. Naturally, a lower Rep(F, ·) avoids overfitting and is desirable. Definition B.2. (Rademacher complexity) For a given given function-class F, and train-set D = {x1, x2, . . . , xn}: R(F, D) ≜ E σ1,σ2,...,σn∈{±1} \" sup f∈F σi · f(xi) n # , where σ1, σ2, . . . , σn are independent random variables from the Rademacher distribution. R(F, D) intuitively measures the learning capacity of F by it’s ability to fit random label assignments of D. Lemma B.3. (Lemma 26.2 in Shalev-Shwartz & Ben-David (2014, Chapter 26)) E D∼Pn [Rep(F, D)] ≤2 E D∼Pn [R(F, D)] Lemma B.4. (Theorem 1 in Latorre et al. (2021)) Let Fλ be the set of norm-bounded quadratic classifiers: Fλ ≜{fw : fw(x) = xT wx , ||w|| < λ} Then for a training-set X ∈Rn×d: R(F, X) <∼λ r r(XT X) log d n ||XT X||2 s.t. r(XT X) ≜trace(XT X) ||XT X||2 , where, r(·) represents the intrinsic dimension of a PSD matrix (Tropp et al., 2015, Chapter 7). Now we’re ready to prove Theorem 3.1. In our case, given the norm-bounded quadratic function-class Fλ and Dnaive ∈Rµ×ξ×dim(V) such that w.l.o.g ||Dnaive||2 = 1: 15 Under review as a conference paper at ICLR 2024 E Dnaive∼Rµ×ξ×dim(V) [Rep(Fλ, Dnaive)] ≤2 E Dnaive∼Rµ×ξ×dim(V) [R(F, Dnaive)] (Lemma B.3) <∼ E Dnaive∼Rµ×ξ×dim(V)  2λ s r(DT naiveDnaive) log(ξ dim(V)) µ   (Lemma B.4) Furthermore, the intrinsic dimension of a PSD matrix A obeys: r(A) ≜trace(A) ||A||2 = P i λi(A) λmax(A) ≤λmax(A) · rank(A) λmax(A) ≤rank(A) where, the first line uses the alternate trace definition, and norm-eigenvalue equivalence. Combining the two findings: E Dnaive∼Rµ×ξ×dim(V) [Rep(Fλ, Dnaive)] <∼ E Dnaive∼Rµ×ξ×dim(V) \" 2λ s log(ξ dim(V)) µ q rank(DT naiveDnaive) # <∼2λ s log(ξ dim(V)) µ E Dnaive∼Rµ×ξ×dim(V) hp rank(Dnaive) i <∼2λ s log(ξ dim(V)) µ · min(√µ, p ξ · dim(V)) (3) On the other hand, for the non-parameterized formulation of FARZI DATA: E ˜ Dsyn∼Rµ×ξ×d M∼Rd×dim(V) h Rep(Fλ, ˜Dsyn · M) i <∼2λ s log(ξ dim(V)) µ E ˜ Dsyn∼Rµ×ξ×d M∼Rd×dim(V) \u0014q rank( ˜Dsyn · M) \u0015 <∼2λ s log(ξ dim(V)) µ · √ d (4) Finally, comparing Equations (3) and (4): E ˜ Dsyn,M h Rep(F, ˜Dsyn · M) i < E Dnaive [Rep(F, Dnaive)] if d < min(µ, ξ · dim(V)) B.2 PROOF OF PROPOSITION 3.2 Proof. Using the chain rule of derivatives: df(wT ) dm0 ≜dm = dm + ∂wt ∂mt · dw = dm − α 1 −βt 1   \u0002√ˆvt + ϵ \u0003 − h mt · \u0010 ∂vt/∂mt 2·√ˆvt·(1−βt 2) \u0011i (√ˆvt + ϵ)2  · dw = dm + α′ ·   h mt · \u0010 ∂vt/∂mt 2·√vt \u0011i (√vt + ϵ′)2 − 1 √vt + ϵ′  · dw , 16 Under review as a conference paper at ICLR 2024 where, ϵ′ ≜ϵ · p 1 −βt 2 and α′ ≜ α·√ 1−βt 2 1−βt 1 . Using the chain rule again: ∂vt ∂mt = ∂vt/∂gt ∂mt/∂gt = 2 · (1 −β2) · gt (1 −β1) = 2 · β′ · gt , where, β′ ≜1−β2 1−β1 , leading to finally: df(wT ) dm0 ≜dm = dm + α′ ·   h mt · \u0010 ∂vt/∂mt 2·√vt \u0011i (√vt + ϵ′)2 − 1 √vt + ϵ′  · dw = dm + α′ · \u0012 β′ · mt · gt √vt · (√vt + ϵ′)2 − 1 √vt + ϵ′ \u0013 · dw C EXPERIMENTAL DETAILS C.1 METRICS We present a formal definition of all metrics used in this paper for both sequential recommendation and language modeling tasks. Sequential Recommendation. We start by outlining some notation for defining the metrics. Let the set of users in the test-set be denoted by U and the set of all items be denoted by I. For each user u ∈U, we denote its set of positive interactions I+ u ⊆I, and similarly define its set of negative interactions I− u ≜I\\I+ u . We now define the metrics for evaluating the quality of a recommender system Φ : U 7→Ik which generates a set of k item recommendations, as follows: • AUC: Intuitively defined as a threshold independent classification performance measure, AUC can also be interpreted as the expected probability of a recommender system ranking a positive item over a negative item for any given user. More formally, let Φ’s underlying relevance predictor be Φlogit : U × I 7→R, then the AUC for Φ is defined as: AUC(Φ) ≜E u∼U \u0014 E i+∼I+ u \u0014 E i−∼I− u \u0002 Φlogit(u, i+) > Φlogit(u, i−) \u0003\u0015\u0015 • HitRate (HR@k): Also termed as Recall@k; HR@k estimates how many positive items are predicted in Φ’s top-k recommendation list. More formally, the HR@k for Φ is defined as: HR@k(Φ) ≜E u∼U \u0014|Φ(u) ∩I+ u | |I+ u | \u0015 • Normalized Discounted Cumulative Gain (nDCG@k): Unlike HR@k which gives equal importance to all items in the recommendation list, the nDCG@k metric instead gives a higher importance to items predicted higher in the recommendation list and performs logarithmic discounting further down. More formally, let index(i, Φ(u)) denote the index of item i in the sorted recommendation list Φ(u), then the nDCG@k for Φ is defined as: nDCG@k(Φ) ≜E u∼U \u0014DCGu(Φ) IDCGu \u0015 DCGu(Φ) ≜ X i∈I+ u i ∈Φ(u) log2 \u0000index(i, Φ(u)) + 1 \u0001 ; IDCGu ≜ |I+ u | X i=1 1 log2(i + 1) 17 Under review as a conference paper at ICLR 2024 Language Modeling. We first use Perplexity (PPL) to evaluate language modeling performance. Perplexity quantifies how uncertain the model is when trying to predict the next word in a sequence, given the previous words. Given a sentence ⃗xi, which is tokenized into a sequence of tokens [w1, w2, · · · , w| ⃗xi|], the sentence PPL is defined as: log2 (PPLi) ≜−1 |⃗xi| | ⃗xi| X i log2 P(wi|w1, w2, · · · , wi−1) where P is the probability assigned by the language model to wi given the context of the previous words. Then, given a corpus C containing N sentences C = { ⃗x1, ⃗x2, · · · , ⃗ xN}, the perplexity over C is defined as the average PPL over the sentence PPLs: PPLC ≜1 N · N X i PPLi To better evaluate the generation quality of a language model, we also evaluate the average top-1 predicted token accuracy after greedy decoding, similar to the HR@1 metric described earlier. C.2 DATASETS We list the datasets used in this paper as well as brief data statistics in Table 3. We discuss other task-specific preprocessing and train/test splitting strategy below. Sequential Recommendation. Owing to recent work (Sachdeva et al., 2022c), we follow the minimal amount of preprocessing by only removing the users with less than two total interactions. We simulate the train/test split from the strong-generalization school-of-thought (Liang et al., 2018), where we keep a completely disjoint set of 80/10/10% train, validation, and test users split randomly. For each user in the validation/test-set, the chronologically last interacted item is used for computing ranking metrics, whereas all previous interactions are used as context for the model. Further, to simulate a realistic recommendation scenario, we compute all metrics on the full item-space without any down-sampling (Krichene & Rendle, 2020). The definition of all metrics used in this paper can be found in Appendix C.1. Language Modeling. We employ the Penn Treebank (PTB) dataset, an established and openly accessible benchmark extensively utilized in natural language processing and language modeling tasks, as introduced by (Marcus et al., 1993). We use the train/validation/test split of the official release. The original PTB corpus consists of more than 4.5 million words of American English, featuring a word vocabulary of 9,999 words, including the <unk> token. In our experimentation, we opt to maintain a vocabulary comprising 2,000 words with the highest frequencies, while any out-of-vocabulary words are represented as <unk>. C.3 HYPER-PARAMETERS For the sake of better reproducibility, we list all hyper-parameter combinations tried for our experiments in Tables 4 and 5. C.4 ADDITIONAL DETAILS We provide brief descriptions about all kinds of model architectures used in this paper for different experiments: • Transformer (Vaswani et al., 2017). A causal transformer architecture for language modeling. The hyper-parameters are listed in Table 5. • SASRec (Kang & McAuley, 2018). A causal transformer architecture for sequential recommendation. The hyper-parameters are listed in Table 4. • GRU4Rec (Hidasi et al., 2016). An GRU-based architecture for sequential recommendation, trained using the cross-entropy loss. We use a single, 16-dimensional hidden-layer for the GRU4Rec architecture which was ascertained by conducting a grid-search on the ML-100k’s validation-set. 18 Under review as a conference paper at ICLR 2024 • FMLP (Zhou et al., 2022a). An all-MLP architecture which replaces the self-attention blocks in SASRec with filter-enhanced MLPs for sequential recommendation. We use a single, 256- dimensional block for the FMLP architecture which was ascertained by conducting a grid-search on the ML-100k’s validation-set. C.5 ALTERNATIVE DATA DISTILLATION OBJECTIVES We provide a brief description and formal optimization of other existing data distillation objectives used in Section 4.2. Note that we list the modified optimization objectives where we use FARZI’s latent factorization, and use Opt to denote the underlying inner-loop optimizer (SGD or Adam). • DC (Zhao et al., 2021): This data distillation objective performs one-step gradient matching using a distance function D : R|Φ| × R|Φ| 7→R: arg min M, ˜ Dsyn E θ0∼Θ \" T X t=0 D \u0000∇θLD(θt), ∇θLDsyn(θt) \u0001 # s.t. θt+1 ←Opt \u0000θt, ∇θLDsyn(θt) \u0001 ; Dsyn ←softmax \u0010 ˜Dsyn · M / τ \u0011 . • MM (Wang et al., 2018; Deng & Russakovsky, 2022): The meta-matching objective computes the meta-gradient by unrolling the inner-loop optimization starting from random networks: arg min M, ˜ Dsyn E θ0∼Θ [LD(θT )] s.t. θt+1 ←Opt \u0000θt, ∇θLDsyn(θt) \u0001 ; Dsyn ←softmax \u0010 ˜Dsyn · M / τ \u0011 . • MTT (Cazenavette et al., 2022): The trajectory matching objective computes the meta-gradient by matching the parameters of networks trained on the real data for M optimization steps vs. models trained on the data summary for N ≪M steps. Let {θD t }T t=0 represent the training trajectory of training Φθ on D, and D : R|Φ| × R|Φ| 7→R be a pertinent distance function: arg min M, ˜ Dsyn E θ0∼Θ   T −M X t=0 D \u0010 θD t+M, θDsyn t+N \u0011 D \u0000θD t+M, θD t \u0001   s.t. θDsyn t+i+1 ←Opt \u0010 θDsyn t+i , ∇θLDsyn(θDsyn t+i ) \u0011 ; θDsyn t+1 ←Opt \u0000θD t , ∇θLDsyn(θD t ) \u0001 ; Dsyn ←softmax \u0010 ˜Dsyn · M / τ \u0011 . D ADDITIONAL RESULTS We plot extended plots for the experiments conducted in Section 4.2: • In Table 6, we plot the sample quality results of FARZI DATA in a tabular format for all datasets and metrics. • In Figure 7, we analyze FARZI DATA’s effect on cold users and cold items for all metrics described in Appendix C.1. • In Figure 8, we analyze FARZI’s reliance on the number of pretrained trajectories for all metrics described in Appendix C.1. • In Figure 9, we plot the sample efficiency of FARZI DATA for sequential recommendation for all metrics described in Appendix C.1. 19 Under review as a conference paper at ICLR 2024 Table 3: Datasets used in this paper as well as a brief set of statistics. Dataset # Users / # Items / # Interactions / Seq. Length # Sentences # Unique tokens # Total tokens Mean / Median / Min Amazon Magazine (Ni et al., 2019b) 3k 1.3k 12k 4.10 / 3 / 3 ML-100k (Harper & Konstan, 2015) 943 1.6k 100k 104.04 / 63 / 18 ML-1M (Harper & Konstan, 2015) 6k 3.7k 1M 165.22 / 95 / 20 Netflix (Bennett et al., 2007) 476k 17k 100M 210.91 / 98 / 3 PTB (Marcus et al., 1993) 49k 10k 1M 22 / 21 / 2 Table 4: List of all hyper-parameters combinations tried for FARZI and other baselines for sequential recommendation. Hyper-Parameter Model Magazine ML-100k ML-1M Netflix Latent size SASRec {8, 16, 32, 50, 64, 128} GRU4Rec FMLP # Layers SASRec {1, 2} GRU4Rec FMLP Attention Heads SASRec {1, 2} FMLP Learning rate SASRec {0.01, 0.02, 0.05} GRU4Rec {0.01, 0.02, 0.05} FMLP {0.0001, 0.0002, 0.0005} Dropout SASRec {0.0, 0.2, 0.4} GRU4Rec FMLP FARZI ξ FARZI {10, 20} {50, 100, 150} {50, 100, 150} 200 d FARZI 8 8 32 32 τ FARZI {0.5, 1, 2} |Ω| FARZI 100 100 100 50 Inner loop Weight Decay FARZI {0, 10−6} Learning Rate {0.01, 0.02} # Steps {100, 200, 300} β1 0.9 β2 0.999 SGD Momentum {0.5, 0.75, 0.9, 0.95, 0.99} Outer loop Weight Decay FARZI {0, 10−6, 10−4} Learning Rate 0.01 # Steps 4000 Batch size D FARZI 512 Dsyn — — 50 25 20 Under review as a conference paper at ICLR 2024 Table 5: List of all hyper-parameters combinations tried for FARZI and other baselines for language modeling. Hyper-Parameter Model Penn Treebank Latent size Transformer 16 RNN # Layers Transformer 1 RNN Attention Heads Transformer 1 RNN Learning rate Transformer {0.01, 0.02, 0.05} RNN {0.01, 0.02, 0.05} Dropout Transfomer {0.0, 0.2} RNN ξ FARZI {5, 15} d FARZI 8 τ FARZI {0.5, 1, 2} |Ω| FARZI 400 Inner loop Weight Decay FARZI {0, 10−7} Learning Rate {0.01, 0.02} # Steps {200, 300,400, 500, 600} β1 0.999 SGD Momentum - Outer loop Weight Decay FARZI {0, 10−6, 10−4} Learning Rate 0.01 # Steps 8000 Batch size D FARZI 256 Dsyn — 21 Under review as a conference paper at ICLR 2024 Table 6: Performance change of SASRec & Transformer with various sizes of FARZI DATA for sequential recommendation & language modeling tasks respectively. The best result for each dataset & metric is colored orange. Dataset & Model FARZI DATA size HR@10 HR@100 nDCG@10 nDCG@100 AUC PPL Acc. Magazine & SASRec [10 x 10] ≡0.3% 23.3 52.3 15.8 21.1 0.8428 - - [25 x 20] ≡0.8% 23.9 52.3 16.5 21.6 0.8307 - - [50 x 20] ≡1.6% 24.5 52.1 17.1 22.1 0.8291 - - Full-data 23.2 52.0 16.9 21.7 0.8223 - - ML-100k & SASRec [10 x 150] ≡1% 17.3 61.2 9.2 17.7 0.8957 - - [25 x 150] ≡2.6% 19.3 61.6 9.9 17.7 0.902 - - [50 x 50] ≡5.3% 19.6 62.9 9.9 18.1 0.9016 - - [100 x 100] ≡10.6% 19.5 61.9 10.1 18.1 0.9016 - - Full-data 18.2 60.6 9.3 17.6 0.9011 - - ML-1M & SASRec [10 x 150] ≡0.1% 22.4 59.0 12.0 19.0 0.923 - - [50 x 100] ≡0.8% 24.8 61.6 13.8 20.8 0.9301 - - [100 x 100] ≡1.6% 25.6 63.6 14.1 21.3 0.9317 - - [200 x 50] ≡3.3% 25.4 61.8 14.1 21.0 0.9315 - - [500 x 50] ≡8.2% 26.2 61.0 13.8 20.7 0.9293 - - Full-data 26.2 62.8 14.4 21.8 0.9291 - - Netflix & SASRec [50 x 200] ≡0.01% 15.6 38.0 9.9 14.1 0.9235 - - [500 x 200] ≡0.1% 17.8 40.7 11.6 16.1 0.9449 - - [2000 x 200] ≡0.4% 17.5 40.3 11.3 15.8 0.9455 - - Full-data 18.1 41.9 11.8 16.4 0.947 - - PTB & Transformer [10 x 50] ≡0.02% - - - - - 238.5 20.48 [200 x 50] ≡0.47% - - - - - 124.0 24.0 [400 x 50] ≡1% - - - - - 91.9 25.16 [2000 x 50] ≡4.7% - - - - - 91.0 25.4 Full-data - - - - - 72.10 26.03 25 50 100 160 User frequency 0 10 20 30 Avg. HR@10 25 50 100 160 User frequency 20 40 60 80 Avg. HR@100 25 50 100 160 User frequency 0 5 10 Avg. NDCG@10 25 50 100 160 User frequency 10 20 Avg. NDCG@100 20 50 100 200 600 Item frequency 0 20 40 Avg. HR@10 20 50 100 200 600 Item frequency 0 25 50 75 Avg. HR@100 20 50 100 200 600 Item frequency 0 10 20 Avg. NDCG@10 20 50 100 200 600 Item frequency 0 10 20 30 Avg. NDCG@100 Farzi Full Data Figure 7: Performance of SASRec trained on [50×150] sized FARZI DATA of the ML-100k dataset, and stratified over the popularity of users and items. The user/item popularity spectrum is quantized into 10 equal sized bins and the average corresponding metric is plotted. 22 Under review as a conference paper at ICLR 2024 0 25 50 75 100 # Trajectories 12 13 14 15 16 17 HR@10 0 25 50 75 100 # Trajectories 50 52 54 56 58 60 HR@100 0 25 50 75 100 # Trajectories 6 6.6 7.2 7.8 8.4 9 NDCG@10 0 25 50 75 100 # Trajectories 13 14 15 16 17 NDCG@100 0 25 50 75 100 # Trajectories 0.86 0.87 0.88 0.89 0.90 AUC Farzi Figure 8: Performance change of SASRec trained on [10×150] sized FARZI DATA of the ML-100k dataset with increasing number of pretrained trajectories. 0.3% 1% 5% 20% 100% 5 10 15 20 25 HR@10 Amazon Magazine 1% 5% 20% 100% 4 8 12 16 20 ML-100k 0.2% 1% 5% 20% 100% 0 6 12 18 24 ML-1M 0.01%0.1% 1% 10% 100% 3 6 9 12 15 18 Netﬂix 0.3% 1% 5% 20% 100% 16 24 32 40 48 HR@100 1% 5% 20% 100% 20 30 40 50 60 0.2% 1% 5% 20% 100% 10 20 30 40 50 60 0.01%0.1% 1% 10% 100% 12 18 24 30 36 42 0.3% 1% 5% 20% 100% 3 6 9 12 15 18 NDCG@10 1% 5% 20% 100% 2 4 6 8 10 0.2% 1% 5% 20% 100% 0 4 8 12 16 0.01%0.1% 1% 10% 100% 2 5 7 10 12 0.3% 1% 5% 20% 100% 4 8 12 16 20 NDCG@100 1% 5% 20% 100% 3 6 9 12 15 18 0.2% 1% 5% 20% 100% 0 6 12 18 24 0.01%0.1% 1% 10% 100% 3 6 9 12 15 0.3% 1% 5% 20% 100% Data summary size 0.56 0.64 0.72 0.80 AUC 1% 5% 20% 100% Data summary size 0.64 0.72 0.80 0.88 0.2% 1% 5% 20% 100% Data summary size 0.60 0.70 0.80 0.90 0.01%0.1% 1% 10% 100% Data summary size 0.72 0.80 0.88 0.96 Full Data Random Head Farzi Figure 9: Performance change of SASRec model with increasing data summary size (log-scale) for sequential recommendation. 23"
+    }
+  ]
+}

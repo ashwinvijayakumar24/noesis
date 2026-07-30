@@ -1,0 +1,119 @@
+{
+  "corpus": "eR4W9tnJoZ",
+  "source_pdf": "eR4W9tnJoZ.pdf",
+  "source_sha256": "26501c8eb2ecf8bc12903f4f2c830fa5520b580ec8dfff7f09c49dcaa77ba957",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:55.327709Z",
+  "references_attempted": 12,
+  "references_resolved": 2,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W4323286786",
+      "title": "Neuromarketing Tools Used in the Marketing Mix: A Systematic Literature and Future Research Agenda",
+      "doi": "10.1177/21582440231156563",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1177/21582440231156563",
+      "raw": "Putting a finger on our phone obsession. URL https://dscout.com/people-nerds/ mobile-touches. Neuroscience for kids - reflexes. URL https://faculty.washington.edu/chudler/ chreflex.html. Ahmed H. Alsharif, Nor Zafir Salleh, Mazilah Abdullah, Ahmad Khraiwish, and Azmirul Ashaari. Neuromarketing tools used in the marketing mix: A systematic literature and future research agenda. SAGE Open, 13(1), 2023. doi: 10.1177/21582440231156563. Anonymous. Role of visual stimuli in final seconds of decision-making. Cognitive Computational Neuroscience Conference, 2022, San Francisco, 2022. URL https://doi.org/10. 32470/ccn.2022.1318-0. {Last Accessed 29-May-2023}. Anonymous. Fostering effective communication between humans and machines, May 2023. URL https://openreview.net/forum?id=AHnLJBD7xKx. Antonio Baraybar-Fern´andez, Miguel Ba˜nos-Gonz´alez, ´Oscar Barquero-P´erez, Rebeca Goya- Esteban, and Alexia De-la Morena-G´omez. Evaluation of emotional responses to television advertising through neuromarketing. Comunicar: Revista Cient´ıfica de Comunicac´ıon y Educac´ıon, 25(52):19–28, 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3186448802",
+      "title": "What Behavioral Abilities Emerged at Key Milestones in Human Brain Evolution? 13 Hypotheses on the 600-Million-Year Phylogenetic History of Human Intelligence",
+      "doi": "10.3389/fpsyg.2021.685853",
+      "status": "resolved",
+      "filename": "bennett_2021_what_behavioral_abilities_emerged_at_key_milestones_in_human_brain_.pdf",
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2021.685853/pdf",
+      "raw": "Max S. Bennett. What behavioral abilities emerged at key milestones in human brain evolution? 13 hypotheses on the 600-million-year phylogenetic history of human intelligence. Frontiers in Psychology, 12, 2021. doi: 10.3389/fpsyg.2021.685853. Kent C Berridge. Pleasure, pain, desire, and dread: Hidden core processes of emotion. 1999. Kent C Berridge and John P O’Doherty. From experienced utility to decision utility. In Neuroeconomics, pp. 335–351. Elsevier, 2014. Kent C Berridge and Terry E Robinson. Liking, wanting, and the incentive-sensitization theory of addiction. American Psychologist, 71(8):670, 2016. Patrick Boyle. Covid-19 vaccines were developed in record time. can we make future vaccines even faster?, Jul 2021. URL https://www.aamc.org/news/ covid-19-vaccines-were-developed-record-time-can-we-make-future-vaccines-even-fast"
+    },
+    {
+      "openalex_id": "https://openalex.org/W1973573654",
+      "title": "Magnetoencephalographic Signals Identify Stages in Real‐Life Decision Processes",
+      "doi": "10.1155/np.2001.241",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://downloads.hindawi.com/journals/np/2001/247838.pdf",
+      "raw": "Sven Braeutigam, John F Stins, Steven PR Rose, Stephen J Swithenby, Tim Ambler, et al. Magnetoencephalographic signals identify stages in real-life decision processes. Neural Plasticity, 8: 241–254, 2001. Rita Carter. The brain book: An illustrated guide to its structure, functions, and disorders. Dorling"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2005829247",
+      "title": "Watching television over an IP network",
+      "doi": "10.1145/1452520.1452529",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Meeyoung Cha, Pablo Rodriguez, Jon Crowcroft, Sue Moon, and Xavier Amatriain. Watching television over an ip network. In Proceedings of the 8th ACM SIGCOMM conference on Internet measurement, pp. 71–84, 2008."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2974679151",
+      "title": "Consumer Behaviour through the Eyes of Neurophysiological Measures: State-of-the-Art and Future Trends",
+      "doi": "10.1155/2019/1976847",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://downloads.hindawi.com/journals/cin/2019/1976847.pdf",
+      "raw": "Patrizia Cherubino, Ana C Martinez-Levy, Myriam Caratu, Giulia Cartocci, Gianluca Di Flumeri, Enrica Modica, Dario Rossi, Marco Mancini, Arianna Trettel, et al. Consumer behaviour through the eyes of neurophysiological measures: State-of-the-art and future trends. Computational intelligence and neuroscience, 2019, 2019. Patricia S Churchland, Vilayanur S Ramachandran, Terrence J Sejnowski, Christof Koch, and J Davis. Large-scale neuronal theories of the brain, 1994. FacebookIQ. Capturing attention in feed: The science behind effective video creative. URL https://www.facebook.com/business/news/insights/ capturing-attention-feed-video-creative. Google. Google graveyard. URL https://killedbygoogle.com/. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4294647307",
+      "title": "Artificial intelligence (AI) applications for marketing: A literature-based study",
+      "doi": "10.1016/j.ijin.2022.08.005",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1016/j.ijin.2022.08.005",
+      "raw": "Abid Haleem, Mohd Javaid, Mohd Asim Qadri, Ravi Pratap Singh, and Rajiv Suman. Artificial intelligence (ai) applications for marketing: A literature-based study. International Journal of Intelligent Networks, 2022. Josh Howarth. Time spent using smartphones (2023 statistics), Jan 2023. URL https:// explodingtopics.com/blog/smartphone-usage-stats. {Last Accessed 29-Oct- 2023}. Tim Hwang. Subprime attention crisis: Advertising and the time bomb at the heart of the Internet. FSG originals, 2020. Joseph LeDoux and Jules R Bemporad. The emotional brain. Journal of the American Academy of Psychoanalysis, 25(3):525–528, 1997. Vivian Liu and Lydia B Chilton. Design guidelines for prompt engineering text-to-image generative models. In Proceedings of the 2022 CHI Conference on Human Factors in Computing Systems, pp. 1–23, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Neural precursors of decisions that matter-an erp study of deliberate and arbitrary choice, Oct 2019",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Uri Maoz, Gideon Yaffe, Christof Koch, and Liad Mudrik. Neural precursors of decisions that matter-an erp study of deliberate and arbitrary choice, Oct 2019. URL https:// elifesciences.org/articles/39787. Susie Marino. Google Ads Benchmarks 2023: Key Trends Insights for Every Industry, 2023. {Last Accessed 29-Oct-2023}. Harry McCracken. Google graveyard, meet microsoft’s morgue, Jul 2012. URL https://techland.time.com/2012/07/03/ google-graveyard-meet-microsofts-morgue/. TJ McCue. Improve your midjourney ai image creation with these advanced tips, Sep 2023. URL https://www.forbes.com/sites/tjmccue/2023/01/24/ improve-your-midjourney-ai-image-creation-with-these-advanced-tips/ ?sh=155ac01a2857. Peter McLeod. Visual reaction time and high-speed ball games. Perception, 16(1):49–59, 1987. Meta. Good ideas deserve to be found. URL https://about.meta.com/ supportsmallbusiness/personalized-ads/. Francisco Mu˜noz-Leiva, Janet Hern´andez-M´endez, and Diego G´omez-Carmona. Measuring advertising effectiveness in travel 2.0 websites through eye-tracking technology. Physiology & behavior, 200:83–95, 2019. Gregory Murphy. Categories and concepts. URL https://nobaproject.com/modules/ categories-and-concepts."
+    },
+    {
+      "openalex_id": "https://openalex.org/W6891843533",
+      "title": "A Taxonomy of Prompt Modifiers for Text-To-Image Generation",
+      "doi": "10.48550/arxiv.2204.13988",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.48550/arxiv.2204.13988",
+      "raw": "Sajjad Nazir, Sahar Khadim, Muhammad Ali Asadullah, and Nausheen Syed. Exploring the influence of artificial intelligence technology on consumer repurchase intention: The mediation and moderation approach. Technology in Society, 72:102190, 2023. Netflix. Jonas Oppenlaender. A taxonomy of prompt modifiers for text-to-image generation. arXiv preprint arXiv:2204.13988, 2, 2022. John P O’Doherty, Ueli Rutishauser, and Kiyohito Iigaya. The hierarchical construction of value. Current opinion in behavioral sciences, 41:71–77, 2021. Nikita Pavlichenko and Dmitry Ustalov. Best prompts for text-to-image models and how to find them. In Proceedings of the 46th International ACM SIGIR Conference on Research and Development in Information Retrieval, pp. 2067–2071, 2023."
+    },
+    {
+      "openalex_id": null,
+      "title": "Hierarchical textconditional image generation with clip latents, Apr 2022",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey Chu, and Mark Chen. Hierarchical textconditional image generation with clip latents, Apr 2022. URL https://arxiv.org/abs/ 2204.06125. 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4312933868",
+      "title": "High-Resolution Image Synthesis with Latent Diffusion Models",
+      "doi": "10.1109/cvpr52688.2022.01042",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bjorn Ommer. Highresolution image synthesis with latent diffusion models. 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2022. doi: 10.1109/cvpr52688.2022.01042."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281485151",
+      "title": "Photorealistic Text-to-Image Diffusion Models with Deep Language Understanding",
+      "doi": "10.48550/arxiv.2205.11487",
+      "status": "resolved",
+      "filename": "saharia_2022_photorealistic_text_to_image_diffusion_models_with_deep_language_un.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.11487",
+      "raw": "Chitwan Saharia, William Chan, Saurabh Saxena, Lala Li, Jay Whang, Emily L Denton, Kamyar Ghasemipour, Raphael Gontijo Lopes, Burcu Karagol Ayan, Tim Salimans, et al. Photorealistic text-to-image diffusion models with deep language understanding. Advances in Neural Information Processing Systems, 35:36479–36494, 2022. Ananya Sharma. Here’s why india is struggling to be truly open defecation free, Oct 2021. URL https://thewire.in/government/ heres-why-india-is-struggling-to-be-truly-open-defecation-free."
+    },
+    {
+      "openalex_id": null,
+      "title": "Kijken in het brein: Over de mogelijkheden van neuromarketin, Oct 2002",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "A. Smidts. Kijken in het brein: Over de mogelijkheden van neuromarketin, Oct 2002. URL https: //ideas.repec.org/p/ems/euriar/308.html. Todd Szahun and Rachel Dalton. The state of ecommerce 2021. URL https://www.kantar. com/inspiration/retail/the-state-of-ecommerce-2021-cn. Nikolaas Tinbergen. The study of instinct. Pygmalion Press, an imprint of Plunkett Lake Press, 2020. A"
+    }
+  ]
+}
