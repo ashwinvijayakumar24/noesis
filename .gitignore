@@ -108,6 +108,39 @@ scripts/eval/cache/
 # small, append-only, and are the durable record.
 !scripts/eval/results/history.jsonl
 !scripts/eval/results/openreview_history.jsonl
+# node_eval.jsonl is tracked too: ~16 KB for 14 records, and it is the ONLY
+# per-node cost/latency record that survives a clone. Its records are bounded
+# by (nodes x papers x repeat) per run, not by document count, so it does not
+# run away the way the two sinks below do.
+!scripts/eval/results/node_eval.jsonl
+#
+# Deliberately NOT tracked, and why:
+#
+#   results/node_eval_spans.jsonl  -- raw OTel-shaped spans, one line per span,
+#     unbounded: every replay of every node appends. Nothing here is lost by
+#     ignoring it; benchmarks.py distils the per-node latency and cost out of
+#     it, and node_eval.jsonl (tracked, above) carries the same costs already.
+#
+#   cache/ingest_manifest.jsonl    -- 155 KB and grows by one record per
+#     document per ingest run. Covered by the `scripts/eval/cache/` rule above.
+#     BENCHMARKS.md carries the rollup that matters: extractor, chunking config,
+#     embedding model+dims, token/chunk totals, error and ceiling counts.
+#
+#   results/retrieval_eval.jsonl   -- bimodal: a summary record is ~2.7 KB, but
+#     a record carrying its per-query `misses` list is 66-99 KB, i.e. ~97% of
+#     the file is one debug payload that is regenerable from the labels. The
+#     distilled board carries EVERYTHING ELSE from these records -- every
+#     metric with its n, config hash, both fingerprints, the recall ceiling and
+#     percent-of-attainable, the validity flag and degradation reason, the
+#     failure_breakdown (which is exactly the rollup of `misses`), the
+#     retrieval_health counters and the corpus/resolution summary. Losing the
+#     per-query miss list costs debugging convenience, not a benchmark.
+#
+# The distilled outputs are the durable record and ARE tracked. They live in
+# scripts/eval/ (not results/), so no negation is needed for them -- listed
+# here only so the intent is written down next to the exclusions:
+#   scripts/eval/BENCHMARKS.md
+#   scripts/eval/benchmarks.json
 scripts/eval/pdfs/*.pdf
 scripts/eval/corpora/**/*.pdf
 scripts/eval/openreview/**/*.pdf

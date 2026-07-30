@@ -3,6 +3,8 @@ REPO_ROOT := $(shell pwd)
 EVAL = scripts/eval
 LIMIT ?= 15
 VENUE ?= ICLR.cc/2024/Conference
+PAPERS ?=
+PAPER_ARGS = $(if $(PAPERS),--paper-ids $(PAPERS),)
 
 # Sync scripts/ and pdfs/ into the running container (no volume mount needed)
 # Run this once after any change to scripts/eval/ or after adding PDFs
@@ -12,8 +14,8 @@ eval-sync:
 
 eval-openreview:
 	BACKEND=$(BACKEND) REPO_ROOT="$(REPO_ROOT)" $(EVAL)/_verify_live.sh
-	docker exec -e EVAL_STATE_DIR=/app/scripts/eval/cache/state $(BACKEND) python /app/scripts/eval/run_eval.py \
-		--openreview --venue $(VENUE) --limit $(LIMIT)
+	docker exec -e EVAL_STATE_DIR=/app/scripts/eval/cache/state -e EVAL_SKIP_EXTERNAL_SOURCE_DISCOVERY=1 -e EVAL_DISABLE_PRE_REVIEWER_HALT=1 $(BACKEND) python /app/scripts/eval/run_eval.py \
+		--openreview --venue $(VENUE) --limit $(LIMIT) $(PAPER_ARGS)
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
 	docker cp $(BACKEND):/app/scripts/eval/openreview ./scripts/eval/
 	docker cp $(BACKEND):/app/scripts/eval/cache ./scripts/eval/
@@ -77,6 +79,16 @@ eval-build-all-corpora: eval-sync
 	docker cp $(BACKEND):/app/scripts/eval/config.yaml ./scripts/eval/
 	@echo "[eval] All corpora synced back. Re-run eval-sync before next eval run."
 
+# Regenerate the tracked benchmark board from every local measurement sink.
+# Runs on the host (no container): it only reads JSONL files under scripts/eval/.
+benchmarks:
+	python3 $(EVAL)/benchmarks.py
+	@echo "[eval] Board: $(EVAL)/BENCHMARKS.md + $(EVAL)/benchmarks.json — commit both."
+
+# Fail if the tracked board is out of date with the local sinks
+benchmarks-check:
+	python3 $(EVAL)/benchmarks.py --check
+
 # Pull results back from container after a manual docker exec run
 eval-pull-results:
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
@@ -84,4 +96,5 @@ eval-pull-results:
 
 .PHONY: eval eval-quick eval-stability eval-sync eval-openreview eval-run eval-run-corpus \
         eval-judge eval-bootstrap-gold eval-pull-results \
-        eval-build-corpus eval-build-all-corpora eval-heldout-check
+        eval-build-corpus eval-build-all-corpora eval-heldout-check \
+        benchmarks benchmarks-check

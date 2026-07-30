@@ -1,0 +1,1086 @@
+{
+  "draft_eval_history": {
+    "deltas": [],
+    "label": "draft eval",
+    "n_runs": 0,
+    "pipeline_versions": [],
+    "runs": [],
+    "source": "results/history.jsonl"
+  },
+  "gate_calibration": {
+    "n_sweeps": 0,
+    "sweeps": []
+  },
+  "ingest": {
+    "actions": {
+      "ingested": 114,
+      "skipped": 80
+    },
+    "chunking_configs": {
+      "basic/pysbd size=1200 overlap=200": 25,
+      "basic/pysbd size=1600 overlap=250": 123,
+      "basic/pysbd size=2000 overlap=300": 45,
+      "basic/pysbd size=4441 overlap=666": 1
+    },
+    "chunks": {
+      "max": 55,
+      "mean": 18.144329896907216,
+      "min": 3,
+      "n": 194,
+      "total": 3520
+    },
+    "cost_ceiling_applied": 1,
+    "embedding_models": {
+      "text-embedding-3-large@1536": 194
+    },
+    "errors": 0,
+    "extractors": {
+      "pymupdf": 194
+    },
+    "n_distinct_docs": 118,
+    "n_records": 194,
+    "source": "cache/ingest_manifest.jsonl",
+    "tokens": {
+      "max": 243358,
+      "mean": 31109.963917525773,
+      "min": 3229,
+      "n": 194,
+      "total": 6035333
+    }
+  },
+  "node_eval": {
+    "deltas": [],
+    "n_replays": 11,
+    "n_run_summaries": 3,
+    "per_node": [
+      {
+        "cost_is_lower_bound": false,
+        "estimated_usd": 0.003988,
+        "failed": 0,
+        "llm_calls": 3,
+        "node": "editor_pass_node",
+        "ok": 3,
+        "replays": 3,
+        "unpriced_calls": 0,
+        "wall_seconds_max": 8.1882,
+        "wall_seconds_mean": 7.0792,
+        "wall_seconds_min": 6.0547,
+        "wall_seconds_n": 3
+      },
+      {
+        "cost_is_lower_bound": false,
+        "estimated_usd": 0.216001,
+        "failed": 0,
+        "llm_calls": 6,
+        "node": "reviewer_panel_node",
+        "ok": 5,
+        "replays": 5,
+        "unpriced_calls": 0,
+        "wall_seconds_max": 25.662,
+        "wall_seconds_mean": 19.817839999999997,
+        "wall_seconds_min": 16.7827,
+        "wall_seconds_n": 5
+      },
+      {
+        "cost_is_lower_bound": false,
+        "estimated_usd": 0.0,
+        "failed": 0,
+        "llm_calls": 0,
+        "node": "run_quality_diagnostics",
+        "ok": 3,
+        "replays": 3,
+        "unpriced_calls": 0,
+        "wall_seconds_max": 0.1185,
+        "wall_seconds_mean": 0.05973333333333333,
+        "wall_seconds_min": 0.0238,
+        "wall_seconds_n": 3
+      }
+    ],
+    "runs": [
+      {
+        "attempted_replays": 6,
+        "completed_replays": 6,
+        "config_key": "editor_pass_node,run_quality_diagnostics|10eQ4Cfh8p,9ceadCJY4B,ApjY32f3Xr|None|1|False",
+        "cost_is_lower_bound": false,
+        "failed_replays": 0,
+        "halted": null,
+        "nodes_requested": [
+          "run_quality_diagnostics",
+          "editor_pass_node"
+        ],
+        "papers": [
+          "10eQ4Cfh8p",
+          "9ceadCJY4B",
+          "ApjY32f3Xr"
+        ],
+        "per_node": [
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 766,
+            "estimated_usd": 0.001751,
+            "failures": 0,
+            "latency_max_s": 8.1882,
+            "latency_mean_s": 8.1882,
+            "latency_median_s": 8.1882,
+            "latency_min_s": 8.1882,
+            "latency_n": 1,
+            "llm_calls": 1,
+            "node": "editor_pass_node",
+            "paper_id": "10eQ4Cfh8p",
+            "prompt_tokens": 877,
+            "reviewer_type": null,
+            "runs": 1,
+            "unpriced_calls": 0
+          },
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 506,
+            "estimated_usd": 0.001237,
+            "failures": 0,
+            "latency_max_s": 6.9947,
+            "latency_mean_s": 6.9947,
+            "latency_median_s": 6.9947,
+            "latency_min_s": 6.9947,
+            "latency_n": 1,
+            "llm_calls": 1,
+            "node": "editor_pass_node",
+            "paper_id": "9ceadCJY4B",
+            "prompt_tokens": 899,
+            "reviewer_type": null,
+            "runs": 1,
+            "unpriced_calls": 0
+          },
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 387,
+            "estimated_usd": 0.001,
+            "failures": 0,
+            "latency_max_s": 6.0547,
+            "latency_mean_s": 6.0547,
+            "latency_median_s": 6.0547,
+            "latency_min_s": 6.0547,
+            "latency_n": 1,
+            "llm_calls": 1,
+            "node": "editor_pass_node",
+            "paper_id": "ApjY32f3Xr",
+            "prompt_tokens": 906,
+            "reviewer_type": null,
+            "runs": 1,
+            "unpriced_calls": 0
+          },
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 0,
+            "estimated_usd": 0.0,
+            "failures": 0,
+            "latency_max_s": 0.0238,
+            "latency_mean_s": 0.0238,
+            "latency_median_s": 0.0238,
+            "latency_min_s": 0.0238,
+            "latency_n": 1,
+            "llm_calls": 0,
+            "node": "run_quality_diagnostics",
+            "paper_id": "10eQ4Cfh8p",
+            "prompt_tokens": 0,
+            "reviewer_type": null,
+            "runs": 1,
+            "unpriced_calls": 0
+          },
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 0,
+            "estimated_usd": 0.0,
+            "failures": 0,
+            "latency_max_s": 0.1185,
+            "latency_mean_s": 0.1185,
+            "latency_median_s": 0.1185,
+            "latency_min_s": 0.1185,
+            "latency_n": 1,
+            "llm_calls": 0,
+            "node": "run_quality_diagnostics",
+            "paper_id": "9ceadCJY4B",
+            "prompt_tokens": 0,
+            "reviewer_type": null,
+            "runs": 1,
+            "unpriced_calls": 0
+          },
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 0,
+            "estimated_usd": 0.0,
+            "failures": 0,
+            "latency_max_s": 0.0369,
+            "latency_mean_s": 0.0369,
+            "latency_median_s": 0.0369,
+            "latency_min_s": 0.0369,
+            "latency_n": 1,
+            "llm_calls": 0,
+            "node": "run_quality_diagnostics",
+            "paper_id": "ApjY32f3Xr",
+            "prompt_tokens": 0,
+            "reviewer_type": null,
+            "runs": 1,
+            "unpriced_calls": 0
+          }
+        ],
+        "planned_replays": 6,
+        "repeat": 1,
+        "reviewer_type": null,
+        "run_id": "f112dc6fc2f3",
+        "source": "results/node_eval.jsonl",
+        "timestamp": "2026-07-30T20:37:06.194593+00:00",
+        "total_estimated_usd": 0.003988,
+        "total_llm_calls": 3,
+        "unpriced_calls": 0,
+        "with_metric": false
+      },
+      {
+        "attempted_replays": 2,
+        "completed_replays": 2,
+        "config_key": "reviewer_panel_node|10eQ4Cfh8p,9ceadCJY4B|methodology|1|False",
+        "cost_is_lower_bound": false,
+        "failed_replays": 0,
+        "halted": null,
+        "nodes_requested": [
+          "reviewer_panel_node"
+        ],
+        "papers": [
+          "10eQ4Cfh8p",
+          "9ceadCJY4B"
+        ],
+        "per_node": [
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 1392,
+            "estimated_usd": 0.035535,
+            "failures": 0,
+            "latency_max_s": 18.5249,
+            "latency_mean_s": 18.5249,
+            "latency_median_s": 18.5249,
+            "latency_min_s": 18.5249,
+            "latency_n": 1,
+            "llm_calls": 1,
+            "node": "reviewer_panel_node",
+            "paper_id": "10eQ4Cfh8p",
+            "prompt_tokens": 9170,
+            "reviewer_type": "methodology",
+            "runs": 1,
+            "unpriced_calls": 0
+          },
+          {
+            "cached_tokens": 0,
+            "completion_tokens": 1730,
+            "estimated_usd": 0.117906,
+            "failures": 0,
+            "latency_max_s": 25.662,
+            "latency_mean_s": 25.662,
+            "latency_median_s": 25.662,
+            "latency_min_s": 25.662,
+            "latency_n": 1,
+            "llm_calls": 2,
+            "node": "reviewer_panel_node",
+            "paper_id": "9ceadCJY4B",
+            "prompt_tokens": 53535,
+            "reviewer_type": "methodology",
+            "runs": 1,
+            "unpriced_calls": 0
+          }
+        ],
+        "planned_replays": 2,
+        "repeat": 1,
+        "reviewer_type": "methodology",
+        "run_id": "07e1fec6baf0",
+        "source": "results/node_eval.jsonl",
+        "timestamp": "2026-07-30T20:38:20.644194+00:00",
+        "total_estimated_usd": 0.153441,
+        "total_llm_calls": 3,
+        "unpriced_calls": 0,
+        "with_metric": false
+      },
+      {
+        "attempted_replays": 3,
+        "completed_replays": 3,
+        "config_key": "reviewer_panel_node|10eQ4Cfh8p|methodology|3|True",
+        "cost_is_lower_bound": false,
+        "failed_replays": 0,
+        "halted": null,
+        "nodes_requested": [
+          "reviewer_panel_node"
+        ],
+        "papers": [
+          "10eQ4Cfh8p"
+        ],
+        "per_node": [
+          {
+            "cached_tokens": 27264,
+            "completion_tokens": 4097,
+            "estimated_usd": 0.06256,
+            "failures": 0,
+            "latency_max_s": 19.3375,
+            "latency_mean_s": 18.3008,
+            "latency_median_s": 18.7821,
+            "latency_min_s": 16.7827,
+            "latency_n": 3,
+            "llm_calls": 3,
+            "node": "reviewer_panel_node",
+            "paper_id": "10eQ4Cfh8p",
+            "prompt_tokens": 27510,
+            "reviewer_type": "methodology",
+            "runs": 3,
+            "unpriced_calls": 0
+          }
+        ],
+        "planned_replays": 3,
+        "repeat": 3,
+        "reviewer_type": "methodology",
+        "run_id": "4ce7276cc133",
+        "source": "results/node_eval.jsonl",
+        "timestamp": "2026-07-30T20:39:52.282941+00:00",
+        "total_estimated_usd": 0.06256,
+        "total_llm_calls": 3,
+        "unpriced_calls": 0,
+        "with_metric": true
+      }
+    ]
+  },
+  "openreview_history": {
+    "deltas": [
+      {
+        "first_hallucinations": 0,
+        "first_mean_overall": null,
+        "first_run_id": "c650b9a09eaf4f0c83c92be04f8ad685",
+        "last_hallucinations": 0,
+        "last_mean_overall": null,
+        "last_run_id": "e1a461ab2bd0493baa44a0617a9b21ad",
+        "mean_overall_delta": null,
+        "n_scored_cells": 0,
+        "pipeline_version": "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
+        "runs": 5
+      },
+      {
+        "first_hallucinations": 0,
+        "first_mean_overall": null,
+        "first_run_id": "6ab29ecfa63b4a1d9fe17816f615225b",
+        "last_hallucinations": 0,
+        "last_mean_overall": null,
+        "last_run_id": "d3f621de72e8408db9a21e245ddae24d",
+        "mean_overall_delta": null,
+        "n_scored_cells": 0,
+        "pipeline_version": "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220",
+        "runs": 5
+      }
+    ],
+    "label": "OpenReview eval",
+    "n_runs": 10,
+    "pipeline_versions": [
+      "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
+      "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220"
+    ],
+    "runs": [
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T19:53:34.384302+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
+        "run_id": "c650b9a09eaf4f0c83c92be04f8ad685",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T19:57:01.139052+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
+        "run_id": "c83234eec6c44095a991c9d90a5c7368",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:00:23.084827+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
+        "run_id": "f73faf7b8d8348cea71d0f7cc1bc5901",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:03:10.913233+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
+        "run_id": "73c20551993d4db380289719eca9f632",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:04:02.956685+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
+        "run_id": "e1a461ab2bd0493baa44a0617a9b21ad",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:35:53.864923+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220",
+        "run_id": "6ab29ecfa63b4a1d9fe17816f615225b",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:36:38.802366+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220",
+        "run_id": "0e691d10f92645ea9142e19fb5ef8dc5",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:38:00.985317+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220",
+        "run_id": "4009a55234c342359d93dadd37419d66",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:45:12.378477+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220",
+        "run_id": "9f67abf4699b4f639373b0c16d617021",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      },
+      {
+        "config": {
+          "limit": 1,
+          "paper_ids": "b,c",
+          "venue": "ICLR.cc/2024/Conference"
+        },
+        "generated_at": "2026-07-30T20:54:07.692541+00:00",
+        "mean_overall": null,
+        "papers": 2,
+        "pipeline_version": "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220",
+        "run_id": "d3f621de72e8408db9a21e245ddae24d",
+        "scored_cells": 0,
+        "source": "results/openreview_history.jsonl",
+        "total_cells": 2,
+        "total_hallucinations": 0
+      }
+    ],
+    "source": "results/openreview_history.jsonl"
+  },
+  "retrieval": {
+    "config_hashes": [
+      "7330ae9c1e22ce33",
+      "cf6b3f1b3fc00644"
+    ],
+    "deltas": [
+      {
+        "config_hash": "7330ae9c1e22ce33",
+        "first_run_id": "95200e220255",
+        "first_timestamp": "2026-07-30T20:41:35.740026+00:00",
+        "last_run_id": "1fdb7ff03547",
+        "last_timestamp": "2026-07-30T20:47:05.206283+00:00",
+        "metrics": [
+          {
+            "delta": 0.0,
+            "first": 0.4391191288685534,
+            "last": 0.4391191288685534,
+            "metric": "map",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.883643607606587,
+            "last": 0.883643607606587,
+            "metric": "mrr",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.6526361548311572,
+            "last": 0.6526361548311572,
+            "metric": "ndcg@10",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.08955960636264551,
+            "last": 0.08955960636264551,
+            "metric": "recall@1",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.422077469052922,
+            "last": 0.422077469052922,
+            "metric": "recall@10",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.5298597838048452,
+            "last": 0.5298597838048452,
+            "metric": "recall@20",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.3051334502240406,
+            "last": 0.3051334502240406,
+            "metric": "recall@5",
+            "n_queries": 59
+          }
+        ],
+        "retriever": "dense",
+        "runs": 2
+      },
+      {
+        "config_hash": "cf6b3f1b3fc00644",
+        "first_run_id": "0fe3bb4a1b9f",
+        "first_timestamp": "2026-07-30T20:42:07.449359+00:00",
+        "last_run_id": "a986f65f72f6",
+        "last_timestamp": "2026-07-30T20:47:18.411648+00:00",
+        "metrics": [
+          {
+            "delta": 0.0,
+            "first": 0.003993765828949932,
+            "last": 0.003993765828949932,
+            "metric": "map",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.03389830508474576,
+            "last": 0.03389830508474576,
+            "metric": "mrr",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.011212824130007596,
+            "last": 0.011212824130007596,
+            "metric": "ndcg@10",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.003409312293006039,
+            "last": 0.003409312293006039,
+            "metric": "recall@1",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.003993765828949932,
+            "last": 0.003993765828949932,
+            "metric": "recall@10",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.003993765828949932,
+            "last": 0.003993765828949932,
+            "metric": "recall@20",
+            "n_queries": 59
+          },
+          {
+            "delta": 0.0,
+            "first": 0.003993765828949932,
+            "last": 0.003993765828949932,
+            "metric": "recall@5",
+            "n_queries": 59
+          }
+        ],
+        "retriever": "keyword",
+        "runs": 2
+      }
+    ],
+    "headline": [
+      {
+        "ceiling_provenance": "retrieval/BASELINE.md (labels+queries fingerprint match)",
+        "chunk_oversample": 5,
+        "config_hash": "7330ae9c1e22ce33",
+        "corpus": {
+          "n_topics": 15,
+          "n_topics_with_labels": 12,
+          "pooled_corpus_size": 118,
+          "references_resolved": 119,
+          "references_unresolved_by_reason": {
+            "download_failed": 9,
+            "no_oa_pdf": 27,
+            "no_openalex_match": 10,
+            "pending": 19
+          },
+          "references_unresolved_excluded": 65
+        },
+        "failure_breakdown": {
+          "ranking_failure": 137,
+          "retrieval_failure": 463,
+          "total_misses": 600,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 65
+        },
+        "graded": false,
+        "has_misses_payload": true,
+        "k": 10,
+        "labels_fingerprint": "019bee4a06eb2d39",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 59,
+            "pct_of_attainable": null,
+            "value": 0.4391191288685534
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 59,
+            "pct_of_attainable": null,
+            "value": 0.883643607606587
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 59,
+            "pct_of_attainable": null,
+            "value": 0.6526361548311572
+          },
+          {
+            "ceiling": 0.1061,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 59,
+            "pct_of_attainable": 0.8441056207600897,
+            "value": 0.08955960636264551
+          },
+          {
+            "ceiling": 0.7789,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 59,
+            "pct_of_attainable": 0.5418891629900141,
+            "value": 0.422077469052922
+          },
+          {
+            "ceiling": 0.8798,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 59,
+            "pct_of_attainable": 0.6022502657477213,
+            "value": 0.5298597838048452
+          },
+          {
+            "ceiling": 0.5307,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 59,
+            "pct_of_attainable": 0.5749641044357275,
+            "value": 0.3051334502240406
+          }
+        ],
+        "n_queries": 59,
+        "n_queries_scored": 59,
+        "n_relevant_total": 903,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 118,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 16900,
+          "rows_returned": 16900
+        },
+        "retriever": "dense",
+        "run_id": "1fdb7ff03547",
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-30T20:47:05.206283+00:00"
+      },
+      {
+        "ceiling_provenance": "retrieval/BASELINE.md (labels+queries fingerprint match)",
+        "chunk_oversample": 5,
+        "config_hash": "cf6b3f1b3fc00644",
+        "corpus": {
+          "n_topics": 15,
+          "n_topics_with_labels": 12,
+          "pooled_corpus_size": 118,
+          "references_resolved": 119,
+          "references_unresolved_by_reason": {
+            "download_failed": 9,
+            "no_oa_pdf": 27,
+            "no_openalex_match": 10,
+            "pending": 19
+          },
+          "references_unresolved_excluded": 65
+        },
+        "failure_breakdown": {
+          "ranking_failure": 0,
+          "retrieval_failure": 900,
+          "total_misses": 900,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 65
+        },
+        "graded": false,
+        "has_misses_payload": true,
+        "k": 10,
+        "labels_fingerprint": "019bee4a06eb2d39",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 59,
+            "pct_of_attainable": null,
+            "value": 0.003993765828949932
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 59,
+            "pct_of_attainable": null,
+            "value": 0.03389830508474576
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 59,
+            "pct_of_attainable": null,
+            "value": 0.011212824130007596
+          },
+          {
+            "ceiling": 0.1061,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 59,
+            "pct_of_attainable": 0.03213300935915211,
+            "value": 0.003409312293006039
+          },
+          {
+            "ceiling": 0.7789,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 59,
+            "pct_of_attainable": 0.005127443611439121,
+            "value": 0.003993765828949932
+          },
+          {
+            "ceiling": 0.8798,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 59,
+            "pct_of_attainable": 0.0045394019424300205,
+            "value": 0.003993765828949932
+          },
+          {
+            "ceiling": 0.5307,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 59,
+            "pct_of_attainable": 0.007525467927171532,
+            "value": 0.003993765828949932
+          }
+        ],
+        "n_queries": 59,
+        "n_queries_scored": 59,
+        "n_relevant_total": 903,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 118,
+          "queries_with_empty_run": 55,
+          "rows_joined_to_corpus": 29,
+          "rows_returned": 29
+        },
+        "retriever": "keyword",
+        "run_id": "a986f65f72f6",
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-30T20:47:18.411648+00:00"
+      }
+    ],
+    "invalidated": [],
+    "n_invalidated": 0,
+    "n_runs": 4,
+    "n_valid": 4
+  },
+  "schema_version": 1,
+  "sources": [
+    {
+      "lines": 4,
+      "path": "results/retrieval_eval.jsonl",
+      "present": true,
+      "records": 4,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 14,
+      "path": "results/node_eval.jsonl",
+      "present": true,
+      "records": 14,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 11,
+      "path": "results/node_eval_spans.jsonl",
+      "present": true,
+      "records": 11,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 194,
+      "path": "cache/ingest_manifest.jsonl",
+      "present": true,
+      "records": 194,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 0,
+      "path": "results/history.jsonl",
+      "present": false,
+      "records": 0,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 10,
+      "path": "results/openreview_history.jsonl",
+      "present": true,
+      "records": 10,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 0,
+      "path": "gate_calibration/sweep_results.jsonl",
+      "present": false,
+      "records": 0,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    }
+  ],
+  "spans": {
+    "cost": {
+      "cost_is_lower_bound": false,
+      "runs": 11,
+      "total_usd": 0.0,
+      "unpriced_spans": 0
+    },
+    "nodes": [
+      {
+        "executions": 3,
+        "node": "editor_pass_node",
+        "self_ms": {
+          "max": 8188.1547500088345,
+          "mean": 7079.1744719899725,
+          "min": 6054.708249983378,
+          "n": 3,
+          "p50": 6994.660415977705,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=3 < 10",
+            "p95": "n=3 < 20",
+            "p99": "n=3 < 100"
+          }
+        },
+        "traces_seen": 3,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 8188.1547500088345,
+          "mean": 7079.1744719899725,
+          "min": 6054.708249983378,
+          "n": 3,
+          "p50": 6994.660415977705,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=3 < 10",
+            "p95": "n=3 < 20",
+            "p99": "n=3 < 100"
+          }
+        }
+      },
+      {
+        "executions": 5,
+        "node": "reviewer_panel_node",
+        "self_ms": {
+          "max": 25662.057917012135,
+          "mean": 19817.82158340211,
+          "min": 16782.649333996233,
+          "n": 5,
+          "p50": 18782.0284999907,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=5 < 10",
+            "p95": "n=5 < 20",
+            "p99": "n=5 < 100"
+          }
+        },
+        "traces_seen": 5,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 25662.057917012135,
+          "mean": 19817.82158340211,
+          "min": 16782.649333996233,
+          "n": 5,
+          "p50": 18782.0284999907,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=5 < 10",
+            "p95": "n=5 < 20",
+            "p99": "n=5 < 100"
+          }
+        }
+      },
+      {
+        "executions": 3,
+        "node": "run_quality_diagnostics",
+        "self_ms": {
+          "max": 118.48816598649137,
+          "mean": 59.69045833141232,
+          "min": 23.733292007818818,
+          "n": 3,
+          "p50": 36.84991699992679,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=3 < 10",
+            "p95": "n=3 < 20",
+            "p99": "n=3 < 100"
+          }
+        },
+        "traces_seen": 3,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 118.48816598649137,
+          "mean": 59.69045833141232,
+          "min": 23.733292007818818,
+          "n": 3,
+          "p50": 36.84991699992679,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=3 < 10",
+            "p95": "n=3 < 20",
+            "p99": "n=3 < 100"
+          }
+        }
+      }
+    ],
+    "parse": {
+      "blank_lines": 0,
+      "duplicate_span_ids": 0,
+      "files": [
+        "/Applications/Ashwin/Programming/personal projects/startup/noesis/scripts/eval/results/node_eval_spans.jsonl"
+      ],
+      "lines_read": 11,
+      "malformed_lines": 0,
+      "malformed_samples": [],
+      "orphan_spans": 0,
+      "spans_parsed": 11
+    },
+    "present": true,
+    "source": "results/node_eval_spans.jsonl",
+    "tokens": {
+      "cache_hit_rate": null,
+      "cached_tokens": 0,
+      "calls": 0,
+      "calls_without_usage": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "uncached_input_tokens": 0
+    },
+    "traces": 11
+  }
+}
