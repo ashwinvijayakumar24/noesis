@@ -80,10 +80,71 @@ services:
     volumes:
       - redis-data:/data
 
-  # TODO(core): local Postgres + pgvector service goes HERE, added by a later
-  # task. It must carry profiles: ["core", "app", "full"] — same reasoning as
-  # redis: it is base infra (core) and the backend/worker will depend on it,
-  # so `--profile app` alone has to be able to start it.
+  # Local Postgres + pgvector — mirrors production's retrieval schema so
+  # retrieval experiments (HNSW parameter sweeps, ef_search tuning, latency
+  # measurement) can run without touching production and without network RTT
+  # polluting the numbers. Production is PostgreSQL 17.6 on Supabase, so we
+  # pin pg17.
+  #
+  # Profiles: core (base infra) AND app (the backend/worker will depend on it,
+  # so `--profile app` alone has to be able to start it) — same reasoning as
+  # redis above.
+  #
+  # Schema, in order, on a FRESH local DB:
+  #   1. scripts/eval/schema/000_local_base_stubs.sql — 036 assumes migrations
+  #      001-035 already ran, so a fresh DB needs the minimal `documents` /
+  #      `drafts` tables that 036's RPCs join against.
+  #   2. services/backend/migrations/036_recovered_production_ddl.sql
+  #   3. services/backend/migrations/037_fix_keyword_search_chunks.sql
+  # See the volumes block below for the exact apply commands.
+  pgvector:
+    profiles: ["core", "app", "full"]
+    image: pgvector/pgvector:pg17
+    container_name: noesis-pgvector
+    environment:
+      # LOCAL DEV ONLY. These are deliberately obvious throwaway values and are
+      # NOT used by any deployed environment. Production credentials live in
+      # Supabase and must never be copied here; likewise nothing here may ever
+      # be reused anywhere real. Do not point this service at a .env file.
+      POSTGRES_DB: noesis_eval
+      POSTGRES_USER: noesis_local
+      POSTGRES_PASSWORD: noesis_local_dev_only
+    ports:
+      # Host port 5433, NOT 5432: a developer-installed Postgres (Homebrew,
+      # Postgres.app, another project's compose stack) almost always owns 5432,
+      # and the collision surfaces as a confusing "port is already allocated"
+      # or, worse, a silent connection to the WRONG database. 5433 keeps this
+      # container unambiguous. In-container port stays 5432.
+      - "5433:5432"
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+      # INTENDED: mount the migrations directory read-only so files can be
+      # applied by path inside the container:
+      #   - ../services/backend/migrations:/migrations:ro
+      # DISABLED because this repo lives under /Applications, which is NOT in
+      # Docker Desktop's default file-sharing allowlist (/Users, /Volumes,
+      # /private, /tmp, /var/folders). With the mount enabled the container
+      # refuses to start:
+      #   Error response from daemon: mounts denied: the path
+      #   .../services/backend/migrations is not shared from the host
+      # Fix if you want it: Docker Desktop -> Settings -> Resources ->
+      # File Sharing -> add /Applications/Ashwin, then restart Docker and
+      # uncomment the line above.
+      #
+      # Until then, apply migrations over stdin — works with no mount at all:
+      #   docker compose exec -T pgvector psql -U noesis_local -d noesis_eval \
+      #     < ../scripts/eval/schema/000_local_base_stubs.sql
+      #   docker compose exec -T pgvector psql -U noesis_local -d noesis_eval \
+      #     < ../services/backend/migrations/036_recovered_production_ddl.sql
+      #   docker compose exec -T pgvector psql -U noesis_local -d noesis_eval \
+      #     < ../services/backend/migrations/037_fix_keyword_search_chunks.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U noesis_local -d noesis_eval"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
 
   # Profiles: parse only. Multi-GB image, amd64 emulation on Apple Silicon.
   # NOTE: celery-worker (profile app) depends_on this, and Compose does NOT
@@ -203,3 +264,4 @@ services:
 
 volumes:
   redis-data:
+  pgvector-data:
