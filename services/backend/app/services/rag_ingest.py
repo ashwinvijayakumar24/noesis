@@ -17,9 +17,107 @@ from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.grobid_client import get_grobid_client
 from app.services.rag_chunking import get_chunking_strategy, get_section_aware_chunking_strategy
 import datetime
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Tuple
 
 logger = get_logger(__name__)
+
+
+# The ONLY character PostgreSQL refuses to store in a `text` value is U+0000.
+# Verified against the local pgvector Postgres: `SELECT chr(0)` errors with
+# "null character not permitted", every other C0 control (U+0001..U+001F,
+# including \t \n \r and the form feed U+000C that PDF extraction emits at page
+# breaks), U+007F, the Unicode line/paragraph separators U+2028/U+2029 and the
+# BOM U+FEFF all round-trip fine. psycopg2 rejects NUL client-side too
+# ("A string literal cannot contain NUL (0x00) bytes"), and PostgREST -- the path
+# production actually uses -- fails on the JSON side with "unsupported Unicode
+# escape sequence" for the escaped NUL. So NUL is the whole problem and nothing else here
+# needs touching: stripping legal control characters would silently mangle
+# legitimate extracted text (form feeds carry page structure, tabs carry table
+# structure) for no database-level benefit.
+_POSTGRES_ILLEGAL_TEXT_CHAR = "\x00"
+
+
+def sanitize_for_postgres_text(text: str) -> Tuple[str, int]:
+    """Remove characters PostgreSQL `text` columns cannot store.
+
+    Returns ``(sanitised_text, removed_count)``. The count is returned rather
+    than logged here so the caller can report it once per document instead of
+    once per chunk.
+
+    STRIP, not replace-with-space. PDF text extraction emits NUL as an artefact
+    of a broken glyph-to-Unicode mapping -- it stands in for a character that
+    was *supposed* to be there, not for a word boundary. Replacing with a space
+    would turn ``"Smith et\\x00al."`` into ``"Smith et al."``, which reads fine,
+    but would equally turn ``"tempera\\x00ture"`` into ``"tempera ture"``,
+    splitting a word that was whole and breaking both tokenisation and keyword
+    search on it. Stripping gives ``"Smith etal."`` and ``"temperature"``:
+    the mid-word case (the common one, since NUL replaces a real glyph) comes
+    out correct, and the between-words case merely loses a space that the
+    surrounding whitespace usually still provides. One damaged token beats a
+    damaged token *plus* a spurious word break.
+    """
+    if _POSTGRES_ILLEGAL_TEXT_CHAR not in text:
+        return text, 0
+    removed = text.count(_POSTGRES_ILLEGAL_TEXT_CHAR)
+    return text.replace(_POSTGRES_ILLEGAL_TEXT_CHAR, ""), removed
+
+
+def sanitize_chunks_for_postgres(chunks: List[str]) -> Tuple[List[str], int]:
+    """Sanitise a list of chunks, returning the cleaned list and the total removed."""
+    cleaned: List[str] = []
+    total = 0
+    for chunk in chunks:
+        text, removed = sanitize_for_postgres_text(chunk)
+        cleaned.append(text)
+        total += removed
+    return cleaned, total
+
+
+def sanitize_json_for_postgres(value: Any) -> Tuple[Any, int]:
+    """Sanitise every string inside a nested JSON-able value bound for a jsonb column.
+
+    Document-derived strings (GROBID title/abstract/section titles/references) are
+    written to ``documents.metadata``. jsonb rejects U+0000 exactly like text does
+    -- PostgREST reports "unsupported Unicode escape sequence" -- so the metadata
+    write fails for the same PDFs the chunk write does.
+    """
+    if isinstance(value, str):
+        return sanitize_for_postgres_text(value)
+    if isinstance(value, dict):
+        out_d: Dict[Any, Any] = {}
+        total = 0
+        for k, v in value.items():
+            out_d[k], removed = sanitize_json_for_postgres(v)
+            total += removed
+        return out_d, total
+    if isinstance(value, list):
+        out_l: List[Any] = []
+        total = 0
+        for v in value:
+            cleaned, removed = sanitize_json_for_postgres(v)
+            out_l.append(cleaned)
+            total += removed
+        return out_l, total
+    return value, 0
+
+
+def report_nul_removal(document_id: str, removed: int, where: str) -> None:
+    """Log, once per document per surface, how much text sanitisation altered.
+
+    Sanitising silently is how the next data-quality problem hides: a chunk that
+    lost characters embeds and retrieves differently, and with no log there is
+    nothing to correlate a bad retrieval number against. No-ops when nothing was
+    removed, so clean documents stay quiet.
+    """
+    if not removed:
+        return
+    logger.warning(
+        "[RAG-INGEST] Removed %d NUL character(s) from %s of document_id=%s "
+        "(PostgreSQL cannot store U+0000); extracted text was altered",
+        removed,
+        where,
+        document_id,
+    )
 
 
 async def extract_structured_data_from_pdf(file_bytes: bytes) -> Dict[str, Any]:
@@ -325,6 +423,10 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             logger.error(f"[RAG-INGEST] ✗ Text chunking produced no chunks")
             raise ValueError("Text chunking produced no chunks")
 
+        # Sanitise BEFORE embedding so the vector matches the text that is stored.
+        chunks, nul_in_chunks = sanitize_chunks_for_postgres(chunks)
+        report_nul_removal(document_id, nul_in_chunks, "chunk content")
+
         logger.info(f"[RAG-INGEST] Created {len(chunks)} chunks (estimated: {estimated_chunks})")
 
         # 8. Generate embeddings (using server-controlled model)
@@ -371,7 +473,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
         metadata_update = {
             "updated_at": datetime.datetime.utcnow().isoformat(),
             "metadata": {
-                **(current_metadata or record.data.get("metadata", {})),
+                **(current_metadata or record.data.get("metadata") or {}),
                 "embedded_at": datetime.datetime.utcnow().isoformat(),
                 "page_count": page_count,
                 "total_tokens": total_tokens,
@@ -402,6 +504,13 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
                 "grobid_references": structured_data.get("references", [])[:50]  # Limit to 50 refs to avoid size issues
             }
         }
+
+        metadata_update["metadata"], nul_in_metadata = sanitize_json_for_postgres(
+            metadata_update["metadata"]
+        )
+        report_nul_removal(
+            document_id, nul_in_metadata, "GROBID metadata (title/abstract/sections/references)"
+        )
 
         # Only update status to 'ready' if analysis hasn't started yet
         # If status is 'analyzing' or 'analyzed', don't overwrite it
@@ -469,8 +578,13 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
         logger.error(f"[RAG-INGEST] Full traceback:\n{traceback.format_exc()}")
 
         # Update document status to error
+        # The exception message can quote the offending document text (PostgREST
+        # echoes it back), so the failure record is itself a place a NUL reaches
+        # the database. Unsanitised, this update throws too and the document is
+        # left stuck in its previous status with no error recorded at all.
+        error_message, _ = sanitize_for_postgres_text(str(e))
         error_metadata = {
-            "error": str(e),
+            "error": error_message,
             "error_type": type(e).__name__,
             "embedding_status": "failed",
             "failed_at": datetime.datetime.utcnow().isoformat()
@@ -509,6 +623,9 @@ def embed_imported_document(
     embed_text = title.strip()
     if abstract and abstract.strip():
         embed_text += f"\n{abstract.strip()[:600]}"
+
+    embed_text, nul_removed = sanitize_for_postgres_text(embed_text)
+    report_nul_removal(document_id, nul_removed, "imported title/abstract")
 
     if not embed_text:
         return 0
