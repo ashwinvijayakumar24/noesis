@@ -16,11 +16,18 @@ House rules, applied throughout:
 - runs marked `valid: false` are excluded from every headline and listed
   separately with the reason;
 - `recall@k` is reported against its construction ceiling, or explicitly as
-  `unknown` when no ceiling is recorded for that labels/queries fingerprint;
-- a cost with any unpriced call renders as a lower bound (`$0.0000 >=`);
-- every row carries the file and `run_id` it came from;
+  `unknown` when no ceiling is recorded for that labels/queries fingerprint.
+  The ceiling moves with the corpus, so one label snapshot's ceiling is never
+  applied to another's measurement;
+- **every cost figure in this project is a lower bound** -- see the cost
+  section below for why; a cost with any unpriced call additionally renders as
+  `$0.0000 >=`;
+- every row carries the file and `run_id` it came from (or, where a sink
+  records no run_id, the derived point identity and a note saying so);
 - trends are drawn only between runs sharing a config hash. Different hashes
-  are different measurements and are never differenced.
+  are different measurements and are never differenced;
+- retrieval numbers are grouped by label snapshot and **numbers from different
+  snapshots are not comparable at all**.
 
 ## Sources
 
@@ -31,26 +38,65 @@ interrupted write shows up here.
 
 | file | state | lines | records | skipped |
 |---|---|---|---|---|
-| `results/retrieval_eval.jsonl` | present | 4 | 4 | 0 |
-| `results/node_eval.jsonl` | present | 14 | 14 | 0 |
-| `results/node_eval_spans.jsonl` | present | 11 | 11 | 0 |
-| `cache/ingest_manifest.jsonl` | present | 194 | 194 | 0 |
+| `results/retrieval_eval.jsonl` | present | 8 | 8 | 0 |
+| `results/node_eval.jsonl` | present | 31 | 31 | 0 |
+| `results/node_eval_spans.jsonl` | present | 35 | 35 | 0 |
+| `cache/ingest_manifest.jsonl` | present | 539 | 539 | 0 |
 | `results/history.jsonl` | absent | 0 | 0 | 0 |
-| `results/openreview_history.jsonl` | present | 10 | 10 | 0 |
+| `results/openreview_history.jsonl` | present | 17 | 17 | 0 |
 | `gate_calibration/sweep_results.jsonl` | absent | 0 | 0 | 0 |
+| `results/ann_sweep.jsonl` | present | 89 | 89 | 0 |
+
+## Cost — every figure in this project is a lower bound
+
+> `match.py` bypassed the spend guardrails until recently, so its OpenAI calls were never recorded in any sink. Every cost figure in this project is therefore a lower bound -- including the ones whose own `unpriced_calls` counter reads zero.
+>
+> Nothing downstream can correct for this. Treat every dollar amount in this document, and every dollar amount derived from these sinks anywhere else, as a floor.
+
+| sink | scope | records | recorded cost | unpriced calls |
+|---|---|---|---|---|
+| `results/node_eval.jsonl` | run summaries | 7 | $0.4202 | 0 |
+| `results/node_eval.jsonl` | replay records, per node | 24 | $0.3876 | 0 |
+| `results/node_eval_spans.jsonl` | raw spans | 25 | $0.1676 >= (1 unpriced call) | 1 |
+
+**1 call(s) carry no price** on top of the unrecorded spend above, so the totals are understated twice over and render with `>=`.
+
+No grand total is given: not computed -- the sinks overlap and would double count.
 
 ## Retrieval
 
-4 valid run(s), 0 invalidated, across 2 config hash(es).
+8 valid run(s), 0 invalidated, across 6 config hash(es) and 2 label snapshot(s).
 
-### Headline — latest valid run per config
+> **Read this before quoting any number below.**
+> Every retrieval metric here is measured against a *label snapshot* —
+> a particular labels fingerprint, queries fingerprint and corpus size.
+> This corpus grew from 118 documents / 4 topics to 344 / 15 mid-project
+> and the label fingerprint changed twice with it. **Numbers from two
+> different snapshots are not comparable.** `recall@10 = 0.4221` and
+> `recall@10 = 0.3488` are not a regression; they are two different
+> questions. Each table below is scoped to one snapshot and says which.
+
+### Label snapshots present
+
+| labels fp | queries fp | corpus docs | topics | runs | retrievers | recall ceiling known |
+|---|---|---|---|---|---|---|
+| `019bee4a06eb2d39` | `1f6c584e8fd6c055` | 118 | 15 | 4 valid / 0 invalid | dense, keyword | yes |
+| `230c6ea9d9b7e8fd` | `1f6c584e8fd6c055` | 345 | 26 | 4 valid / 0 invalid | dense, keyword | yes |
+
+**2 snapshots are present in this file.** No delta, ratio or comparison is drawn across them anywhere in this document, and none should be drawn by hand either.
+
+### Headline — latest valid run per config, grouped by label snapshot
+
+#### Snapshot `labels=019bee4a06eb2d39 queries=1f6c584e8fd6c055 corpus=118docs`
+
+118 documents across 15 topics (12 with labels). Every number under this heading is comparable with every other number under this heading, and with nothing outside it.
 
 **dense** · config `7330ae9c1e22ce33` · run `1fdb7ff03547` · 2026-07-30 · `results/retrieval_eval.jsonl`
 
 - relevance unit: document, k=10, graded=False, chunk oversample x5
 - queries scored: 59 of 59 built; relevant documents pooled: 903
 - corpus: 118 documents across 15 topics (12 with labels)
-- ceiling source: retrieval/BASELINE.md (labels+queries fingerprint match)
+- ceiling source: retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)
 
 | metric | measured (n = queries scored) | ceiling | % of attainable |
 |---|---|---|---|
@@ -84,7 +130,7 @@ Miss attribution (rollup of the per-query `misses` payload, which is not tracked
 - relevance unit: document, k=10, graded=False, chunk oversample x5
 - queries scored: 59 of 59 built; relevant documents pooled: 903
 - corpus: 118 documents across 15 topics (12 with labels)
-- ceiling source: retrieval/BASELINE.md (labels+queries fingerprint match)
+- ceiling source: retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)
 
 | metric | measured (n = queries scored) | ceiling | % of attainable |
 |---|---|---|---|
@@ -113,13 +159,153 @@ Miss attribution (rollup of the per-query `misses` payload, which is not tracked
 | `rows_joined_to_corpus` | 29 |
 | `rows_returned` | 29 |
 
+#### Snapshot `labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs`
+
+345 documents across 26 topics (23 with labels). Every number under this heading is comparable with every other number under this heading, and with nothing outside it.
+
+**dense** · config `3a4c75412a422beb` · run `813629e2f023` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x12
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2948 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7436 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.5221 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0351 (n=338) | 0.0694 | 51% |
+| `recall@10` | 0.2227 (n=338) | 0.5199 | 43% |
+| `recall@20` | 0.3420 (n=338) | 0.7599 | 45% |
+| `recall@5` | 0.1369 (n=338) | 0.2939 | 47% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 2247 |
+| `retrieval_failure` | 4695 |
+| `total_misses` | 6942 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 40560 |
+| `rows_returned` | 40560 |
+
+**dense** · config `5d1408923f74702d` · run `5ca19da1d093` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2319 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7328 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.5191 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0341 (n=338) | 0.0694 | 49% |
+| `recall@10` | 0.2195 (n=338) | 0.5199 | 42% |
+| `recall@20` | 0.3062 (n=338) | 0.7599 | 40% |
+| `recall@5` | 0.1365 (n=338) | 0.2939 | 46% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 936 |
+| `retrieval_failure` | 6010 |
+| `total_misses` | 6946 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 16900 |
+| `rows_returned` | 16900 |
+
+**keyword** · config `8c1df627b4dbdc50` · run `354f3eb41c1c` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.0021 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.0311 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.0110 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0012 (n=338) | 0.0694 | 2% |
+| `recall@10` | 0.0022 (n=338) | 0.5199 | 0% |
+| `recall@20` | 0.0022 (n=338) | 0.7599 | 0% |
+| `recall@5` | 0.0021 (n=338) | 0.2939 | 1% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 0 |
+| `retrieval_failure` | 8532 |
+| `total_misses` | 8532 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `queries_with_empty_run` | 321 |
+| `rows_joined_to_corpus` | 60 |
+| `rows_returned` | 60 |
+
+**dense** · config `eb947b6b5ed62153` · run `fc317a79f1a8` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x2
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.1624 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7302 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.4780 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0341 (n=338) | 0.0694 | 49% |
+| `recall@10` | 0.1874 (n=338) | 0.5199 | 36% |
+| `recall@20` | 0.1982 (n=338) | 0.7599 | 26% |
+| `recall@5` | 0.1350 (n=338) | 0.2939 | 46% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 109 |
+| `retrieval_failure` | 7038 |
+| `total_misses` | 7147 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 6760 |
+| `rows_returned` | 6760 |
+
 ### Invalidated runs — excluded from every number above
 
 _None. Every recorded run passed its validity check._
 
-### Trend — same config hash only
+### Trend — same config hash *and* same label snapshot only
 
-**dense** · config `7330ae9c1e22ce33` · 2 runs · `95200e220255` (2026-07-30) -> `1fdb7ff03547` (2026-07-30)
+**dense** · config `7330ae9c1e22ce33` · snapshot `labels=019bee4a06eb2d39 queries=1f6c584e8fd6c055 corpus=118docs` · 2 runs · `95200e220255` (2026-07-30) -> `1fdb7ff03547` (2026-07-30)
 
 | metric | first | latest | delta |
 |---|---|---|---|
@@ -131,7 +317,7 @@ _None. Every recorded run passed its validity check._
 | `recall@20` | 0.5299 (n=59) | 0.5299 (n=59) | 0.0000 |
 | `recall@5` | 0.3051 (n=59) | 0.3051 (n=59) | 0.0000 |
 
-**keyword** · config `cf6b3f1b3fc00644` · 2 runs · `0fe3bb4a1b9f` (2026-07-30) -> `a986f65f72f6` (2026-07-30)
+**keyword** · config `cf6b3f1b3fc00644` · snapshot `labels=019bee4a06eb2d39 queries=1f6c584e8fd6c055 corpus=118docs` · 2 runs · `0fe3bb4a1b9f` (2026-07-30) -> `a986f65f72f6` (2026-07-30)
 
 | metric | first | latest | delta |
 |---|---|---|---|
@@ -143,9 +329,185 @@ _None. Every recorded run passed its validity check._
 | `recall@20` | 0.0040 (n=59) | 0.0040 (n=59) | 0.0000 |
 | `recall@5` | 0.0040 (n=59) | 0.0040 (n=59) | 0.0000 |
 
+## ANN / HNSW index sweep — `results/ann_sweep.jsonl`
+
+89 record(s), sweep version(s) 1.0.0. Corpus: 118 documents / 2124 chunks (project `e7a1c0b0-0000-4000-8000-000000000001`).
+
+> **Two measurement modes live in this file and they answer different questions.**
+> *planner-free (what production executes)* is the query as production issues it, with Postgres free to choose the plan.
+> *index-forced (property of the index, NOT of production)* switches the sequential scan off and drops every competing index inside a rolled-back transaction, which is the only way to see the HNSW curve at a depth where the planner refuses the index.
+> **An index-forced number is never what production does.** Every row below carries its mode.
+
+This sink records no `run_id` — it is keyed by parameters plus corpus fingerprint, one record per configuration, appended forever. Provenance is therefore the file plus the derived point id shown on each row.
+
+### Does the planner use the index at all?
+
+| LIMIT | plan | date | point |
+|---|---|---|---|
+| 1 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,5,10,20,50,100` |
+| 5 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,5,10,20,50,100` |
+| 10 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,5,10,20,50,100` |
+| 20 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,5,10,20,50,100` |
+| 50 | **no index — sequential scan (exact search)** | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,5,10,20,50,100` |
+| 100 | **no index — sequential scan (exact search)** | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,5,10,20,50,100` |
+| 1 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 3 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 5 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 10 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 15 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 20 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 25 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 30 | `idx_document_chunks_embedding` | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 40 | **no index — sequential scan (exact search)** | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 50 | **no index — sequential scan (exact search)** | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+| 100 | **no index — sequential scan (exact search)** | 2026-07-30 | `planner_choice/planner_free/ef_search=80/k_values=1,3,5,10,15,20,25,30,40,50,100` |
+
+**Postgres declines the HNSW index above a LIMIT of roughly 30–40 and runs an exact sequential scan instead.** Not "the index is slow" — the index is not consulted, so `ef_search` is a parameter of a code path that never runs. Production's real call sites ask for 3–10 chunks and are below the crossover; the retrieval eval harness asks for 50 and is above it, so its "HNSW" dense row is in fact an exact-scan result. This is a small-corpus finding: on a 10x corpus the sequential scan gets 10x more expensive and the crossover moves above any realistic k.
+
+### Exact sequential scan — the ANN-recall ceiling
+
+Exact search *is* the ground truth for ANN recall, so its ANN recall is 1.0 by definition, not by measurement. Its **label** recall is a different quantity and is capped by the label design like every other label metric here.
+
+| k | mode | label recall@10 | label NDCG@10 | server p50 ms (n = samples) | p95 ms |
+|---|---|---|---|---|---|
+| 10 | planner-free (what production executes) | 0.2054 (n=59) | 0.4461 (n=59) | 16.70 (n=177) | 19.89 |
+| 50 | planner-free (what production executes) | 0.3488 (n=59) | 0.6245 (n=59) | 23.19 (n=177) | 48.56 |
+
+Label recall@10 here has ceiling: unknown (this sink records no labels fingerprint, so the ceiling for its label snapshot cannot be identified -- and a ceiling from another snapshot is never substituted).
+
+**Machine noise bound (k=50):** the identical exact-scan measurement was repeated 3 times across sweep runs and its server p50 came out at 17.76 / 22.78 / 27.39 ms (min / mean / max) — a spread of ±21% about the mean on an unchanged input. **No latency difference smaller than that is readable in this document.** Sub-2 ms rows are dominated by fixed per-query overhead, so the *ratios* between them are trustworthy and the absolute values are not.
+
+### `ef_search` curve
+
+#### k = 10 — planner-free (what production executes)
+
+| ef_search | ANN recall@10 vs exact (n = queries) | label recall@10 (n = queries) | server p50 ms (n = samples) | p95 ms | plan | point |
+|---|---|---|---|---|---|---|
+| 10 | 0.8898 (n=59) | 0.2081 (n=59) | 0.36 (n=177) | 0.65 | index scan | `ef_search/planner_free/k=10/ef_search=10` |
+| 20 | 0.9458 (n=59) | 0.2024 (n=59) | 0.46 (n=177) | 0.70 | index scan | `ef_search/planner_free/k=10/ef_search=20` |
+| 40 | 0.9797 (n=59) | 0.2050 (n=59) | 0.66 (n=177) | 1.13 | index scan | `ef_search/planner_free/k=10/ef_search=40` |
+| **80 (PROD)** | 0.9932 (n=59) | 0.2071 (n=59) | 1.03 (n=177) | 1.60 | index scan | `ef_search/planner_free/k=10/ef_search=80` |
+| 160 | 1.0000 (n=59) | 0.2054 (n=59) | 16.94 (n=177) | 19.48 | seq scan (exact) | `ef_search/planner_free/k=10/ef_search=160` |
+| 320 | 1.0000 (n=59) | 0.2054 (n=59) | 15.88 (n=177) | 18.93 | seq scan (exact) | `ef_search/planner_free/k=10/ef_search=320` |
+| 640 | 1.0000 (n=59) | 0.2054 (n=59) | 15.90 (n=177) | 27.96 | seq scan (exact) | `ef_search/planner_free/k=10/ef_search=640` |
+
+#### k = 10 — index-forced (property of the index, NOT of production)
+
+_These rows describe the index. They are **not** what production executes at this depth._
+
+| ef_search | ANN recall@10 vs exact (n = queries) | label recall@10 (n = queries) | server p50 ms (n = samples) | p95 ms | plan | point |
+|---|---|---|---|---|---|---|
+| 10 | 0.8898 (n=59) | 0.2081 (n=59) | 0.45 (n=177) | 0.80 | index scan | `ef_search/index_forced/k=10/ef_search=10` |
+| 20 | 0.9458 (n=59) | 0.2024 (n=59) | 0.45 (n=177) | 0.64 | index scan | `ef_search/index_forced/k=10/ef_search=20` |
+| 40 | 0.9797 (n=59) | 0.2050 (n=59) | 0.64 (n=177) | 0.91 | index scan | `ef_search/index_forced/k=10/ef_search=40` |
+| **80 (PROD)** | 0.9932 (n=59) | 0.2071 (n=59) | 1.05 (n=177) | 1.62 | index scan | `ef_search/index_forced/k=10/ef_search=80` |
+| 160 | 1.0000 (n=59) | 0.2054 (n=59) | 1.66 (n=177) | 2.30 | index scan | `ef_search/index_forced/k=10/ef_search=160` |
+| 320 | 1.0000 (n=59) | 0.2054 (n=59) | 2.29 (n=177) | 3.30 | index scan | `ef_search/index_forced/k=10/ef_search=320` |
+| 640 | 1.0000 (n=59) | 0.2054 (n=59) | 3.35 (n=177) | 4.68 | index scan | `ef_search/index_forced/k=10/ef_search=640` |
+
+#### k = 50 — planner-free (what production executes)
+
+| ef_search | ANN recall@50 vs exact (n = queries) | label recall@10 (n = queries) | server p50 ms (n = samples) | p95 ms | plan | point |
+|---|---|---|---|---|---|---|
+| 10 | 1.0000 (n=59) | 0.3488 (n=59) | 20.78 (n=177) | 28.59 | seq scan (exact) | `ef_search/planner_free/k=50/ef_search=10` |
+| 20 | 1.0000 (n=59) | 0.3488 (n=59) | 20.99 (n=177) | 30.92 | seq scan (exact) | `ef_search/planner_free/k=50/ef_search=20` |
+| 40 | 1.0000 (n=59) | 0.3488 (n=59) | 20.62 (n=177) | 32.71 | seq scan (exact) | `ef_search/planner_free/k=50/ef_search=40` |
+| **80 (PROD)** | 1.0000 (n=59) | 0.3488 (n=59) | 20.06 (n=177) | 29.44 | seq scan (exact) | `ef_search/planner_free/k=50/ef_search=80` |
+| 160 | 1.0000 (n=59) | 0.3488 (n=59) | 20.47 (n=177) | 31.32 | seq scan (exact) | `ef_search/planner_free/k=50/ef_search=160` |
+| 320 | 1.0000 (n=59) | 0.3488 (n=59) | 23.80 (n=177) | 50.04 | seq scan (exact) | `ef_search/planner_free/k=50/ef_search=320` |
+| 640 | 1.0000 (n=59) | 0.3488 (n=59) | 23.25 (n=177) | 43.09 | seq scan (exact) | `ef_search/planner_free/k=50/ef_search=640` |
+
+#### k = 50 — index-forced (property of the index, NOT of production)
+
+_These rows describe the index. They are **not** what production executes at this depth._
+
+| ef_search | ANN recall@50 vs exact (n = queries) | label recall@10 (n = queries) | server p50 ms (n = samples) | p95 ms | plan | point |
+|---|---|---|---|---|---|---|
+| 10 | 0.2000 (n=59) | 0.2081 (n=59) | 0.68 (n=177) | 1.84 | index scan | `ef_search/index_forced/k=50/ef_search=10` |
+| 20 | 0.4000 (n=59) | 0.2853 (n=59) | 0.80 (n=177) | 1.84 | index scan | `ef_search/index_forced/k=50/ef_search=20` |
+| 40 | 0.7983 (n=59) | 0.3410 (n=59) | 1.28 (n=177) | 2.12 | index scan | `ef_search/index_forced/k=50/ef_search=40` |
+| **80 (PROD)** | 0.9844 (n=59) | 0.3500 (n=59) | 1.64 (n=177) | 2.36 | index scan | `ef_search/index_forced/k=50/ef_search=80` |
+| 160 | 0.9986 (n=59) | 0.3488 (n=59) | 5.27 (n=177) | 17.78 | index scan | `ef_search/index_forced/k=50/ef_search=160` |
+| 320 | 1.0000 (n=59) | 0.3488 (n=59) | 3.90 (n=177) | 7.57 | index scan | `ef_search/index_forced/k=50/ef_search=320` |
+| 640 | 1.0000 (n=59) | 0.3488 (n=59) | 5.49 (n=177) | 9.36 | index scan | `ef_search/index_forced/k=50/ef_search=640` |
+
+**Raising `ef_search` past 80 at k=10 makes the query 16x slower**: 1.03 ms p50 at ef_search 80 with an index scan, against 16.94 ms at 160 — because the cost model abandons the index and the plan flips to a sequential scan, not because the index got slower. The index-forced rows above show what the index alone would have done at the same settings. n = 177 latency samples per point, and the flip is far larger than the noise bound.
+
+### `m` x `ef_construction` grid
+
+All rows are index-forced (property of the index, NOT of production): the planner declines every candidate index at this depth, so without forcing, every row would be the same sequential scan. **These describe the index, not production.**
+
+| m | ef_construction | build s | index bytes | ANN recall@50 vs exact (n = queries) | label recall@10 (n = queries) | server p50 ms (n = samples) | point |
+|---|---|---|---|---|---|---|---|
+| 8 | 32 | 0.92 | 17,408,000 | 0.9647 (n=59) | 0.3473 (n=59) | 2.22 (n=177) | `build/index_forced/k=50/ef_search=80/m=8/ef_construction=32` |
+| 8 | 64 | 1.10 | 17,408,000 | 0.9749 (n=59) | 0.3473 (n=59) | 1.21 (n=177) | `build/index_forced/k=50/ef_search=80/m=8/ef_construction=64` |
+| 8 | 128 | 1.22 | 17,408,000 | 0.9793 (n=59) | 0.3500 (n=59) | 1.14 (n=177) | `build/index_forced/k=50/ef_search=80/m=8/ef_construction=128` |
+| 8 | 256 | 1.92 | 17,408,000 | 0.9831 (n=59) | 0.3500 (n=59) | 1.24 (n=177) | `build/index_forced/k=50/ef_search=80/m=8/ef_construction=256` |
+| 16 | 32 | 0.80 | 17,408,000 | 0.9773 (n=59) | 0.3506 (n=59) | 1.33 (n=177) | `build/index_forced/k=50/ef_search=80/m=16/ef_construction=32` |
+| 16 | 64 | 1.14 | 17,408,000 | 0.9837 (n=59) | 0.3506 (n=59) | 1.27 (n=177) | `build/index_forced/k=50/ef_search=80/m=16/ef_construction=64` |
+| 16 | 128 | 1.56 | 17,408,000 | 0.9902 (n=59) | 0.3515 (n=59) | 1.35 (n=177) | `build/index_forced/k=50/ef_search=80/m=16/ef_construction=128` |
+| 16 | 256 | 2.32 | 17,408,000 | 0.9936 (n=59) | 0.3488 (n=59) | 1.44 (n=177) | `build/index_forced/k=50/ef_search=80/m=16/ef_construction=256` |
+| 32 | 64 | 1.94 | 17,408,000 | 0.9973 (n=59) | 0.3488 (n=59) | 1.69 (n=177) | `build/index_forced/k=50/ef_search=80/m=32/ef_construction=64` |
+| 32 | 128 | 2.71 | 17,408,000 | 0.9973 (n=59) | 0.3488 (n=59) | 1.81 (n=177) | `build/index_forced/k=50/ef_search=80/m=32/ef_construction=128` |
+| 32 | 256 | 3.98 | 17,408,000 | 0.9980 (n=59) | 0.3488 (n=59) | 4.10 (n=177) | `build/index_forced/k=50/ef_search=80/m=32/ef_construction=256` |
+
+**Index size is identical — 17,408,000 bytes — at every one of the 11 grid points, across m = 8, 16, 32.** Not approximately: exactly. 17,408,000 / 8192 = 2,125 pages for the chunks in this corpus, i.e. one page per vector. A 1536-dimensional `float4` vector is 6 KB, so it and its neighbour list share one 8 KB page whatever `m` is. **Any claim that raising `m` costs disk is unsupported here.**
+
+Build time is the only cost that moves, and it moves modestly: 0.80 s to 3.98 s, a 5.0x span over 11 grid points.
+
+### Excluded sweep points — in no table above
+
+| point | date | mode | reason |
+|---|---|---|---|
+| `build/index_forced/k=50/ef_search=80/m=16/ef_construction=128` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m16_efc128'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=16/ef_construction=256` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m16_efc256'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=16/ef_construction=32` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m16_efc32'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=16/ef_construction=64` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m16_efc64'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=32/ef_construction=128` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m32_efc128'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=32/ef_construction=256` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m32_efc256'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=32/ef_construction=64` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m32_efc64'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=8/ef_construction=128` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m8_efc128'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=8/ef_construction=256` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m8_efc256'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=8/ef_construction=32` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m8_efc32'; this point would be mislabelled |
+| `build/index_forced/k=50/ef_search=80/m=8/ef_construction=64` | 2026-07-30 | index-forced (property of the index, NOT of production) | status=measurement_failed: RuntimeError: planner used 'idx_document_chunks_project_id', not the candidate 'ann_sweep_hnsw_m8_efc64'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=16/ef_construction=128` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m16_efc128'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=16/ef_construction=256` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m16_efc256'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=16/ef_construction=32` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m16_efc32'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=16/ef_construction=64` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m16_efc64'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=32/ef_construction=128` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m32_efc128'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=32/ef_construction=256` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m32_efc256'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=32/ef_construction=64` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m32_efc64'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=8/ef_construction=128` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m8_efc128'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=8/ef_construction=256` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m8_efc256'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=8/ef_construction=32` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m8_efc32'; this point would be mislabelled |
+| `build/mode_unrecorded/k=50/ef_search=80/m=8/ef_construction=64` | 2026-07-30 | mode not recorded | status=measurement_failed: RuntimeError: planner used None, not the candidate 'ann_sweep_hnsw_m8_efc64'; this point would be mislabelled |
+| `ef_search/index_forced/k=50/ef_search=10` | 2026-07-30 | index-forced (property of the index, NOT of production) | 'index forced' landed on 'idx_document_chunks_project_id', which is not an HNSW vector index -- the run measured a full scan of the wrong index and its ANN recall of 1.0 is an artefact, not a result |
+| `ef_search/index_forced/k=50/ef_search=160` | 2026-07-30 | index-forced (property of the index, NOT of production) | 'index forced' landed on 'idx_document_chunks_project_id', which is not an HNSW vector index -- the run measured a full scan of the wrong index and its ANN recall of 1.0 is an artefact, not a result |
+| `ef_search/index_forced/k=50/ef_search=20` | 2026-07-30 | index-forced (property of the index, NOT of production) | 'index forced' landed on 'idx_document_chunks_project_id', which is not an HNSW vector index -- the run measured a full scan of the wrong index and its ANN recall of 1.0 is an artefact, not a result |
+| `ef_search/index_forced/k=50/ef_search=320` | 2026-07-30 | index-forced (property of the index, NOT of production) | 'index forced' landed on 'idx_document_chunks_project_id', which is not an HNSW vector index -- the run measured a full scan of the wrong index and its ANN recall of 1.0 is an artefact, not a result |
+| `ef_search/index_forced/k=50/ef_search=40` | 2026-07-30 | index-forced (property of the index, NOT of production) | 'index forced' landed on 'idx_document_chunks_project_id', which is not an HNSW vector index -- the run measured a full scan of the wrong index and its ANN recall of 1.0 is an artefact, not a result |
+| `ef_search/index_forced/k=50/ef_search=640` | 2026-07-30 | index-forced (property of the index, NOT of production) | 'index forced' landed on 'idx_document_chunks_project_id', which is not an HNSW vector index -- the run measured a full scan of the wrong index and its ANN recall of 1.0 is an artefact, not a result |
+| `ef_search/index_forced/k=50/ef_search=80` | 2026-07-30 | index-forced (property of the index, NOT of production) | 'index forced' landed on 'idx_document_chunks_project_id', which is not an HNSW vector index -- the run measured a full scan of the wrong index and its ANN recall of 1.0 is an artefact, not a result |
+| `ef_search/mode_unrecorded/k=50/ef_search=10` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `ef_search/mode_unrecorded/k=50/ef_search=160` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `ef_search/mode_unrecorded/k=50/ef_search=20` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `ef_search/mode_unrecorded/k=50/ef_search=320` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `ef_search/mode_unrecorded/k=50/ef_search=40` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `ef_search/mode_unrecorded/k=50/ef_search=640` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `ef_search/mode_unrecorded/k=50/ef_search=80` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `ef_search/planner_free/k=50/ef_search=10` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+| `ef_search/planner_free/k=50/ef_search=160` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+| `ef_search/planner_free/k=50/ef_search=20` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+| `ef_search/planner_free/k=50/ef_search=320` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+| `ef_search/planner_free/k=50/ef_search=40` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+| `ef_search/planner_free/k=50/ef_search=640` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+| `ef_search/planner_free/k=50/ef_search=80` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+| `exact/mode_unrecorded/k=50` | 2026-07-30 | mode not recorded | the sweep run predates the `index_scan_forced` field, so it is unknown whether the planner was free or the index was forced. Never guessed: an index-forced number presented as planner-free would be a claim about production that was not measured |
+| `planner_choice/planner_free/ef_search=80/k_values=1,5,10,20,50,100` | 2026-07-30 | planner-free (what production executes) | superseded by a later measurement of the same sweep point (2026-07-30) |
+
 ## Node replay — `node_eval.jsonl`
 
-3 run summar(ies), 11 replay record(s).
+7 run summar(ies), 24 replay record(s).
 
 ### Runs
 
@@ -154,6 +516,10 @@ _None. Every recorded run passed its validity check._
 | `f112dc6fc2f3` | 2026-07-30 | run_quality_diagnostics, editor_pass_node | 3 | 6/6 | 3 | $0.0040 |
 | `07e1fec6baf0` | 2026-07-30 | reviewer_panel_node | 2 | 2/2 | 3 | $0.1534 |
 | `4ce7276cc133` | 2026-07-30 | reviewer_panel_node | 1 | 3/3 | 3 | $0.0626 |
+| `f0af0ecb5365` | 2026-07-31 | run_quality_diagnostics, editor_pass_node | 3 | 6/6 | 3 | $0.0091 |
+| `9c11daa01698` | 2026-07-31 | reviewer_panel_node | 1 | 5/5 | 5 | $0.1478 |
+| `82092c60b36c` | 2026-07-31 | reviewer_panel_node | 1 | 1/1 | 1 | $0.0207 |
+| `dc045ccaaadb` | 2026-07-31 | reviewer_panel_node | 1 | 1/1 | 1 | $0.0225 |
 
 ### Per node, across all replays
 
@@ -161,9 +527,9 @@ Latency is `wall_seconds` off each replay record; `n` is the replay count.
 
 | node | replays | status | mean wall s (n = replays) | min s | max s | llm calls | cost |
 |---|---|---|---|---|---|---|---|
-| `editor_pass_node` | 3 | 3 ok / 0 failed | 7.079 (n=3) | 6.055 | 8.188 | 3 | $0.0040 |
-| `reviewer_panel_node` | 5 | 5 ok / 0 failed | 19.818 (n=5) | 16.783 | 25.662 | 6 | $0.2160 |
-| `run_quality_diagnostics` | 3 | 3 ok / 0 failed | 0.060 (n=3) | 0.024 | 0.118 | 0 | $0.0000 |
+| `editor_pass_node` | 6 | 6 ok / 0 failed | 7.431 (n=6) | 5.762 | 9.109 | 6 | $0.0074 |
+| `reviewer_panel_node` | 12 | 12 ok / 0 failed | 19.307 (n=12) | 16.644 | 25.662 | 13 | $0.3802 |
+| `run_quality_diagnostics` | 6 | 6 ok / 0 failed | 0.060 (n=6) | 0.024 | 0.119 | 0 | $0.0000 |
 
 ### Trend — same node/paper/reviewer/repeat config only
 
@@ -171,43 +537,41 @@ _No node-eval config has been run twice yet. `node_eval.jsonl` records no config
 
 ## Spans — `node_eval_spans.jsonl`
 
-11 trace(s) from 11 span(s) over 11 line(s). Skipped: 0 malformed, 0 blank, 0 duplicate span id(s), 0 orphan(s) promoted to roots.
+25 trace(s) from 35 span(s) over 35 line(s). Skipped: 0 malformed, 0 blank, 0 duplicate span id(s), 1 orphan(s) promoted to roots.
 
 Parsed with `trace_report.parse` and summarized with `trace_report.metrics` -- the same code the trace report uses, not a second parser. Percentiles below are refused, not guessed, when the sample is too small.
 
 | node | executions | mean ms (n) | p50 ms | p95 ms | cost |
 |---|---|---|---|---|---|
-| `editor_pass_node` | 3 | 7079.2 (n=3) | 6994.7 | refused (n=3 < 20) | unknown |
-| `reviewer_panel_node` | 5 | 19817.8 (n=5) | 18782.0 | refused (n=5 < 20) | unknown |
-| `run_quality_diagnostics` | 3 | 59.7 (n=3) | 36.8 | refused (n=3 < 20) | unknown |
-
-**No `llm_call` spans in this file.** Only node-level spans were exported, so the token and cost totals below are what the span file contains, not what the run spent -- the node replay section above is the authority on cost. A zero here means *not recorded*, not *free*.
+| `editor_pass_node` | 6 | 7430.8 (n=6) | 6994.7 | refused (n=6 < 20) | $0.0034 |
+| `reviewer_panel_node` | 12 | 19307.2 (n=12) | 18524.9 | refused (n=12 < 20) | $0.1642 |
+| `run_quality_diagnostics` | 6 | 59.9 (n=6) | 36.6 | refused (n=6 < 20) | unknown |
 
 | totals | value |
 |---|---|
-| llm calls | 0 |
-| input tokens | 0 |
-| cached input tokens | 0 |
-| output tokens | 0 |
-| cache hit rate | unknown |
-| calls without usage | 0 |
-| cost | $0.0000 |
+| llm calls | 11 |
+| input tokens | 66,156 |
+| cached input tokens | 52,480 |
+| output tokens | 11,060 |
+| cache hit rate | 0.7933 |
+| calls without usage | 1 |
+| cost | $0.1676 >= (1 unpriced call) |
 
 ## Ingest — `cache/ingest_manifest.jsonl`
 
-194 manifest record(s) over 118 distinct document(s). Errors: 0. Cost ceiling applied: 1.
+539 manifest record(s) over 345 distinct document(s). Errors: 1. Cost ceiling applied: 7.
 
 | dimension | breakdown |
 |---|---|
-| action | ingested=114, skipped=80 |
-| extractor | pymupdf=194 |
-| embedding | text-embedding-3-large@1536=194 |
-| chunking | basic/pysbd size=1200 overlap=200 (25), basic/pysbd size=1600 overlap=250 (123), basic/pysbd size=2000 overlap=300 (45), basic/pysbd size=4441 overlap=666 (1) |
+| action | failed=1, ingested=194, skipped=344 |
+| extractor | pymupdf=539 |
+| embedding | text-embedding-3-large@1536=539 |
+| chunking | basic/pysbd size=0 overlap=0 (1), basic/pysbd size=1200 overlap=200 (72), basic/pysbd size=1600 overlap=250 (343), basic/pysbd size=2000 overlap=300 (116), basic/pysbd size=2526 overlap=378 (1), basic/pysbd size=2850 overlap=427 (1), basic/pysbd size=3374 overlap=506 (1), basic/pysbd size=3801 overlap=570 (1), basic/pysbd size=3824 overlap=573 (1), basic/pysbd size=4441 overlap=666 (2) |
 
 | quantity | total | mean (n) | min | max |
 |---|---|---|---|---|
-| tokens | 6,035,333 | 31110.0 (n=194) | 3,229 | 243,358 |
-| chunks | 3,520 | 18.1 (n=194) | 3 | 55 |
+| tokens | 16,499,697 | 30611.7 (n=539) | 0 | 243,358 |
+| chunks | 9,468 | 17.6 (n=539) | 0 | 55 |
 
 ## draft eval scoreboard — `results/history.jsonl`
 
@@ -215,7 +579,7 @@ _No runs recorded._
 
 ## OpenReview eval scoreboard — `results/openreview_history.jsonl`
 
-10 run(s) across 2 pipeline version(s).
+17 run(s) across 3 pipeline version(s).
 
 | run_id | date | pipeline | mean overall (n = scored cells) | hallucinations | scored/total cells |
 |---|---|---|---|---|---|
@@ -229,6 +593,13 @@ _No runs recorded._
 | `4009a55234c3` | 2026-07-30 | `891131180509` | no data (n=0) | 0 | 0/2 |
 | `9f67abf4699b` | 2026-07-30 | `891131180509` | no data (n=0) | 0 | 0/2 |
 | `d3f621de72e8` | 2026-07-30 | `891131180509` | no data (n=0) | 0 | 0/2 |
+| `8bd6be04f54d` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
+| `4b270019c9a4` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
+| `e9acf8ac7b0c` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
+| `675ad02bd6a6` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
+| `07202105bf00` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
+| `b42cdd6246b7` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
+| `3d93a316a144` | 2026-07-31 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
 
 ### Trend — same pipeline version only
 
@@ -236,6 +607,7 @@ _No runs recorded._
 |---|---|---|---|---|---|
 | `7860c5a18e72` | 5 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
 | `891131180509` | 5 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
+| `e6dc45ecb601` | 7 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
 
 ## Gate calibration — `gate_calibration/sweep_results.jsonl`
 

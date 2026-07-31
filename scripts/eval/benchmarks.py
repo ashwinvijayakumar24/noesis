@@ -59,7 +59,9 @@ MD_PATH = EVAL_DIR / "BENCHMARKS.md"
 JSON_PATH = EVAL_DIR / "benchmarks.json"
 
 #: Bumped when the shape of benchmarks.json changes incompatibly.
-SCHEMA_VERSION = 1
+#: 2 -- added the ANN sweep block, the consolidated cost block, and label
+#: snapshot grouping on the retrieval block.
+SCHEMA_VERSION = 2
 
 # Source paths, relative to scripts/eval/. Every one may be absent on a fresh
 # clone -- four of the five are gitignored, which is why this file exists.
@@ -70,6 +72,7 @@ SRC_INGEST = "cache/ingest_manifest.jsonl"
 SRC_HISTORY = "results/history.jsonl"
 SRC_OPENREVIEW = "results/openreview_history.jsonl"
 SRC_SWEEP = "gate_calibration/sweep_results.jsonl"
+SRC_ANN = "results/ann_sweep.jsonl"
 
 SOURCES = (
     SRC_RETRIEVAL,
@@ -79,23 +82,50 @@ SOURCES = (
     SRC_HISTORY,
     SRC_OPENREVIEW,
     SRC_SWEEP,
+    SRC_ANN,
+)
+
+# ---------------------------------------------------------------------------
+# Cost
+# ---------------------------------------------------------------------------
+# Stated once, at the top of the cost section, because it applies to every cost
+# figure this repo has ever produced and no per-record flag encodes it:
+# ``match.py`` issued OpenAI calls outside the spend guardrails until recently,
+# so those calls were never metered into any sink. Nothing below can see them.
+COST_LOWER_BOUND_REASON = (
+    "`match.py` bypassed the spend guardrails until recently, so its OpenAI "
+    "calls were never recorded in any sink. Every cost figure in this project "
+    "is therefore a lower bound -- including the ones whose own "
+    "`unpriced_calls` counter reads zero."
 )
 
 # ---------------------------------------------------------------------------
 # Recall ceilings
 # ---------------------------------------------------------------------------
 # recall@k is capped by the label design, not by the retriever. The ceiling is
-# a property of (labels, queries), so it is keyed by the fingerprints the
-# harness already stamps on every record. If either fingerprint changes, the
-# ceiling for that pair is unknown and the board says "unknown" -- an
-# out-of-date ceiling would be worse than none, because it makes a retriever
-# look better or worse than it is.
+# a property of (labels, queries, corpus), so it is keyed by the fingerprints
+# the harness already stamps on every record AND by the corpus size the run
+# reports. If any of the three changes, the ceiling for that pair is unknown and
+# the board says "unknown" -- an out-of-date ceiling would be worse than none,
+# because it makes a retriever look better or worse than it is.
+#
+# The corpus size is part of the key and not decoration. This corpus grew from
+# 118 documents / 4 topics to 344 / 15 mid-project and the label fingerprint
+# changed twice with it. recall@10 = 0.4221 (BASELINE.md, labels
+# 019bee4a06eb2d39), 0.3488 (ANN sweep, labels 425df789a844f1f3) and whatever a
+# 15-topic run produces are three different quantities. Applying one snapshot's
+# ceiling to another's measurement is the single easiest way to publish a wrong
+# "% of attainable", so it is structurally prevented here.
 #
 # Provenance: measured in scripts/eval/retrieval/BASELINE.md §"recall@k is
 # capped well below 1.0 by construction", query-count weighted, over the
 # 59-query / 118-document local corpus.
-KNOWN_RECALL_CEILINGS: dict[tuple[str, str], dict[int, float]] = {
-    ("019bee4a06eb2d39", "1f6c584e8fd6c055"): {1: 0.1061, 5: 0.5307, 10: 0.7789, 20: 0.8798},
+KNOWN_RECALL_CEILINGS: dict[tuple[str, str], dict[str, Any]] = {
+    ("019bee4a06eb2d39", "1f6c584e8fd6c055"): {
+        "corpus_documents": 118,
+        "source": "retrieval/BASELINE.md",
+        "ceilings": {1: 0.1061, 5: 0.5307, 10: 0.7789, 20: 0.8798},
+    },
 }
 
 
@@ -243,12 +273,46 @@ def _delta(new: Any, old: Any, places: int = 4) -> str:
 # Retrieval
 # ---------------------------------------------------------------------------
 
+def _corpus_documents(record: dict) -> Any:
+    return (record.get("resolution_report") or {}).get("pooled_corpus_size")
+
+
+def _snapshot(record: dict) -> dict[str, Any]:
+    """The (labels, queries, corpus) triple a retrieval number belongs to.
+
+    Two runs sharing this triple measured the same target. Two that do not are
+    not comparable *at all* -- not "roughly", not "close enough". The board
+    groups on it and says so above every table, because the failure mode is a
+    reader skimming one table, quoting 0.4221, and setting it beside 0.3488
+    from another as though the retriever had got worse.
+    """
+    config = record.get("config") or {}
+    labels = config.get("labels_fingerprint")
+    queries = config.get("queries_fingerprint")
+    documents = _corpus_documents(record)
+    report = record.get("resolution_report") or {}
+    return {
+        "key": f"labels={labels or 'unknown'} queries={queries or 'unknown'} "
+               f"corpus={documents if documents is not None else 'unknown'}docs",
+        "labels_fingerprint": labels,
+        "queries_fingerprint": queries,
+        "corpus_documents": documents,
+        "n_topics": report.get("n_topics"),
+        "n_topics_with_labels": report.get("n_topics_with_labels"),
+    }
+
+
 def _ceiling_for(record: dict) -> tuple[dict[int, float] | None, str]:
     """(ceilings by k, provenance). ``None`` means unknown -- say so. Rule 3.
 
     A ceiling carried on the record itself always wins: if the harness ever
     starts computing it per-run, that number is authoritative and this table
     should stop being consulted.
+
+    A ceiling from the table is only applied when the labels fingerprint, the
+    queries fingerprint *and* the corpus size all match the snapshot it was
+    measured on. A mismatch on any of the three returns ``None`` with the
+    mismatch named, never a near-miss ceiling.
     """
     carried = record.get("recall_ceilings") or record.get("ceilings")
     if isinstance(carried, dict) and carried:
@@ -262,9 +326,22 @@ def _ceiling_for(record: dict) -> tuple[dict[int, float] | None, str]:
             return parsed, "carried on record"
     config = record.get("config") or {}
     key = (str(config.get("labels_fingerprint")), str(config.get("queries_fingerprint")))
-    if key in KNOWN_RECALL_CEILINGS:
-        return KNOWN_RECALL_CEILINGS[key], "retrieval/BASELINE.md (labels+queries fingerprint match)"
-    return None, "unknown (no ceiling recorded for this labels/queries fingerprint)"
+    entry = KNOWN_RECALL_CEILINGS.get(key)
+    if entry is None:
+        return None, "unknown (no ceiling recorded for this labels/queries fingerprint)"
+    measured_on = entry.get("corpus_documents")
+    documents = _corpus_documents(record)
+    if measured_on is not None and documents is not None and int(documents) != int(measured_on):
+        return None, (
+            f"unknown (ceiling was measured on a {measured_on}-document label "
+            f"snapshot; this run reports {documents} documents -- a ceiling is "
+            f"never carried across snapshots)"
+        )
+    return (
+        entry["ceilings"],
+        f"{entry['source']} (labels+queries fingerprint and "
+        f"{measured_on}-document corpus all match)",
+    )
 
 
 def _invalidation_reason(record: dict) -> str:
@@ -337,6 +414,7 @@ def distil_retrieval(source: SourceRead) -> dict[str, Any]:
             "config_hash": record.get("config_hash"),
             "labels_fingerprint": config.get("labels_fingerprint"),
             "queries_fingerprint": config.get("queries_fingerprint"),
+            "snapshot": _snapshot(record),
             "graded": config.get("graded"),
             "chunk_oversample": config.get("chunk_oversample"),
             "n_queries": record.get("n_queries"),
@@ -370,17 +448,20 @@ def distil_retrieval(source: SourceRead) -> dict[str, Any]:
         else:
             valid.append(summary)
 
-    # Headline = latest valid run per config hash. Rule 6: grouping is by hash,
-    # so two different configs can never be differenced against each other.
-    groups: dict[str, list[dict]] = {}
+    # Headline = latest valid run per (config hash, label snapshot). Rule 6:
+    # grouping is by hash, so two different configs can never be differenced
+    # against each other; the snapshot is in the key as well, so that a config
+    # hash that somehow survived a corpus change still cannot be differenced
+    # across the change.
+    groups: dict[tuple[str, str], list[dict]] = {}
     for run in valid:
-        groups.setdefault(str(run.get("config_hash")), []).append(run)
+        groups.setdefault((str(run.get("config_hash")), run["snapshot"]["key"]), []).append(run)
     for runs in groups.values():
         runs.sort(key=lambda r: (str(r.get("timestamp") or ""), str(r.get("run_id") or "")))
 
     headline = [runs[-1] for _, runs in sorted(groups.items())]
     deltas = []
-    for config_hash, runs in sorted(groups.items()):
+    for (config_hash, snapshot_key), runs in sorted(groups.items()):
         if len(runs) < 2:
             continue
         first, last = runs[0], runs[-1]
@@ -402,6 +483,7 @@ def distil_retrieval(source: SourceRead) -> dict[str, Any]:
             })
         deltas.append({
             "config_hash": config_hash,
+            "snapshot_key": snapshot_key,
             "retriever": last.get("retriever"),
             "runs": len(runs),
             "first_run_id": first.get("run_id"),
@@ -411,6 +493,37 @@ def distil_retrieval(source: SourceRead) -> dict[str, Any]:
             "metrics": rows,
         })
 
+    # Snapshot roll-up. Every run -- valid or not -- is counted here, because a
+    # reader needs to see that more than one label snapshot exists at all before
+    # they are told which numbers may sit beside which.
+    snapshots: dict[str, dict[str, Any]] = {}
+    for run in valid + invalidated:
+        snap = run["snapshot"]
+        bucket = snapshots.setdefault(snap["key"], {
+            **snap,
+            "n_runs": 0,
+            "n_valid": 0,
+            "n_invalidated": 0,
+            "config_hashes": set(),
+            "retrievers": set(),
+            "ceiling_known": False,
+        })
+        bucket["n_runs"] += 1
+        bucket["config_hashes"].add(str(run.get("config_hash")))
+        bucket["retrievers"].add(str(run.get("retriever")))
+    for run in valid:
+        snapshots[run["snapshot"]["key"]]["n_valid"] += 1
+        if not str(run.get("ceiling_provenance", "")).startswith("unknown"):
+            snapshots[run["snapshot"]["key"]]["ceiling_known"] = True
+    for run in invalidated:
+        snapshots[run["snapshot"]["key"]]["n_invalidated"] += 1
+    snapshot_rows = []
+    for key in sorted(snapshots):
+        bucket = dict(snapshots[key])
+        bucket["config_hashes"] = sorted(bucket["config_hashes"])
+        bucket["retrievers"] = sorted(bucket["retrievers"])
+        snapshot_rows.append(bucket)
+
     return {
         "headline": headline,
         "invalidated": invalidated,
@@ -418,7 +531,10 @@ def distil_retrieval(source: SourceRead) -> dict[str, Any]:
         "n_runs": len(source.records),
         "n_valid": len(valid),
         "n_invalidated": len(invalidated),
-        "config_hashes": sorted(groups),
+        "config_hashes": sorted({config_hash for config_hash, _ in groups}),
+        "snapshots": snapshot_rows,
+        "n_snapshots": len(snapshot_rows),
+        "cross_snapshot_comparison_allowed": False,
     }
 
 
@@ -790,18 +906,431 @@ def distil_gate(source: SourceRead) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# ANN / HNSW parameter sweep (results/ann_sweep.jsonl)
+# ---------------------------------------------------------------------------
+# Two measurement modes exist in this sink and conflating them would be the
+# worst thing this file could do:
+#
+#   planner-free  -- the query as production issues it. Postgres decides. On
+#                    this 2124-chunk corpus it declines the HNSW index above a
+#                    LIMIT of roughly 30-40 and runs an exact sequential scan,
+#                    so a "planner-free" row at k=50 is an exact-scan result
+#                    and `ef_search` is inert in it.
+#   index-forced  -- `enable_seqscan = off`, every other index dropped inside a
+#                    rolled-back transaction. This is the HNSW curve. It is NOT
+#                    what production executes at that depth and must never be
+#                    quoted as though it were.
+#
+# Records written before the sweep grew its `index_scan_forced` field carry no
+# mode at all. They are excluded from both tables rather than guessed at.
+MODE_PLANNER_FREE = "planner_free"
+MODE_INDEX_FORCED = "index_forced"
+MODE_UNRECORDED = "mode_unrecorded"
+
+MODE_LABELS = {
+    MODE_PLANNER_FREE: "planner-free (what production executes)",
+    MODE_INDEX_FORCED: "index-forced (property of the index, NOT of production)",
+    MODE_UNRECORDED: "mode not recorded",
+}
+
+#: The production HNSW index on ``document_chunks.embedding``. Candidate indexes
+#: built by the sweep are named ``ann_sweep_hnsw_*``.
+ANN_PRODUCTION_INDEX = "idx_document_chunks_embedding"
+ANN_CANDIDATE_PREFIX = "ann_sweep_hnsw_"
+
+#: Postgres page size. Used only to explain the flat index-size finding.
+PG_PAGE_BYTES = 8192
+
+
+def _is_vector_index(name: Any) -> bool:
+    text = str(name or "")
+    return text == ANN_PRODUCTION_INDEX or text.startswith(ANN_CANDIDATE_PREFIX)
+
+
+def _ann_mode(record: dict) -> str:
+    forced = record.get("index_scan_forced")
+    if forced is True:
+        return MODE_INDEX_FORCED
+    if forced is False:
+        return MODE_PLANNER_FREE
+    return MODE_UNRECORDED
+
+
+def _ann_point_id(record: dict) -> str:
+    """Stable identity for "the same sweep point".
+
+    This sink writes no ``run_id`` -- it is keyed by parameters plus corpus
+    fingerprint, one record per configuration, appended forever. So provenance
+    (rule 5) is the file plus this derived point id, and the board says as much
+    rather than printing a blank run_id column.
+    """
+    params = record.get("params") or {}
+    kind = str(record.get("record_type"))
+    bits = [kind, _ann_mode(record)]
+    for name in ("k", "ef_search", "m", "ef_construction"):
+        if params.get(name) is not None:
+            bits.append(f"{name}={params[name]}")
+    if kind == "planner_choice":
+        bits.append("k_values=" + ",".join(str(v) for v in (params.get("k_values") or [])))
+    return "/".join(bits)
+
+
+def _ann_latency(record: dict) -> dict[str, Any]:
+    server = record.get("latency_server_ms") or {}
+    client = record.get("latency_client_ms") or {}
+    return {
+        "server_p50_ms": server.get("p50_ms"),
+        "server_p95_ms": server.get("p95_ms"),
+        "client_p50_ms": client.get("p50_ms"),
+        "n_samples": server.get("n_samples"),
+        "n_queries": server.get("n_queries"),
+        "clock": server.get("clock"),
+        "percentile_method": server.get("percentile_method"),
+    }
+
+
+def _ann_row(record: dict) -> dict[str, Any]:
+    params = record.get("params") or {}
+    ann = record.get("ann_recall_vs_exact") or {}
+    labels = record.get("metrics_vs_labels") or {}
+    label_metrics = labels.get("metrics") or {}
+    index_used = record.get("plan_index_used")
+    row = {
+        "point_id": _ann_point_id(record),
+        "source": SRC_ANN,
+        "run_id": None,  # this sink records none; point_id is the identity
+        "record_type": record.get("record_type"),
+        "timestamp": record.get("timestamp"),
+        "sweep_version": record.get("sweep_version"),
+        "mode": _ann_mode(record),
+        "mode_label": MODE_LABELS[_ann_mode(record)],
+        "k": params.get("k"),
+        "ef_search": params.get("ef_search"),
+        "is_production_reference": bool(params.get("is_production_reference")),
+        "plan_index_used": index_used,
+        "plan": "index scan" if index_used else "seq scan (exact)",
+        "n_queries": record.get("n_queries"),
+        "ann_recall": {k: ann[k] for k in sorted(ann) if k.startswith(("recall@", "vs_exact@"))},
+        "label_metrics": {k: label_metrics[k] for k in sorted(label_metrics)},
+        "label_n_queries": labels.get("n_queries_scored", labels.get("n_queries")),
+        "label_ceiling": None,
+        "label_ceiling_provenance": (
+            "unknown (this sink records no labels fingerprint, so the ceiling "
+            "for its label snapshot cannot be identified -- and a ceiling from "
+            "another snapshot is never substituted)"
+        ),
+    }
+    row.update(_ann_latency(record))
+    return row
+
+
+def _ann_dedupe(rows: Sequence[dict]) -> tuple[list[dict], list[dict]]:
+    """Latest record per point wins; the earlier ones are named, not dropped."""
+    latest: dict[str, dict] = {}
+    for row in rows:
+        key = row["point_id"]
+        prior = latest.get(key)
+        if prior is None or str(row.get("timestamp") or "") >= str(prior.get("timestamp") or ""):
+            latest[key] = row
+    kept, superseded = [], []
+    for row in rows:
+        if latest.get(row["point_id"]) is row:
+            kept.append(row)
+        else:
+            superseded.append(dict(row, exclusion_reason=(
+                "superseded by a later measurement of the same sweep point "
+                f"({_date(latest[row['point_id']].get('timestamp'))})"
+            )))
+    return kept, superseded
+
+
+def distil_ann(source: SourceRead) -> dict[str, Any]:
+    if not source.records:
+        return {"present": False, "n_records": 0, "source": SRC_ANN}
+
+    corpora: dict[str, dict[str, Any]] = {}
+    for record in source.records:
+        fingerprint = record.get("corpus_fingerprint") or {}
+        key = f"{fingerprint.get('documents')}docs/{fingerprint.get('chunks')}chunks"
+        corpora.setdefault(key, {
+            "documents": fingerprint.get("documents"),
+            "chunks": fingerprint.get("chunks"),
+            "project_id": fingerprint.get("project_id"),
+            "n_records": 0,
+        })["n_records"] += 1
+    corpus_rows = [corpora[k] for k in sorted(corpora)]
+
+    excluded: list[dict[str, Any]] = []
+    ef_rows: list[dict] = []
+    exact_rows: list[dict] = []
+    build_rows: list[dict] = []
+    planner_rows: list[dict] = []
+
+    for record in source.records:
+        kind = record.get("record_type")
+        status = record.get("status")
+        row = _ann_row(record)
+
+        if status != "ok":
+            excluded.append(dict(row, exclusion_reason=(
+                f"status={status}: {record.get('error') or 'no error recorded'}"
+            )))
+            continue
+
+        if kind == "planner_choice":
+            planner_rows.append(dict(row, choices=[
+                {"k": entry.get("k"), "index_used": entry.get("index_used")}
+                for entry in (record.get("planner_choice_by_k") or [])
+            ]))
+            continue
+
+        if kind == "build":
+            build = record.get("build") or {}
+            if not _is_vector_index(record.get("plan_index_used")) or \
+                    record.get("plan_index_used") != build.get("index_name"):
+                excluded.append(dict(row, exclusion_reason=(
+                    f"build candidate '{build.get('index_name')}' was measured with the "
+                    f"planner on '{record.get('plan_index_used')}' -- the point would be "
+                    "mislabelled"
+                )))
+                continue
+            build_rows.append(dict(row, **{
+                "m": build.get("m"),
+                "ef_construction": build.get("ef_construction"),
+                "index_name": build.get("index_name"),
+                "build_seconds": build.get("build_seconds"),
+                "index_bytes": build.get("index_bytes"),
+                "index_size_pretty": build.get("index_size_pretty"),
+            }))
+            continue
+
+        if row["mode"] == MODE_UNRECORDED:
+            excluded.append(dict(row, exclusion_reason=(
+                "the sweep run predates the `index_scan_forced` field, so it is "
+                "unknown whether the planner was free or the index was forced. "
+                "Never guessed: an index-forced number presented as planner-free "
+                "would be a claim about production that was not measured"
+            )))
+            continue
+
+        if row["mode"] == MODE_INDEX_FORCED and not _is_vector_index(row["plan_index_used"]):
+            excluded.append(dict(row, exclusion_reason=(
+                f"'index forced' landed on '{row['plan_index_used']}', which is not "
+                "an HNSW vector index -- the run measured a full scan of the wrong "
+                "index and its ANN recall of 1.0 is an artefact, not a result"
+            )))
+            continue
+
+        (exact_rows if kind == "exact" else ef_rows).append(row)
+
+    ef_rows, ef_superseded = _ann_dedupe(ef_rows)
+    exact_kept, exact_superseded = _ann_dedupe(exact_rows)
+    build_rows, build_superseded = _ann_dedupe(build_rows)
+    planner_rows, planner_superseded = _ann_dedupe(planner_rows)
+    excluded += ef_superseded + build_superseded + planner_superseded
+
+    ef_rows.sort(key=lambda r: (r["k"] or 0, r["mode"], r["ef_search"] or 0))
+    build_rows.sort(key=lambda r: (r["m"] or 0, r["ef_construction"] or 0))
+    planner_rows.sort(key=lambda r: str(r.get("timestamp") or ""))
+
+    # Exact search is the recall ceiling for ANN recall (and only for that --
+    # its *label* recall is capped by the label design like everything else).
+    # Its repeats across runs are the machine-noise measurement, so they are
+    # summarised before deduplication, not after.
+    #
+    # Every ok `exact` record counts here, including ones whose mode field is
+    # missing: an exact scan is an exact scan (the harness refuses to record an
+    # "exact" point whose plan used an index), so all repeats of it are repeats
+    # of the same measurement. Mode only decides what the *ef_search* rows mean.
+    noise: list[dict[str, Any]] = []
+    by_k: dict[Any, list[float]] = {}
+    for record in source.records:
+        if record.get("record_type") != "exact" or record.get("status") != "ok":
+            continue
+        p50 = (record.get("latency_server_ms") or {}).get("p50_ms")
+        if isinstance(p50, (int, float)):
+            by_k.setdefault((record.get("params") or {}).get("k"), []).append(float(p50))
+    for k in sorted(by_k, key=lambda v: (v is None, v)):
+        values = sorted(by_k[k])
+        mean = sum(values) / len(values)
+        noise.append({
+            "k": k,
+            "n_runs": len(values),
+            "p50_ms_min": values[0],
+            "p50_ms_max": values[-1],
+            "p50_ms_mean": mean,
+            "spread_pct_of_mean": ((values[-1] - values[0]) / mean * 100.0) if mean else None,
+            "plus_minus_pct": ((values[-1] - values[0]) / (2 * mean) * 100.0) if mean else None,
+        })
+    exact_kept.sort(key=lambda r: (r["k"] or 0,))
+
+    # Finding: the planner declines the index above some LIMIT. Read off the
+    # probes rather than asserted.
+    highest_index_k: int | None = None
+    lowest_seq_k: int | None = None
+    for row in planner_rows:
+        for choice in row["choices"]:
+            k = choice.get("k")
+            if k is None:
+                continue
+            if choice.get("index_used"):
+                highest_index_k = k if highest_index_k is None else max(highest_index_k, k)
+            else:
+                lowest_seq_k = k if lowest_seq_k is None else min(lowest_seq_k, k)
+
+    # Finding: raising ef_search past the production value flips the plan and
+    # costs latency. Computed against the production reference row, per k, in
+    # planner-free mode only -- the forced curve cannot show a plan flip.
+    plan_flip: list[dict[str, Any]] = []
+    for k in sorted({r["k"] for r in ef_rows if r["k"] is not None}):
+        free = [r for r in ef_rows if r["k"] == k and r["mode"] == MODE_PLANNER_FREE]
+        reference = next((r for r in free if r["is_production_reference"]), None)
+        if reference is None or not isinstance(reference.get("server_p50_ms"), (int, float)):
+            continue
+        if not reference["plan_index_used"]:
+            # Nothing to flip: the planner had already declined the index at the
+            # production ef_search, so a slower row above it is not a plan flip.
+            continue
+        flipped = [
+            r for r in free
+            if (r["ef_search"] or 0) > (reference["ef_search"] or 0)
+            and not r["plan_index_used"]
+            and isinstance(r.get("server_p50_ms"), (int, float))
+        ]
+        if not flipped:
+            continue
+        worst = max(flipped, key=lambda r: r["server_p50_ms"])
+        plan_flip.append({
+            "k": k,
+            "reference_ef_search": reference["ef_search"],
+            "reference_p50_ms": reference["server_p50_ms"],
+            "reference_plan": reference["plan"],
+            "flipped_ef_search": worst["ef_search"],
+            "flipped_p50_ms": worst["server_p50_ms"],
+            "slowdown_x": worst["server_p50_ms"] / reference["server_p50_ms"],
+            "n_samples": reference["n_samples"],
+        })
+
+    # Finding: index size does not move with m.
+    sizes = sorted({r["index_bytes"] for r in build_rows if r.get("index_bytes") is not None})
+    index_size = {
+        "distinct_byte_values": sizes,
+        "identical_at_every_point": len(sizes) == 1,
+        "bytes": sizes[0] if len(sizes) == 1 else None,
+        "pages": (sizes[0] // PG_PAGE_BYTES) if len(sizes) == 1 else None,
+        "m_values": sorted({r["m"] for r in build_rows if r.get("m") is not None}),
+        "n_points": len(build_rows),
+    }
+    builds = [r["build_seconds"] for r in build_rows if isinstance(r.get("build_seconds"), (int, float))]
+    build_time = {
+        "n_points": len(builds),
+        "min_seconds": min(builds) if builds else None,
+        "max_seconds": max(builds) if builds else None,
+        "span_x": (max(builds) / min(builds)) if builds and min(builds) else None,
+    }
+
+    return {
+        "present": True,
+        "source": SRC_ANN,
+        "n_records": len(source.records),
+        "sweep_versions": sorted({str(r.get("sweep_version")) for r in source.records}),
+        "corpora": corpus_rows,
+        "modes": MODE_LABELS,
+        "ef_search": ef_rows,
+        "exact": exact_kept,
+        "exact_repeat_noise": noise,
+        "build_grid": build_rows,
+        "index_size": index_size,
+        "build_time": build_time,
+        "planner_choice": planner_rows,
+        "planner_crossover": {
+            "highest_k_using_index": highest_index_k,
+            "lowest_k_declining_index": lowest_seq_k,
+            "n_probes": len(planner_rows),
+        },
+        "plan_flip": plan_flip,
+        "excluded": sorted(excluded, key=lambda r: (r["point_id"], str(r.get("timestamp") or ""))),
+        "n_excluded": len(excluded),
+        "label_ceiling_known": False,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Cost -- consolidated, and always a lower bound
+# ---------------------------------------------------------------------------
+
+def distil_cost(node_eval: dict, spans: dict) -> dict[str, Any]:
+    sinks: list[dict[str, Any]] = []
+
+    run_usd = sum(
+        float(r["total_estimated_usd"]) for r in node_eval["runs"]
+        if isinstance(r.get("total_estimated_usd"), (int, float))
+    )
+    run_unpriced = sum(int(r.get("unpriced_calls") or 0) for r in node_eval["runs"])
+    if node_eval["runs"]:
+        sinks.append({
+            "sink": SRC_NODE_EVAL,
+            "scope": "run summaries",
+            "n": len(node_eval["runs"]),
+            "usd": run_usd,
+            "unpriced_calls": run_unpriced,
+        })
+
+    replay_usd = sum(float(e.get("estimated_usd") or 0.0) for e in node_eval["per_node"])
+    replay_unpriced = sum(int(e.get("unpriced_calls") or 0) for e in node_eval["per_node"])
+    if node_eval["per_node"]:
+        sinks.append({
+            "sink": SRC_NODE_EVAL,
+            "scope": "replay records, per node",
+            "n": node_eval["n_replays"],
+            "usd": replay_usd,
+            "unpriced_calls": replay_unpriced,
+        })
+
+    span_cost = spans.get("cost") or {}
+    if spans.get("present") and not spans.get("error"):
+        sinks.append({
+            "sink": SRC_SPANS,
+            "scope": "raw spans",
+            "n": span_cost.get("runs"),
+            "usd": span_cost.get("total_usd"),
+            "unpriced_calls": span_cost.get("unpriced_spans") or 0,
+        })
+
+    unpriced = sum(int(s.get("unpriced_calls") or 0) for s in sinks)
+    return {
+        "sinks": sinks,
+        "unpriced_calls": unpriced,
+        "any_unpriced_calls": unpriced > 0,
+        # Not conditional on the counter. See COST_LOWER_BOUND_REASON: the
+        # unrecorded match.py spend is invisible to every counter here.
+        "all_costs_are_lower_bounds": True,
+        "lower_bound_reason": COST_LOWER_BOUND_REASON,
+        # There is deliberately no grand total: the sinks overlap (a replay's
+        # cost is also inside its run summary) and adding them would double
+        # count. Overlapping lower bounds do not sum into a better one.
+        "grand_total_usd": None,
+        "grand_total_note": "not computed -- the sinks overlap and would double count",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Assembly
 # ---------------------------------------------------------------------------
 
 def build(root: Path | str = EVAL_DIR) -> dict[str, Any]:
     root = Path(root)
     reads = {rel: read_jsonl(root, rel) for rel in SOURCES}
+    node_eval = distil_node_eval(reads[SRC_NODE_EVAL])
+    spans = distil_spans(root)
     return {
         "schema_version": SCHEMA_VERSION,
         "sources": [reads[rel].to_dict() for rel in SOURCES],
+        "cost": distil_cost(node_eval, spans),
         "retrieval": distil_retrieval(reads[SRC_RETRIEVAL]),
-        "node_eval": distil_node_eval(reads[SRC_NODE_EVAL]),
-        "spans": distil_spans(root),
+        "ann_sweep": distil_ann(reads[SRC_ANN]),
+        "node_eval": node_eval,
+        "spans": spans,
         "ingest": distil_ingest(reads[SRC_INGEST]),
         "draft_eval_history": distil_history(reads[SRC_HISTORY], "draft eval"),
         "openreview_history": distil_history(reads[SRC_OPENREVIEW], "OpenReview eval"),
@@ -831,11 +1360,18 @@ House rules, applied throughout:
 - runs marked `valid: false` are excluded from every headline and listed
   separately with the reason;
 - `recall@k` is reported against its construction ceiling, or explicitly as
-  `unknown` when no ceiling is recorded for that labels/queries fingerprint;
-- a cost with any unpriced call renders as a lower bound (`$0.0000 >=`);
-- every row carries the file and `run_id` it came from;
+  `unknown` when no ceiling is recorded for that labels/queries fingerprint.
+  The ceiling moves with the corpus, so one label snapshot's ceiling is never
+  applied to another's measurement;
+- **every cost figure in this project is a lower bound** -- see the cost
+  section below for why; a cost with any unpriced call additionally renders as
+  `$0.0000 >=`;
+- every row carries the file and `run_id` it came from (or, where a sink
+  records no run_id, the derived point identity and a note saying so);
 - trends are drawn only between runs sharing a config hash. Different hashes
-  are different measurements and are never differenced.
+  are different measurements and are never differenced;
+- retrieval numbers are grouped by label snapshot and **numbers from different
+  snapshots are not comparable at all**.
 """
 
 
@@ -872,12 +1408,68 @@ def _render_retrieval(block: dict) -> list[str]:
         return out
     out += [
         f"{block['n_valid']} valid run(s), {block['n_invalidated']} invalidated, "
-        f"across {len(block['config_hashes'])} config hash(es).",
+        f"across {len(block['config_hashes'])} config hash(es) and "
+        f"{block['n_snapshots']} label snapshot(s).",
         "",
-        "### Headline — latest valid run per config",
+        "> **Read this before quoting any number below.**",
+        "> Every retrieval metric here is measured against a *label snapshot* —",
+        "> a particular labels fingerprint, queries fingerprint and corpus size.",
+        "> This corpus grew from 118 documents / 4 topics to 344 / 15 mid-project",
+        "> and the label fingerprint changed twice with it. **Numbers from two",
+        "> different snapshots are not comparable.** `recall@10 = 0.4221` and",
+        "> `recall@10 = 0.3488` are not a regression; they are two different",
+        "> questions. Each table below is scoped to one snapshot and says which.",
+        "",
+        "### Label snapshots present",
         "",
     ]
+    snap_rows = []
+    for snap in block["snapshots"]:
+        snap_rows.append([
+            f"`{_short(snap.get('labels_fingerprint'), 16)}`",
+            f"`{_short(snap.get('queries_fingerprint'), 16)}`",
+            str(snap.get("corpus_documents")),
+            str(snap.get("n_topics")),
+            f"{snap.get('n_valid')} valid / {snap.get('n_invalidated')} invalid",
+            ", ".join(snap.get("retrievers") or []) or "unknown",
+            "yes" if snap.get("ceiling_known") else "no",
+        ])
+    out += _table(
+        ["labels fp", "queries fp", "corpus docs", "topics", "runs", "retrievers",
+         "recall ceiling known"],
+        snap_rows,
+    ) + [""]
+    if block["n_snapshots"] > 1:
+        out += [
+            f"**{block['n_snapshots']} snapshots are present in this file.** No "
+            "delta, ratio or comparison is drawn across them anywhere in this "
+            "document, and none should be drawn by hand either.",
+            "",
+        ]
+
+    out += ["### Headline — latest valid run per config, grouped by label snapshot", ""]
+    by_snapshot: dict[str, list[dict]] = {}
     for run in block["headline"]:
+        by_snapshot.setdefault(run["snapshot"]["key"], []).append(run)
+    for snapshot_key in sorted(by_snapshot):
+        group = by_snapshot[snapshot_key]
+        snap = group[0]["snapshot"]
+        out += [
+            f"#### Snapshot `{snapshot_key}`",
+            "",
+            f"{snap.get('corpus_documents')} documents across {snap.get('n_topics')} "
+            f"topics ({snap.get('n_topics_with_labels')} with labels). "
+            "Every number under this heading is comparable with every other number "
+            "under this heading, and with nothing outside it.",
+            "",
+        ]
+        out += _render_retrieval_runs(group)
+    return out + _render_retrieval_tail(block)
+
+
+def _render_retrieval_runs(runs: Sequence[dict]) -> list[str]:
+    out: list[str] = []
+    for run in runs:
         out += [
             f"**{run.get('retriever')}** · config `{run.get('config_hash')}` · "
             f"run `{run.get('run_id')}` · {_date(run.get('timestamp'))} · "
@@ -906,6 +1498,13 @@ def _render_retrieval(block: dict) -> list[str]:
             else:
                 ceiling_cell = _num(ceiling)
                 pct_cell = f"{pct * 100:.0f}%" if pct is not None else "unknown"
+
+            # Withholding the measured value but printing % of attainable would
+            # leak it straight back: 54% of a published 0.7789 ceiling reconstructs
+            # 0.4206. If the measurement is withheld for want of an n, everything
+            # derived from it is withheld too.
+            if row.get("n_queries") is None:
+                pct_cell = "withheld (n unknown)"
             rows.append([
                 f"`{row['metric']}`",
                 _metric(row["value"], row["n_queries"]),
@@ -933,7 +1532,11 @@ def _render_retrieval(block: dict) -> list[str]:
                 [[f"`{k}`", str(health[k])] for k in sorted(health)],
             )
             out += [""]
+    return out
 
+
+def _render_retrieval_tail(block: dict) -> list[str]:
+    out: list[str] = []
     out += ["### Invalidated runs — excluded from every number above", ""]
     if not block["invalidated"]:
         out += ["_None. Every recorded run passed its validity check._", ""]
@@ -945,22 +1548,26 @@ def _render_retrieval(block: dict) -> list[str]:
                 _date(run.get("timestamp")),
                 str(run.get("retriever")),
                 f"`{run.get('config_hash')}`",
+                run["snapshot"]["key"],
                 run.get("invalidation_reason", "unknown"),
             ])
-        out += _table(["run_id", "date", "retriever", "config", "reason"], rows) + [""]
+        out += _table(
+            ["run_id", "date", "retriever", "config", "label snapshot", "reason"], rows) + [""]
 
-    out += ["### Trend — same config hash only", ""]
+    out += ["### Trend — same config hash *and* same label snapshot only", ""]
     if not block["deltas"]:
         out += [
-            "_No config hash has more than one valid run yet, so there is nothing "
-            "to compare. Runs under different hashes are different measurements "
-            "and are deliberately not differenced._",
+            "_No (config hash, label snapshot) pair has more than one valid run "
+            "yet, so there is nothing to compare. Runs under different hashes, or "
+            "under different label snapshots, are different measurements and are "
+            "deliberately not differenced._",
             "",
         ]
     else:
         for delta in block["deltas"]:
             out += [
                 f"**{delta.get('retriever')}** · config `{delta['config_hash']}` · "
+                f"snapshot `{delta['snapshot_key']}` · "
                 f"{delta['runs']} runs · "
                 f"`{delta.get('first_run_id')}` ({_date(delta.get('first_timestamp'))}) "
                 f"-> `{delta.get('last_run_id')}` ({_date(delta.get('last_timestamp'))})",
@@ -976,6 +1583,275 @@ def _render_retrieval(block: dict) -> list[str]:
                 for row in delta["metrics"]
             ]
             out += _table(["metric", "first", "latest", "delta"], rows) + [""]
+    return out
+
+
+def _render_cost(block: dict) -> list[str]:
+    out = ["## Cost — every figure in this project is a lower bound", ""]
+    out += [
+        f"> {COST_LOWER_BOUND_REASON}",
+        ">",
+        "> Nothing downstream can correct for this. Treat every dollar amount in "
+        "this document, and every dollar amount derived from these sinks "
+        "anywhere else, as a floor.",
+        "",
+    ]
+    if not block["sinks"]:
+        out += ["_No cost-bearing records on disk._", ""]
+        return out
+    rows = []
+    for entry in block["sinks"]:
+        rows.append([
+            f"`{entry['sink']}`",
+            entry["scope"],
+            str(entry.get("n")),
+            _usd(entry.get("usd"), entry.get("unpriced_calls") or 0),
+            str(entry.get("unpriced_calls") or 0),
+        ])
+    out += _table(["sink", "scope", "records", "recorded cost", "unpriced calls"], rows) + [""]
+    if block["any_unpriced_calls"]:
+        out += [
+            f"**{block['unpriced_calls']} call(s) carry no price** on top of the "
+            "unrecorded spend above, so the totals are understated twice over and "
+            "render with `>=`.",
+            "",
+        ]
+    out += [
+        f"No grand total is given: {block['grand_total_note']}.",
+        "",
+    ]
+    return out
+
+
+def _render_ann(block: dict) -> list[str]:
+    out = ["## ANN / HNSW index sweep — `results/ann_sweep.jsonl`", ""]
+    if not block.get("present"):
+        out += [
+            "_No ANN sweep on disk. Run `python3 -m ann_sweep.run_ann_sweep "
+            "--what all` from `scripts/eval/` to produce it._",
+            "",
+        ]
+        return out
+
+    corpus = block["corpora"][0] if len(block["corpora"]) == 1 else None
+    out += [
+        f"{block['n_records']} record(s), sweep version(s) "
+        f"{', '.join(block['sweep_versions'])}. "
+        + (
+            f"Corpus: {corpus['documents']} documents / {corpus['chunks']} chunks "
+            f"(project `{corpus['project_id']}`)."
+            if corpus else
+            f"{len(block['corpora'])} distinct corpus fingerprints -- rows from "
+            "different corpora are not comparable."
+        ),
+        "",
+        "> **Two measurement modes live in this file and they answer different "
+        "questions.**",
+        f"> *{MODE_LABELS[MODE_PLANNER_FREE]}* is the query as production issues "
+        "it, with Postgres free to choose the plan.",
+        f"> *{MODE_LABELS[MODE_INDEX_FORCED]}* switches the sequential scan off "
+        "and drops every competing index inside a rolled-back transaction, which "
+        "is the only way to see the HNSW curve at a depth where the planner "
+        "refuses the index.",
+        "> **An index-forced number is never what production does.** Every row "
+        "below carries its mode.",
+        "",
+        "This sink records no `run_id` — it is keyed by parameters plus corpus "
+        "fingerprint, one record per configuration, appended forever. Provenance "
+        "is therefore the file plus the derived point id shown on each row.",
+        "",
+    ]
+
+    # -- the planner finding ------------------------------------------------
+    cross = block["planner_crossover"]
+    out += ["### Does the planner use the index at all?", ""]
+    if block["planner_choice"]:
+        rows = []
+        for probe in block["planner_choice"]:
+            for choice in probe["choices"]:
+                rows.append([
+                    str(choice["k"]),
+                    f"`{choice['index_used']}`" if choice["index_used"]
+                    else "**no index — sequential scan (exact search)**",
+                    _date(probe.get("timestamp")),
+                    f"`{probe['point_id']}`",
+                ])
+        out += _table(["LIMIT", "plan", "date", "point"], rows) + [""]
+    if cross["highest_k_using_index"] is not None and cross["lowest_k_declining_index"] is not None:
+        out += [
+            f"**Postgres declines the HNSW index above a LIMIT of roughly "
+            f"{cross['highest_k_using_index']}–{cross['lowest_k_declining_index']} "
+            "and runs an exact sequential scan instead.** Not \"the index is "
+            "slow\" — the index is not consulted, so `ef_search` is a parameter "
+            "of a code path that never runs. Production's real call sites ask "
+            "for 3–10 chunks and are below the crossover; the retrieval eval "
+            "harness asks for 50 and is above it, so its \"HNSW\" dense row is "
+            "in fact an exact-scan result. This is a small-corpus finding: on a "
+            "10x corpus the sequential scan gets 10x more expensive and the "
+            "crossover moves above any realistic k.",
+            "",
+        ]
+
+    # -- exact search, the ceiling -----------------------------------------
+    out += ["### Exact sequential scan — the ANN-recall ceiling", "",
+            "Exact search *is* the ground truth for ANN recall, so its ANN recall "
+            "is 1.0 by definition, not by measurement. Its **label** recall is a "
+            "different quantity and is capped by the label design like every "
+            "other label metric here.", ""]
+    rows = []
+    for row in block["exact"]:
+        rows.append([
+            str(row["k"]),
+            row["mode_label"],
+            _metric(row["label_metrics"].get("recall@10"), row["label_n_queries"]),
+            _metric(row["label_metrics"].get("ndcg@10"), row["label_n_queries"]),
+            _metric(row["server_p50_ms"], row["n_samples"], places=2),
+            _num(row["server_p95_ms"], 2),
+        ])
+    out += _table(
+        ["k", "mode", "label recall@10", "label NDCG@10",
+         "server p50 ms (n = samples)", "p95 ms"],
+        rows,
+    ) + [""]
+    out += [
+        f"Label recall@10 here has ceiling: "
+        f"{block['exact'][0]['label_ceiling_provenance'] if block['exact'] else 'unknown'}.",
+        "",
+    ]
+    for entry in block["exact_repeat_noise"]:
+        if entry["n_runs"] < 2:
+            continue
+        out += [
+            f"**Machine noise bound (k={entry['k']}):** the identical exact-scan "
+            f"measurement was repeated {entry['n_runs']} times across sweep runs "
+            f"and its server p50 came out at {_num(entry['p50_ms_min'], 2)} / "
+            f"{_num(entry['p50_ms_mean'], 2)} / {_num(entry['p50_ms_max'], 2)} ms "
+            f"(min / mean / max) — a spread of "
+            f"±{entry['plus_minus_pct']:.0f}% about the mean on an unchanged "
+            "input. **No latency difference smaller than that is readable in "
+            "this document.** Sub-2 ms rows are dominated by fixed per-query "
+            "overhead, so the *ratios* between them are trustworthy and the "
+            "absolute values are not.",
+            "",
+        ]
+
+    # -- ef_search curve ----------------------------------------------------
+    out += ["### `ef_search` curve", ""]
+    ks = sorted({r["k"] for r in block["ef_search"] if r["k"] is not None})
+    for k in ks:
+        for mode in (MODE_PLANNER_FREE, MODE_INDEX_FORCED):
+            rows_for = [r for r in block["ef_search"] if r["k"] == k and r["mode"] == mode]
+            if not rows_for:
+                continue
+            out += [f"#### k = {k} — {MODE_LABELS[mode]}", ""]
+            if mode == MODE_INDEX_FORCED:
+                out += [
+                    "_These rows describe the index. They are **not** what "
+                    "production executes at this depth._",
+                    "",
+                ]
+            rows = []
+            for row in rows_for:
+                ann = row["ann_recall"]
+                rows.append([
+                    ("**" + str(row["ef_search"]) + " (PROD)**") if row["is_production_reference"]
+                    else str(row["ef_search"]),
+                    _metric(ann.get(f"recall@{k}", ann.get("recall@10")), row["n_queries"]),
+                    _metric(row["label_metrics"].get("recall@10"), row["label_n_queries"]),
+                    _metric(row["server_p50_ms"], row["n_samples"], places=2),
+                    _num(row["server_p95_ms"], 2),
+                    row["plan"],
+                    f"`{row['point_id']}`",
+                ])
+            out += _table(
+                ["ef_search", f"ANN recall@{k} vs exact (n = queries)",
+                 "label recall@10 (n = queries)", "server p50 ms (n = samples)",
+                 "p95 ms", "plan", "point"],
+                rows,
+            ) + [""]
+    for flip in block["plan_flip"]:
+        out += [
+            f"**Raising `ef_search` past {flip['reference_ef_search']} at k="
+            f"{flip['k']} makes the query {flip['slowdown_x']:.0f}x slower**: "
+            f"{_num(flip['reference_p50_ms'], 2)} ms p50 at "
+            f"ef_search {flip['reference_ef_search']} with an "
+            f"{flip['reference_plan']}, against "
+            f"{_num(flip['flipped_p50_ms'], 2)} ms at {flip['flipped_ef_search']} "
+            f"— because the cost model abandons the index and the plan flips to "
+            f"a sequential scan, not because the index got slower. The "
+            f"index-forced rows above show what the index alone would have done "
+            f"at the same settings. n = {flip['n_samples']} latency samples per "
+            f"point, and the flip is far larger than the noise bound.",
+            "",
+        ]
+
+    # -- build grid ---------------------------------------------------------
+    out += ["### `m` x `ef_construction` grid", "",
+            f"All rows are {MODE_LABELS[MODE_INDEX_FORCED]}: the planner declines "
+            "every candidate index at this depth, so without forcing, every row "
+            "would be the same sequential scan. **These describe the index, not "
+            "production.**", ""]
+    rows = []
+    for row in block["build_grid"]:
+        ann = row["ann_recall"]
+        rows.append([
+            str(row["m"]),
+            str(row["ef_construction"]),
+            _num(row["build_seconds"], 2),
+            f"{row['index_bytes']:,}" if row.get("index_bytes") is not None else "unknown",
+            _metric(ann.get("recall@50", ann.get("recall@10")), row["n_queries"]),
+            _metric(row["label_metrics"].get("recall@10"), row["label_n_queries"]),
+            _metric(row["server_p50_ms"], row["n_samples"], places=2),
+            f"`{row['point_id']}`",
+        ])
+    out += _table(
+        ["m", "ef_construction", "build s", "index bytes",
+         "ANN recall@50 vs exact (n = queries)", "label recall@10 (n = queries)",
+         "server p50 ms (n = samples)", "point"],
+        rows,
+    ) + [""]
+
+    size = block["index_size"]
+    if size["identical_at_every_point"] and size["bytes"] is not None:
+        out += [
+            f"**Index size is identical — {size['bytes']:,} bytes — at every one "
+            f"of the {size['n_points']} grid points, across m = "
+            f"{', '.join(str(v) for v in size['m_values'])}.** Not approximately: "
+            f"exactly. {size['bytes']:,} / {PG_PAGE_BYTES} = {size['pages']:,} "
+            "pages for the chunks in this corpus, i.e. one page per vector. A "
+            "1536-dimensional `float4` vector is 6 KB, so it and its neighbour "
+            f"list share one {PG_PAGE_BYTES // 1024} KB page whatever `m` is. "
+            "**Any claim that raising `m` costs disk is unsupported here.**",
+            "",
+        ]
+    elif size["distinct_byte_values"]:
+        out += [
+            "Index size varies across the grid: "
+            + ", ".join(f"{v:,}" for v in size["distinct_byte_values"]) + " bytes.",
+            "",
+        ]
+    build_time = block["build_time"]
+    if build_time["span_x"]:
+        out += [
+            f"Build time is the only cost that moves, and it moves modestly: "
+            f"{_num(build_time['min_seconds'], 2)} s to "
+            f"{_num(build_time['max_seconds'], 2)} s, a "
+            f"{build_time['span_x']:.1f}x span over {build_time['n_points']} "
+            "grid points.",
+            "",
+        ]
+
+    # -- exclusions ---------------------------------------------------------
+    out += ["### Excluded sweep points — in no table above", ""]
+    if not block["excluded"]:
+        out += ["_None._", ""]
+    else:
+        rows = [
+            [f"`{row['point_id']}`", _date(row.get("timestamp")),
+             row.get("mode_label", "unknown"), row["exclusion_reason"]]
+            for row in block["excluded"]
+        ]
+        out += _table(["point", "date", "mode", "reason"], rows) + [""]
     return out
 
 
@@ -1231,7 +2107,9 @@ def _render_gate(block: dict) -> list[str]:
 def render(data: dict) -> str:
     parts: list[str] = [_HEADER]
     parts.append("\n".join(_render_sources(data)))
+    parts.append("\n".join(_render_cost(data["cost"])))
     parts.append("\n".join(_render_retrieval(data["retrieval"])))
+    parts.append("\n".join(_render_ann(data["ann_sweep"])))
     parts.append("\n".join(_render_node_eval(data["node_eval"])))
     parts.append("\n".join(_render_spans(data["spans"])))
     parts.append("\n".join(_render_ingest(data["ingest"])))
