@@ -4,6 +4,80 @@ Running record of each wave from `EXECUTION_PLAN.md`: what was built, what was v
 
 ---
 
+## 📌 WHAT IS NOW MEASURED — state of play as of 2026-07-31
+
+Read this instead of every wave. **Every number carries its `n` and its source document.** Four rules govern all of them:
+
+1. **A node replay is not an end-to-end user-visible time.** The end-to-end path has never been measured, not once.
+2. **An index-forced ANN latency is not what the planner does**, and an eval-corpus retrieval number is not a production retrieval number.
+3. **Retrieval numbers from different label snapshots are not comparable at all.** There are **three** (`019bee4a06eb2d39` · `425df789a844f1f3` · `230c6ea9d9b7e8fd`). Directions reproduce; absolutes do not.
+4. **Every cost figure produced before the matcher fix is a lower bound** by a margin that cannot be recovered — the matcher's caches store no usage data.
+
+### Retrieval — current snapshot `230c6ea9d9b7e8fd`
+
+**n = 338 scorable queries · 8,554 relevant judgments · 344 indexed documents / 5,948 chunks · 345-document pooled label corpus · 15 of 15 topics.** Source: `scripts/eval/BASELINE_15.md` §3 (corroborated by `scripts/eval/BENCHMARKS.md`, run `5ca19da1d093`).
+
+| arm | R@10 | ceiling | % attainable | NDCG@10 | MRR |
+|---|---|---|---|---|---|
+| **dense** (oversample ×5, `plan: index`) | **0.2195** | **0.5199** | **42%** | **0.5191** | **0.7328** |
+| dense (×12, `plan: seqscan` — deeper, confounded with depth) | 0.2227 | 0.5199 | 43% | 0.5221 | 0.7436 |
+| keyword **v1** (`plainto_tsquery`) | 0.0022 | 0.5199 | 0% | 0.0110 | 0.0311 |
+| keyword **v2** (OR of lemmas) | **0.1447** | 0.5199 | 28% | 0.3830 | 0.6675 |
+| RRF(dense, keyword v2), k=60 | 0.2042 | 0.5199 | 39% | 0.4989 | 0.7335 |
+
+- **The ceiling travels with the number or the number is misleading.** Every query inherits its manuscript's entire reference list, so a query with 37 relevant documents cannot exceed recall@10 = 10/37.
+- **`0.4221 → 0.2195` is NOT a regression.** That is the old snapshot (118 docs / 4 topics / 59 queries) versus the new one: 2.8× the chunks, more distractors, and the average query now inherits 25.3 relevant documents instead of 15.3, which dropped the ceiling from 0.7789 to 0.5199. **Never difference the two.**
+- **Keyword fix:** zero-row queries **321/338 → 0/338**; recall@10 **66×**. Behind `KEYWORD_SEARCH_V2`, **default OFF**. Nothing shipped to production.
+- **RRF loses to dense:** recall@10 **−7.0%**, NDCG@10 **−3.9%**, MAP **+4.8%**. Best coverage (retrieval failures 5,144 vs 6,010), worst ranking (1,885 vs 936). `k_rrf` has no gradient across a 60× span. Measured with the keyword leg forced on, which is **not** what production runs.
+- **Standing caveat:** these labels measure *"would we have found what the author cited"*, not *"what is relevant"* — every precision-like metric is a **lower bound** and recall is the sounder number. The query set also contains a large population of contentless claims that no retriever can serve; filtering them would raise every arm and improve nothing.
+- Local pgvector, PyMuPDF extraction, basic chunking. **Not** production's Docling → GROBID section-aware chain.
+
+### Cost — first complete figure · `scripts/eval/NODE_COST.md`
+
+**$0.20016 total** across 4 runs: node **$0.16761 (83.7%)** + matcher **$0.03255 (16.3%)**. The matcher share is what every earlier figure omitted, and it scales with how many items a node emits, not with what the node cost.
+
+| node | n | node $ | matcher $ | matcher share |
+|---|---|---|---|---|
+| `reviewer_panel_node[methodology]` @ `10eQ4Cfh8p` | 5 | $0.12098 | $0.02682 | 18.1% (**$0.0296/replay complete**) |
+| `editor_pass_node` | 3 | $0.00339 | $0.00297 | 46.7% |
+| `run_quality_diagnostics` | 3 | $0.00000 | $0.00277 | **100%** |
+
+**`run_quality_diagnostics` makes zero LLM calls and still costs $0.00277 to measure.** Still outside the accounting: `atomize_reviews.py` (contributed $0.00 here by cache luck, not by design), usage lost on validation retries, and ~$0.02 of real spend lost to a killed process with no usage log.
+
+### Variance — `scripts/eval/NODE_COST.md` §Variance
+
+- **Latency: CV 15.0% at n=5** on one fixture — 17.10 / 18.26 / 19.69 / 24.13 / 17.25 s, mean 19.286, sd 2.897, 95% CI 19.29 ± 3.60 s. **The earlier ~7% came from n=3 and did not survive.** Nothing smaller than ~±19% of the mean is resolvable here.
+- **Quality: unresolvable. No delta may be reported.** Severity-weighted recall over the same 5 replays: 0.0463 / 0.0232 / 0.0000 / 0.0116 / 0.0116 (4, 2, 0, 1, 1 matched of 79 gold units), CV 95%, quantised at 1/79 of its own range. Cause: `temperature` is stripped for every `gpt-5.2*` model and no seed exists.
+- `BENCHMARKS.md`'s roll-up (`reviewer_panel_node` 19.307 s, n=12) **mixes fixtures and personas** — a cost summary, not a variance estimate.
+
+### Prompt caching — `scripts/eval/NODE_COST.md`, `scripts/eval/PROMPT_CACHE.md`
+
+Cross-persona hit rate **0% → 60.7%** on the real replay path (16,128 cached of 26,578 prompt tokens, cold 3-persona panel), **24.5% cheaper per cold panel** ($0.10387 counterfactual uncached vs $0.07847 measured). The purpose-built A/B on a different paper read 58.8% / 23.8%; both reproduce within ~2 points. Shared prefix is **8,064 tokens ≈ 87.4% of the prompt**, quantised to OpenAI's 128-token cache block. **n = 2 papers, one cold panel each.** `--repeat` inflates the rate (98.5%) and must never be quoted as production. This did **not** turn caching on — OpenAI's automatic prefix cache already worked; what was added is reuse *across* personas.
+
+### Publish gate — Wave 1, across all 77 usable exports
+
+`parser_quality_score` takes exactly **2 values** (1.0 ×52, 0.95 ×25) against a 0.55 bar → **inert**. `verbatim_anchor_coverage` is **1.0 on all 77** and **structurally cannot vary** (a failed anchor is nulled upstream, removing the task from the denominator too). **`page_anchor_coverage` is the only signal that has ever driven a verdict** — all 12 `needs_retry` results. Threshold 0.75 is **hand-set, not calibrated**: the sweep needs human labels and `BENCHMARKS.md` records *"No sweeps recorded … not a zero, an absence."*
+
+### Eval precision — Wave 2
+
+The shipped `mean_precision: 1.0` was structural. Honest **`precision_vs_gold` 0.27**, **hallucination rate 0.111**, groundedness 0.889, weakness recall 0.187 — **n = 3 papers**. A pair-based numerator would read 0.554 and double-counts. **0.27 is a lower bound** by the standing caveat; the 0.111 is the unambiguous number. Recomputed from cached exports with zero LLM calls. **There is still no before/after**: `BENCHMARKS.md` shows 17 OpenReview runs across 3 pipeline versions, every one at `no data (n=0)` scored cells.
+
+### ANN / vector index — `scripts/eval/ANN_SWEEP.md`, `BASELINE_15.md` §2
+
+The HNSW crossover moved **~35 → 103** as the corpus grew **2.80×** (2,124 → 5,948 chunks) — crossover ×2.96, verified by binary search over `EXPLAIN` across 10 query vectors. It is **not a constant** and must never be cached as one; `plan` is now stamped into every retrieval record. `ef_search = 80` sits on the knee at production's k=10 (ANN recall 0.9932 @ 1.03 ms p50); **raising it past 80 makes a k=10 query 16× slower** — because the plan flips to a sequential scan, not because the index slowed. **Every ANN latency number is from the 2,124-chunk corpus and has not been re-measured**; `BASELINE_15.md` reports no latency at all.
+
+### Corpus — `scripts/eval/BUILD_REPORT.md`
+
+**333 / 544 references resolved = 61.2%** across 15 of 15 topics; buckets sum exactly (333 + 78 + 81 + 52), zero `pending`, PDFs on disk equal `resolved` in all 15 directories. Measured build cost $0.3520. **The denominator is understated:** 60 of 544 parsed entries (11%) are merged blocks containing two or more distinct works, so the true bibliography is larger than 544 and the true rate is **lower** than 61.2%. Never quote it as *"we resolve 61% of the references in these papers."* For the retrieval label snapshot the rate is **unknown** — 11 of 26 corpora have no `references.json` sidecar, and it is reported as unknown rather than substituted.
+
+### Still unmeasured
+
+End-to-end / user-visible latency (never, not once) · `53s → 18s` and `66%` (no sequential baseline exists) · "no quality loss" (and **any** quality delta — unresolvable at present n) · "lifted quality on evals" · user counts · whether 0.75 is the right gate threshold · production retrieval quality · the section-aware chunking arm · ANN latency at the current corpus size · RRF as a first-stage pool feeding a reranker · whether non-gold items are findings or hallucinations (unmeasurable under this label design).
+
+> The full claim-by-claim mapping, with each figure's source document and the corrections it forced, is `LEARNING_AUDIT_ADDENDUM.md` §3.
+
+---
+
 ## Wave 0 — foundations — COMPLETE (2026-07-30)
 
 Four tasks, four parallel agents, four commits. All gates passed.
@@ -266,6 +340,8 @@ Suites: **895 backend** (2 deferred failures), **365 eval**.
 
 ## 📊 BENCHMARK BOARD — measured, not estimated
 
+> ⚠️ **Superseded 2026-07-31 — see "WHAT IS NOW MEASURED" at the head of this file.** This board is snapshot `019bee4a06eb2d39` (59 queries, 118 docs) plus a node-cost table taken before the matcher was inside the accounting. Specifically: the retrieval numbers below belong to a label snapshot that no longer exists and **must not be differenced against the current ones**; every `$` below is node-only and therefore a **floor** (matcher spend is 16.3% of the true total); and **latency CV ~7% at n=3 is false — it is 15.0% at n=5**. The prompt-cache 29.3% figure is a repeat-path number that the cross-persona reorder later replaced with 60.7%. Left in place as the record of what was known that day.
+
 ### Retrieval (document unit, k=10, 59 queries, 903 judgments, 118 docs / 2,124 chunks)
 
 | metric | dense | keyword | ceiling |
@@ -339,3 +415,14 @@ n=59 queries across only **4 of 15 topics** · measures "would we have found wha
 ## Wave 3 — not started
 
 Candidates, now that measurement exists: N3 ANN sweep (`ef_search`/`m`, unblocked — corpus is ingested), N6 prompt caching against the 29.3% baseline, N7 hybrid + RRF (**blocked on the query-formulation finding**), gate calibration labelling.
+
+> ↻ **Status correction, 2026-07-31.** Three of those four have since landed and are documented in `scripts/eval/`, though this log never recorded their waves:
+>
+> | candidate | outcome | document |
+> |---|---|---|
+> | N3 ANN sweep | **done** — `ef_search = 80` on the knee; `m`/`ef_construction` not a lever; crossover 35 → 103 as the corpus grew | `ANN_SWEEP.md`, `BASELINE_15.md` §2 |
+> | N6 prompt caching | **done** — cross-persona 0% → **60.7%**, cold panel **24.5%** cheaper. The 29.3% baseline named above was a *repeat-path* number and is not the quantity that moved | `PROMPT_CACHE.md`, `NODE_COST.md` |
+> | N7 hybrid + RRF | **unblocked and done — and the result is a negative.** Keyword v2 fixed the query formulation (321/338 zero-row → 0/338, 66× recall@10), then RRF **lost** to dense at the top of the list | `KEYWORD_QUERY.md`, `BASELINE_15.md` §5 |
+> | gate calibration labelling | **not started.** `BENCHMARKS.md` still reports *"No sweeps recorded … not a zero, an absence"* | `BENCHMARKS.md` |
+>
+> Also landed and unrecorded here: the corpus build to 15/15 topics and its ingestion (344 docs / 5,948 chunks), and the matcher being brought inside the cost accounting. Both are in the head-of-file block.
