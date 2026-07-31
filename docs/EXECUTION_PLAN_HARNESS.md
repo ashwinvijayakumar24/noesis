@@ -141,7 +141,9 @@ Depends on N11 (Wave 1) and Wave 2.
 
 Written after the numbers exist, not before. The *shape* is fixed now so the measurements are aimed at something:
 
-1. **Agent harness (own repo).** A ReAct critique agent with runtime tool selection, enforced step budgets, loop detection, and context compaction under a swept context ceiling — benchmarked head-to-head against an 18-node LangGraph DAG on identical human-authored ICLR labels.
+1. **Agent harness (own repo).** A ReAct critique agent with runtime tool selection, enforced step budgets, loop detection, and context compaction under a swept context ceiling — benchmarked head-to-head against an 18-node LangGraph DAG on identical ICLR review labels.
+
+> ⚠️ **Correction, applied during Wave 1.** Earlier drafts of this plan said *"human-authored labels."* That is an overclaim. The reviews are human; the **segmentation into atomic units was performed by GPT-5.2** (`atomize_reviews_v1`), and a different segmentation would move every recall number computed against it. The honest phrase is **"human reviews, model-segmented."** Found by the fixture agent while recovering the paper→label mapping; recorded here because this is precisely the class of claim `LEARNING_AUDIT_ADDENDUM.md` exists to catch, and it had already reached a README before it was caught.
 2. **Orchestration.** Runtime-decided worker count with per-worker context isolation, and the measured token-cost multiplier — reported including where the agent loses.
 3. **Agent security.** Per-resource authorization and a durable approval gate on a side-effecting tool, with attack success rate measured with and without the gate.
 4. **Retrieval.** Cross-encoder reranking on a 338-query, ceiling-bounded benchmark, with latency cost reported alongside the recall delta.
