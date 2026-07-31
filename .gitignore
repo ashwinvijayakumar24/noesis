@@ -86,6 +86,10 @@ dump.rdb
 .coverage
 htmlcov/
 
+# Other tool caches — regenerated on every run, never worth a diff
+.mypy_cache/
+.ruff_cache/
+
 # Alembic
 alembic/versions/*.pyc
 .vercel
@@ -95,6 +99,15 @@ alembic/versions/*.pyc
 pdfs/
 scripts/parser_spike_out/
 .spike-venv/
+
+# Agent tooling scratch — the Playwright MCP server writes screenshots and trace
+# dumps here on every browser session. Regenerated, and noisy in `git status`.
+.playwright-mcp/
+
+# Hand-dropped PDFs used for manual smoke/stress runs against the upload path.
+# ~3 MB of binaries with no code referencing them; they are inputs a human picks
+# by hand, not fixtures, so they stay local rather than in the repo.
+scripts/testing_pdfs/
 
 # Eval harness — results are local only; corpora/gold/config are committed
 # NOTE: `results/*` not `results/` -- git cannot re-include a file whose PARENT
