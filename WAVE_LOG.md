@@ -13,6 +13,34 @@ Read this instead of every wave. **Every number carries its `n` and its source d
 3. **Retrieval numbers from different label snapshots are not comparable at all.** There are **three** (`019bee4a06eb2d39` · `425df789a844f1f3` · `230c6ea9d9b7e8fd`). Directions reproduce; absolutes do not.
 4. **Every cost figure produced before the matcher fix is a lower bound** by a margin that cannot be recovered — the matcher's caches store no usage data.
 
+### End-to-end latency — `scripts/eval/LATENCY.md` (first ever measured)
+
+**Graph p50 63.75 s**, mean 64.67 s, 8 LLM calls/run, n=3 real GPT-5.2 runs, closed loop c=1, spend $0.412157. Sum of node time is 64.32 s of a 64.67 s wall — **the graph is 99.5% LLM wait**. Slowest node `reviewer_panel_node` at 17.5 s. Stub reproduces real within **2.9%**.
+
+**Excludes upload, storage, PDF parsing and publish writes.** Parsing is larger than what is included. This is *graph* end-to-end, never *user-visible* end-to-end.
+
+#### 🔴 `53s → 18s (66%)` — adjudicated, and 66% is arithmetically unreachable
+
+| | |
+|---|---|
+| parallel fraction | **52%** (51.15 s of a 98.11 s serial baseline) |
+| Amdahl ceiling at ∞ reviewers | **52% reduction** — so 66% is impossible at any degree of parallelism |
+| measured speedup | **1.48× / 32.5%** (A/B, n=20/arm) |
+| reviewer stage alone | 2.79× against a 3.0× ceiling |
+| cross-check vs real spans | 1.52× / 34.1% — agrees with the stub to 2% |
+
+Both absolute numbers are also wrong: parallel is **64.67 s not 18 s**, serial **~98 s not 53 s**. The 18 s is closest to a *single* reviewer node (17.05 s), the likely origin of the figure. The serial counterfactual is built from today's code via a per-draft lock; **no historical serial baseline exists anywhere in the repo** and none is claimed.
+
+**Claimable:** "parallelising the reviewer panel cut graph wall time ~33%, measured, against an Amdahl ceiling of 52% set by a 52% parallel fraction." **Not claimable:** 66%, 53 s, 18 s, or any end-to-end user-visible figure.
+
+#### Coordinated omission — demonstrated, not described
+
+At matched throughput, closed loop c=8 reports p99 **17.45 s**; open loop reports **142–168 s**. A closed-loop-only benchmark **understates p99 by 8.2×–9.6×**. Closed loop caps in-flight at 8; open loop reaches 109.
+
+#### Goodput knee
+
+λ 0.25 → 0.50: throughput **+96%**, goodput **−77%**, SLO attainment 42% → 5%. Past λ=0.5 throughput is flat and goodput is zero. Capacity ≈ 0.03 req/s on one laptop process — **not** production Celery capacity.
+
 ### Retrieval — current snapshot `230c6ea9d9b7e8fd`
 
 **n = 338 scorable queries · 8,554 relevant judgments · 344 indexed documents / 5,948 chunks · 345-document pooled label corpus · 15 of 15 topics.** Source: `scripts/eval/BASELINE_15.md` §3 (corroborated by `scripts/eval/BENCHMARKS.md`, run `5ca19da1d093`).
