@@ -34,12 +34,24 @@ Replays make real, paid LLM calls. Three independent brakes:
    every replay (and inside every call by ``check_llm_allowed``). When one
    trips, the batch halts and records how far it got instead of dying.
 
-KNOWN GAP: ``scripts/eval/match.py`` calls the OpenAI client directly rather
-than through ``app.services.retry_utils``, so matcher embedding/confirmation
-calls are neither recorded by ``llm_budget`` nor bounded by the ceilings above.
-They are heavily disk-cached, and ``--no-metric`` skips them entirely; the
-per-replay record carries ``match_stats`` so the uncounted calls are at least
-visible. Fixing match.py is out of scope for this file.
+Matcher spend
+-------------
+Scoring a replay (severity-weighted recall) runs ``scripts/eval/match.py``,
+which makes its own embedding and confirmation calls. Those used to bypass
+``llm_budget`` entirely: unbounded by the ceilings above and absent from every
+cost figure this script printed, which made every such figure a lower bound by
+an unrecoverable margin (the caches store no prompt text and no usage block, so
+the missing dollars cannot be reconstructed after the fact).
+
+``match.py`` now guards with ``check_llm_allowed`` and records under a label
+that always begins with ``match:``, composed with the ambient node label. So a
+replay produces two usage blocks:
+
+* ``usage``        -- what the node itself spent, inside the node span;
+* ``match_usage``  -- what scoring that node's output spent, outside the span.
+
+Both are counted in the run total. ``--no-metric`` skips scoring entirely and
+leaves ``match_usage`` empty.
 
 Supabase
 --------
@@ -335,7 +347,14 @@ def _blank_usage() -> dict[str, Any]:
 
 
 def _summarize_events(new_events: list[Any]) -> dict[str, Any]:
-    """Fold a slice of ``llm_budget`` events into one usage dict."""
+    """Fold a slice of ``llm_budget`` events into one usage dict.
+
+    ``by_label`` carries spend, not just a call count, because the run total has
+    to be reconcilable against it. When matcher calls were invisible the total
+    and the per-label breakdown disagreed and nothing noticed; a per-label
+    dollar figure makes that disagreement checkable (see
+    ``reconcile_by_label``).
+    """
     usage = _blank_usage()
     for event in new_events:
         usage["calls"] += 1
@@ -347,10 +366,19 @@ def _summarize_events(new_events: list[Any]) -> dict[str, Any]:
             usage["unpriced_calls"] += 1
         else:
             usage["estimated_usd"] += event.estimated_usd
-        usage["by_label"][event.label] = usage["by_label"].get(event.label, 0) + 1
+        bucket = usage["by_label"].setdefault(event.label, {"calls": 0, "estimated_usd": 0.0})
+        bucket["calls"] += 1
+        bucket["estimated_usd"] += event.estimated_usd or 0.0
         usage["by_model"][event.model] = usage["by_model"].get(event.model, 0) + 1
+    for bucket in usage["by_label"].values():
+        bucket["estimated_usd"] = round(bucket["estimated_usd"], 6)
     usage["estimated_usd"] = round(usage["estimated_usd"], 6)
     return usage
+
+
+def is_match_label(label: str) -> bool:
+    """True for labels ``match.py`` produces. See ``match._match_label``."""
+    return str(label).startswith("match:") or str(label) == "match"
 
 
 # ---------------------------------------------------------------------------
@@ -417,19 +445,33 @@ def score_replay(
     result_state: dict,
     paper: str,
     gold_path: Path | None,
+    *,
+    match_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The existing severity-weighted-recall metric for one replayed node.
 
-    Runs under its own ``llm_label`` so matcher spend never lands on the node's
-    token budget. NOTE: those calls bypass ``llm_budget`` entirely (see module
-    docstring) -- ``match_stats`` is the only record of them.
+    Runs under ``llm_label("match:<node>")`` so matcher spend is separable from
+    the node's own token budget while still being attributed to the node it
+    scored. ``match.py`` guards and records around both of its network paths, so
+    this spend is now bounded by the same ceilings and counted in the run total.
+
+    ``match_kwargs`` is a passthrough to :func:`match.match` (``embedder``,
+    ``confirmer``, ``cache_dir``); it exists so tests can drive the real matcher
+    with doubles instead of the network and a shared on-disk cache.
     """
-    from scripts.eval.atomize_reviews import atomize_paper
+    from scripts.eval import atomize_reviews
     from scripts.eval.match import match
 
     resolved_gold = gold_path or _default_gold_path(paper)
     gold = json.loads(resolved_gold.read_text())
-    review_units = atomize_paper(gold)
+    # cache_dir passed explicitly rather than left to the default: the default is
+    # bound at def time, so it is not overridable, and atomization is the one
+    # remaining LLM path in scoring that llm_budget does not see. `atomize_stats`
+    # below is what makes those calls visible.
+    atomize_stats: dict[str, int] = {"cache_hits": 0, "llm_calls": 0}
+    review_units = atomize_reviews.atomize_paper(
+        gold, cache_dir=atomize_reviews.DEFAULT_CACHE_DIR, stats=atomize_stats
+    )
     items = extract_node_items(node, result_state)
     stats = {
         "embed_cache_hits": 0,
@@ -440,7 +482,7 @@ def score_replay(
         "confirmed_pairs": 0,
     }
     with llm_label(f"match:{node}"):
-        matches = match(items, review_units, stats=stats) if items else []
+        matches = match(items, review_units, stats=stats, **(match_kwargs or {})) if items else []
     return {
         "gold_path": str(resolved_gold),
         "node_items": len(items),
@@ -448,6 +490,7 @@ def score_replay(
         "confirmed_matches": len([m for m in matches if m.get("confirmed")]),
         "severity_weighted_recall": round(_recall(matches, review_units), 4),
         "match_stats": stats,
+        "atomize_stats": atomize_stats,
     }
 
 
@@ -461,6 +504,7 @@ def replay_once(
     gold_path: Path | None = None,
     with_metric: bool = True,
     repeat_index: int = 0,
+    match_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run one node once against one fixture and return its measurement record.
 
@@ -519,16 +563,28 @@ def replay_once(
         record["trace_id"] = span.trace_id
         record["span_id"] = span.span_id
 
-    record["usage"] = _summarize_events(budget_events()[events_before:])
+    # Sliced here, before scoring, so `usage` is the node's own spend and not
+    # the node plus whatever the metric costs to compute.
+    events_after_node = len(budget_events())
+    record["usage"] = _summarize_events(budget_events()[events_before:events_after_node])
 
-    if result_state is not None and with_metric:
-        try:
-            record["metric"] = score_replay(node, result_state, paper, gold_path)
-        except Exception as exc:
-            record["metric"] = None
-            record["metric_error"] = f"{type(exc).__name__}: {exc}"[:500]
-    else:
-        record["metric"] = None
+    record["metric"] = None
+    try:
+        if result_state is not None and with_metric:
+            try:
+                record["metric"] = score_replay(
+                    node, result_state, paper, gold_path, match_kwargs=match_kwargs
+                )
+            except LLMGuardrailError:
+                # Same rule as the node path: a ceiling trip is a batch event.
+                raise
+            except Exception as exc:
+                record["metric_error"] = f"{type(exc).__name__}: {exc}"[:500]
+    finally:
+        # Everything the metric spent, whether or not it produced a usable score
+        # -- a scoring pass that made three calls and then tripped a ceiling
+        # still cost money, and the record has to say so.
+        record["match_usage"] = _summarize_events(budget_events()[events_after_node:])
 
     return record
 
@@ -600,6 +656,14 @@ def aggregate(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             and r["metric"].get("severity_weighted_recall") is not None
         ]
         usage = [r.get("usage") or {} for r in ok]
+        # Matcher usage is taken from every record, not just the ok ones: a node
+        # that errored made no matcher calls, but a node that succeeded and then
+        # failed *scoring* did.
+        match_usage = [r.get("match_usage") or {} for r in group]
+        prompt_tokens = sum(int(u.get("prompt_tokens") or 0) for u in usage)
+        cached_tokens = sum(int(u.get("cached_tokens") or 0) for u in usage)
+        node_usd = round(sum(float(u.get("estimated_usd") or 0.0) for u in usage), 6)
+        match_usd = round(sum(float(u.get("estimated_usd") or 0.0) for u in match_usage), 6)
         summaries.append(
             {
                 "node": node,
@@ -610,14 +674,55 @@ def aggregate(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "latency_seconds": _spread(latencies),
                 "severity_weighted_recall": _spread(recalls),
                 "llm_calls": sum(int(u.get("calls") or 0) for u in usage),
-                "prompt_tokens": sum(int(u.get("prompt_tokens") or 0) for u in usage),
+                "prompt_tokens": prompt_tokens,
                 "completion_tokens": sum(int(u.get("completion_tokens") or 0) for u in usage),
-                "cached_tokens": sum(int(u.get("cached_tokens") or 0) for u in usage),
-                "estimated_usd": round(sum(float(u.get("estimated_usd") or 0.0) for u in usage), 6),
+                "cached_tokens": cached_tokens,
+                "cached_prompt_fraction": (
+                    round(cached_tokens / prompt_tokens, 4) if prompt_tokens else None
+                ),
+                "estimated_usd": node_usd,
                 "unpriced_calls": sum(int(u.get("unpriced_calls") or 0) for u in usage),
+                "match_llm_calls": sum(int(u.get("calls") or 0) for u in match_usage),
+                "match_prompt_tokens": sum(int(u.get("prompt_tokens") or 0) for u in match_usage),
+                "match_completion_tokens": sum(
+                    int(u.get("completion_tokens") or 0) for u in match_usage
+                ),
+                "match_estimated_usd": match_usd,
+                "total_estimated_usd": round(node_usd + match_usd, 6),
             }
         )
     return summaries
+
+
+def reconcile_by_label(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Per-label spend for a set of replay records, plus the totals it sums to.
+
+    This is the property that was silently false before ``match.py`` was wired
+    into ``llm_budget``: the printed total came only from node usage while real
+    calls were happening underneath it, so no breakdown could ever have added
+    up. Keeping the reconciliation in the run summary means a future bypass
+    shows up as a mismatch instead of as a quietly smaller number.
+    """
+    by_label: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if record.get("record_type") != "replay":
+            continue
+        for block in (record.get("usage") or {}, record.get("match_usage") or {}):
+            for label, bucket in (block.get("by_label") or {}).items():
+                target = by_label.setdefault(label, {"calls": 0, "estimated_usd": 0.0})
+                target["calls"] += int(bucket.get("calls") or 0)
+                target["estimated_usd"] += float(bucket.get("estimated_usd") or 0.0)
+    for bucket in by_label.values():
+        bucket["estimated_usd"] = round(bucket["estimated_usd"], 6)
+    match_usd = sum(v["estimated_usd"] for k, v in by_label.items() if is_match_label(k))
+    node_usd = sum(v["estimated_usd"] for k, v in by_label.items() if not is_match_label(k))
+    return {
+        "by_label": dict(sorted(by_label.items())),
+        "node_estimated_usd": round(node_usd, 6),
+        "match_estimated_usd": round(match_usd, 6),
+        "total_estimated_usd": round(node_usd + match_usd, 6),
+        "match_share": round(match_usd / (node_usd + match_usd), 4) if (node_usd + match_usd) else 0.0,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -634,6 +739,7 @@ def run_batch(
     gold_path: Path | None = None,
     with_metric: bool = True,
     results_path: Path = DEFAULT_RESULTS_PATH,
+    match_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Replay every entry in ``selection`` ``repeat`` times, appending as it goes.
 
@@ -667,6 +773,7 @@ def run_batch(
                 "error_type": "UnknownNode",
                 "error_message": f"Node {node!r} is not in the registry",
                 "usage": _blank_usage(),
+                "match_usage": _blank_usage(),
                 "metric": None,
             }
             records.append(record)
@@ -684,6 +791,7 @@ def run_batch(
                     gold_path=gold_path,
                     with_metric=with_metric,
                     repeat_index=index,
+                    match_kwargs=match_kwargs,
                 )
             except LLMGuardrailError as exc:
                 halted = {
@@ -698,6 +806,9 @@ def run_batch(
 
     summaries = aggregate(records)
     completed = len([r for r in records if r.get("status") == "ok"])
+    reconciliation = reconcile_by_label(records)
+    node_usd = round(sum(s["estimated_usd"] for s in summaries), 6)
+    match_usd = round(sum(s["match_estimated_usd"] for s in summaries), 6)
     summary_record = {
         "record_type": "run_summary",
         "run_id": run_id,
@@ -710,7 +821,15 @@ def run_batch(
         "halted": halted,
         "per_node": summaries,
         "total_llm_calls": sum(s["llm_calls"] for s in summaries),
-        "total_estimated_usd": round(sum(s["estimated_usd"] for s in summaries), 6),
+        "total_match_llm_calls": sum(s["match_llm_calls"] for s in summaries),
+        # `total_estimated_usd` is node + matcher. Before match.py was wired
+        # into llm_budget this key held node spend only and was presented as the
+        # whole cost, which is why every figure this script printed before
+        # 2026-07-30 is a lower bound.
+        "total_node_estimated_usd": node_usd,
+        "total_match_estimated_usd": match_usd,
+        "total_estimated_usd": round(node_usd + match_usd, 6),
+        "spend_by_label": reconciliation,
     }
     append_records([summary_record], results_path)
     get_tracer().flush()
@@ -775,8 +894,11 @@ def _format_plan(selection: list[dict[str, Any]], estimate: dict[str, Any], repe
             f"(counted as {UNKNOWN_CALL_ESTIMATE}/replay for the upper bound)"
         )
     lines.append(
-        "NOTE: matcher (severity-weighted recall) calls are NOT in this estimate and "
-        "are NOT bounded by NOESIS_LLM_MAX_CALLS -- see module docstring."
+        "NOTE: matcher (severity-weighted recall) calls are bounded by "
+        "NOESIS_LLM_MAX_CALLS / NOESIS_LLM_MAX_SPEND_USD and are counted in the run "
+        "total under match:* labels, but they are NOT in the band above: their count "
+        "depends on how many items the node emits and how much of the pair cache hits. "
+        "Leave headroom in the ceilings, or pass --no-metric to skip them."
     )
     return "\n".join(lines)
 

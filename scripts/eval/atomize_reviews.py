@@ -17,6 +17,31 @@ from pathlib import Path
 from typing import Any
 
 if Path("/app/app").exists():
+    if "/app" not in sys.path:
+        sys.path.insert(0, "/app")
+else:
+    _svc = str(Path(__file__).resolve().parent.parent.parent / "services" / "backend")
+    if _svc not in sys.path:
+        sys.path.insert(0, _svc)
+
+from app.core.llm_budget import (  # noqa: E402
+    check_llm_allowed,
+    current_label,
+    record_response_usage,
+)
+
+
+def _atomize_label() -> str:
+    """Compose with any ambient node label rather than replacing it.
+
+    Same reasoning as match.py: node_eval wraps scoring in llm_label("<node>"),
+    and overriding that would destroy per-node attribution. The "atomize" prefix
+    is guaranteed either way, so this spend can never be mistaken for node spend.
+    """
+    ambient = current_label()
+    return f"atomize:{ambient}" if ambient else "atomize"
+
+if Path("/app/app").exists():
     REPO_ROOT = Path("/app")
     if "/app" not in sys.path:
         sys.path.insert(0, "/app")
@@ -60,6 +85,13 @@ def _atomize_with_llm(review: dict, client: Any | None = None) -> list[dict]:
         "weaknesses": review.get("weaknesses", ""),
         "questions": review.get("questions", ""),
     }
+    # Guard BEFORE the network call and record after -- the same contract
+    # retry_utils enforces. This module called the client directly, so its spend
+    # was invisible to llm_budget and unbounded by NOESIS_LLM_MAX_CALLS /
+    # MAX_SPEND_USD, and it ignored the kill switch outright. It reported $0.00 in
+    # the last measured run only because its cache happened to be warm, which is
+    # luck rather than a guarantee.
+    check_llm_allowed(_atomize_label())
     response = client.chat.completions.create(
         model="gpt-5.2",
         messages=[
@@ -85,6 +117,8 @@ def _atomize_with_llm(review: dict, client: Any | None = None) -> list[dict]:
         temperature=0,
         **get_completion_params(),
     )
+    record_response_usage(response, model="gpt-5.2", label=_atomize_label())
+
     payload = json.loads(_response_content(response))
     units = payload.get("units")
     if not isinstance(units, list):

@@ -15,14 +15,17 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
-BACKEND_DIR = EVAL_DIR.parents[1] / "services" / "backend"
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
+REPO_ROOT = EVAL_DIR.parents[1]
+BACKEND_DIR = REPO_ROOT / "services" / "backend"
+for _path in (str(BACKEND_DIR), str(REPO_ROOT)):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from app.core import llm_budget  # noqa: E402
 from app.core import tracing  # noqa: E402
@@ -182,8 +185,12 @@ def test_tokens_attribute_to_the_node_label_not_the_model(tmp_path, trace_file, 
     assert usage["total_tokens"] == 12_900
     assert usage["unpriced_calls"] == 0
     assert usage["estimated_usd"] > 0, "pricing table did not price a gpt-5.2 call"
-    assert usage["by_label"] == {"reviewer_panel_node": 1}, (
+    assert list(usage["by_label"]) == ["reviewer_panel_node"], (
         "usage landed on the model name — llm_label(node) is not wrapping the call"
+    )
+    assert usage["by_label"]["reviewer_panel_node"]["calls"] == 1
+    assert usage["by_label"]["reviewer_panel_node"]["estimated_usd"] == pytest.approx(
+        usage["estimated_usd"]
     )
     assert llm_budget.by_label()["reviewer_panel_node"]["calls"] == 1
 
@@ -198,6 +205,203 @@ def test_cost_matches_the_pricing_table(tmp_path, trace_file, llm):
 
     expected = llm_budget.estimate_usd("gpt-5.2", 1_000_000, 0, 0)
     assert record["usage"]["estimated_usd"] == pytest.approx(expected, rel=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Matcher spend
+# ---------------------------------------------------------------------------
+#
+# The matcher used to call OpenAI directly, so its spend was in no total this
+# script ever printed. These tests drive the REAL scripts/eval/match.py with
+# network doubles: the guard/record calls under test are match.py's own, and a
+# regression that unhooks them fails here rather than showing up as a quietly
+# smaller dollar figure.
+
+
+@pytest.fixture
+def matcher(tmp_path, monkeypatch):
+    """Wire score_replay to a real matcher run with doubles for both call paths.
+
+    Returns an object exposing the two doubles (so a test can assert they were
+    never called) and the ``match_kwargs`` to pass into run_batch/replay_once.
+    """
+    from scripts.eval import atomize_reviews
+
+    gold = {
+        "paper_id": "paperA",
+        "reviews": [
+            {"reviewer": "R1", "rating": "3", "confidence": "4",
+             "weaknesses": "the evaluation is thin", "questions": ""}
+        ],
+        "meta_review": {},
+    }
+    gold_path = tmp_path / "gold.json"
+    gold_path.write_text(json.dumps(gold))
+
+    # Pre-seed the atomizer's cache so gold-side atomization makes no call of
+    # its own and cannot be confused with matcher spend.
+    atomize_cache = tmp_path / "atomize"
+    atomize_cache.mkdir()
+    key = atomize_reviews._cache_key("paperA", "R1", "the evaluation is thin", "")
+    (atomize_cache / f"{key}.json").write_text(
+        json.dumps({"units": [{"text": "the evaluation is thin", "kind": "weakness"}]})
+    )
+    monkeypatch.setattr(atomize_reviews, "DEFAULT_CACHE_DIR", atomize_cache)
+
+    embedder = MagicMock(
+        name="embedder",
+        # Cosine 1.0 with itself, so the pair clears COS_THRESHOLD and reaches
+        # the confirmation call — otherwise the confirm path is never exercised.
+        side_effect=lambda texts: [[1.0, 0.0] for _ in texts],
+    )
+
+    # A fake OpenAI client rather than an injected `confirmer`: usage is recorded
+    # inside match._real_confirm, so a confirmer double would skip the very
+    # record_response_usage call under test.
+    def _create(**kwargs):
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(
+                {"pairs": [{"index": 0, "confirmed": True, "reason": "same concern"}]}
+            )))],
+            usage=SimpleNamespace(
+                prompt_tokens=800,
+                completion_tokens=60,
+                prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+            ),
+        )
+
+    confirm_create = MagicMock(name="confirm_create", side_effect=_create)
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=confirm_create))
+    )
+
+    obj = SimpleNamespace(
+        embedder=embedder,
+        confirmer=confirm_create,
+        gold_path=gold_path,
+        match_kwargs={
+            "cache_dir": tmp_path / "match",
+            "embedder": embedder,
+            "client": client,
+        },
+    )
+    return obj
+
+
+def _match_labels(usage: dict) -> list[str]:
+    return sorted(usage.get("by_label") or {})
+
+
+def test_matcher_spend_is_labelled_match_and_counted_in_the_run_total(
+    tmp_path, llm, matcher
+):
+    state_dir = tmp_path / "state"
+    _write_fixture(state_dir, "detect_gaps", "paperA")
+    results = tmp_path / "results.jsonl"
+
+    summary = node_eval.run_batch(
+        node_eval.build_selection(["detect_gaps"], ["paperA"], state_dir=state_dir),
+        repeat=1, config={}, registry={"detect_gaps": _make_node(llm)},
+        state_dir=state_dir, with_metric=True, gold_path=matcher.gold_path,
+        results_path=results, match_kwargs=matcher.match_kwargs,
+    )
+
+    record = [r for r in node_eval.load_records(results) if r["record_type"] == "replay"][0]
+
+    # The matcher really ran: one embedding batch + one confirmation.
+    assert matcher.embedder.call_count == 1
+    assert matcher.confirmer.call_count == 1
+    assert record["match_usage"]["calls"] == 2, record["match_usage"]
+
+    labels = _match_labels(record["match_usage"])
+    assert all(node_eval.is_match_label(label) for label in labels), labels
+    assert labels == ["match:detect_gaps:confirm", "match:detect_gaps:embed"], (
+        "matcher label lost either its match: prefix or the ambient node label"
+    )
+    # ...and did not contaminate the node's own usage.
+    assert _match_labels(record["usage"]) == ["detect_gaps"]
+
+    assert summary["total_match_estimated_usd"] > 0, "matcher spend rounded away to zero"
+    assert summary["total_estimated_usd"] == pytest.approx(
+        summary["total_node_estimated_usd"] + summary["total_match_estimated_usd"]
+    )
+    assert summary["total_estimated_usd"] > summary["total_node_estimated_usd"], (
+        "the run total is still node-only — matcher spend is not being added in"
+    )
+
+
+def test_no_metric_makes_zero_matcher_calls(tmp_path, llm, matcher):
+    state_dir = tmp_path / "state"
+    _write_fixture(state_dir, "detect_gaps", "paperA")
+    results = tmp_path / "results.jsonl"
+
+    summary = node_eval.run_batch(
+        node_eval.build_selection(["detect_gaps"], ["paperA"], state_dir=state_dir),
+        repeat=1, config={}, registry={"detect_gaps": _make_node(llm)},
+        state_dir=state_dir, with_metric=False, gold_path=matcher.gold_path,
+        results_path=results, match_kwargs=matcher.match_kwargs,
+    )
+
+    matcher.embedder.assert_not_called()
+    matcher.confirmer.assert_not_called()
+
+    record = [r for r in node_eval.load_records(results) if r["record_type"] == "replay"][0]
+    assert record["metric"] is None
+    assert record["match_usage"]["calls"] == 0
+    assert summary["total_match_llm_calls"] == 0
+    assert summary["total_match_estimated_usd"] == 0.0
+    assert summary["total_estimated_usd"] == summary["total_node_estimated_usd"]
+
+
+def test_run_total_reconciles_with_the_sum_of_per_label_spend(tmp_path, llm, matcher):
+    """The property that was silently false while match.py bypassed llm_budget."""
+    state_dir = tmp_path / "state"
+    _write_fixture(state_dir, "detect_gaps", "paperA")
+    results = tmp_path / "results.jsonl"
+
+    summary = node_eval.run_batch(
+        node_eval.build_selection(["detect_gaps"], ["paperA"], state_dir=state_dir),
+        repeat=2, config={}, registry={"detect_gaps": _make_node(llm)},
+        state_dir=state_dir, with_metric=True, gold_path=matcher.gold_path,
+        results_path=results, match_kwargs=matcher.match_kwargs,
+    )
+
+    breakdown = summary["spend_by_label"]
+    per_label_sum = sum(v["estimated_usd"] for v in breakdown["by_label"].values())
+    assert per_label_sum == pytest.approx(summary["total_estimated_usd"], abs=1e-6)
+    assert breakdown["node_estimated_usd"] == pytest.approx(
+        summary["total_node_estimated_usd"], abs=1e-6
+    )
+    assert breakdown["match_estimated_usd"] == pytest.approx(
+        summary["total_match_estimated_usd"], abs=1e-6
+    )
+    assert 0.0 < breakdown["match_share"] < 1.0
+
+    # Every recorded call is accounted for on exactly one side of the split.
+    calls = sum(v["calls"] for v in breakdown["by_label"].values())
+    assert calls == summary["total_llm_calls"] + summary["total_match_llm_calls"]
+
+    # Second replay hits the match caches, so it re-scores without new calls.
+    assert matcher.embedder.call_count == 1
+    assert matcher.confirmer.call_count == 1
+
+
+def test_matcher_calls_are_bounded_by_the_call_ceiling(tmp_path, llm, matcher, monkeypatch):
+    """Matcher calls count against NOESIS_LLM_MAX_CALLS like any other call."""
+    state_dir = tmp_path / "state"
+    _write_fixture(state_dir, "detect_gaps", "paperA")
+    # 1 node call + 1 embed, then the confirmation is refused.
+    monkeypatch.setenv("NOESIS_LLM_MAX_CALLS", "2")
+
+    summary = node_eval.run_batch(
+        node_eval.build_selection(["detect_gaps"], ["paperA"], state_dir=state_dir),
+        repeat=1, config={}, registry={"detect_gaps": _make_node(llm)},
+        state_dir=state_dir, with_metric=True, gold_path=matcher.gold_path,
+        results_path=tmp_path / "r.jsonl", match_kwargs=matcher.match_kwargs,
+    )
+
+    matcher.confirmer.assert_not_called()
+    assert summary["halted"]["reason"] == "LLMBudgetExceeded"
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +430,21 @@ def test_dry_run_makes_zero_llm_calls_and_writes_nothing(tmp_path, capsys, llm):
     assert "estimated LLM calls   : 1-1" in out or "estimated LLM calls   : 0-1" in out
     assert "runnable replays      : 2" in out
     assert "nothing executed" in out
+
+
+def test_dry_run_does_not_reach_the_matcher_either(tmp_path, llm, monkeypatch):
+    state_dir = tmp_path / "state"
+    _write_fixture(state_dir, "detect_gaps", "paperA")
+    scorer = MagicMock(name="score_replay")
+    monkeypatch.setattr(node_eval, "score_replay", scorer)
+
+    assert node_eval.main([
+        "--node", "detect_gaps", "--paper", "paperA",
+        "--state-dir", str(state_dir), "--dry-run",
+    ]) == 0
+
+    llm.assert_not_called()
+    scorer.assert_not_called()
 
 
 def test_dry_run_call_count_scales_with_repeat_and_ignores_missing_fixtures(tmp_path, capsys):
