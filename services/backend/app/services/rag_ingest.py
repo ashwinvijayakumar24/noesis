@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.grobid_client import get_grobid_client
+from app.services.retry_utils import retry_openai
 from app.services.rag_chunking import (
     count_and_encode,
     get_chunking_strategy,
@@ -261,11 +262,23 @@ def embed_chunks(chunks: List[str], model: str = "text-embedding-3-large") -> Li
 
     client = get_openai_client()
 
-    embeddings = client.embeddings.create(
-        model=model,
-        input=chunks,
-        dimensions=1536  # Fixed at 1536 for pgvector index compatibility
-    )
+    # retry_openai backs off on RateLimitError/APIError/APIConnectionError. This
+    # call had no retry at all, while embed_query in rag_retrieval has had one all
+    # along -- so a single TPM spike killed an entire ingestion. Reproduced on a
+    # 345-document corpus: OpenAI returned
+    #   429 ... Limit 1000000, Used 982070, Requested 20872. Please try again in 176ms
+    # and the run died 264 documents in, having already paid for them. The retry
+    # waits the 176ms instead. Batching keeps requests large, so brushing the
+    # per-minute token ceiling is normal operation, not an exceptional condition.
+    @retry_openai
+    def _create():
+        return client.embeddings.create(
+            model=model,
+            input=chunks,
+            dimensions=1536  # Fixed at 1536 for pgvector index compatibility
+        )
+
+    embeddings = _create()
 
     return embeddings.data
 
