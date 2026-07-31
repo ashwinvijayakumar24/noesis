@@ -703,7 +703,7 @@ def _run_analysis_task(document_id: str, file_url: str):
 
     This runs in a separate thread to avoid blocking the API.
     """
-    from app.services.rag_ingest import extract_structured_data_from_pdf, extract_text_from_pdf_fallback, get_pdf_page_count
+    from app.services.rag_ingest import extract_structured_data_from_pdf, extract_text_from_pdf_fallback, resolve_page_count_for_tiering
     from app.workflows.document_analysis.graph import run_document_analysis_workflow
     from app.services.async_utils import run_coroutine_sync
     from app.services.quota_management import increment_quota_usage, track_openai_usage
@@ -750,8 +750,11 @@ def _run_analysis_task(document_id: str, file_url: str):
 
         # 2. Get page count from PDF
         print(f"[ANALYZE-BG-LG] Step 2: Getting page count from PDF")
-        page_count = get_pdf_page_count(pdf_bytes)
-        print(f"[ANALYZE-BG-LG] ✓ PDF has {page_count} pages")
+        # get_pdf_page_count returns None when the PDF cannot be opened; the
+        # fallback is applied explicitly here (page_count only sizes the analysis
+        # token budget, so a guess is acceptable) rather than fabricated inside it.
+        page_count, page_count_measured = resolve_page_count_for_tiering(pdf_bytes)
+        print(f"[ANALYZE-BG-LG] ✓ PDF page count: {page_count} (measured={page_count_measured})")
 
         # 3. Extract text and display metadata from PDF.
         print(f"[ANALYZE-BG-LG] Step 3: Extracting text and metadata from PDF")

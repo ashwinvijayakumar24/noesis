@@ -327,8 +327,10 @@ async def _download_and_analyze(
     logger.info(f"[BibResolution] Running GPT-5.2 analysis for {doc_id}")
     try:
         from app.services.document_analysis import analyze_paper_text
-        from app.services.rag_ingest import get_pdf_page_count
-        page_count = get_pdf_page_count(pdf_bytes)
+        from app.services.rag_ingest import resolve_page_count_for_tiering
+        # None from get_pdf_page_count means "could not open"; the fallback is
+        # applied explicitly here since page_count only sizes the analysis budget.
+        page_count, _page_count_measured = resolve_page_count_for_tiering(pdf_bytes)
         analysis = analyze_paper_text(paper_text, page_count=page_count, model="gpt-5.2-chat-latest")
         logger.info(f"[BibResolution] Analysis complete for {doc_id}")
     except Exception as e:

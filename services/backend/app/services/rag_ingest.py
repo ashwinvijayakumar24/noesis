@@ -22,7 +22,7 @@ from app.services.rag_chunking import (
     get_section_aware_chunking_strategy,
 )
 import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = get_logger(__name__)
 
@@ -183,7 +183,16 @@ def extract_text_from_pdf_fallback(file_bytes: bytes) -> str:
     return text
 
 
-def get_pdf_page_count(file_bytes: bytes) -> int:
+# Page count is an INPUT to tier selection (chunk geometry here, LLM token budget
+# in document_analysis). When the PDF cannot be opened there is no honest value to
+# report, so `get_pdf_page_count` returns None. Callers that must still proceed
+# substitute this constant *explicitly* via `resolve_page_count_for_tiering`, which
+# also returns whether the number was measured, so the substitution is recorded on
+# the document instead of being indistinguishable from a real 10-page PDF.
+UNKNOWN_PAGE_COUNT_FALLBACK = 10
+
+
+def get_pdf_page_count(file_bytes: bytes) -> Optional[int]:
     """
     Get the number of pages in a PDF document.
 
@@ -191,10 +200,20 @@ def get_pdf_page_count(file_bytes: bytes) -> int:
         file_bytes: PDF file as bytes
 
     Returns:
-        Number of pages in the PDF
+        Number of pages in the PDF, or ``None`` if the PDF could not be opened.
 
-    Raises:
-        Exception: If unable to open or read the PDF
+    This used to return 10 on failure. That number then flowed into the adaptive
+    chunking tier (10 pages == SHORT, one page off MEDIUM) and into the analysis
+    token budget, and nothing downstream could tell it apart from a measured 10 --
+    the document was indexed with a geometry chosen by a fabricated input, and the
+    metadata recorded a page_count nobody had counted. Returning None keeps the
+    failure visible; the decision to continue anyway belongs to the caller, which
+    is the only place that knows whether a guess is acceptable.
+
+    Not raising: PyMuPDF failing does not mean the document is unusable. GROBID
+    parses PDFs PyMuPDF refuses to open, and both remaining callers use the page
+    count only to size a budget. Raising here would turn documents that ingest
+    successfully today into hard failures.
     """
     try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
@@ -204,8 +223,27 @@ def get_pdf_page_count(file_bytes: bytes) -> int:
         return page_count
     except Exception as e:
         logger.error(f"Failed to get page count: {e}")
-        # Return a default value to allow processing to continue
-        return 10  # Assume medium-length document as fallback
+        return None
+
+
+def resolve_page_count_for_tiering(file_bytes: bytes) -> Tuple[int, bool]:
+    """Return ``(page_count, measured)`` for a caller that must pick a tier anyway.
+
+    ``measured`` is False when the PDF could not be opened and
+    ``UNKNOWN_PAGE_COUNT_FALLBACK`` was substituted. Callers should persist that
+    flag alongside the count: a tier chosen from a guess is not a measurement,
+    and any analysis of retrieval quality by document length needs to be able to
+    exclude these.
+    """
+    page_count = get_pdf_page_count(file_bytes)
+    if page_count is None or page_count <= 0:
+        logger.warning(
+            "[RAG-INGEST] Page count unavailable (PDF could not be opened); "
+            "using unmeasured fallback of %d pages for tier selection",
+            UNKNOWN_PAGE_COUNT_FALLBACK,
+        )
+        return UNKNOWN_PAGE_COUNT_FALLBACK, False
+    return page_count, True
 
 
 def chunk_text(text: str, max_tokens: int = 500, overlap_tokens: int = 100) -> List[str]:
@@ -283,6 +321,96 @@ def embed_chunks(chunks: List[str], model: str = "text-embedding-3-large") -> Li
     return embeddings.data
 
 
+class ChunkWriteError(Exception):
+    """A chunk write failed. ``orphans_possible`` says whether rows may remain.
+
+    False means the cleanup delete confirmed the document has no chunk rows left
+    (or the write was rejected before any row was created). True means we could
+    not confirm that, so ``document_chunks`` may hold a partial index for this
+    document and a retriever could score against half a document.
+    """
+
+    def __init__(self, message: str, orphans_possible: bool):
+        super().__init__(message)
+        self.orphans_possible = orphans_possible
+
+
+def store_document_chunks(document_id: str, rows: List[Dict[str, Any]]) -> None:
+    """Write all chunk rows for a document, or leave no chunk rows behind.
+
+    ATOMICITY, HONESTLY
+        The app writes through PostgREST, not psycopg, so there is no
+        BEGIN/COMMIT spanning several statements available here. What IS
+        available is that a single PostgREST insert request is a single SQL
+        INSERT, and PostgreSQL runs a single statement in an implicit
+        transaction: it inserts all rows or none. So the previous row-at-a-time
+        loop (N requests, N transactions, failure at row k leaving k rows) is
+        replaced by ONE request carrying every row. The insert itself is now
+        genuinely all-or-nothing, and the payload is bounded because
+        MAX_CHUNKS_PER_DOCUMENT caps a document at 50 chunks.
+
+        Not atomic: the delete-then-insert pair is two requests. A crash between
+        them leaves the document with zero chunks -- recoverable and detectable
+        (a document marked failed or ready with no chunks), unlike a half index.
+        The delete makes a retry idempotent instead of duplicating rows, which
+        the old loop did not.
+
+        On failure we issue a compensating delete scoped to document_id and
+        VERIFY it by counting rows back. If that verification cannot be made,
+        the raised ChunkWriteError says so and the caller records it on the
+        document, so a partial index is never silently indistinguishable from a
+        complete one.
+    """
+    # Idempotent retry: drop anything a previous attempt left for this document.
+    supabase.table("document_chunks").delete().eq("document_id", document_id).execute()
+
+    try:
+        supabase.table("document_chunks").insert(rows).execute()
+    except Exception as insert_error:
+        logger.error(
+            "[RAG-INGEST] ✗ Chunk insert failed for document_id=%s: %s",
+            document_id,
+            insert_error,
+        )
+        orphans_possible = True
+        try:
+            supabase.table("document_chunks").delete().eq("document_id", document_id).execute()
+            remaining = (
+                supabase.table("document_chunks")
+                .select("id", count="exact")
+                .eq("document_id", document_id)
+                .execute()
+            )
+            leftover = remaining.count
+            if leftover is None:
+                leftover = len(remaining.data or [])
+            orphans_possible = leftover > 0
+            if orphans_possible:
+                logger.error(
+                    "[RAG-INGEST] ✗ %d orphan chunk row(s) remain for document_id=%s "
+                    "after cleanup; retrieval for this project may score partial data",
+                    leftover,
+                    document_id,
+                )
+            else:
+                logger.info(
+                    "[RAG-INGEST] ✓ Cleanup verified: no chunk rows remain for document_id=%s",
+                    document_id,
+                )
+        except Exception as cleanup_error:
+            logger.error(
+                "[RAG-INGEST] ✗ Cleanup after failed chunk insert did not complete "
+                "for document_id=%s: %s",
+                document_id,
+                cleanup_error,
+            )
+
+        raise ChunkWriteError(
+            f"Failed to store chunks for document {document_id}: {insert_error}",
+            orphans_possible=orphans_possible,
+        ) from insert_error
+
+
 async def ingest_document(document_id: str, project_id: str) -> dict:
     """
     Complete RAG ingestion pipeline for a single document with adaptive chunking.
@@ -351,8 +479,11 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
 
         # 3. Get page count from PDF for adaptive chunking
         logger.info(f"[RAG-INGEST] Step 3: Getting PDF page count...")
-        page_count = get_pdf_page_count(file_bytes)
-        logger.info(f"[RAG-INGEST] ✓ PDF has {page_count} pages")
+        page_count, page_count_measured = resolve_page_count_for_tiering(file_bytes)
+        logger.info(
+            f"[RAG-INGEST] ✓ PDF page count: {page_count} "
+            f"({'measured' if page_count_measured else 'UNMEASURED fallback'})"
+        )
 
         # 4. Extract structured data from PDF using GROBID
         logger.info(f"[RAG-INGEST] Step 4: Extracting structured data using GROBID...")
@@ -392,6 +523,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             was_adjusted = chunking_params["was_adjusted"]
             estimated_chunks = chunking_params["estimated_chunks"]
             chunking_method = chunking_params["chunking_method"]
+            cost_ceiling = chunking_params["cost_ceiling"]
 
             # Get pre-chunked content with section metadata
             section_aware_chunks = chunking_params["chunks"]
@@ -418,6 +550,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             was_adjusted = chunking_params["was_adjusted"]
             estimated_chunks = chunking_params["estimated_chunks"]
             chunking_method = "basic"
+            cost_ceiling = chunking_params["cost_ceiling"]
 
             logger.info(
                 f"Basic adaptive chunking - tier: {tier}, chunk_size: {chunk_size}, "
@@ -472,14 +605,11 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
 
             rows.append(row)
 
-        # Batch insert (insert one at a time for now, could be optimized)
+        # Single insert request => single SQL statement => all rows or none.
+        # See store_document_chunks for what this does and does not guarantee.
         logger.info(f"[RAG-INGEST] Inserting {len(rows)} rows into document_chunks table...")
-        for idx, row in enumerate(rows):
-            supabase.table("document_chunks").insert(row).execute()
-            if (idx + 1) % 10 == 0 or (idx + 1) == len(rows):
-                logger.info(f"[RAG-INGEST] Inserted {idx + 1}/{len(rows)} chunks")
-
-        logger.info(f"[RAG-INGEST] ✓ All chunks stored successfully")
+        store_document_chunks(document_id, rows)
+        logger.info(f"[RAG-INGEST] ✓ All {len(rows)} chunks stored successfully")
 
         # 10. Update document metadata and status (only update status if not already analyzing/analyzed)
         logger.info(f"[RAG-INGEST] Step 10: Updating document metadata...")
@@ -497,6 +627,9 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
                 **(current_metadata or record.data.get("metadata") or {}),
                 "embedded_at": datetime.datetime.utcnow().isoformat(),
                 "page_count": page_count,
+                # False => page_count above is UNKNOWN_PAGE_COUNT_FALLBACK, not a
+                # count. Everything tier-dependent about this document is a guess.
+                "page_count_measured": page_count_measured,
                 "total_tokens": total_tokens,
                 "num_chunks": len(chunks),
                 "total_characters": len(full_text),
@@ -510,6 +643,11 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
                     "estimated_chunks": estimated_chunks,
                     "actual_chunks": len(chunks),
                     "cost_ceiling_applied": was_adjusted,
+                    # Full record of the MAX_CHUNKS_PER_DOCUMENT ceiling: original
+                    # vs adjusted geometry and the chunk count it avoided. Without
+                    # this, chunk size silently varies with document length and
+                    # every retrieval number over a mixed corpus is confounded.
+                    "cost_ceiling": cost_ceiling,
                     "sections_count": len(sections) if use_section_aware else 0
                 },
                 # GROBID extracted metadata
@@ -568,6 +706,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             "message": "Document successfully ingested and embedded",
             "document_id": document_id,
             "page_count": page_count,
+            "page_count_measured": page_count_measured,
             "total_tokens": total_tokens,
             "num_chunks": len(chunks),
             "total_characters": len(full_text),
@@ -580,6 +719,7 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
                 "estimated_chunks": estimated_chunks,
                 "actual_chunks": len(chunks),
                 "cost_ceiling_applied": was_adjusted,
+                "cost_ceiling": cost_ceiling,
                 "sections_count": len(sections) if use_section_aware else 0
             },
             "grobid_extraction": {
@@ -610,6 +750,13 @@ async def ingest_document(document_id: str, project_id: str) -> dict:
             "embedding_status": "failed",
             "failed_at": datetime.datetime.utcnow().isoformat()
         }
+
+        # A failed document whose chunk rows could not be cleaned up is a
+        # half-indexed document: retrieval scores against partial data with no
+        # signal. Record it so the state is detectable rather than invisible.
+        if isinstance(e, ChunkWriteError):
+            error_metadata["chunks_cleaned_up"] = not e.orphans_possible
+            error_metadata["orphan_chunks_possible"] = e.orphans_possible
 
         try:
             logger.info(f"[RAG-INGEST] Updating document status to 'failed'...")

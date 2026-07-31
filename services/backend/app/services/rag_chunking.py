@@ -317,6 +317,56 @@ def apply_cost_ceiling(
     return adjusted_chunk_size, adjusted_overlap, True
 
 
+def build_cost_ceiling_record(
+    *,
+    applied: bool,
+    max_chunks: int,
+    original_chunk_size: int,
+    original_overlap: int,
+    adjusted_chunk_size: int,
+    adjusted_overlap: int,
+    chunks_before_ceiling: int,
+    chunks_after_ceiling: int,
+    trigger: str,
+) -> Dict[str, Any]:
+    """Describe what MAX_CHUNKS_PER_DOCUMENT did to this document's chunk geometry.
+
+    MAX_CHUNKS_PER_DOCUMENT is a COST ceiling, not a retrieval strategy: when it
+    fires it makes the LONGEST documents -- the ones that most need fine
+    granularity -- carry the COARSEST chunks. That is a deliberate product
+    tradeoff and is not changed here. What was missing is that it fired
+    invisibly: chunk geometry varied with document length, nothing durable
+    recorded it, and every retrieval measurement over a mixed corpus was
+    silently confounded by a variable no result file contained.
+
+    This record is persisted per document so the confound is at least
+    observable, and so a retrieval result can be split by `applied` after the
+    fact. It is emitted whether or not the ceiling fired -- absence of the field
+    would otherwise be ambiguous between "did not fire" and "written by an older
+    build".
+
+    `trigger` distinguishes the two places the ceiling can bite:
+      - "estimated_tokens": the token-arithmetic estimate exceeded the ceiling
+        before any chunking happened (basic path, and the first pass of the
+        section-aware path).
+      - "actual_section_chunks": the estimate was fine but section-aware
+        chunking really produced more chunks than the ceiling allows, so the
+        document was re-chunked with coarser parameters.
+    """
+    return {
+        "applied": applied,
+        "trigger": trigger if applied else None,
+        "max_chunks": max_chunks,
+        "original_chunk_size": original_chunk_size,
+        "original_overlap": original_overlap,
+        "adjusted_chunk_size": adjusted_chunk_size,
+        "adjusted_overlap": adjusted_overlap,
+        "chunks_before_ceiling": chunks_before_ceiling,
+        "chunks_after_ceiling": chunks_after_ceiling,
+        "chunks_avoided": max(chunks_before_ceiling - chunks_after_ceiling, 0),
+    }
+
+
 def get_chunking_strategy(
     page_count: int,
     total_tokens: int,
@@ -341,17 +391,11 @@ def get_chunking_strategy(
             - max_chunks: Maximum allowed chunks
             - was_adjusted: Whether cost ceiling adjustment was applied
             - estimated_chunks: Estimated number of chunks that will be created
+            - cost_ceiling: Full record of what the ceiling did (see build_cost_ceiling_record)
 
     Example:
-        >>> get_chunking_strategy(page_count=15, total_tokens=8000)
-        {
-            'chunk_size': 1600,
-            'overlap': 250,
-            'tier': 'MEDIUM',
-            'max_chunks': 50,
-            'was_adjusted': False,
-            'estimated_chunks': 6
-        }
+        >>> get_chunking_strategy(page_count=15, total_tokens=8000)["tier"]
+        'MEDIUM'
     """
     # Step 1: Get optimal parameters based on page count
     params = get_optimal_chunk_params(page_count, doc_type)
@@ -360,6 +404,11 @@ def get_chunking_strategy(
     overlap = params["overlap"]
     max_chunks = params["max_chunks"]
     tier = params["tier"]
+
+    # Chunk count the tier's own geometry would have produced. Recorded even when
+    # the ceiling does not fire, so "did the ceiling change this document?" is
+    # answerable from the stored metadata alone rather than from a log line.
+    chunks_before_ceiling = calculate_estimated_chunks(total_tokens, chunk_size, overlap)
 
     # Step 2: Apply cost ceiling protection
     adjusted_chunk_size, adjusted_overlap, was_adjusted = apply_cost_ceiling(
@@ -382,7 +431,18 @@ def get_chunking_strategy(
         "tier": tier,
         "max_chunks": max_chunks,
         "was_adjusted": was_adjusted,
-        "estimated_chunks": estimated_chunks
+        "estimated_chunks": estimated_chunks,
+        "cost_ceiling": build_cost_ceiling_record(
+            applied=was_adjusted,
+            max_chunks=max_chunks,
+            original_chunk_size=chunk_size,
+            original_overlap=overlap,
+            adjusted_chunk_size=adjusted_chunk_size,
+            adjusted_overlap=adjusted_overlap,
+            chunks_before_ceiling=chunks_before_ceiling,
+            chunks_after_ceiling=estimated_chunks,
+            trigger="estimated_tokens",
+        ),
     }
 
 
@@ -580,6 +640,7 @@ def get_section_aware_chunking_strategy(
             - estimated_chunks: Estimated number of chunks that will be created
             - chunks: List of actual chunks with section metadata
             - chunking_method: "section-aware" to distinguish from basic chunking
+            - cost_ceiling: Full record of what the ceiling did (see build_cost_ceiling_record)
 
     Example:
         >>> sections = [
@@ -600,6 +661,7 @@ def get_section_aware_chunking_strategy(
     overlap = base_strategy["overlap"]
     tier = base_strategy["tier"]
     was_adjusted = base_strategy["was_adjusted"]
+    cost_ceiling = base_strategy["cost_ceiling"]
 
     # Step 2: Chunk by sections using adaptive parameters
     chunks = chunk_by_sections(
@@ -614,6 +676,8 @@ def get_section_aware_chunking_strategy(
             f"Section-aware chunking produced {len(chunks)} chunks, "
             f"exceeding limit of {MAX_CHUNKS_PER_DOCUMENT}. Adjusting..."
         )
+
+        chunks_before_rechunk = len(chunks)
 
         # Calculate new chunk_size to fit within limit
         adjusted_chunk_size, adjusted_overlap, _ = apply_cost_ceiling(
@@ -630,6 +694,21 @@ def get_section_aware_chunking_strategy(
             overlap=adjusted_overlap
         )
 
+        # Record against the geometry that was ACTUALLY re-chunked away from --
+        # the parameters going into this pass -- not the tier defaults, which
+        # the first (estimate-driven) ceiling pass may already have replaced.
+        cost_ceiling = build_cost_ceiling_record(
+            applied=True,
+            max_chunks=MAX_CHUNKS_PER_DOCUMENT,
+            original_chunk_size=chunk_size,
+            original_overlap=overlap,
+            adjusted_chunk_size=adjusted_chunk_size,
+            adjusted_overlap=adjusted_overlap,
+            chunks_before_ceiling=chunks_before_rechunk,
+            chunks_after_ceiling=len(chunks),
+            trigger="actual_section_chunks",
+        )
+
         was_adjusted = True
         chunk_size = adjusted_chunk_size
         overlap = adjusted_overlap
@@ -642,5 +721,6 @@ def get_section_aware_chunking_strategy(
         "was_adjusted": was_adjusted,
         "estimated_chunks": len(chunks),
         "chunks": chunks,
-        "chunking_method": "section-aware"
+        "chunking_method": "section-aware",
+        "cost_ceiling": cost_ceiling,
     }
