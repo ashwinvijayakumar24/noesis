@@ -55,6 +55,29 @@ HISTORY_PATH = RESULTS_DIR / "history.jsonl"
 OPENREVIEW_HISTORY_PATH = RESULTS_DIR / "openreview_history.jsonl"
 
 
+def history_path() -> Path:
+    """Resolve the history sink AT CALL TIME, not at import.
+
+    These used to be module constants bound to RESULTS_DIR when the module was
+    first imported. A test that monkeypatched ``run_eval.RESULTS_DIR`` to a
+    tmp_path therefore did NOT move the sink, and every run of the eval suite
+    appended a synthetic fixture record to the REAL, TRACKED, append-only
+    history -- the one file whose entire purpose is being a durable record of
+    what was actually measured. Ten such records had accumulated, and each run
+    left the committed benchmark board stale against its own sources.
+
+    A sink that test runs can write to is not a durable record. Resolving late
+    means monkeypatching the directory is enough, and no test has to know the
+    filename.
+    """
+    return RESULTS_DIR / "history.jsonl"
+
+
+def openreview_history_path() -> Path:
+    """See :func:`history_path` -- same fix, OpenReview track."""
+    return RESULTS_DIR / "openreview_history.jsonl"
+
+
 def _pipeline_version() -> str:
     """SHA over every draft_analysis workflow file. Reuses pipeline_cache."""
     try:
@@ -448,10 +471,10 @@ def run_openreview_eval(args: argparse.Namespace) -> int:
             for row in rows
         ],
     }
-    append_history(record, OPENREVIEW_HISTORY_PATH)
+    append_history(record, openreview_history_path())
 
     print(f"[eval-openreview] Scoreboard: {scoreboard_path}")
-    print(f"[eval-openreview] History (append-only): {OPENREVIEW_HISTORY_PATH}  run_id={record['run_id']}")
+    print(f"[eval-openreview] History (append-only): {openreview_history_path()}  run_id={record['run_id']}")
     print(json.dumps(scoreboard["aggregate"], indent=2, sort_keys=True))
     return 0
 
@@ -568,7 +591,7 @@ def main(args: argparse.Namespace) -> int:
 
     # Append-only history. Written BEFORE the gate so a failing run is still recorded.
     record = build_history_record(rows, cfg, mean_overall, total_hallucinations, args=args)
-    append_history(record, HISTORY_PATH)
+    append_history(record, history_path())
 
     _print_table(scored_rows)
     print(f"\n[eval] Mean overall: {mean_overall:.2f}/10   Hallucinations: {total_hallucinations}")

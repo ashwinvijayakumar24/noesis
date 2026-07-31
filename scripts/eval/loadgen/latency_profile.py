@@ -18,7 +18,7 @@ same assumption.
 Distribution: lognormal, parameterised by mean and coefficient of variation.
 Lognormal because request latency is positive, right-skewed and multiplicative
 in nature; mean/CV because those are the two things the measurements actually
-give (``NODE_COST.md``: reviewer replays mean 19.286s, CV 15.0% at n=5).
+give (docs/MEASUREMENTS.md §Node replay cost: reviewer replays mean 19.286s, CV 15.0% at n=5).
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ ASSUMED: dict[str, NodeSpec] = {
 }
 
 
-#: Written by the real-LLM calibration run (see LATENCY.md). This is the only
+#: Written by the real-LLM calibration run (see docs/MEASUREMENTS.md §Graph latency). This is the only
 #: source that covers every LLM-calling node in one consistent graph execution,
 #: so it outranks the node-replay MEASURED numbers -- which cover two nodes,
 #: were taken months apart, and were taken in isolation rather than in-graph.

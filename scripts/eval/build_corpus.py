@@ -26,7 +26,7 @@ raises the daily allowance from $0.10 to $1.00 — and check it landed with:
 
   python scripts/eval/build_corpus.py --check-budget
 
-See scripts/eval/OPENALEX.md for signup, funding and the free-tier workaround.
+See docs/EVAL_GUIDE.md (OpenAlex) for signup, funding and the free-tier workaround.
 
 Every corpus dir gets a ``references.json`` sidecar recording *every* reference
 that was attempted, with its resolution outcome. Without it the resolution
@@ -227,7 +227,7 @@ async def _oa_get(session: aiohttp.ClientSession, url: str, params: dict) -> dic
                             f"prepaid ${resp.headers.get('X-RateLimit-Prepaid-Remaining-USD', '?')}). "
                             "Daily budget is spent; add prepaid credit or re-run after it "
                             "resets (midnight UTC) — the build resumes where it stopped. "
-                            "See scripts/eval/OPENALEX.md."
+                            "See docs/EVAL_GUIDE.md (OpenAlex)."
                         ))
                     print(f"[build-corpus]   OpenAlex {resp.status} — backing off {wait:.0f}s")
                     await asyncio.sleep(wait)
@@ -354,11 +354,11 @@ async def check_budget() -> int:
     total = _total_available_usd(budget)
     if total is not None and total <= 0:
         print("[build-corpus] Budget is spent. Add prepaid credit at https://openalex.org/pricing "
-              "or wait for the midnight-UTC reset. See scripts/eval/OPENALEX.md.")
+              "or wait for the midnight-UTC reset. See docs/EVAL_GUIDE.md (OpenAlex).")
         return 2
     if not _OA_API_KEY:
         print("[build-corpus] No OPENALEX_API_KEY set — running on the $0.10/day no-key allowance. "
-              "A *free* key raises this to $1/day. See scripts/eval/OPENALEX.md.")
+              "A *free* key raises this to $1/day. See docs/EVAL_GUIDE.md (OpenAlex).")
     return 0
 
 
@@ -1063,7 +1063,7 @@ async def main(args: argparse.Namespace) -> int:
 
     if not _OA_API_KEY:
         print("[build-corpus] OpenAlex: unauthenticated — running on the $0.10/day free "
-              "allowance. Set OPENALEX_API_KEY for $1/day (see scripts/eval/OPENALEX.md).")
+              "allowance. Set OPENALEX_API_KEY for $1/day (see docs/EVAL_GUIDE.md (OpenAlex)).")
 
     # One cheap probe so an under-funded run is visible now, not in 20 minutes.
     try:

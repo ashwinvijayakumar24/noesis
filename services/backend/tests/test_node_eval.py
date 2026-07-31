@@ -36,21 +36,86 @@ def test_extract_node_items_for_detect_gaps_only_returns_gaps():
     ]
 
 
-def test_extract_node_items_for_reviewer_panel_outputs_weaknesses_and_issues():
+def test_extract_node_items_for_reviewer_panel_uses_issues_before_weaknesses():
     state = {
         "reviewer_outputs": [
             {
                 "reviewer_id": "methodology",
                 "weaknesses": ["Weak ablation."],
-                "issues": [{"problem": "Poor baseline."}],
+                "issues": [
+                    {
+                        "problem": "Poor baseline.",
+                        "anchor_text": "We compare to one method.",
+                        "issue_type": "methodology",
+                    }
+                ],
+            }
+        ]
+    }
+
+    assert node_eval.extract_node_items("reviewer_panel_node", state) == [
+        {
+            "id": "methodology::issue::1",
+            "problem": "Poor baseline.",
+            "text": "Poor baseline.",
+            "source": "reviewer_issue",
+            "anchor_text": "We compare to one method.",
+            "issue_type": "methodology",
+            "reviewer_id": "methodology",
+        },
+    ]
+
+
+def test_extract_node_items_for_reviewer_panel_uses_weaknesses_as_legacy_fallback():
+    state = {
+        "reviewer_outputs": [
+            {
+                "reviewer_id": "methodology",
+                "weaknesses": ["Weak ablation."],
+                "issues": [],
             }
         ]
     }
 
     assert node_eval.extract_node_items("reviewer_panel_node", state) == [
         {"id": "methodology::weakness::1", "text": "Weak ablation.", "source": "reviewer_output"},
-        {"id": "methodology::issue::1", "text": "Poor baseline.", "source": "reviewer_issue"},
     ]
+
+
+def test_extract_node_items_includes_diagnostic_rationale_and_action():
+    state = {
+        "diagnostic_findings": [
+            {
+                "id": "d1",
+                "problem": "The metric definition is unclear.",
+                "why_it_matters": "Fixed subset size can change the interpretation.",
+                "suggested_action": "Report sensitivity to the subset-size constant.",
+            }
+        ]
+    }
+
+    items = node_eval.extract_node_items("run_quality_diagnostics", state)
+
+    assert "metric definition" in items[0]["text"]
+    assert "Fixed subset size" in items[0]["text"]
+    assert "Report sensitivity" in items[0]["text"]
+
+
+def test_extract_node_items_strips_internal_meta_review_boilerplate():
+    state = {
+        "revision_tasks": [
+            {
+                "id": "t1",
+                "problem": "The evaluation setup is under-described.",
+                "why_it_matters": "Named by the meta-reviewer as a blocking item for acceptance.",
+                "suggested_action": "Address the issue described above.",
+            }
+        ]
+    }
+
+    items = node_eval.extract_node_items("synthesize_report", state)
+
+    assert items[0]["text"] == "The evaluation setup is under-described."
 
 
 def test_extract_node_items_for_external_source_discovery():

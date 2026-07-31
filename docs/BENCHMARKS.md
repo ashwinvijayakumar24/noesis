@@ -43,7 +43,7 @@ interrupted write shows up here.
 | `results/node_eval_spans.jsonl` | present | 35 | 35 | 0 |
 | `cache/ingest_manifest.jsonl` | present | 539 | 539 | 0 |
 | `results/history.jsonl` | absent | 0 | 0 | 0 |
-| `results/openreview_history.jsonl` | present | 22 | 22 | 0 |
+| `results/openreview_history.jsonl` | present | 17 | 17 | 0 |
 | `gate_calibration/sweep_results.jsonl` | present | 3 | 3 | 0 |
 | `results/ann_sweep.jsonl` | present | 89 | 89 | 0 |
 
@@ -96,7 +96,7 @@ No grand total is given: not computed -- the sinks overlap and would double coun
 - relevance unit: document, k=10, graded=False, chunk oversample x5
 - queries scored: 59 of 59 built; relevant documents pooled: 903
 - corpus: 118 documents across 15 topics (12 with labels)
-- ceiling source: retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)
+- ceiling source: docs/MEASUREMENTS.md § Retrieval baseline (superseded) (labels+queries fingerprint and 118-document corpus all match)
 
 | metric | measured (n = queries scored) | ceiling | % of attainable |
 |---|---|---|---|
@@ -130,7 +130,7 @@ Miss attribution (rollup of the per-query `misses` payload, which is not tracked
 - relevance unit: document, k=10, graded=False, chunk oversample x5
 - queries scored: 59 of 59 built; relevant documents pooled: 903
 - corpus: 118 documents across 15 topics (12 with labels)
-- ceiling source: retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)
+- ceiling source: docs/MEASUREMENTS.md § Retrieval baseline (superseded) (labels+queries fingerprint and 118-document corpus all match)
 
 | metric | measured (n = queries scored) | ceiling | % of attainable |
 |---|---|---|---|
@@ -823,7 +823,7 @@ _No runs recorded._
 
 ## OpenReview eval scoreboard — `results/openreview_history.jsonl`
 
-22 run(s) across 5 pipeline version(s).
+17 run(s) across 3 pipeline version(s).
 
 | run_id | date | pipeline | mean overall (n = scored cells) | hallucinations | scored/total cells |
 |---|---|---|---|---|---|
@@ -844,21 +844,14 @@ _No runs recorded._
 | `07202105bf00` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
 | `b42cdd6246b7` | 2026-07-30 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
 | `3d93a316a144` | 2026-07-31 | `e6dc45ecb601` | no data (n=0) | 0 | 0/2 |
-| `8ca41369ce16` | 2026-07-31 | `f85efa2cf60a` | no data (n=0) | 0 | 0/2 |
-| `7e0b42b916be` | 2026-07-31 | `f85efa2cf60a` | no data (n=0) | 0 | 0/2 |
-| `a9380adb9d60` | 2026-07-31 | `f85efa2cf60a` | no data (n=0) | 0 | 0/2 |
-| `9c1be0901db7` | 2026-07-31 | `4d4c62692693` | no data (n=0) | 0 | 0/2 |
-| `5086f961d46b` | 2026-07-31 | `4d4c62692693` | no data (n=0) | 0 | 0/2 |
 
 ### Trend — same pipeline version only
 
 | pipeline | runs | first | latest | delta | hallucinations |
 |---|---|---|---|---|---|
-| `4d4c62692693` | 2 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
 | `7860c5a18e72` | 5 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
 | `891131180509` | 5 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
 | `e6dc45ecb601` | 7 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
-| `f85efa2cf60a` | 3 | no data (n=0) | no data (n=0) | unknown | 0 -> 0 |
 
 ## Gate calibration — `gate_calibration/sweep_results.jsonl`
 

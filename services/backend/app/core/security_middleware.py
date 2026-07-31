@@ -164,7 +164,7 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
     ]
 
     MAX_QUERY_LENGTH = 1000
-    MAX_BODY_SIZE = 52428800  # 50MB in bytes
+    MAX_BODY_SIZE = 104857600  # 100MB in bytes, matching draft/document upload UI limits
 
     def __init__(self, app):
         super().__init__(app)
@@ -483,32 +483,6 @@ class FileUploadValidator:
             filename = name[:250] + "." + ext
 
         return filename
-
-
-# ============================================
-# LOGGING SANITIZER
-# ============================================
-
-class LogSanitizer:
-    """
-    Sanitizes sensitive data before logging
-    """
-
-    SENSITIVE_PATTERNS = [
-        (r"Bearer [A-Za-z0-9\-._~+/]+=*", "Bearer [REDACTED]"),
-        (r"api[_-]?key[\"']?\s*[:=]\s*[\"']?[A-Za-z0-9\-._~+/]+", "api_key=[REDACTED]"),
-        (r"password[\"']?\s*[:=]\s*[\"']?[^\s\"']+", "password=[REDACTED]"),
-        (r"token[\"']?\s*[:=]\s*[\"']?[A-Za-z0-9\-._~+/]+=*", "token=[REDACTED]"),
-    ]
-
-    @classmethod
-    def sanitize(cls, text: str) -> str:
-        """
-        Removes sensitive data from text before logging
-        """
-        for pattern, replacement in cls.SENSITIVE_PATTERNS:
-            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
-        return text
 
 
 # ============================================

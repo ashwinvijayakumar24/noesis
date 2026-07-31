@@ -221,18 +221,6 @@ class CitationMappingOutput(StrictOutputModel):
 # Gap detection node
 # ---------------------------------------------------------------------------
 
-class GapItem(StrictOutputModel):
-    gap_type: str
-    description: str
-    severity: Literal["critical", "important", "minor"] = "minor"
-    affected_claims: list[str] = Field(default_factory=list)
-    suggested_papers: list[str] = Field(default_factory=list)
-
-
-class GapDetectionOutput(StrictOutputModel):
-    gaps: list[GapItem] = Field(default_factory=list)
-    summary: str = ""
-
 
 # ---------------------------------------------------------------------------
 # Reviewer feedback node
@@ -248,12 +236,6 @@ class FeedbackItem(StrictOutputModel):
     specific_issue: str = ""
     suggested_improvements: list[str] = Field(default_factory=list)
     cited_papers: list[str] = Field(default_factory=list)
-
-
-class ReviewerFeedbackOutput(StrictOutputModel):
-    feedback_items: list[FeedbackItem] = Field(default_factory=list)
-    overall_assessment: str = ""
-    priority_actions: list[str] = Field(default_factory=list)
 
 
 class StructuralCheckItem(StrictOutputModel):
@@ -274,17 +256,6 @@ class StructuralCheckItem(StrictOutputModel):
 
 class StructuralChecksOutput(StrictOutputModel):
     checks: list[StructuralCheckItem] = Field(default_factory=list)
-
-
-class Reviewer1StrengthItem(StrictOutputModel):
-    aspect: str
-    section_reference: str = "Overall"
-    detail: str
-    significance: Literal["high", "medium", "low"] = "medium"
-
-
-class Reviewer1StrengthsOutput(StrictOutputModel):
-    strengths: list[Reviewer1StrengthItem] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

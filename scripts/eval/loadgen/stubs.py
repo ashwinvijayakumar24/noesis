@@ -30,7 +30,7 @@ table. Reads return empty rather than raising, since the graph's read paths are
 all wrapped in try/except and degrade to "no corpus".
 
 Two writes escape the stage_only gate and are handled separately, by argument
-rather than by guard -- see LATENCY.md:
+rather than by guard -- see docs/MEASUREMENTS.md §Graph latency:
 
 * ``graph.py`` line ~754/780: ``checkpoint_saver.save_checkpoint`` writes to the
   ``workflow_checkpoints`` table before and after ``ainvoke``, gated on the

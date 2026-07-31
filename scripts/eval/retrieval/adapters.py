@@ -274,7 +274,7 @@ class KeywordRetriever(_DBRetriever):
     queries here are ~20-word manuscript claims, so a chunk had to contain all
     ~20 lemmas: 55 of 59 queries returned zero rows and recall@10 was 0.0026.
     Migration 038 added ``keyword_search_chunks_v2``, which ORs the lemmas and
-    ranks with ``ts_rank(..., 1|32)``. See ``KEYWORD_QUERY.md``.
+    ranks with ``ts_rank(..., 1|32)``. See docs/MEASUREMENTS.md §Keyword query formulation.
 
     Which one runs is chosen exactly the way the application chooses -- the
     ``KEYWORD_SEARCH_V2`` env flag, default off -- so the eval cannot measure a
@@ -325,7 +325,7 @@ class KeywordRetriever(_DBRetriever):
 #: 2 scores 1/62, a 1.6% difference, so a single leg's confident #1 cannot carry
 #: the fused list on its own. Small k_rrf sharpens that; large k_rrf flattens
 #: towards "appears in both lists" voting. It is swept, not assumed -- see
-#: BASELINE_15.md.
+#: docs/MEASUREMENTS.md §Retrieval baseline 15.
 DEFAULT_K_RRF = 60
 
 
@@ -347,7 +347,7 @@ def rrf_fuse(
     FUSED AT DOCUMENT LEVEL. A document's rank within a leg is the rank of its
     best-ranked chunk. The alternative -- fusing chunk ids -- looks more natural
     but is measurably weaker for this harness: the relevance unit is *document*
-    (RELEVANCE.md §2), and if the dense leg's evidence for a document is chunk A
+    (docs/EVAL_GUIDE.md §Relevance §2), and if the dense leg's evidence for a document is chunk A
     while the keyword leg's is chunk B, chunk-level fusion gives that document no
     agreement bonus at all, which is exactly the evidence fusion exists to
     combine. The returned list therefore carries one entry per document, with the

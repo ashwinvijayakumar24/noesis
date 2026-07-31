@@ -52,12 +52,14 @@ class FakeTable:
         self._limit = None
         self._order = None
         self._single = False
+        self._select = "*"
 
     def _rows(self):
         return self.supabase.tables.setdefault(self.name, [])
 
-    def select(self, *_args, **_kwargs):
+    def select(self, *args, **_kwargs):
         self.action = "select"
+        self._select = args[0] if args else "*"
         return self
 
     def insert(self, payload):
@@ -109,6 +111,7 @@ class FakeTable:
         rows = self._filtered_rows()
 
         if self.action == "select":
+            rows = self._project_rows(rows)
             if self._single:
                 return FakeResponse(rows[0] if rows else None, count=len(rows))
             return FakeResponse(rows, count=len(rows))
@@ -142,6 +145,21 @@ class FakeTable:
             return FakeResponse(deleted, count=len(deleted))
 
         return FakeResponse([])
+
+    def _project_rows(self, rows):
+        if not self._select or self._select == "*":
+            return rows
+        columns = [
+            column.strip()
+            for column in str(self._select).split(",")
+            if column.strip() and column.strip() != "*"
+        ]
+        if not columns:
+            return rows
+        return [
+            {column: row.get(column) for column in columns if column in row}
+            for row in rows
+        ]
 
 
 class FakeSupabase:
@@ -251,7 +269,7 @@ class TestDraftAnalysisRouteV2:
         assert payload["revision_metadata"]["feedback_carryover_count"] == 1
 
     @pytest.mark.unit
-    def test_get_draft_analysis_hides_reviewer_panel_unless_debug(self):
+    def test_get_draft_analysis_exposes_sanitized_reviewer_panel_without_debug(self):
         route = _load_module(["app", "api", "routes", "drafts.py"], "drafts_route_v2_debug_test")
         fake_supabase = FakeSupabase(
             {
@@ -309,10 +327,12 @@ class TestDraftAnalysisRouteV2:
             normal = route.get_draft_analysis("draft-1", "user-1")
             debug = route.get_draft_analysis("draft-1", "user-1", debug=True)
 
-        assert "reviewer_panel" not in normal
         assert normal["active_analysis_run_id"] == "run-1"
         assert normal["revision_tasks"][0]["id"] == "task-1"
+        assert normal["reviewer_panel"][0]["reviewer_id"] == "reviewer_1"
+        assert "citation_judge" not in normal
         assert debug["reviewer_panel"][0]["id"] == "panel-1"
+        assert "reviewer_judge" in debug
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -460,27 +480,6 @@ class TestDraftAnalysisRouteV2:
 
 
 class TestReviewerAndStage1Services:
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_generate_reviewer1_feedback_parses_strengths(self):
-        service = _load_module(["app", "services", "reviewer1_feedback.py"], "reviewer1_feedback_v2_test")
-        fake_client = MagicMock()
-        fake_client.chat.completions.create.return_value = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content='{"strengths":[{"aspect":"Novel contribution","section_reference":"Introduction","detail":"Introduces a new benchmark","significance":"high"}]}'
-                    )
-                )
-            ]
-        )
-
-        with patch.object(service, "get_openai_client", return_value=fake_client):
-            payload = await service.generate_reviewer1_feedback("draft-1", "Draft text", {"sections": []})
-
-        assert payload[0]["reviewer_persona"] == "reviewer_1"
-        assert payload[0]["feedback_type"] == "strength"
-
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_stage1_editing_returns_stable_payload(self):

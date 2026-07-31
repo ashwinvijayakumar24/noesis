@@ -5,8 +5,11 @@ Self-contained: no database, no Docker, no LLM calls. Reads the JSON exports in
 draft publish gate's a-priori thresholds actually separate degraded runs from
 acceptable ones.
 
+The operational definition of "degraded" -- read it before labelling -- is
+``docs/gate_rubric.md``. It is a separate file because ``llm_labeller.py``
+embeds it verbatim in the labelling prompt.
+
 Modules:
-    rubric.md     operational definition of "degraded" (read before labelling)
     label_cli.py  blind, resumable labelling tool
     metrics.py    pure metric functions (numpy/stdlib only)
     sweep.py      threshold sweep + cost-optimal operating point

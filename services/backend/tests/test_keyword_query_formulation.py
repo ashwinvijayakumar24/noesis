@@ -1,6 +1,6 @@
 """The keyword leg has to be able to match a sentence, not just a noun phrase.
 
-THE FINDING (measured, not assumed -- scripts/eval/KEYWORD_QUERY.md)
+THE FINDING (measured, not assumed -- docs/MEASUREMENTS.md §Keyword query formulation)
     ``keyword_search_chunks`` builds its query with ``plainto_tsquery``, which
     ANDs every lemma. The queries this system actually issues are manuscript
     claims averaging ~20 words, so a chunk has to contain all ~20 lemmas to match

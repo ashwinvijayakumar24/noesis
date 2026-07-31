@@ -23,7 +23,7 @@ produces the **label** (the ground truth axis) and a deterministic, hand-set
 threshold is scored against it. The threshold cannot influence the label: the
 prompt is built from the same blind view ``label_cli.render_run`` shows a human,
 and the gate's verdict and all three predictor scores are absent from it
-(asserted, not assumed -- see ``assert_blind``). See AGREEMENT.md.
+(asserted, not assumed -- see ``assert_blind``). See docs/EVAL_GUIDE.md §LLM labelling and agreement.
 
 TRANSPORT
 ---------
@@ -110,7 +110,11 @@ ANTHROPIC_VERSION = "2023-06-01"
 
 USAGE_LABEL = "gate_label"
 
-RUBRIC_PATH = PACKAGE_DIR / "rubric.md"
+#: The rubric is a prompt input, not prose: it is embedded verbatim and is the
+#: same text the human labeller reads. It therefore stayed a standalone file
+#: when the eval docs were consolidated -- folding it into docs/EVAL_GUIDE.md
+#: would have changed what the model is asked.
+RUBRIC_PATH = REPO_ROOT / "docs" / "gate_rubric.md"
 DEFAULT_CACHE_DIR = EVAL_DIR / "cache" / "gate_labels"
 
 MAX_TOKENS = 600
@@ -243,7 +247,7 @@ def blindness_violations(prompt: str, rec: dict[str, Any], rubric: str = "") -> 
     field-name channel is the defence, and the structural one is that
     ``render_run`` never touches ``rec["_hidden"]`` at all.
 
-    ``rubric`` is subtracted before scanning. rubric.md section 0 *names*
+    ``rubric`` is subtracted before scanning. gate_rubric.md section 0 *names*
     ``parser_quality_score`` / ``page_anchor_coverage`` /
     ``verbatim_anchor_coverage`` and quotes one worked example's score -- as
     instructions **not** to look at them. Those names are constant text that
@@ -665,7 +669,7 @@ def format_agreement(a: dict[str, Any]) -> str:
     L.append("")
     L.append(
         f"'unsure' handling: excluded from the headline kappa (human-only={a['unsure_human_only']}, "
-        f"llm-only={a['unsure_llm_only']}, both={a['unsure_both']}). See AGREEMENT.md."
+        f"llm-only={a['unsure_llm_only']}, both={a['unsure_both']}). See docs/EVAL_GUIDE.md §LLM labelling and agreement."
     )
     L.append("=" * 78)
     return "\n".join(L)

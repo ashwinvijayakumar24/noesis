@@ -138,7 +138,9 @@ def _truncate_export(export: dict, max_chars: int = 12000) -> str:
         lines.append(f"  {persona}: {rec[:100]}")
         issues = r.get("issues") or []
         for issue in issues[:5]:
-            lines.append(f"    - [{issue.get('severity','?')}] {issue.get('description','')[:150]}")
+            sev = issue.get('severity') or issue.get('issue_type') or '?'
+            desc = issue.get('description') or issue.get('problem') or ''
+            lines.append(f"    - [{sev}] {desc[:150]}")
 
     lines.append(f"\n--- META REVIEW ({len(meta_reviews)}) ---")
     if meta_reviews:

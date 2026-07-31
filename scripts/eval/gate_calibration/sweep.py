@@ -356,7 +356,7 @@ def _labeller_split(rows) -> str:
     """Human vs LLM label counts for the report header.
 
     Labels can come from a human or from the cross-family Claude labeller (see
-    AGREEMENT.md). Provenance is on every record, but a reader of this report
+    docs/EVAL_GUIDE.md §LLM labelling and agreement). Provenance is on every record, but a reader of this report
     must not have to go looking for it: an LLM-labelled calibration is a
     different claim from a human-labelled one and has to read as one.
     """
@@ -371,7 +371,7 @@ def _labeller_split(rows) -> str:
     if llm and human:
         return f"MIXED -- {human} human, {llm} LLM (check kappa before quoting)"
     if llm:
-        return f"ALL LLM-LABELLED ({llm}) -- not human labels; see AGREEMENT.md"
+        return f"ALL LLM-LABELLED ({llm}) -- not human labels; see docs/EVAL_GUIDE.md §LLM labelling and agreement"
     return f"all human ({human})"
 
 
@@ -393,7 +393,7 @@ def render_report(result: dict[str, Any]) -> str:
     L.append("")
 
     L.append("-" * 92)
-    # Labels may be human, cross-family LLM (see AGREEMENT.md), or a mix.
+    # Labels may be human, cross-family LLM (see docs/EVAL_GUIDE.md §LLM labelling and agreement), or a mix.
     # Provenance is on every record, but a reader of this report must not have
     # to go looking: an LLM-labelled calibration is a different claim from a
     # human-labelled one and has to read as one.

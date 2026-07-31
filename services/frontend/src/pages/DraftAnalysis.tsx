@@ -293,14 +293,16 @@ export default function DraftAnalysis() {
     page_number?: number
   }) => {
     const isPdf = draft?.file_type === 'application/pdf' || draft?.file_type === 'pdf'
+    const snippet = item.text_snippet || item.content_text || ''
     if (isPdf) {
       if (item.pdf_coordinates) {
         documentViewerRef.current?.highlightRegion(item.pdf_coordinates)
+      } else if (snippet) {
+        documentViewerRef.current?.highlightText(snippet, item.page_number, false)
       } else if (item.page_number) {
         documentViewerRef.current?.scrollToPage(item.page_number)
       } else {
         toast('Exact location unavailable for this item yet. Reanalyze the draft to regenerate anchors.', {
-          icon: 'ℹ️',
           duration: 3000,
         })
       }
@@ -308,7 +310,7 @@ export default function DraftAnalysis() {
       if (item.line_number) {
         documentViewerRef.current?.scrollToLine(item.line_number)
       }
-      documentViewerRef.current?.highlightText(item.content_text || '', undefined, false)
+      documentViewerRef.current?.highlightText(snippet, undefined, false)
     }
   }, [draft?.file_type])
 

@@ -1,7 +1,7 @@
 """Did the vector query actually use the HNSW index?
 
 WHY THIS EXISTS
-    ``retrieval/BASELINE.md`` published a row labelled "dense (pgvector HNSW,
+    docs/MEASUREMENTS.md §Retrieval baseline (superseded) published a row labelled "dense (pgvector HNSW,
     cosine)". It was not measured against HNSW. On the 2124-chunk corpus,
     Postgres' cost model declined ``idx_document_chunks_embedding`` above a
     ``LIMIT`` of roughly 35 and ran an exhaustive ``Seq Scan -> Sort`` instead;

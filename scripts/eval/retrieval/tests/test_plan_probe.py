@@ -1,6 +1,6 @@
 """The plan field: is it recorded, and is it right?
 
-The point of this file is that ``retrieval/BASELINE.md`` published a row called
+The point of this file is that docs/MEASUREMENTS.md §Retrieval baseline (superseded) published a row called
 "dense (pgvector HNSW, cosine)" that was measured against an exhaustive
 sequential scan. Nothing detected it because nothing asked Postgres. These tests
 make the asking non-optional.

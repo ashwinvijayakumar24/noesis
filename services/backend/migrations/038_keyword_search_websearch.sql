@@ -2,7 +2,7 @@
 -- A SECOND keyword-search function. The existing one is NOT touched.
 --
 -- THE FINDING
---   The first retrieval baseline (scripts/eval/retrieval/BASELINE.md, 2026-07-30)
+--   The first retrieval baseline (docs/MEASUREMENTS.md, Retrieval baseline (superseded), 2026-07-30)
 --   measured keyword search at recall@10 = 0.0040 against dense at 0.4221. That
 --   looks like a broken retriever. It is not. public.keyword_search_chunks (see
 --   migration 037) builds its query with plainto_tsquery, which ANDs every lemma:
@@ -25,7 +25,7 @@
 --   nothing.
 --
 -- OPTIONS CONSIDERED (all measured on the same 59 queries -- see
--- scripts/eval/KEYWORD_QUERY.md for the full table)
+-- docs/MEASUREMENTS.md, Keyword query formulation, for the full table)
 --
 --   1. websearch_to_tsquery. Better ergonomics (free-form text, quoted phrases,
 --      -exclusion) but it still ANDs bare terms, which is the actual problem.

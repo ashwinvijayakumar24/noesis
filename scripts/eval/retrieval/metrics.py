@@ -32,7 +32,7 @@ DEFAULT_METRICS = [
     "map",
 ]
 
-#: Relevance units. Document is primary -- see RELEVANCE.md §2.
+#: Relevance units. Document is primary -- see docs/EVAL_GUIDE.md §Relevance §2.
 UNIT_DOCUMENT = "document"
 UNIT_SECTION = "section"
 UNIT_CHUNK = "chunk"
@@ -102,7 +102,7 @@ def pool_to_unit(results: list[RetrievedDoc], unit: str) -> dict[str, float]:
 
 
 def truncate(pooled: dict[str, float], k: int) -> dict[str, float]:
-    """Keep the top-k units. Applied AFTER pooling -- see RELEVANCE.md §3."""
+    """Keep the top-k units. Applied AFTER pooling -- see docs/EVAL_GUIDE.md §Relevance §3."""
     top = sorted(pooled.items(), key=lambda kv: (-kv[1], kv[0]))[:k]
     return dict(top)
 

@@ -80,10 +80,11 @@ eval-build-all-corpora: eval-sync
 	@echo "[eval] All corpora synced back. Re-run eval-sync before next eval run."
 
 # Regenerate the tracked benchmark board from every local measurement sink.
-# Runs on the host (no container): it only reads JSONL files under scripts/eval/.
+# Runs on the host (no container): it reads JSONL files under scripts/eval/ and
+# writes the board into docs/.
 benchmarks:
 	python3 $(EVAL)/benchmarks.py
-	@echo "[eval] Board: $(EVAL)/BENCHMARKS.md + $(EVAL)/benchmarks.json — commit both."
+	@echo "[eval] Board: docs/BENCHMARKS.md + docs/benchmarks.json — commit both."
 
 # Fail if the tracked board is out of date with the local sinks
 benchmarks-check:

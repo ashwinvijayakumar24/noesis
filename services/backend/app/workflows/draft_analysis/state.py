@@ -193,12 +193,3 @@ class DraftAnalysisState(TypedDict):
     # Separate from reviewer_outputs (which uses an additive reducer) so we can
     # replace/store the final set without double-appending via the reducer.
     judged_reviewer_outputs: NotRequired[List[Dict[str, Any]]]
-
-
-class ValidationState(TypedDict):
-    """State for human validation steps."""
-    validation_type: str  # claim_validation, gap_validation
-    items_to_validate: List[Dict[str, Any]]
-    validated_items: NotRequired[List[Dict[str, Any]]]
-    validation_status: str  # pending, approved, rejected
-    user_feedback: NotRequired[str]

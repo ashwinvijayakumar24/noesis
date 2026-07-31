@@ -54,7 +54,7 @@ DEFAULT_RESULTS = EVAL_DIR / "results" / "loadgen.jsonl"
 #: expensive and strictly slower than anything measured here.
 CALLS_PER_RUN = (8, 14)
 
-#: Mean $/call across the two nodes with recorded spend (NODE_COST.md:
+#: Mean $/call across the two nodes with recorded spend (docs/MEASUREMENTS.md §Node replay cost:
 #: reviewer_panel $0.0242/call, editor_pass $0.00113/call). A wide, honest
 #: bracket rather than a single number, because 16 of 18 nodes have never had
 #: their spend recorded.

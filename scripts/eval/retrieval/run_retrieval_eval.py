@@ -346,7 +346,7 @@ def _print_summary(record: dict) -> None:
     print("  RETRIEVAL EVAL")
     print("=" * 68)
     print(f"  retriever      : {cfg['retriever']}")
-    print(f"  relevance unit : {cfg['relevance_unit']}   (see RELEVANCE.md)")
+    print(f"  relevance unit : {cfg['relevance_unit']}   (see docs/EVAL_GUIDE.md §Relevance)")
     print(f"  k              : {cfg['k']}  (chunk oversample x{cfg['chunk_oversample']})")
     print(f"  config hash    : {record['config_hash']}")
     print(f"  labels/queries : {cfg['labels_fingerprint']} / {cfg['queries_fingerprint']}")
@@ -468,7 +468,7 @@ def _variant(args, retriever) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        description="Retrieval eval harness (append-only results). See RELEVANCE.md."
+        description="Retrieval eval harness (append-only results). See docs/EVAL_GUIDE.md §Relevance."
     )
     ap.add_argument("--retriever", default="mock", choices=["mock", "dense", "keyword", "hybrid"])
     ap.add_argument("--unit", default=UNIT_DOCUMENT, choices=list(VALID_UNITS))

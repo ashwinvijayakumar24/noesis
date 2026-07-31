@@ -344,70 +344,11 @@ def _self_anchor_contradicts(task: dict[str, Any]) -> bool:
     return fraction >= 0.5 or len(matched) >= 3
 
 
-def _self_anchor_contradicts_semantic(task: dict[str, Any], threshold: float = 0.60) -> bool:
-    """B1 semantic path: True when the task's own anchor answers the critique.
-
-    Embeds the claimed-missing text (problem + suggested_action) against the task's
-    own anchor_text/text_snippet. A cosine >= threshold means the anchor semantically
-    supplies what the critique says is missing (e.g. "StemSpan SFEM / SCF / Tpo" vs
-    "culture medium / cytokine conditions") even when no stems lexically overlap.
-
-    Only used when embeddings are available; callers fall back to the lexical check.
-    """
-    anchor_blob = " ".join(filter(None, [
-        str(task.get("anchor_text") or ""),
-        str(task.get("text_snippet") or ""),
-    ])).strip()
-    claimed = f"{task.get('problem') or ''} {task.get('suggested_action') or ''}".strip()
-    if not anchor_blob or not claimed:
-        return False
-    return _semantic_max_cosine(claimed, [anchor_blob]) >= threshold
-
-
-def _embeddings_available() -> bool:
-    """True when we may make a real embedding call (key present, not under pytest)."""
-    import os
-    return bool(os.environ.get("OPENAI_API_KEY")) and not os.environ.get("PYTEST_CURRENT_TEST")
-
-
 def _cosine(vec_a: list[float], vec_b: list[float]) -> float:
     import math
     norm_a = math.sqrt(sum(x * x for x in vec_a)) or 1.0
     norm_b = math.sqrt(sum(x * x for x in vec_b)) or 1.0
     return sum(a * b for a, b in zip(vec_a, vec_b)) / (norm_a * norm_b)
-
-
-def _semantic_max_cosine(query_text: str, candidate_texts: list[str]) -> float:
-    """Embed query_text + candidates in one batch; return the max cosine vs query.
-
-    Only called when embeddings are available. Returns -1.0 on any error/empty input.
-    The first returned vector is the query; the rest are candidates. `embed_chunks`
-    yields objects with a `.embedding` attribute (list[float]).
-    """
-    candidates = [c for c in candidate_texts if c and c.strip()]
-    if not query_text or not query_text.strip() or not candidates:
-        return -1.0
-    try:
-        from app.services.rag_ingest import embed_chunks  # reuse project embedder
-        results = embed_chunks([query_text] + candidates[:50], model="text-embedding-3-small")
-        if not results or len(results) < 2:
-            return -1.0
-        vectors = [r.embedding for r in results]
-        query_vec = vectors[0]
-        return max((_cosine(query_vec, cv) for cv in vectors[1:]), default=-1.0)
-    except Exception:
-        return -1.0
-
-
-def _semantic_body_score(claimed_missing_text: str, paragraphs: list[str]) -> float:
-    """B2 primary path: embed claimed-missing text + paragraphs and return max cosine.
-
-    Only called when OPENAI_API_KEY is available and we are NOT inside a test run.
-    Falls back silently (returns -1.0) on any error.
-    """
-    if not _embeddings_available():
-        return -1.0
-    return _semantic_max_cosine(claimed_missing_text, paragraphs[:50])
 
 
 def verify_absence_claims(

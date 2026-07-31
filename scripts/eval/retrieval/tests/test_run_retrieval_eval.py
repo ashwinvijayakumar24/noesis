@@ -385,7 +385,7 @@ def test_record_carries_the_verdict_and_the_flag(workspace):
 
 def test_record_carries_recomputed_ceilings_and_percent_of_attainable(workspace):
     """Ceilings are a property of the LABEL SNAPSHOT, so they are recomputed per
-    run. BASELINE.md's 0.106/0.531/0.779/0.880 belong to a snapshot that no
+    run. docs/MEASUREMENTS.md §Retrieval baseline (superseded)'s 0.106/0.531/0.779/0.880 belong to a snapshot that no
     longer exists; carrying them forward would silently rescale every arm."""
     R.main(_argv(workspace))
     rec = R.read_results(workspace["results"])[0]

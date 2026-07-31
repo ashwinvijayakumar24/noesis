@@ -64,7 +64,7 @@ def test_open_and_closed_loop_diverge_on_a_saturated_service():
     bound while service time stays flat. Closed loop with 1 worker offers
     exactly 20 req/s by construction and therefore never sees the backlog --
     that difference is coordinated omission, and it must show up here or the
-    whole comparison in LATENCY.md is unfounded.
+    whole comparison in docs/MEASUREMENTS.md §Graph latency is unfounded.
     """
     service = 0.05
 

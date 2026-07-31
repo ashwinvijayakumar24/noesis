@@ -61,7 +61,7 @@ from scripts.eval.retrieval.metrics import UNIT_DOCUMENT, evaluate_run  # noqa: 
 BASELINE_TOPICS = ["10eQ4Cfh8p", "9ceadCJY4B", "ApjY32f3Xr", "BQvbL2sFQx"]
 
 #: Document-level k for the label metrics, and the chunk oversample that feeds
-#: it. Both mirror retrieval/BASELINE.md so the two are comparable.
+#: it. Both mirror docs/MEASUREMENTS.md §Retrieval baseline (superseded) so the two are comparable.
 LABEL_K = 10
 CHUNK_OVERSAMPLE = 5
 

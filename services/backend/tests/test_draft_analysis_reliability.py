@@ -18,6 +18,181 @@ class FakeResponse:
         self.count = count if count is not None else (len(data) if isinstance(data, list) else None)
 
 
+def test_eval_skip_external_source_work_env(monkeypatch):
+    from app.services.draft_analysis_langgraph import _eval_skip_external_source_work
+
+    monkeypatch.delenv("EVAL_SKIP_EXTERNAL_SOURCE_DISCOVERY", raising=False)
+    assert _eval_skip_external_source_work() is False
+
+    monkeypatch.setenv("EVAL_SKIP_EXTERNAL_SOURCE_DISCOVERY", "1")
+    assert _eval_skip_external_source_work() is True
+
+
+def test_empirical_method_diagnostics_flag_proxy_metric_confounding():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Evaluation. We measure faithfulness and diversity of generated datasets by "
+        "training a classifier and reporting downstream accuracy from the classifier. "
+        "Higher classifier accuracy indicates more faithful generated data."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("proxy" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_metric_definition_context():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Evaluation. Diversity is measured by the unique number of tokens and complexity "
+        "uses a fixed subset size k=5000. We report the metric values in Table 3."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("token" in finding["problem"].lower() and "subset" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_preserve_training_mechanism_label():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Evaluation. We compare a base model with an instruction-tuned model that uses "
+        "multiple phases of fine-tuning and RLHF. The results show that RLHF leads to "
+        "a significant degradation in generative abilities and less diversity."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+    problems = " ".join(finding["problem"] for finding in findings)
+
+    assert "RLHF" in problems
+    assert "controlled experimental design" in problems
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_baseline_fairness():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Experiments. We compare against two baselines using their public codebase. "
+        "The baseline reward is modified to fit our objective, and runtime is reported "
+        "only for the proposed method."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("baseline comparison" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_baseline_objective_equivalence():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Experiments. We compare against policy baselines trained with a learned reward. "
+        "The baseline reward function is adapted from the oracle reward while our "
+        "preference-based method uses a different objective."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("reward shaping" in finding["problem"].lower() or "objective" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_prompt_sensitivity():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Evaluation. The experiments use prompts to generate synthetic datasets for "
+        "several target tasks. Results are averaged across datasets and reported in Table 2."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("prompt" in finding["problem"].lower() and "sensitivity" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_component_rationale():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Methods. The architecture contains a retrieval module and a graph embedding "
+        "component. Experiments on benchmark datasets show stronger performance than "
+        "prior variants."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("rationale" in finding["problem"].lower() or "robustness" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_dataset_representativeness():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Experiments. We evaluate on selected benchmark datasets, mostly medium-sized "
+        "tables, and report that the proposed method is superior to GBDT baselines. "
+        "A large-scale Weather dataset is used for the efficiency study."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("selected datasets" in finding["problem"].lower() or "dataset" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_runtime_total_cost():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Experiments. The synthetic data generation process is used before training, "
+        "and the method is described as faster on downstream datasets. Baselines are "
+        "trained normally, but only training accuracy and partial runtime are reported."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("end-to-end cost" in finding["problem"].lower() or "efficiency comparison" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_marginal_gain_over_close_baseline():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Experiments. Table 2 and Table 3 compare the proposed method with close "
+        "baselines and prior method variants. The improvement is small, and the "
+        "existing method remains competitive on several datasets."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("practical value" in finding["problem"].lower() or "close baseline" in finding["why_it_matters"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
+def test_empirical_method_diagnostics_flag_method_notation_clarity():
+    from app.workflows.draft_analysis.nodes.diagnostic_findings import _empirical_method_findings
+
+    text = (
+        "Methods. Algorithm 1 updates d\\mathbf{m}, d\\mathbf{x}, and d\\mathbf{w} "
+        "using a partial gradient matrix operator. Figure 2 is a schematic with "
+        "sub-figure colors and formula notation used in the caption."
+    )
+
+    findings = _empirical_method_findings(text, {"evidence_mode": "empirical_ml"})
+
+    assert any("notation" in finding["problem"].lower() or "algorithm variables" in finding["problem"].lower() for finding in findings)
+    assert all(finding["anchor_text"] in text for finding in findings)
+
+
 class FakeTable:
     def __init__(self, supabase, name):
         self.supabase = supabase
@@ -1411,10 +1586,7 @@ class TestLangGraphPersistenceGrounding:
              patch("app.services.draft_analysis_runs.supabase", fake_supabase), \
              patch.object(langgraph_service, "run_draft_analysis_workflow", new=AsyncMock(side_effect=fake_workflow)), \
              patch.object(langgraph_service, "publish_progress", new=AsyncMock()), \
-             patch("app.services.coverage_analysis.suggest_papers_for_gaps", new=AsyncMock(side_effect=lambda gaps, _project_id: gaps)), \
-             patch("app.services.reviewer_feedback.calculate_readiness_score", return_value={"readiness_score": 80, "verdict": "ready", "score_breakdown": {}}), \
-             patch("app.services.reviewer_feedback.synthesize_action_items", return_value=["Add one grounding citation."]), \
-             patch("app.services.reviewer1_feedback.generate_reviewer1_feedback", new=AsyncMock(return_value=[])):
+             patch("app.services.coverage_analysis.suggest_papers_for_gaps", new=AsyncMock(side_effect=lambda gaps, _project_id: gaps)):
             result = await langgraph_service.analyze_draft_with_langgraph(
                 draft_id="draft-1",
                 project_id="project-1",

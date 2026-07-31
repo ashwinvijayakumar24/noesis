@@ -4079,18 +4079,6 @@
       {
         "first_hallucinations": 0,
         "first_mean_overall": null,
-        "first_run_id": "9c1be0901db74f2c85b8b4a019c514a4",
-        "last_hallucinations": 0,
-        "last_mean_overall": null,
-        "last_run_id": "5086f961d46b4aa2aba0cd38fbe3c383",
-        "mean_overall_delta": null,
-        "n_scored_cells": 0,
-        "pipeline_version": "4d4c6269269305f377a1eeb6bc7d8b64af2004899fb898c3ef971e2917ce158d",
-        "runs": 2
-      },
-      {
-        "first_hallucinations": 0,
-        "first_mean_overall": null,
         "first_run_id": "c650b9a09eaf4f0c83c92be04f8ad685",
         "last_hallucinations": 0,
         "last_mean_overall": null,
@@ -4123,28 +4111,14 @@
         "n_scored_cells": 0,
         "pipeline_version": "e6dc45ecb601fcac20ce4f505ed2b97c4618cf0d221f82b4422bc60d6e0f3c19",
         "runs": 7
-      },
-      {
-        "first_hallucinations": 0,
-        "first_mean_overall": null,
-        "first_run_id": "8ca41369ce164004ab4f5b15e626228c",
-        "last_hallucinations": 0,
-        "last_mean_overall": null,
-        "last_run_id": "a9380adb9d604574b264da13fd48531e",
-        "mean_overall_delta": null,
-        "n_scored_cells": 0,
-        "pipeline_version": "f85efa2cf60a0db4cf251f3c1325c58c74dceefcc5d9dc8611935828bf464939",
-        "runs": 3
       }
     ],
     "label": "OpenReview eval",
-    "n_runs": 22,
+    "n_runs": 17,
     "pipeline_versions": [
-      "4d4c6269269305f377a1eeb6bc7d8b64af2004899fb898c3ef971e2917ce158d",
       "7860c5a18e7208b6fc4a1dedc00f65fcacc1674f88ce786766d7ecb048c6cc94",
       "89113118050954e68c4e73a9959f99050e936100c1dd817b98bce61496989220",
-      "e6dc45ecb601fcac20ce4f505ed2b97c4618cf0d221f82b4422bc60d6e0f3c19",
-      "f85efa2cf60a0db4cf251f3c1325c58c74dceefcc5d9dc8611935828bf464939"
+      "e6dc45ecb601fcac20ce4f505ed2b97c4618cf0d221f82b4422bc60d6e0f3c19"
     ],
     "runs": [
       {
@@ -4414,86 +4388,6 @@
         "papers": 2,
         "pipeline_version": "e6dc45ecb601fcac20ce4f505ed2b97c4618cf0d221f82b4422bc60d6e0f3c19",
         "run_id": "3d93a316a14441bb8295a5c235a75202",
-        "scored_cells": 0,
-        "source": "results/openreview_history.jsonl",
-        "total_cells": 2,
-        "total_hallucinations": 0
-      },
-      {
-        "config": {
-          "limit": 1,
-          "paper_ids": "b,c",
-          "venue": "ICLR.cc/2024/Conference"
-        },
-        "generated_at": "2026-07-31T05:06:39.674401+00:00",
-        "mean_overall": null,
-        "papers": 2,
-        "pipeline_version": "f85efa2cf60a0db4cf251f3c1325c58c74dceefcc5d9dc8611935828bf464939",
-        "run_id": "8ca41369ce164004ab4f5b15e626228c",
-        "scored_cells": 0,
-        "source": "results/openreview_history.jsonl",
-        "total_cells": 2,
-        "total_hallucinations": 0
-      },
-      {
-        "config": {
-          "limit": 1,
-          "paper_ids": "b,c",
-          "venue": "ICLR.cc/2024/Conference"
-        },
-        "generated_at": "2026-07-31T05:06:43.047984+00:00",
-        "mean_overall": null,
-        "papers": 2,
-        "pipeline_version": "f85efa2cf60a0db4cf251f3c1325c58c74dceefcc5d9dc8611935828bf464939",
-        "run_id": "7e0b42b916be445c869b038fdcc82adc",
-        "scored_cells": 0,
-        "source": "results/openreview_history.jsonl",
-        "total_cells": 2,
-        "total_hallucinations": 0
-      },
-      {
-        "config": {
-          "limit": 1,
-          "paper_ids": "b,c",
-          "venue": "ICLR.cc/2024/Conference"
-        },
-        "generated_at": "2026-07-31T05:09:41.825777+00:00",
-        "mean_overall": null,
-        "papers": 2,
-        "pipeline_version": "f85efa2cf60a0db4cf251f3c1325c58c74dceefcc5d9dc8611935828bf464939",
-        "run_id": "a9380adb9d604574b264da13fd48531e",
-        "scored_cells": 0,
-        "source": "results/openreview_history.jsonl",
-        "total_cells": 2,
-        "total_hallucinations": 0
-      },
-      {
-        "config": {
-          "limit": 1,
-          "paper_ids": "b,c",
-          "venue": "ICLR.cc/2024/Conference"
-        },
-        "generated_at": "2026-07-31T06:03:49.083689+00:00",
-        "mean_overall": null,
-        "papers": 2,
-        "pipeline_version": "4d4c6269269305f377a1eeb6bc7d8b64af2004899fb898c3ef971e2917ce158d",
-        "run_id": "9c1be0901db74f2c85b8b4a019c514a4",
-        "scored_cells": 0,
-        "source": "results/openreview_history.jsonl",
-        "total_cells": 2,
-        "total_hallucinations": 0
-      },
-      {
-        "config": {
-          "limit": 1,
-          "paper_ids": "b,c",
-          "venue": "ICLR.cc/2024/Conference"
-        },
-        "generated_at": "2026-07-31T19:01:49.791826+00:00",
-        "mean_overall": null,
-        "papers": 2,
-        "pipeline_version": "4d4c6269269305f377a1eeb6bc7d8b64af2004899fb898c3ef971e2917ce158d",
-        "run_id": "5086f961d46b4aa2aba0cd38fbe3c383",
         "scored_cells": 0,
         "source": "results/openreview_history.jsonl",
         "total_cells": 2,
@@ -5202,7 +5096,7 @@
         "timestamp": "2026-07-31T01:31:54.259196+00:00"
       },
       {
-        "ceiling_provenance": "retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)",
+        "ceiling_provenance": "docs/MEASUREMENTS.md § Retrieval baseline (superseded) (labels+queries fingerprint and 118-document corpus all match)",
         "chunk_oversample": 5,
         "config_hash": "7330ae9c1e22ce33",
         "corpus": {
@@ -5651,7 +5545,7 @@
         "timestamp": "2026-07-31T01:32:14.929481+00:00"
       },
       {
-        "ceiling_provenance": "retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)",
+        "ceiling_provenance": "docs/MEASUREMENTS.md § Retrieval baseline (superseded) (labels+queries fingerprint and 118-document corpus all match)",
         "chunk_oversample": 5,
         "config_hash": "cf6b3f1b3fc00644",
         "corpus": {
@@ -6201,10 +6095,10 @@
       "skipped_lines": 0
     },
     {
-      "lines": 22,
+      "lines": 17,
       "path": "results/openreview_history.jsonl",
       "present": true,
-      "records": 22,
+      "records": 17,
       "skip_reasons": [],
       "skipped_lines": 0
     },

@@ -103,11 +103,19 @@ def _ingest_corpus(corpus_name: str, project_id: str, user_id: str = "") -> list
         content_type = "application/pdf" if file_ext == "pdf" else "text/plain"
 
         print(f"[harness] Uploading corpus doc: {pdf_path.name}")
-        supabase.storage.from_("documents").upload(
-            path=storage_path,
-            file=file_bytes,
-            file_options={"content-type": content_type},
-        )
+        for attempt in range(3):
+            try:
+                supabase.storage.from_("documents").upload(
+                    path=storage_path,
+                    file=file_bytes,
+                    file_options={"content-type": content_type},
+                )
+                break
+            except Exception as e:
+                if attempt == 2:
+                    raise
+                print(f"[harness] Corpus upload retry {attempt + 1}/3 after: {e}")
+                import time; time.sleep(2 ** attempt)
         file_url = supabase.storage.from_("documents").get_public_url(storage_path)
 
         supabase.table("documents").insert({
@@ -140,11 +148,19 @@ def _upload_draft(draft_path: Path, project_id: str, user_id: str = "") -> str:
     content_type = {"pdf": "application/pdf", "txt": "text/plain", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}.get(file_ext, "application/octet-stream")
 
     print(f"[harness] Uploading draft: {draft_path.name}")
-    supabase.storage.from_("drafts").upload(
-        path=storage_path,
-        file=file_bytes,
-        file_options={"content-type": content_type},
-    )
+    for attempt in range(3):
+        try:
+            supabase.storage.from_("drafts").upload(
+                path=storage_path,
+                file=file_bytes,
+                file_options={"content-type": content_type},
+            )
+            break
+        except Exception as e:
+            if attempt == 2:
+                raise
+            print(f"[harness] Upload retry {attempt + 1}/3 after: {e}")
+            import time; time.sleep(2 ** attempt)
     file_url = supabase.storage.from_("drafts").get_public_url(storage_path)
 
     supabase.table("drafts").insert({
@@ -380,6 +396,10 @@ def run(draft_path: Path, corpus_name: str | None, keep: bool = False) -> Path:
     RESULTS_DIR.mkdir(exist_ok=True)
     corpus_dir = CORPORA_DIR / corpus_name if corpus_name else None
     live_pipeline_version = pipeline_version()
+    if os.environ.get("EVAL_SKIP_EXTERNAL_SOURCE_DISCOVERY") == "1":
+        live_pipeline_version = f"{live_pipeline_version}:skip_external_sources=1"
+    if os.environ.get("EVAL_DISABLE_PRE_REVIEWER_HALT") == "1":
+        live_pipeline_version = f"{live_pipeline_version}:disable_previewer_halt=1"
     key = cache_key(draft_path, live_pipeline_version, corpus_name, corpus_dir)
     bypass_cache = os.environ.get("EVAL_BYPASS_PIPELINE_CACHE") == "1"
     if not keep and not bypass_cache:

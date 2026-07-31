@@ -9,6 +9,8 @@ import { motion } from 'framer-motion'
 import { NoesisLogo } from '../components/ui/NoesisLogo'
 import { EnvelopeIcon, KeyIcon } from '@heroicons/react/24/outline'
 
+const ENABLE_GOOGLE_AUTH = false
+
 export default function Login() {
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -50,7 +52,7 @@ export default function Login() {
       trackEvent.signIn()
       setStep('otp')
       setResendTimer(60) // 60 second cooldown
-      toast.success('Check your email for a 6-digit code')
+      toast.success('Check your email and enter the 6-digit code')
     } catch (error: any) {
       handleError(error, 'send verification code')
     }
@@ -146,8 +148,8 @@ export default function Login() {
             {step === 'email' ? 'Sign in to your account' : 'Enter verification code'}
           </h2>
 
-          {/* Google OAuth - Only show on email step */}
-          {step === 'email' && (
+          {/* Google OAuth is disabled while hosted provider callback is unstable. */}
+          {ENABLE_GOOGLE_AUTH && step === 'email' && (
             <div className="mb-6">
               <button
                 type="button"
@@ -192,6 +194,9 @@ export default function Login() {
           {/* Email Step */}
           {step === 'email' && (
             <form onSubmit={handleSendOtp} className="space-y-5">
+              <p className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-xs leading-5 text-text-secondary">
+                Use the 6-digit code from your email. If the email also includes a sign-in link, ignore the link for now.
+              </p>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-2">
                   Email address

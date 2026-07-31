@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 from app.core.logging_config import get_logger
@@ -45,23 +44,6 @@ def _default_stage1_payload() -> dict[str, list[dict[str, Any]]]:
         "formatting_issues": [],
         "structural_notes": [],
     }
-
-
-def _extract_json_object(raw_content: str) -> dict[str, Any]:
-    content = (raw_content or "").strip()
-    if content.startswith("```"):
-        lines = content.splitlines()
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].startswith("```"):
-            lines = lines[:-1]
-        content = "\n".join(lines).strip()
-
-    start = content.find("{")
-    end = content.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("Stage 1 response did not contain JSON")
-    return json.loads(content[start:end + 1])
 
 
 async def run_stage1_editing(

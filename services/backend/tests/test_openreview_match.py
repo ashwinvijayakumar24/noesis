@@ -140,3 +140,33 @@ def test_confirm_pairs_splits_malformed_large_batches(tmp_path):
     assert calls == [4, 2, 1, 1, 2, 1, 1]
     assert stats["confirm_calls"] == 7
     assert stats["confirmed_pairs"] == 4
+
+
+def test_real_confirm_accepts_singleton_payload(monkeypatch):
+    class _Message:
+        content = json.dumps({"index": 0, "confirmed": "NO", "reason": "different concern"})
+
+    class _Choice:
+        message = _Message()
+
+    class _Completions:
+        def create(self, **_kwargs):
+            return type("Resp", (), {"choices": [_Choice()]})()
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Client:
+        chat = _Chat()
+
+    monkeypatch.setattr(
+        "app.core.openai_client.get_completion_params",
+        lambda: {},
+    )
+
+    result = openreview_match._real_confirm(
+        [{"index": 0, "noesis_text": "A", "unit_text": "B"}],
+        client=_Client(),
+    )
+
+    assert result == [{"index": 0, "confirmed": "NO", "reason": "different concern"}]

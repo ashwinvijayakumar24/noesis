@@ -310,11 +310,6 @@ async def create_default_quota(user_id: str) -> None:
     sync_user_quota_plan(user_id, _get_user_plan_tier(user_id))
 
 
-async def upgrade_quota_to_tier(user_id: str, plan_tier: str) -> Dict[str, Any]:
-    """Synchronize an existing user's enforced quotas with a billing tier."""
-    return sync_user_quota_plan(user_id, plan_tier)
-
-
 async def reset_quota(user_id: str) -> None:
     """Reset user quota counters (called when quota_reset_date is passed)."""
     if not supabase:

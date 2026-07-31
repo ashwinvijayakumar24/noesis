@@ -30,6 +30,7 @@ from app.core.logging_config import get_logger
 from app.core.privacy import safe_exception, strip_manuscript_content_from_structure
 import datetime
 import asyncio
+import os
 import re
 from difflib import SequenceMatcher
 
@@ -40,6 +41,10 @@ ANCHOR_DB_FIELDS = ("line_number", "char_start", "char_end", "text_snippet")
 VALID_REVIEWER_PERSONAS = {"reviewer_1", "reviewer_2"}
 MIN_CITATION_SUGGESTION_SIMILARITY = 0.50
 MIN_DISPLAY_SOURCE_SIMILARITY = 0.66
+
+
+def _eval_skip_external_source_work() -> bool:
+    return os.environ.get("EVAL_SKIP_EXTERNAL_SOURCE_DISCOVERY") == "1"
 
 SOURCE_STOPWORDS = {
     "about", "above", "after", "again", "against", "also", "because", "been",
@@ -103,26 +108,6 @@ def _valid_citation_result(citation: dict) -> bool:
     if not content and not citation.get("doi") and not citation.get("url") and not citation.get("paper_url") and not citation.get("pdf_url"):
         return False
     return True
-
-
-def _clear_analysis_outputs(draft_id: str) -> None:
-    for table_name in (
-        "reviewer_panel_outputs",
-        "meta_reviews",
-        "reviewer_feedback",
-        "draft_revision_tasks",
-        "draft_claims",
-        "coverage_gaps",
-        "citation_suggestions",
-    ):
-        try:
-            supabase.table(table_name).delete().eq("draft_id", draft_id).execute()
-        except Exception as err:
-            logger.warning(
-                "[LangGraph Draft Analysis] Failed to clear %s for contaminated run: %s",
-                table_name,
-                safe_exception(err),
-            )
 
 def _suggested_source_payload(citation: dict, display: str | None = None) -> dict:
     return {
@@ -1253,7 +1238,7 @@ async def analyze_draft_with_langgraph(
                     elif citation_quality == "moderate":
                         suggestion_type, impact_level, priority_score = "alternative_source", "medium", 0.5
                     else:
-                        suggestion_type, impact_level, priority_score = "supporting_citation", "low", 0.3
+                        continue  # strong/unknown citations don't need suggestions
 
                     reasoning_parts = []
                     if citation_quality == "none":
@@ -1336,20 +1321,23 @@ async def analyze_draft_with_langgraph(
                 evidence_rebuttal.get("tasks_rewritten"),
                 evidence_rebuttal.get("contradictions_resolved"),
             )
-        try:
-            from app.services.draft_external_source_discovery import enrich_revision_tasks_with_sources
-            revision_tasks = await enrich_revision_tasks_with_sources(
-                draft_id=draft_id,
-                project_id=project_id,
-                user_id=user_id,
-                revision_tasks=revision_tasks,
-                manuscript_profile=manuscript_profile,
-            )
-        except Exception as task_source_err:
-            logger.warning(
-                "[LangGraph Draft Analysis] Task-level source surfacing failed (non-fatal): %s",
-                safe_exception(task_source_err),
-            )
+        if _eval_skip_external_source_work():
+            logger.info("[LangGraph Draft Analysis] Skipping task-level source surfacing for eval")
+        else:
+            try:
+                from app.services.draft_external_source_discovery import enrich_revision_tasks_with_sources
+                revision_tasks = await enrich_revision_tasks_with_sources(
+                    draft_id=draft_id,
+                    project_id=project_id,
+                    user_id=user_id,
+                    revision_tasks=revision_tasks,
+                    manuscript_profile=manuscript_profile,
+                )
+            except Exception as task_source_err:
+                logger.warning(
+                    "[LangGraph Draft Analysis] Task-level source surfacing failed (non-fatal): %s",
+                    safe_exception(task_source_err),
+                )
         # Sanitize sources (drop off-domain / low-overlap citations) BEFORE the quality
         # judge runs, so the judge evaluates the cleaned task list. Otherwise an
         # off-domain source that sanitize would remove anyway (e.g. a "phenol wastewater
@@ -1401,6 +1389,12 @@ async def analyze_draft_with_langgraph(
                 "[LangGraph Draft Analysis] Quality judge requested reroute %s -> %s; discarding current run",
                 manuscript_profile.get("routing_domain"),
                 suggested_route,
+            )
+            await publish_progress(
+                draft_id,
+                "reviewer_panel",
+                82,
+                "Quality check rerouted the reviewer panel; restarting with the correct field",
             )
             mark_analysis_run(
                 analysis_run_id,
@@ -1558,24 +1552,27 @@ async def analyze_draft_with_langgraph(
 
         # 6a. Suggest external papers for coverage gaps
         enriched_gaps = list(gaps)
-        try:
-            from app.services.coverage_analysis import suggest_papers_for_gaps
-            logger.info("[LangGraph Draft Analysis] Running suggest_papers_for_gaps...")
-            enriched_gaps = await suggest_papers_for_gaps(
-                list(gaps), project_id, manuscript_profile=manuscript_profile
-            )
-            for idx, enriched_gap in enumerate(enriched_gaps or []):
-                if idx < len(gaps_data):
-                    gaps_data[idx]["suggested_papers"] = enriched_gap.get(
-                        "suggested_papers",
-                        gaps_data[idx].get("suggested_papers", []),
-                    )
-            logger.info(f"[LangGraph Draft Analysis] External paper suggestions applied to {len(enriched_gaps)} gaps")
-        except Exception as suggestion_err:
-            logger.warning(
-                "[LangGraph Draft Analysis] suggest_papers_for_gaps failed (non-fatal): %s",
-                safe_exception(suggestion_err),
-            )
+        if _eval_skip_external_source_work():
+            logger.info("[LangGraph Draft Analysis] Skipping gap paper suggestions for eval")
+        else:
+            try:
+                from app.services.coverage_analysis import suggest_papers_for_gaps
+                logger.info("[LangGraph Draft Analysis] Running suggest_papers_for_gaps...")
+                enriched_gaps = await suggest_papers_for_gaps(
+                    list(gaps), project_id, manuscript_profile=manuscript_profile
+                )
+                for idx, enriched_gap in enumerate(enriched_gaps or []):
+                    if idx < len(gaps_data):
+                        gaps_data[idx]["suggested_papers"] = enriched_gap.get(
+                            "suggested_papers",
+                            gaps_data[idx].get("suggested_papers", []),
+                        )
+                logger.info(f"[LangGraph Draft Analysis] External paper suggestions applied to {len(enriched_gaps)} gaps")
+            except Exception as suggestion_err:
+                logger.warning(
+                    "[LangGraph Draft Analysis] suggest_papers_for_gaps failed (non-fatal): %s",
+                    safe_exception(suggestion_err),
+                )
 
         # 6a-bis. Embedding relevance filter (RAG contamination guard). Additional layer
         # on top of the topic-term/domain gates: drop any suggested source whose embedding

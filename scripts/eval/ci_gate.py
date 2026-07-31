@@ -28,9 +28,9 @@ WHAT IT WARNS ABOUT (never blocks unless --strict):
                          sample size anywhere near it. Heuristic: a markdown
                          table can carry `n` in a column this check cannot see.
   threshold-note         scripts/eval/config.yaml thresholds moved without a
-                         line in the threshold change log in scripts/eval/CI.md.
+                         line in the threshold change log in docs/EVAL_GUIDE.md.
 
-WHAT IT CANNOT GATE, EVER, ON A PR (see CI.md):
+WHAT IT CANNOT GATE, EVER, ON A PR (see docs/EVAL_GUIDE.md):
   running the eval, retrieval metrics, node replay, judge agreement. Money and a
   database. Those live in .github/workflows/eval-nightly.yml.
 
@@ -67,10 +67,12 @@ EXIT_FAIL = 1
 EXIT_WARN_STRICT = 2
 EXIT_CANNOT_RUN = 3
 
-BOARD_JSON = "scripts/eval/benchmarks.json"
-BOARD_MD = "scripts/eval/BENCHMARKS.md"
+BOARD_JSON = "docs/benchmarks.json"
+BOARD_MD = "docs/BENCHMARKS.md"
 CONFIG_YAML = "scripts/eval/config.yaml"
-CI_DOC = "scripts/eval/CI.md"
+#: The threshold change log lives in the "CI and the eval gate" section of the
+#: consolidated eval guide.
+CI_DOC = "docs/EVAL_GUIDE.md"
 
 #: Files that are only ever appended to. Two of these are the *only* durable
 #: record this repo has of its own eval scores (see the .gitignore negations
@@ -82,14 +84,24 @@ APPEND_ONLY = (
     "scripts/eval/results/node_eval.jsonl",
 )
 
-#: Tracked docs that state measurements. gold/*.md are reference critiques, not
-#: measurement reports, so they are excluded.
+#: Tracked docs that state measurements. Two roots are scanned: docs/, where the
+#: consolidated measurement docs now live, and scripts/eval/, which no longer
+#: holds any but is kept so a stray measurement doc dropped back beside the
+#: harness is still gated. gold/*.md are reference critiques, not measurement
+#: reports, so they are excluded. So is docs/history/, an archive of documents
+#: that state their numbers as they were written and are never edited again, and
+#: CI_DOC, this gate's own documentation, which quotes metrics as examples of
+#: what it flags.
+_DOC_ROOTS = ("docs/", "scripts/eval/")
+
+
 def _is_measurement_doc(rel: str) -> bool:
     return (
-        rel.startswith("scripts/eval/")
+        rel.startswith(_DOC_ROOTS)
         and rel.endswith(".md")
         and "/gold/" not in rel
-        and not rel.endswith("/CI.md")
+        and not rel.startswith("docs/history/")
+        and rel != CI_DOC
     )
 
 
@@ -378,7 +390,7 @@ def invalid_run_ids(repo: Path) -> dict[str, str]:
 
     Two sources: the tracked board (visible in CI) and any jsonl sink present in
     the checkout (visible locally, gitignored in CI). The CI view is a subset,
-    which is stated in CI.md rather than papered over.
+    which is stated in docs/EVAL_GUIDE.md rather than papered over.
     """
     found: dict[str, str] = {}
     board_path = repo / BOARD_JSON

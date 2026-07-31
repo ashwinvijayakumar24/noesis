@@ -23,7 +23,7 @@ from loadgen.stubs import (
 @pytest.mark.parametrize("mean,cv", [(19.386, 0.14), (7.431, 0.17), (2.0, 0.5)])
 def test_sampled_latency_matches_the_specified_mean_and_cv(mean, cv):
     """If the sampler does not reproduce the distribution it was handed, every
-    stubbed latency in LATENCY.md is describing a distribution nobody measured."""
+    stubbed latency in docs/MEASUREMENTS.md §Graph latency is describing a distribution nobody measured."""
     spec = NodeSpec("n", mean, cv, 5, "MEASURED")
     p = LatencyProfile({"n": spec}, seed=42)
     draws = [p.sample("n") for _ in range(200_000)]

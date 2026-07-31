@@ -5,7 +5,7 @@ Why this exists
 ---------------
 Five append-only measurement sinks feed this repo, and four of them are
 gitignored. On a fresh clone the only surviving record of any benchmark was
-hand-written prose in ``WAVE_LOG.md``. That is the same failure already fixed
+hand-written prose in ``docs/history/WAVE_LOG.md``. That is the same failure already fixed
 once for ``run_eval.py`` -- which used to overwrite ``scoreboard.json`` in
 place, destroying all eval history -- and then reintroduced one level down, at
 the ``.gitignore``.
@@ -55,8 +55,12 @@ EVAL_DIR = Path(__file__).resolve().parent
 if str(EVAL_DIR) not in sys.path:
     sys.path.insert(0, str(EVAL_DIR))
 
-MD_PATH = EVAL_DIR / "BENCHMARKS.md"
-JSON_PATH = EVAL_DIR / "benchmarks.json"
+#: The board lives in docs/ with the rest of the prose; the sinks it reads
+#: stay under scripts/eval/. Both outputs sit side by side so a clone that
+#: has one always has the other.
+DOCS_DIR = EVAL_DIR.parent.parent / "docs"
+MD_PATH = DOCS_DIR / "BENCHMARKS.md"
+JSON_PATH = DOCS_DIR / "benchmarks.json"
 
 #: Bumped when the shape of benchmarks.json changes incompatibly.
 #: 2 -- added the ANN sweep block, the consolidated cost block, and label
@@ -111,19 +115,19 @@ COST_LOWER_BOUND_REASON = (
 #
 # The corpus size is part of the key and not decoration. This corpus grew from
 # 118 documents / 4 topics to 344 / 15 mid-project and the label fingerprint
-# changed twice with it. recall@10 = 0.4221 (BASELINE.md, labels
+# changed twice with it. recall@10 = 0.4221 (MEASUREMENTS.md, labels
 # 019bee4a06eb2d39), 0.3488 (ANN sweep, labels 425df789a844f1f3) and whatever a
 # 15-topic run produces are three different quantities. Applying one snapshot's
 # ceiling to another's measurement is the single easiest way to publish a wrong
 # "% of attainable", so it is structurally prevented here.
 #
-# Provenance: measured in scripts/eval/retrieval/BASELINE.md §"recall@k is
-# capped well below 1.0 by construction", query-count weighted, over the
-# 59-query / 118-document local corpus.
+# Provenance: measured in docs/MEASUREMENTS.md § "Retrieval baseline
+# (superseded)" -> "recall@k is capped well below 1.0 by construction",
+# query-count weighted, over the 59-query / 118-document local corpus.
 KNOWN_RECALL_CEILINGS: dict[tuple[str, str], dict[str, Any]] = {
     ("019bee4a06eb2d39", "1f6c584e8fd6c055"): {
         "corpus_documents": 118,
-        "source": "retrieval/BASELINE.md",
+        "source": "docs/MEASUREMENTS.md § Retrieval baseline (superseded)",
         "ceilings": {1: 0.1061, 5: 0.5307, 10: 0.7789, 20: 0.8798},
     },
 }

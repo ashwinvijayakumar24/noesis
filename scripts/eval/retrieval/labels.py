@@ -4,7 +4,7 @@ Label source: each manuscript's own reference list, as materialised on disk by
 ``scripts/eval/build_corpus.py``. A PDF in ``corpora/<stem>/`` exists if and only
 if a reference of ``<stem>`` survived GROBID extraction, OpenAlex resolution,
 open-access availability and download. Presence *is* the resolved-reference
-label. See RELEVANCE.md §4.
+label. See docs/EVAL_GUIDE.md §Relevance §4.
 
 The correctness property this module exists to guarantee:
 
@@ -75,7 +75,7 @@ class UnresolvedRef:
     ``reason`` carries the sidecar's authoritative ``status`` when one exists
     (``no_oa_pdf`` / ``no_openalex_match`` / ``download_failed`` / ``pending`` /
     ``skipped_max_papers``). Only when no per-reference status is recorded does
-    it fall back to the undifferentiated ``"unresolved"``. See RELEVANCE.md §4.
+    it fall back to the undifferentiated ``"unresolved"``. See docs/EVAL_GUIDE.md §Relevance §4.
     """
 
     topic: str
@@ -157,7 +157,7 @@ class LabelSet:
         """Expand per-topic labels into per-query qrels.
 
         Every query belonging to a topic inherits that topic's relevant docs.
-        Binary grades by decision (RELEVANCE.md §5); the int is passed straight
+        Binary grades by decision (docs/EVAL_GUIDE.md §Relevance §5); the int is passed straight
         through to ranx so graded labels need no metric-side change.
         """
         out: dict[str, dict[str, int]] = {}

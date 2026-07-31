@@ -330,3 +330,33 @@ def test_no_network_import(monkeypatch):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+class TestSinksResolveAtCallTime:
+    """A sink a test run can write to is not a durable record.
+
+    HISTORY_PATH / OPENREVIEW_HISTORY_PATH were module constants bound to
+    RESULTS_DIR at import. A test monkeypatching run_eval.RESULTS_DIR to a
+    tmp_path did NOT move them, so every run of the eval suite appended a
+    synthetic fixture record to the real, tracked, append-only history --
+    leaving the committed benchmark board stale against its own sources.
+    """
+
+    def test_monkeypatching_results_dir_moves_the_history_sink(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(run_eval, "RESULTS_DIR", tmp_path)
+        assert run_eval.history_path() == tmp_path / "history.jsonl"
+        assert run_eval.openreview_history_path() == tmp_path / "openreview_history.jsonl"
+
+    def test_the_real_sink_is_not_written_when_redirected(self, tmp_path, monkeypatch):
+        """The property that actually matters: redirect, write, and assert the
+        real file was untouched."""
+        real = run_eval.RESULTS_DIR / "openreview_history.jsonl"
+        before = real.read_bytes() if real.exists() else None
+
+        monkeypatch.setattr(run_eval, "RESULTS_DIR", tmp_path)
+        run_eval.append_history({"run_id": "synthetic", "cells": []},
+                                run_eval.openreview_history_path())
+
+        assert (tmp_path / "openreview_history.jsonl").exists()
+        after = real.read_bytes() if real.exists() else None
+        assert after == before, "a redirected write reached the real append-only sink"

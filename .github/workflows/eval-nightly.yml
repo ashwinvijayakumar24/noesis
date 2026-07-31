@@ -7,7 +7,7 @@ name: Eval Nightly
 #   * branch protection must NOT list any job from this file as required
 #
 # Everything in here costs OpenAI money and/or needs a pgvector database. See
-# scripts/eval/CI.md for the full split of what gates a PR and what does not.
+# docs/EVAL_GUIDE.md for the full split of what gates a PR and what does not.
 
 on:
   schedule:
@@ -129,7 +129,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::scripts/eval/cache/state is empty (it is gitignored). Node replay SKIPPED — this is not a pass. See scripts/eval/CI.md."
+            echo "::warning::scripts/eval/cache/state is empty (it is gitignored). Node replay SKIPPED — this is not a pass. See docs/EVAL_GUIDE.md."
           fi
 
       - name: Plan the replay (free, no API calls)
@@ -159,8 +159,8 @@ jobs:
           name: node-replay-sinks
           path: |
             scripts/eval/results/*.jsonl
-            scripts/eval/BENCHMARKS.md
-            scripts/eval/benchmarks.json
+            docs/BENCHMARKS.md
+            docs/benchmarks.json
           if-no-files-found: warn
           retention-days: 30
 

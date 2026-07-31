@@ -8,7 +8,7 @@ The gate's verdict and all three candidate predictor scores
 (``parser_quality_score``, ``page_anchor_coverage``, ``verbatim_anchor_coverage``)
 are **withheld from the display**. That is the entire point: a label that has
 seen the gate's opinion is correlated with the gate by construction, and scoring
-the gate against it measures nothing. See ``rubric.md`` section 0.
+the gate against it measures nothing. See ``docs/gate_rubric.md`` section 0.
 
 Usage::
 
@@ -365,7 +365,7 @@ def cmd_stats(results_dir: Path, labels_path: Path) -> int:
         print(f"\nusable for metrics (degraded+ok): {scored}")
         print(f"observed degraded base rate     : {counts.get('degraded', 0) / scored:.3f}")
     if labelled and counts.get("unsure", 0) / labelled > 0.15:
-        print("\nWARNING: unsure rate above 15% — rubric may be underspecified (see rubric.md s4)")
+        print("\nWARNING: unsure rate above 15% — rubric may be underspecified (see docs/gate_rubric.md s4)")
     if scored and scored < 30:
         print(f"\nWARNING: only {scored} scoreable labels; metrics will be very noisy (want >= 30)")
     if orphans:
@@ -421,7 +421,7 @@ def cmd_label(
 
     print(f"{len(pending)} run(s) to label as '{labeller}'.")
     print("Reminder: you are judging the CRITIQUE, not the paper. Gate scores are hidden")
-    print("on purpose — do not go look them up. See rubric.md.\n")
+    print("on purpose — do not go look them up. See docs/gate_rubric.md.\n")
 
     n = 0
     for i, rec in enumerate(pending, start=1):

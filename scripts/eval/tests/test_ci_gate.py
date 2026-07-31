@@ -56,18 +56,18 @@ def repo(tmp_path: Path) -> Path:
     _write(r, "scripts/eval/results/node_eval.jsonl",
            '{"run_id": "a", "wall_seconds": 1}\n{"run_id": "b", "wall_seconds": 2}\n')
     _write(r, "scripts/eval/results/history.jsonl", '{"run_id": "h1"}\n')
-    _write(r, "scripts/eval/benchmarks.json", _board([
+    _write(r, "docs/benchmarks.json", _board([
         {"path": "results/node_eval.jsonl", "lines": 2, "present": True},
         {"path": "results/history.jsonl", "lines": 1, "present": True},
         {"path": "results/retrieval_eval.jsonl", "lines": 9, "present": True},
     ]))
-    _write(r, "scripts/eval/BENCHMARKS.md", "# Benchmarks\n")
+    _write(r, "docs/BENCHMARKS.md", "# Benchmarks\n")
     # Stand-in for the real generator: the gate only cares about its exit code.
     _write(r, "scripts/eval/benchmarks.py",
            "import sys\nsys.exit(0 if '--check' in sys.argv else 0)\n")
     _write(r, "scripts/eval/config.yaml",
            "drafts:\n  - a.pdf\n\nthresholds:\n  min_overall: 8.5\n  min_dim_score: 7.5\n")
-    _write(r, "scripts/eval/CI.md", "# CI\n\n## Threshold change log\n\n(none yet)\n")
+    _write(r, "docs/EVAL_GUIDE.md", "# CI\n\n## Threshold change log\n\n(none yet)\n")
     _write(r, "scripts/eval/BASELINE.md",
            "# Baseline\n\nDense retrieval reached recall@10 = 0.4221 over 59 queries.\n")
     _git(r, "add", "-A")
@@ -101,7 +101,7 @@ def test_stale_board_detected(repo: Path):
 
 
 def test_missing_board_is_a_failure(repo: Path):
-    (repo / "scripts/eval/benchmarks.json").unlink()
+    (repo / "docs/benchmarks.json").unlink()
     assert _run(repo)["board-tracked-sources"].status == ci_gate.FAIL
 
 
@@ -214,7 +214,7 @@ def test_invalid_run_quoted_with_marker_passes(repo: Path):
 
 def test_invalid_runs_are_read_from_the_tracked_board_too(repo: Path):
     """CI cannot see the gitignored sinks, so the board carries the registry."""
-    _write(repo, "scripts/eval/benchmarks.json", _board(
+    _write(repo, "docs/benchmarks.json", _board(
         [{"path": "results/node_eval.jsonl", "lines": 2, "present": True}],
         retrieval={"invalidated": [{"run_id": "cafe1234"}]},
     ))
@@ -284,7 +284,7 @@ def test_threshold_change_with_note_passes(repo: Path):
     base = ci_gate.git(repo, "rev-parse", "HEAD").strip()
     _write(repo, "scripts/eval/config.yaml",
            "drafts:\n  - a.pdf\n\nthresholds:\n  min_overall: 6.0\n  min_dim_score: 7.5\n")
-    _write(repo, "scripts/eval/CI.md",
+    _write(repo, "docs/EVAL_GUIDE.md",
            "# CI\n\n## Threshold change log\n\n- min_overall 8.5 -> 6.0: matches "
            "measured reality; the old value was aspirational.\n")
     res = _run(repo, base)["threshold-note"]
