@@ -59,6 +59,45 @@ jobs:
           flags: backend
           fail_ci_if_error: false
 
+  # ── Eval Integrity Gate ───────────────────────────────────────────────────────
+  # Free, offline, deterministic. Does NOT run the eval — that costs money and
+  # needs a database, and lives in eval-nightly.yml. See scripts/eval/CI.md for
+  # exactly what this can and cannot check on a PR runner.
+  eval-gate:
+    name: Eval integrity gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The append-only check diffs against the PR base commit. A shallow
+          # clone cannot resolve it and the check would SKIP silently.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve base ref
+        id: base
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pytest
+        # The gate itself is stdlib-only; only its tests need pytest.
+        run: pip install pytest
+
+      - name: Gate self-tests
+        run: python -m pytest scripts/eval/tests/test_ci_gate.py -q
+
+      - name: Eval artefact integrity
+        # Blocking. Stdlib only, no credentials, no network.
+        run: python scripts/eval/ci_gate.py --base "${{ steps.base.outputs.ref }}"
+
   # ── Security Scan ─────────────────────────────────────────────────────────────
   security:
     runs-on: ubuntu-latest

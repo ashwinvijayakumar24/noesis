@@ -1,0 +1,246 @@
+name: Eval Nightly
+
+# The paid half of the eval gate. Deliberately separate from ci.yml so that
+# nothing here can block a merge:
+#   * it never runs on pull_request
+#   * it has no `needs:` relationship with any PR job
+#   * branch protection must NOT list any job from this file as required
+#
+# Everything in here costs OpenAI money and/or needs a pgvector database. See
+# scripts/eval/CI.md for the full split of what gates a PR and what does not.
+
+on:
+  schedule:
+    # 07:00 UTC daily. Cron on GitHub is best-effort and can be skipped entirely
+    # on a quiet repo, so treat a missing run as "unknown", not "passed".
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      max_spend_usd:
+        description: 'Hard spend ceiling for this run, USD'
+        required: false
+        default: '5.00'
+      run_paid:
+        description: 'Run the paid eval steps (needs OPENAI_API_KEY)'
+        type: boolean
+        required: false
+        default: true
+      node:
+        description: 'Graph node to replay'
+        required: false
+        default: 'detect_gaps'
+      paper:
+        description: 'OpenReview paper id / PDF stem to replay against'
+        required: false
+        default: '10eQ4Cfh8p'
+
+permissions:
+  contents: read
+  issues: write   # only used to file a failure issue, see notify
+
+concurrency:
+  group: eval-nightly
+  cancel-in-progress: false
+
+jobs:
+  # ── Free checks, run strictly ────────────────────────────────────────────────
+  # Same gate as the PR job, but --strict: warnings that are advisory on a PR are
+  # failures here, because nobody is waiting on this to merge.
+  integrity-strict:
+    name: Eval integrity (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Gate self-tests
+        run: python -m pytest scripts/eval/tests/test_ci_gate.py -q
+
+      - name: Eval artefact integrity (warnings are failures here)
+        run: python scripts/eval/ci_gate.py --base HEAD~1 --strict
+
+  # ── Can the paid half run at all? ───────────────────────────────────────────
+  # The `secrets` context is not usable in a job-level `if:`, so credential
+  # presence is resolved here into an output. A missing key produces a loud
+  # SKIPPED, never a green tick that implies the eval ran.
+  preflight:
+    name: Preflight (credentials)
+    runs-on: ubuntu-latest
+    outputs:
+      has_openai: ${{ steps.probe.outputs.has_openai }}
+      has_db: ${{ steps.probe.outputs.has_db }}
+    steps:
+      - id: probe
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          EVAL_DB_HOST: ${{ secrets.EVAL_DB_HOST }}
+        run: |
+          # Presence only. Values are never printed.
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "has_openai=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_openai=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::OPENAI_API_KEY is not set — the paid eval will be SKIPPED, not passed."
+          fi
+          if [ -n "$EVAL_DB_HOST" ]; then
+            echo "has_db=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_db=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::EVAL_DB_HOST is not set — retrieval eval will be SKIPPED, not passed."
+          fi
+
+  # ── Paid: node replay ───────────────────────────────────────────────────────
+  node-replay:
+    name: Node replay (paid)
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: needs.preflight.outputs.has_openai == 'true' && (github.event_name == 'schedule' || inputs.run_paid)
+    env:
+      # Hard ceiling. The harness aborts rather than exceeding it.
+      NOESIS_LLM_MAX_SPEND_USD: ${{ inputs.max_spend_usd || '5.00' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install eval dependencies
+        run: pip install -r scripts/eval/requirements.txt
+
+      - name: Are the replay fixtures present?
+        id: fixtures
+        # scripts/eval/cache/ is gitignored, so a clean GitHub-hosted checkout has
+        # NO state fixtures and node_eval.py has nothing to replay. Rather than
+        # inventing a green tick, say so out loud and skip the paid steps.
+        run: |
+          if [ -d scripts/eval/cache/state ] && [ -n "$(ls -A scripts/eval/cache/state 2>/dev/null)" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::scripts/eval/cache/state is empty (it is gitignored). Node replay SKIPPED — this is not a pass. See scripts/eval/CI.md."
+          fi
+
+      - name: Plan the replay (free, no API calls)
+        if: steps.fixtures.outputs.present == 'true'
+        run: |
+          python scripts/eval/node_eval.py --dry-run \
+            --node "${{ inputs.node || 'detect_gaps' }}" \
+            --paper "${{ inputs.paper || '10eQ4Cfh8p' }}"
+
+      - name: Replay nodes against recorded fixtures (paid)
+        if: steps.fixtures.outputs.present == 'true'
+        run: |
+          python scripts/eval/node_eval.py --yes \
+            --node "${{ inputs.node || 'detect_gaps' }}" \
+            --paper "${{ inputs.paper || '10eQ4Cfh8p' }}"
+
+      - name: Regenerate the benchmark board from this run's sinks
+        if: steps.fixtures.outputs.present == 'true'
+        # Advisory: only the sinks THIS run produced are present, so the board
+        # built here is partial. It is uploaded, never committed.
+        continue-on-error: true
+        run: python scripts/eval/benchmarks.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: node-replay-sinks
+          path: |
+            scripts/eval/results/*.jsonl
+            scripts/eval/BENCHMARKS.md
+            scripts/eval/benchmarks.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ── Paid + database: retrieval eval ─────────────────────────────────────────
+  retrieval-eval:
+    name: Retrieval eval (paid, needs pgvector)
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: needs.preflight.outputs.has_openai == 'true' && needs.preflight.outputs.has_db == 'true' && (github.event_name == 'schedule' || inputs.run_paid)
+    env:
+      NOESIS_LLM_MAX_SPEND_USD: ${{ inputs.max_spend_usd || '5.00' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EVAL_DB_HOST: ${{ secrets.EVAL_DB_HOST }}
+      EVAL_DB_PORT: ${{ secrets.EVAL_DB_PORT }}
+      EVAL_DB_NAME: ${{ secrets.EVAL_DB_NAME }}
+      EVAL_DB_USER: ${{ secrets.EVAL_DB_USER }}
+      EVAL_DB_PASSWORD: ${{ secrets.EVAL_DB_PASSWORD }}
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install eval dependencies
+        run: pip install -r scripts/eval/requirements.txt
+
+      - name: Retrieval eval
+        # Requires a pgvector database that already holds the ingested eval
+        # corpus. An empty database produces a run recorded `valid: false`, which
+        # the integrity gate then refuses to let anyone quote.
+        run: python scripts/eval/retrieval/run_retrieval_eval.py --retriever hybrid
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retrieval-eval-sinks
+          path: scripts/eval/results/retrieval_eval.jsonl
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ── Failure notification ────────────────────────────────────────────────────
+  # The eval gate failed from 2026-06-20 and nobody noticed for weeks. A red run
+  # in the Actions tab is not a notification; this opens an issue so it lands in
+  # someone's inbox. Scheduled runs only — a manual run is already being watched.
+  notify:
+    name: Notify on failure
+    runs-on: ubuntu-latest
+    needs: [integrity-strict, node-replay, retrieval-eval]
+    if: always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const title = `Eval nightly failed: ${new Date().toISOString().slice(0, 10)}`;
+            const body = [
+              `The nightly eval run failed.`,
+              ``,
+              `Run: ${url}`,
+              ``,
+              `Job results:`,
+              `- integrity-strict: ${{ needs.integrity-strict.result }}`,
+              `- node-replay: ${{ needs.node-replay.result }}`,
+              `- retrieval-eval: ${{ needs.retrieval-eval.result }}`,
+              ``,
+              `Reproduce the free checks locally:`,
+              '```',
+              `python3 scripts/eval/ci_gate.py --strict`,
+              `make benchmarks-check`,
+              '```',
+              ``,
+              `A \`skipped\` job above means the credential was absent, not that the check passed.`,
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['eval', 'ci'],
+            });

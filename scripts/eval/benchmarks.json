@@ -4325,11 +4325,18 @@
   },
   "retrieval": {
     "config_hashes": [
+      "1de0972f3689aa87",
       "3a4c75412a422beb",
       "5d1408923f74702d",
+      "60908ecc49536801",
+      "6ff41a0411172066",
       "7330ae9c1e22ce33",
+      "85aab979d52d4240",
       "8c1df627b4dbdc50",
+      "b0c1956ed3745aaa",
       "cf6b3f1b3fc00644",
+      "d08ee2a2025646ba",
+      "d93178ec2bd84532",
       "eb947b6b5ed62153"
     ],
     "cross_snapshot_comparison_allowed": false,
@@ -4458,6 +4465,115 @@
       }
     ],
     "headline": [
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "1de0972f3689aa87",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1073,
+          "retrieval_failure": 6343,
+          "total_misses": 7416,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.1439022257311817
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.6675255899836546
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.38298202017786337
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.3456549474978968,
+            "value": 0.024000379493899757
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.2783303115561677,
+            "value": 0.14469585737070276
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.305616795290492,
+            "value": 0.23223740233712217
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.30211222564144535,
+            "value": 0.08879624445943152
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 16900,
+          "rows_returned": 16900
+        },
+        "retriever": "keyword",
+        "run_id": "09be82d4c38d",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-31T01:30:44.797568+00:00"
+      },
       {
         "ceiling_provenance": "carried on record",
         "chunk_oversample": 12,
@@ -4677,6 +4793,236 @@
         "timestamp": "2026-07-31T01:29:02.499733+00:00"
       },
       {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "60908ecc49536801",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1883,
+          "retrieval_failure": 5144,
+          "total_misses": 7027,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.24279978120769294
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7305920463571701
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.49883166174458937
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.43701455154896524,
+            "value": 0.030343888196755528
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.39316892036925355,
+            "value": 0.20439711976128833
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.3939337420476437,
+            "value": 0.2993492188776084
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.40615745644920165,
+            "value": 0.11937701864037571
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "legs": {
+            "dense_empty_queries": 0,
+            "dense_rows": 16900,
+            "keyword_empty_queries": 0,
+            "keyword_rows": 16900
+          },
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 13325,
+          "rows_returned": 13325
+        },
+        "retriever": "hybrid",
+        "run_id": "c82e9befb39b",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-31T01:33:17.357791+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "6ff41a0411172066",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1903,
+          "retrieval_failure": 5144,
+          "total_misses": 7047,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.24192318368680063
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7411253288634737
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.495476372723272
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4421644269573756,
+            "value": 0.03070146723632331
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.38682405597191744,
+            "value": 0.20109860876282623
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.39390583411525176,
+            "value": 0.29932801171287404
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4227984728130564,
+            "value": 0.12426811417270936
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "legs": {
+            "dense_empty_queries": 0,
+            "dense_rows": 16900,
+            "keyword_empty_queries": 0,
+            "keyword_rows": 16900
+          },
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 13325,
+          "rows_returned": 13325
+        },
+        "retriever": "hybrid",
+        "run_id": "e344cce23a1a",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-31T01:31:54.259196+00:00"
+      },
+      {
         "ceiling_provenance": "retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)",
         "chunk_oversample": 5,
         "config_hash": "7330ae9c1e22ce33",
@@ -4789,6 +5135,121 @@
       {
         "ceiling_provenance": "carried on record",
         "chunk_oversample": 5,
+        "config_hash": "85aab979d52d4240",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1885,
+          "retrieval_failure": 5144,
+          "total_misses": 7029,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.24306574203810583
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7335013165741325
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.49887601757375716
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4387189375548988,
+            "value": 0.030462231392021803
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.39278747032928557,
+            "value": 0.20419881494759892
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.3939337420476437,
+            "value": 0.2993492188776084
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4076329279691925,
+            "value": 0.11981068639249619
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "legs": {
+            "dense_empty_queries": 0,
+            "dense_rows": 16900,
+            "keyword_empty_queries": 0,
+            "keyword_rows": 16900
+          },
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 13325,
+          "rows_returned": 13325
+        },
+        "retriever": "hybrid",
+        "run_id": "ced80996b56f",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-31T01:32:35.984456+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
         "config_hash": "8c1df627b4dbdc50",
         "corpus": {
           "n_topics": 26,
@@ -4894,6 +5355,121 @@
         },
         "source": "results/retrieval_eval.jsonl",
         "timestamp": "2026-07-31T01:30:07.767589+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "b0c1956ed3745aaa",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1883,
+          "retrieval_failure": 5144,
+          "total_misses": 7027,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.242820717436339
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.736291234448915
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.49987984761006604
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.44404514382344107,
+            "value": 0.030832053877228902
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.39377882644667256,
+            "value": 0.20471419224360018
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.39358808463170364,
+            "value": 0.2990865547125052
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4081139515541698,
+            "value": 0.11995206791968102
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "legs": {
+            "dense_empty_queries": 0,
+            "dense_rows": 16900,
+            "keyword_empty_queries": 0,
+            "keyword_rows": 16900
+          },
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 13325,
+          "rows_returned": 13325
+        },
+        "retriever": "hybrid",
+        "run_id": "357a1c98b3ac",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-31T01:32:14.929481+00:00"
       },
       {
         "ceiling_provenance": "retrieval/BASELINE.md (labels+queries fingerprint and 118-document corpus all match)",
@@ -5007,6 +5583,236 @@
       },
       {
         "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "d08ee2a2025646ba",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1926,
+          "retrieval_failure": 5144,
+          "total_misses": 7070,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.23930483604346325
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7324316626754636
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.48625198720514645
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.43232215921228995,
+            "value": 0.030018074266911058
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.38102258067818107,
+            "value": 0.19808259000098638
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.3926344141329324,
+            "value": 0.29836186299813244
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4186590749327687,
+            "value": 0.12305147030696555
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "legs": {
+            "dense_empty_queries": 0,
+            "dense_rows": 16900,
+            "keyword_empty_queries": 0,
+            "keyword_rows": 16900
+          },
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 13325,
+          "rows_returned": 13325
+        },
+        "retriever": "hybrid",
+        "run_id": "f3f04c6e169a",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-31T01:31:32.154966+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "d93178ec2bd84532",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1883,
+          "retrieval_failure": 5144,
+          "total_misses": 7027,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.24277889416911808
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7310851430041129
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.49874766157232586
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.43701455154896524,
+            "value": 0.030343888196755528
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.39316892036925355,
+            "value": 0.20439711976128833
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.3939337420476437,
+            "value": 0.2993492188776084
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4072753555061694,
+            "value": 0.11970558938170443
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "legs": {
+            "dense_empty_queries": 0,
+            "dense_rows": 16900,
+            "keyword_empty_queries": 0,
+            "keyword_rows": 16900
+          },
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 13325,
+          "rows_returned": 13325
+        },
+        "retriever": "hybrid",
+        "run_id": "98409b05d267",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-07-31T01:32:56.912012+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
         "chunk_oversample": 2,
         "config_hash": "eb947b6b5ed62153",
         "corpus": {
@@ -5117,9 +5923,9 @@
     ],
     "invalidated": [],
     "n_invalidated": 0,
-    "n_runs": 8,
+    "n_runs": 15,
     "n_snapshots": 2,
-    "n_valid": 8,
+    "n_valid": 15,
     "snapshots": [
       {
         "ceiling_known": true,
@@ -5144,22 +5950,30 @@
       {
         "ceiling_known": true,
         "config_hashes": [
+          "1de0972f3689aa87",
           "3a4c75412a422beb",
           "5d1408923f74702d",
+          "60908ecc49536801",
+          "6ff41a0411172066",
+          "85aab979d52d4240",
           "8c1df627b4dbdc50",
+          "b0c1956ed3745aaa",
+          "d08ee2a2025646ba",
+          "d93178ec2bd84532",
           "eb947b6b5ed62153"
         ],
         "corpus_documents": 345,
         "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
         "labels_fingerprint": "230c6ea9d9b7e8fd",
         "n_invalidated": 0,
-        "n_runs": 4,
+        "n_runs": 11,
         "n_topics": 26,
         "n_topics_with_labels": 23,
-        "n_valid": 4,
+        "n_valid": 11,
         "queries_fingerprint": "1f6c584e8fd6c055",
         "retrievers": [
           "dense",
+          "hybrid",
           "keyword"
         ]
       }
@@ -5168,10 +5982,10 @@
   "schema_version": 2,
   "sources": [
     {
-      "lines": 8,
+      "lines": 15,
       "path": "results/retrieval_eval.jsonl",
       "present": true,
-      "records": 8,
+      "records": 15,
       "skip_reasons": [],
       "skipped_lines": 0
     },

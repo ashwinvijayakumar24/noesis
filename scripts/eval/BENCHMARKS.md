@@ -38,7 +38,7 @@ interrupted write shows up here.
 
 | file | state | lines | records | skipped |
 |---|---|---|---|---|
-| `results/retrieval_eval.jsonl` | present | 8 | 8 | 0 |
+| `results/retrieval_eval.jsonl` | present | 15 | 15 | 0 |
 | `results/node_eval.jsonl` | present | 31 | 31 | 0 |
 | `results/node_eval_spans.jsonl` | present | 35 | 35 | 0 |
 | `cache/ingest_manifest.jsonl` | present | 539 | 539 | 0 |
@@ -65,7 +65,7 @@ No grand total is given: not computed -- the sinks overlap and would double coun
 
 ## Retrieval
 
-8 valid run(s), 0 invalidated, across 6 config hash(es) and 2 label snapshot(s).
+15 valid run(s), 0 invalidated, across 13 config hash(es) and 2 label snapshot(s).
 
 > **Read this before quoting any number below.**
 > Every retrieval metric here is measured against a *label snapshot* —
@@ -81,7 +81,7 @@ No grand total is given: not computed -- the sinks overlap and would double coun
 | labels fp | queries fp | corpus docs | topics | runs | retrievers | recall ceiling known |
 |---|---|---|---|---|---|---|
 | `019bee4a06eb2d39` | `1f6c584e8fd6c055` | 118 | 15 | 4 valid / 0 invalid | dense, keyword | yes |
-| `230c6ea9d9b7e8fd` | `1f6c584e8fd6c055` | 345 | 26 | 4 valid / 0 invalid | dense, keyword | yes |
+| `230c6ea9d9b7e8fd` | `1f6c584e8fd6c055` | 345 | 26 | 11 valid / 0 invalid | dense, hybrid, keyword | yes |
 
 **2 snapshots are present in this file.** No delta, ratio or comparison is drawn across them anywhere in this document, and none should be drawn by hand either.
 
@@ -163,6 +163,40 @@ Miss attribution (rollup of the per-query `misses` payload, which is not tracked
 
 345 documents across 26 topics (23 with labels). Every number under this heading is comparable with every other number under this heading, and with nothing outside it.
 
+**keyword** · config `1de0972f3689aa87` · run `09be82d4c38d` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.1439 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.6675 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.3830 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0240 (n=338) | 0.0694 | 35% |
+| `recall@10` | 0.1447 (n=338) | 0.5199 | 28% |
+| `recall@20` | 0.2322 (n=338) | 0.7599 | 31% |
+| `recall@5` | 0.0888 (n=338) | 0.2939 | 30% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 1073 |
+| `retrieval_failure` | 6343 |
+| `total_misses` | 7416 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 16900 |
+| `rows_returned` | 16900 |
+
 **dense** · config `3a4c75412a422beb` · run `813629e2f023` · 2026-07-31 · `results/retrieval_eval.jsonl`
 
 - relevance unit: document, k=10, graded=False, chunk oversample x12
@@ -231,6 +265,111 @@ Miss attribution (rollup of the per-query `misses` payload, which is not tracked
 | `rows_joined_to_corpus` | 16900 |
 | `rows_returned` | 16900 |
 
+**hybrid** · config `60908ecc49536801` · run `c82e9befb39b` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2428 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7306 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.4988 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0303 (n=338) | 0.0694 | 44% |
+| `recall@10` | 0.2044 (n=338) | 0.5199 | 39% |
+| `recall@20` | 0.2993 (n=338) | 0.7599 | 39% |
+| `recall@5` | 0.1194 (n=338) | 0.2939 | 41% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 1883 |
+| `retrieval_failure` | 5144 |
+| `total_misses` | 7027 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `legs` | {'dense_empty_queries': 0, 'dense_rows': 16900, 'keyword_empty_queries': 0, 'keyword_rows': 16900} |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 13325 |
+| `rows_returned` | 13325 |
+
+**hybrid** · config `6ff41a0411172066` · run `e344cce23a1a` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2419 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7411 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.4955 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0307 (n=338) | 0.0694 | 44% |
+| `recall@10` | 0.2011 (n=338) | 0.5199 | 39% |
+| `recall@20` | 0.2993 (n=338) | 0.7599 | 39% |
+| `recall@5` | 0.1243 (n=338) | 0.2939 | 42% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 1903 |
+| `retrieval_failure` | 5144 |
+| `total_misses` | 7047 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `legs` | {'dense_empty_queries': 0, 'dense_rows': 16900, 'keyword_empty_queries': 0, 'keyword_rows': 16900} |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 13325 |
+| `rows_returned` | 13325 |
+
+**hybrid** · config `85aab979d52d4240` · run `ced80996b56f` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2431 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7335 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.4989 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0305 (n=338) | 0.0694 | 44% |
+| `recall@10` | 0.2042 (n=338) | 0.5199 | 39% |
+| `recall@20` | 0.2993 (n=338) | 0.7599 | 39% |
+| `recall@5` | 0.1198 (n=338) | 0.2939 | 41% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 1885 |
+| `retrieval_failure` | 5144 |
+| `total_misses` | 7029 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `legs` | {'dense_empty_queries': 0, 'dense_rows': 16900, 'keyword_empty_queries': 0, 'keyword_rows': 16900} |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 13325 |
+| `rows_returned` | 13325 |
+
 **keyword** · config `8c1df627b4dbdc50` · run `354f3eb41c1c` · 2026-07-31 · `results/retrieval_eval.jsonl`
 
 - relevance unit: document, k=10, graded=False, chunk oversample x5
@@ -264,6 +403,111 @@ Miss attribution (rollup of the per-query `misses` payload, which is not tracked
 | `queries_with_empty_run` | 321 |
 | `rows_joined_to_corpus` | 60 |
 | `rows_returned` | 60 |
+
+**hybrid** · config `b0c1956ed3745aaa` · run `357a1c98b3ac` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2428 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7363 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.4999 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0308 (n=338) | 0.0694 | 44% |
+| `recall@10` | 0.2047 (n=338) | 0.5199 | 39% |
+| `recall@20` | 0.2991 (n=338) | 0.7599 | 39% |
+| `recall@5` | 0.1200 (n=338) | 0.2939 | 41% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 1883 |
+| `retrieval_failure` | 5144 |
+| `total_misses` | 7027 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `legs` | {'dense_empty_queries': 0, 'dense_rows': 16900, 'keyword_empty_queries': 0, 'keyword_rows': 16900} |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 13325 |
+| `rows_returned` | 13325 |
+
+**hybrid** · config `d08ee2a2025646ba` · run `f3f04c6e169a` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2393 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7324 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.4863 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0300 (n=338) | 0.0694 | 43% |
+| `recall@10` | 0.1981 (n=338) | 0.5199 | 38% |
+| `recall@20` | 0.2984 (n=338) | 0.7599 | 39% |
+| `recall@5` | 0.1231 (n=338) | 0.2939 | 42% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 1926 |
+| `retrieval_failure` | 5144 |
+| `total_misses` | 7070 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `legs` | {'dense_empty_queries': 0, 'dense_rows': 16900, 'keyword_empty_queries': 0, 'keyword_rows': 16900} |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 13325 |
+| `rows_returned` | 13325 |
+
+**hybrid** · config `d93178ec2bd84532` · run `98409b05d267` · 2026-07-31 · `results/retrieval_eval.jsonl`
+
+- relevance unit: document, k=10, graded=False, chunk oversample x5
+- queries scored: 338 of 338 built; relevant documents pooled: 8554
+- corpus: 345 documents across 26 topics (23 with labels)
+- ceiling source: carried on record
+
+| metric | measured (n = queries scored) | ceiling | % of attainable |
+|---|---|---|---|
+| `map` | 0.2428 (n=338) | n/a (not capped by label design) | n/a |
+| `mrr` | 0.7311 (n=338) | n/a (not capped by label design) | n/a |
+| `ndcg@10` | 0.4987 (n=338) | n/a (not capped by label design) | n/a |
+| `recall@1` | 0.0303 (n=338) | 0.0694 | 44% |
+| `recall@10` | 0.2044 (n=338) | 0.5199 | 39% |
+| `recall@20` | 0.2993 (n=338) | 0.7599 | 39% |
+| `recall@5` | 0.1197 (n=338) | 0.2939 | 41% |
+
+Miss attribution (rollup of the per-query `misses` payload, which is not tracked):
+
+| cause | count |
+|---|---|
+| `ranking_failure` | 1883 |
+| `retrieval_failure` | 5144 |
+| `total_misses` | 7027 |
+| `unresolved` | 0 |
+| `unresolved_references_excluded_upstream` | 211 |
+
+| retrieval health | value |
+|---|---|
+| `db_id_map_size` | 345 |
+| `legs` | {'dense_empty_queries': 0, 'dense_rows': 16900, 'keyword_empty_queries': 0, 'keyword_rows': 16900} |
+| `queries_with_empty_run` | 0 |
+| `rows_joined_to_corpus` | 13325 |
+| `rows_returned` | 13325 |
 
 **dense** · config `eb947b6b5ed62153` · run `fc317a79f1a8` · 2026-07-31 · `results/retrieval_eval.jsonl`
 
