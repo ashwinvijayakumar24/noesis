@@ -9,11 +9,16 @@ import json
 import os
 from contextlib import nullcontext
 from pathlib import Path
+from typing import Any
 
 from langgraph.graph import StateGraph, END
-from langgraph.types import Send
+from langgraph.types import Command, Send
 from app.workflows.draft_analysis.state import DraftAnalysisState
-from app.workflows.draft_analysis.checkpoints import get_checkpoint_saver
+from app.workflows.draft_analysis.checkpoints import (
+    build_checkpointer,
+    get_checkpoint_saver,
+    interrupt_before_nodes,
+)
 from app.core.logging_config import get_logger
 from app.core.llm_budget import llm_label
 from app.core.privacy import safe_exception
@@ -501,9 +506,18 @@ def route_to_reviewer_panel(state: DraftAnalysisState):
 # WORKFLOW GRAPH CONSTRUCTION
 # ============================================
 
-def create_draft_analysis_workflow() -> StateGraph:
+def create_draft_analysis_workflow(checkpointer=None) -> StateGraph:
     """
     Create the complete draft analysis workflow graph.
+
+    Args:
+        checkpointer: Optional LangGraph ``BaseCheckpointSaver``. When ``None``
+            (the default, and what every existing caller passes) the graph is
+            compiled with a bare ``workflow.compile()`` -- byte-for-byte the
+            behaviour before checkpointing existed, with no checkpointer attached
+            and no interrupt points. The branch below is deliberate rather than
+            passing ``checkpointer=None`` through: it guarantees the disabled path
+            cannot be perturbed by compile-time defaults.
 
     Workflow steps:
     1. Extract structure
@@ -613,7 +627,19 @@ def create_draft_analysis_workflow() -> StateGraph:
     workflow.add_edge("synthesize_report", END)
 
     # Compile the graph
-    compiled_workflow = workflow.compile()
+    if checkpointer is None:
+        compiled_workflow = workflow.compile()
+    else:
+        # interrupt_before is the static half of human-in-the-loop: the graph
+        # durably stops before the named nodes and the run is resumed with
+        # ``ainvoke(None, config)``. The dynamic half -- ``interrupt()`` raised
+        # from inside a node -- needs nothing here beyond the checkpointer, since
+        # LangGraph persists the interrupt against the thread. Both are
+        # unreachable while the feature flag is off.
+        compiled_workflow = workflow.compile(
+            checkpointer=checkpointer,
+            interrupt_before=interrupt_before_nodes() or None,
+        )
 
     logger.info("[Workflow] Draft analysis workflow graph created successfully")
 
@@ -709,14 +735,34 @@ async def _run_draft_analysis_workflow(
     logger.info(f"[Workflow] user_id={user_id}")
     logger.info(f"[Workflow] draft_content length={len(draft_content)} chars")
 
+    # Build the checkpointer BEFORE the graph, since it is a compile-time argument.
+    # Returns None unless NOESIS_CHECKPOINT_ENABLED is set AND a DSN is configured,
+    # so the default path is unchanged. ``rehydrate`` seeds the manuscript channels
+    # that are never persisted, so a checkpoint written now can be read back within
+    # this same run without a storage round-trip.
+    lg_checkpointer = build_checkpointer(
+        rehydrate={
+            "draft_content": draft_content,
+            "parse_artifact": parse_artifact or {},
+            "structure": initial_structure or {},
+        },
+        user_id=user_id,
+    )
+
     # Create the workflow
     logger.info(f"[Workflow] Creating workflow graph...")
     try:
-        workflow = create_draft_analysis_workflow()
+        workflow = create_draft_analysis_workflow(checkpointer=lg_checkpointer)
         logger.info(f"[Workflow] Workflow graph created successfully")
     except Exception as e:
         logger.error("[Workflow] FATAL: Failed to create workflow graph: %s", safe_exception(e))
         raise
+
+    # A thread_id is only meaningful with a checkpointer attached; passing config
+    # when there is none keeps the disabled path identical to before.
+    invoke_config = (
+        {"configurable": {"thread_id": draft_id}} if lg_checkpointer is not None else None
+    )
 
     # Initialize state
     logger.info(f"[Workflow] Initializing state...")
@@ -765,7 +811,10 @@ async def _run_draft_analysis_workflow(
 
         # Execute workflow
         logger.info(f"[Workflow] Invoking workflow (this will execute all 8 nodes)...")
-        final_state = await workflow.ainvoke(initial_state)
+        if invoke_config is None:
+            final_state = await workflow.ainvoke(initial_state)
+        else:
+            final_state = await workflow.ainvoke(initial_state, config=invoke_config)
         logger.info(f"[Workflow] Workflow invocation completed!")
 
         # Publish 98% — workflow done, post-processing (DB writes, scoring) still in progress.
@@ -788,6 +837,23 @@ async def _run_draft_analysis_workflow(
             checkpoint_saver.delete_checkpoints(draft_id)
             logger.info("[Workflow] Completed checkpoints deleted for privacy minimization")
 
+        # Eager deletion of the LangGraph checkpoint rows. The run succeeded, so
+        # there is nothing left to resume and no reason to hold derived manuscript
+        # text past the moment it stopped being useful. The TTL in migration 039 is
+        # only the backstop for runs that never reach this line.
+        if lg_checkpointer is not None:
+            try:
+                await lg_checkpointer.adelete_thread(draft_id)
+                logger.info("[Workflow] LangGraph checkpoints deleted for %s", draft_id)
+            except Exception as exc:
+                logger.warning(
+                    "[Workflow] Failed to delete LangGraph checkpoints (TTL will "
+                    "reap them): %s",
+                    safe_exception(exc),
+                )
+            finally:
+                lg_checkpointer.close()
+
         logger.info(f"[Workflow] ========== WORKFLOW COMPLETE ==========")
         logger.info(f"[Workflow] Final state keys: {list(final_state.keys())}")
 
@@ -808,51 +874,106 @@ async def _run_draft_analysis_workflow(
             except Exception as checkpoint_error:
                 logger.error(f"[Workflow] Failed to update checkpoint: {checkpoint_error}")
 
+        # NOTE: the LangGraph checkpoint rows are deliberately NOT deleted here.
+        # They are the whole point of this path -- they are what
+        # resume_draft_analysis_workflow() replays from. Only the connection is
+        # released.
+        if lg_checkpointer is not None:
+            logger.info(
+                "[Workflow] LangGraph checkpoints retained for thread %s; resume with "
+                "resume_draft_analysis_workflow(draft_id, draft_content=...)",
+                draft_id,
+            )
+            lg_checkpointer.close()
+
         # Re-raise the exception
         raise
 
 
-async def resume_draft_analysis_workflow(draft_id: str) -> DraftAnalysisState:
+async def resume_draft_analysis_workflow(
+    draft_id: str,
+    draft_content: str,
+    *,
+    parse_artifact: dict | None = None,
+    structure: dict | None = None,
+    resume_value: Any = None,
+) -> DraftAnalysisState:
     """
-    Resume a failed or interrupted draft analysis workflow.
+    Resume a failed or interrupted draft analysis workflow from its last checkpoint.
+
+    Only the nodes that had not completed are executed. Everything the graph had
+    already produced -- claims, citations, gap detection, whichever reviewer
+    personas finished -- is replayed from the checkpoint rather than recomputed, so
+    a run that died late does not re-pay for the LLM calls that had already
+    succeeded.
 
     Args:
-        draft_id: Draft ID to resume
+        draft_id: Draft ID, used as the LangGraph ``thread_id``.
+        draft_content: The manuscript. **Required, and required for a reason**: it
+            is deliberately never written to a checkpoint row (see
+            ``MANUSCRIPT_CHANNELS``). The caller re-reads it from Supabase Storage,
+            exactly as it does on a fresh run. Passing the wrong text here would
+            resume the graph against a different manuscript, so pass what the
+            original run was given.
+        parse_artifact: Likewise never persisted; re-supply from
+            ``draft_parse_artifacts``.
+        structure: Likewise never persisted. Re-supply the stored structure. If the
+            original run had already run ``extract_structure`` and this is omitted,
+            the load raises rather than resuming with an empty structure.
+        resume_value: Value to inject when resuming from a dynamic
+            ``interrupt()`` -- passed through as ``Command(resume=...)``. Leave as
+            ``None`` for a plain crash-resume.
 
     Returns:
-        Final workflow state
+        Final workflow state.
 
     Raises:
-        Exception: If no checkpoint found or resume fails
+        RuntimeError: If checkpointing is disabled, no checkpoint exists, the row
+            fails its integrity check, or a scrubbed manuscript channel was not
+            re-supplied. None of these fall back to a silent restart -- a resume
+            that cannot be done correctly must be an explicit restart by the
+            caller, not a surprise full-price rerun.
     """
     logger.info(f"[Workflow] Resuming draft analysis for draft_id={draft_id}")
 
-    # Load checkpoint
-    checkpoint_saver = get_checkpoint_saver()
-    checkpoint = checkpoint_saver.load_checkpoint(draft_id)
-
-    if not checkpoint:
-        raise Exception(f"No checkpoint found for draft_id={draft_id}")
-
-    # Get the saved state
-    saved_state = checkpoint["state"]
-    if saved_state.get("privacy_minimized") and not saved_state.get("draft_content"):
-        raise Exception(
-            "Checkpoint state is privacy-minimized and cannot be resumed directly; restart analysis from the draft file."
+    lg_checkpointer = build_checkpointer(
+        rehydrate={
+            "draft_content": draft_content,
+            "parse_artifact": parse_artifact or {},
+            "structure": structure or {},
+        },
+    )
+    if lg_checkpointer is None:
+        raise RuntimeError(
+            "Cannot resume: checkpointing is disabled. Set NOESIS_CHECKPOINT_ENABLED "
+            "and NOESIS_CHECKPOINT_DB_URL, or restart the analysis from the draft file."
         )
 
-    logger.info(
-        f"[Workflow] Resuming from checkpoint: "
-        f"node={checkpoint['node_name']}, "
-        f"progress={saved_state.get('progress_percentage', 0)}%"
-    )
-
-    # Create workflow and continue from saved state
-    workflow = create_draft_analysis_workflow()
+    config = {"configurable": {"thread_id": draft_id}}
 
     try:
-        # Resume execution
-        # Note: LangGraph can continue from where it left off
+        existing = await lg_checkpointer.aget_tuple(config)
+        if existing is None:
+            raise RuntimeError(f"No LangGraph checkpoint found for draft_id={draft_id}")
+
+        logger.info(
+            "[Workflow] Resuming thread %s from checkpoint %s (progress=%s%%)",
+            draft_id,
+            existing.checkpoint.get("id"),
+            (existing.checkpoint.get("channel_values") or {}).get(
+                "progress_percentage", 0
+            ),
+        )
+
+        workflow = create_draft_analysis_workflow(checkpointer=lg_checkpointer)
+
+        # ``None`` as the input is what tells LangGraph "continue this thread from
+        # its checkpoint" rather than "start a new run with this state" -- the
+        # latter is what the old implementation did, which is why it re-ran
+        # everything. ``Command(resume=...)`` is the equivalent for a thread parked
+        # on a dynamic interrupt.
+        graph_input = Command(resume=resume_value) if resume_value is not None else None
+
         # Same RUN span as a fresh run, so a resumed run is one tree rather than
         # one orphaned root per node.
         with start_span(
@@ -860,19 +981,18 @@ async def resume_draft_analysis_workflow(draft_id: str) -> DraftAnalysisState:
             kind=SpanKind.RUN,
             attributes=run_attributes(analysis_run_id=draft_id, draft_id=draft_id),
         ):
-            final_state = await workflow.ainvoke(saved_state)
+            final_state = await workflow.ainvoke(graph_input, config=config)
 
-        # Update checkpoint status
-        checkpoint_saver.update_status(draft_id, "completed")
-
+        await lg_checkpointer.adelete_thread(draft_id)
         logger.info(f"[Workflow] Successfully resumed and completed draft_id={draft_id}")
 
         return final_state
 
     except Exception as e:
-        logger.error(f"[Workflow] Error resuming draft_id={draft_id}: {e}")
-        checkpoint_saver.update_status(draft_id, "failed")
+        logger.error("[Workflow] Error resuming draft_id=%s: %s", draft_id, safe_exception(e))
         raise
+    finally:
+        lg_checkpointer.close()
 
 
 # ============================================
