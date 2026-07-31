@@ -90,6 +90,20 @@ MODEL_PRICING_USD_PER_1M: dict[str, ModelPrice] = {
     # https://developers.openai.com/api/docs/models/text-embedding-3-small -- retrieved 2026-07-30
     # $0.02 per 1M tokens; no output tokens exist, no cached rate published
     "text-embedding-3-small": ModelPrice(0.02, 0.0, None),
+    # ---- Anthropic ----
+    # Transcribed from Anthropic's official published API pricing table:
+    # https://platform.claude.com/docs/en/about-claude/pricing -- retrieved 2026-07-31
+    # Row "Claude Sonnet 4.5": base input $3.00 / cache hits & refreshes $0.30 /
+    # output $15.00 per 1M tokens. The key is the undated alias so that dated
+    # snapshots (claude-sonnet-4-5-20250929) resolve via get_price()'s prefix match.
+    #
+    # NOTE ON CACHE WRITES: Anthropic prices cache WRITES above base input
+    # ($3.75/1M at 5m TTL, $6.00/1M at 1h). ModelPrice has no field for that, so
+    # a call that writes cache is under-estimated here. The only Anthropic caller
+    # (scripts/eval/gate_calibration/llm_labeller.py) never sets cache_control, so
+    # cache_creation_input_tokens is always 0; it warns on stderr if that ever
+    # changes rather than silently reporting a low number.
+    "claude-sonnet-4-5": ModelPrice(3.00, 15.00, 0.30),
 }
 
 

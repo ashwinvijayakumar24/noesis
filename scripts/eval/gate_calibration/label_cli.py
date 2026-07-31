@@ -35,6 +35,7 @@ from typing import Any, Iterator
 PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_RESULTS_DIR = PACKAGE_DIR.parent / "results"
 DEFAULT_LABELS_PATH = PACKAGE_DIR / "labels.jsonl"
+OPENREVIEW_DIR = PACKAGE_DIR.parent / "openreview"
 
 VALID_LABELS = ("degraded", "ok", "unsure")
 
@@ -233,11 +234,38 @@ def _wrap(text: str, width: int = 96, indent: str = "      ") -> str:
     )
 
 
+def paper_id_from_run_id(run_id: str) -> str:
+    """``cXs5md5wAq__no-corpus__2026-06-21T03-59-08`` -> ``cXs5md5wAq``.
+
+    The run id is the only place the source paper survives; ``eval_metadata.
+    draft_file`` was not enough to tell which manuscript a run belonged to.
+    """
+    return str(run_id).split("__", 1)[0]
+
+
+def resolve_pdf_path(run_id: str, openreview_dir: Path = OPENREVIEW_DIR) -> Path | None:
+    """The manuscript PDF for a run, or None if it is not on disk.
+
+    Venue directory is not encoded in the run id, so this globs one level:
+    ``openreview/<venue>/<paper_id>.pdf``.
+    """
+    paper_id = paper_id_from_run_id(run_id)
+    if not paper_id:
+        return None
+    for candidate in sorted(openreview_dir.glob(f"*/{paper_id}.pdf")):
+        return candidate
+    return None
+
+
 def render_run(rec: dict[str, Any], max_tasks: int = 40) -> str:
     """Human-readable presentation of one run. Contains no gate scores by design."""
     lines: list[str] = []
     lines.append("=" * 100)
     lines.append(f"RUN: {rec['run_id']}")
+    paper_id = paper_id_from_run_id(rec["run_id"])
+    pdf = resolve_pdf_path(rec["run_id"])
+    lines.append(f"PAPER: {paper_id}")
+    lines.append(f"PDF  : {pdf if pdf is not None else '(not found under openreview/)'}")
     lines.append(f"Title: {rec.get('title')}")
     lines.append(
         f"Type: {rec.get('file_type')}   Words: {rec.get('word_count')}   "

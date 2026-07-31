@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Threshold sweep for the draft publish gate.
 
-Joins human labels (``labels.jsonl``) to the run exports, then measures how well
+Joins labels (``labels.jsonl``) to the run exports, then measures how well
 each candidate predictor separates degraded runs from acceptable ones, and where
 the two a-priori thresholds actually sit on that curve.
 
@@ -304,7 +304,7 @@ def evaluate_gate_as_shipped(rows: list[dict], fp_cost: float, fn_cost: float) -
     """Score the gate's own recorded verdict against the labels.
 
     This is the number that matters: not "could a threshold work" but "does the
-    thing currently in production agree with a human".
+    thing currently in production agree with the reference labels".
     """
     usable = [r for r in rows if r.get("gate_publishable") is not None]
     if not usable:
@@ -370,7 +370,13 @@ def render_report(result: dict[str, Any]) -> str:
     L.append("")
 
     L.append("-" * 92)
-    L.append("GATE AS SHIPPED (recorded publish_gate verdict vs human label)")
+    # Labels may be human, cross-family LLM (see AGREEMENT.md), or a mix.
+    # Provenance is on every record, but a reader of this report must not have
+    # to go looking: an LLM-labelled calibration is a different claim from a
+    # human-labelled one and has to read as one.
+    L.append(f"LABEL PROVENANCE: {_labeller_split(rows)}")
+    L.append("")
+    L.append("GATE AS SHIPPED (recorded publish_gate verdict vs reference label)")
     g = result["gate_as_shipped"]
     if "error" in g:
         L.append(f"  {g['error']}")
@@ -566,7 +572,7 @@ def append_result(out_path: Path, result: dict[str, Any]) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Sweep publish-gate thresholds against human labels.",
+        description="Sweep publish-gate thresholds against reference labels (human and/or LLM).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -619,3 +625,20 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def _labeller_split(rows) -> str:
+    """Human vs LLM label counts, for the report header."""
+    human = llm = 0
+    for r in rows:
+        rec = r.get("label_record") if isinstance(r, dict) else None
+        name = str((rec or r or {}).get("labeller") or "")
+        if name.startswith("llm:"):
+            llm += 1
+        elif name:
+            human += 1
+    if llm and human:
+        return f"MIXED -- {human} human, {llm} LLM (check kappa before quoting)"
+    if llm:
+        return f"ALL LLM-LABELLED ({llm}) -- not human labels; see AGREEMENT.md"
+    return f"all human ({human})"
