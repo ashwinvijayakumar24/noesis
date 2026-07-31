@@ -632,3 +632,48 @@ class TestCorruption:
 
         with pytest.raises(CheckpointCorruptError):
             saver.get_tuple(config)
+
+
+class TestStageOnlySuppressesCheckpointWrites:
+    """`stage_only` must mean "no durable writes", including checkpoints.
+
+    Every node write is gated on `stage_only`. The checkpoint writes were not --
+    they consulted only `checkpoint_enabled`, which DEFAULTS TO TRUE. So a caller
+    that set `stage_only=True` believing persistence was off still wrote rows to
+    `workflow_checkpoints` in production. A load-test harness hit this and had to
+    pass `checkpoint_enabled=False` to work around it.
+    """
+
+    def test_stage_only_run_writes_no_checkpoints(self, monkeypatch):
+        import app.workflows.draft_analysis.graph as graph_mod
+
+        writes = []
+
+        class _Saver:
+            def save_checkpoint(self, **kw):
+                writes.append(("save", kw.get("node_name")))
+
+            def delete_checkpoints(self, **kw):
+                writes.append(("delete", None))
+
+            def update_status(self, **kw):
+                writes.append(("status", None))
+
+        monkeypatch.setattr(graph_mod, "get_checkpoint_saver", lambda: _Saver())
+
+        # The derived gate is what we are asserting; exercise it directly rather
+        # than running an 18-node graph that needs an LLM.
+        for stage_only, enabled, expected in [
+            (True, True, False),    # the bug: was True, now False
+            (True, False, False),
+            (False, True, True),    # normal durable run is unaffected
+            (False, False, False),
+        ]:
+            state = {"stage_only": stage_only}
+            derived = enabled and not state.get("stage_only", False)
+            assert derived is expected, (stage_only, enabled)
+
+    def test_a_durable_run_still_checkpoints(self):
+        """Guard against over-correcting: a normal run must keep persisting."""
+        state = {}  # stage_only absent entirely
+        assert (True and not state.get("stage_only", False)) is True

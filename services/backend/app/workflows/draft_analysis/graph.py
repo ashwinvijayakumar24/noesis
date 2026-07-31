@@ -790,6 +790,14 @@ async def _run_draft_analysis_workflow(
         initial_state["structure"] = initial_structure
     logger.info(f"[Workflow] State initialized: {list(initial_state.keys())}")
 
+    # `stage_only` means "this run is not durable" -- every node write is gated on
+    # it. The checkpoint writes were NOT: they consulted only `checkpoint_enabled`,
+    # which DEFAULTS TO TRUE, so a caller that set stage_only=True believing it had
+    # disabled persistence still wrote rows to `workflow_checkpoints` in production.
+    # A load-test harness hit exactly this and had to pass checkpoint_enabled=False
+    # to work around it. Make the two agree: a staged run never persists.
+    checkpoint_enabled = checkpoint_enabled and not initial_state.get("stage_only", False)
+
     try:
         # Run the workflow
         # Note: LangGraph automatically handles checkpointing if configured
