@@ -352,6 +352,29 @@ def _fmt(x, nd=4):
     return str(x)
 
 
+def _labeller_split(rows) -> str:
+    """Human vs LLM label counts for the report header.
+
+    Labels can come from a human or from the cross-family Claude labeller (see
+    AGREEMENT.md). Provenance is on every record, but a reader of this report
+    must not have to go looking for it: an LLM-labelled calibration is a
+    different claim from a human-labelled one and has to read as one.
+    """
+    human = llm = 0
+    for r in rows:
+        rec = r.get("label_record") if isinstance(r, dict) else None
+        name = str(((rec if isinstance(rec, dict) else None) or r or {}).get("labeller") or "")
+        if name.startswith("llm:"):
+            llm += 1
+        elif name:
+            human += 1
+    if llm and human:
+        return f"MIXED -- {human} human, {llm} LLM (check kappa before quoting)"
+    if llm:
+        return f"ALL LLM-LABELLED ({llm}) -- not human labels; see AGREEMENT.md"
+    return f"all human ({human})"
+
+
 def render_report(result: dict[str, Any]) -> str:
     L: list[str] = []
     ds = result["dataset"]
@@ -374,7 +397,7 @@ def render_report(result: dict[str, Any]) -> str:
     # Provenance is on every record, but a reader of this report must not have
     # to go looking: an LLM-labelled calibration is a different claim from a
     # human-labelled one and has to read as one.
-    L.append(f"LABEL PROVENANCE: {_labeller_split(rows)}")
+    L.append(f"LABEL PROVENANCE: {ds.get('labeller_split', 'unknown')}")
     L.append("")
     L.append("GATE AS SHIPPED (recorded publish_gate verdict vs reference label)")
     g = result["gate_as_shipped"]
@@ -549,6 +572,7 @@ def run_sweep(
             "unsure": ds["unsure"],
             "unmatched": ds["unmatched"],
             "base_rate": (n_deg / n) if n else float("nan"),
+            "labeller_split": _labeller_split(rows),
         },
         "warnings": warnings,
         "gate_as_shipped": evaluate_gate_as_shipped(rows, fp_cost, fn_cost) if rows else {"error": "no labelled rows"},
@@ -625,20 +649,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-def _labeller_split(rows) -> str:
-    """Human vs LLM label counts, for the report header."""
-    human = llm = 0
-    for r in rows:
-        rec = r.get("label_record") if isinstance(r, dict) else None
-        name = str((rec or r or {}).get("labeller") or "")
-        if name.startswith("llm:"):
-            llm += 1
-        elif name:
-            human += 1
-    if llm and human:
-        return f"MIXED -- {human} human, {llm} LLM (check kappa before quoting)"
-    if llm:
-        return f"ALL LLM-LABELLED ({llm}) -- not human labels; see AGREEMENT.md"
-    return f"all human ({human})"
