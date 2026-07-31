@@ -144,6 +144,49 @@ def compute_metrics(
     return {m: float(scores[m]) for m in metrics}
 
 
+def recall_ceilings(
+    qrels_dict: dict[str, dict[str, int]],
+    ks: list[int],
+) -> dict[str, float]:
+    """The highest recall@k this label design permits, per k.
+
+    Every query inherits its manuscript's ENTIRE resolved reference list, so a
+    query with 37 relevant documents cannot exceed recall@10 = 10/37 no matter
+    how good the retriever is. The ceiling is the query-count-weighted mean of
+    ``min(k, |rel_q|) / |rel_q|`` -- the same unweighted-over-queries average
+    ranx computes recall with, so measured and ceiling are the same quantity and
+    their ratio is meaningful.
+
+    Ceilings are a property of the labels, not of the retriever, so they must be
+    recomputed whenever the label snapshot changes. Carrying an old ceiling
+    forward is worse than having none: it silently rescales every arm.
+    """
+    scorable = [rels for rels in qrels_dict.values() if rels]
+    if not scorable:
+        return {f"recall@{k}": 0.0 for k in ks}
+    return {
+        f"recall@{k}": sum(min(k, len(rels)) / len(rels) for rels in scorable) / len(scorable)
+        for k in ks
+    }
+
+
+def percent_of_attainable(
+    measured: dict[str, float],
+    ceilings: dict[str, float],
+) -> dict[str, float | None]:
+    """``measured / ceiling`` for every metric with a known ceiling.
+
+    ``None`` where no ceiling exists (MRR, NDCG, MAP have no simple construction
+    ceiling here) rather than 1.0 or the raw value, because "we did not compute
+    a ceiling for this" and "this metric is at its ceiling" are different claims.
+    """
+    out: dict[str, float | None] = {}
+    for name, value in measured.items():
+        ceiling = ceilings.get(name)
+        out[name] = (value / ceiling) if ceiling else None
+    return out
+
+
 def attribute_failures(
     qrels_dict: dict[str, dict[str, int]],
     full_runs: dict[str, dict[str, float]],

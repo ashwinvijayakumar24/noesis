@@ -47,7 +47,10 @@ from scripts.eval.retrieval.metrics import (  # noqa: E402
     UNIT_DOCUMENT,
     VALID_UNITS,
     evaluate_run,
+    percent_of_attainable,
+    recall_ceilings,
 )
+from scripts.eval.retrieval.plan_probe import PLAN_UNKNOWN  # noqa: E402
 
 EVAL_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_RESULTS_PATH = EVAL_DIR / "results" / "retrieval_eval.jsonl"
@@ -178,16 +181,32 @@ def run_eval(
     )
 
     joinable = sorted(set(qbt) & {t for t, v in label_set.topics.items() if v.relevant_doc_ids})
+
+    # Ceilings are recomputed from THIS run's qrels, never carried forward: the
+    # label snapshot has changed twice and an inherited ceiling silently rescales
+    # every arm it touches.
+    ks = sorted({int(m.split("@")[1]) for m in (metrics or []) if m.startswith("recall@")})
+    ceilings = recall_ceilings({q: r for q, r in qrels.items() if r}, ks) if ks else {}
+
+    plan_probe = getattr(retriever, "plan_summary", None)
+    health = {
+        "rows_returned": rows_returned,
+        "rows_joined_to_corpus": rows_mapped,
+        "queries_with_empty_run": empty_runs,
+        "db_id_map_size": len(id_map),
+    }
+    leg_health = getattr(retriever, "leg_health", None)
+    if leg_health is not None:
+        health["legs"] = dict(leg_health)
+
     return {
         "result": result,
         "qrels": qrels,
         "raw": raw,
-        "retrieval_health": {
-            "rows_returned": rows_returned,
-            "rows_joined_to_corpus": rows_mapped,
-            "queries_with_empty_run": empty_runs,
-            "db_id_map_size": len(id_map),
-        },
+        "plan": plan_probe() if callable(plan_probe) else PLAN_UNKNOWN,
+        "recall_ceilings": ceilings,
+        "percent_of_attainable": percent_of_attainable(result.metrics, ceilings),
+        "retrieval_health": health,
         "n_queries_built": len(query_list),
         "joinable_topics": joinable,
         "topics_with_queries": sorted(qbt),
@@ -237,6 +256,19 @@ def run_verdict(degradation: dict, run_out: dict, retriever_name: str) -> dict:
                 "every metric here is a join bug, not a retrieval result."
             )
 
+        # A fusion is only a fusion if both legs brought something. A hybrid run
+        # whose keyword leg returned nothing is dense-only wearing hybrid's name
+        # -- which is precisely the silent degradation that made keyword search
+        # look fine in production for the whole life of the feature.
+        legs = health.get("legs") or {}
+        for leg in ("dense", "keyword"):
+            if f"{leg}_rows" in legs and legs[f"{leg}_rows"] == 0:
+                reasons.append(
+                    f"the {leg} leg of the fusion returned 0 rows across all "
+                    f"{scored} scored queries. Fusing with an empty leg is not a "
+                    "fusion; this run measures the other leg alone."
+                )
+
     return {"valid": not reasons, "reasons": reasons}
 
 
@@ -253,6 +285,8 @@ def build_record(
     include_misses: bool,
     timestamp: str | None = None,
     degradation: dict | None = None,
+    arm: str | None = None,
+    variant: dict | None = None,
 ) -> dict:
     config = {
         "harness_version": HARNESS_VERSION,
@@ -265,6 +299,7 @@ def build_record(
         "seed": seed,
         "labels_fingerprint": label_set.fingerprint(),
         "queries_fingerprint": queries_mod.fingerprint(query_list),
+        **(variant or {}),
     }
     result = run_out["result"]
     kill, kill_var = queries_mod.kill_switch_active()
@@ -273,7 +308,13 @@ def build_record(
     return {
         "valid": verdict["valid"],
         "invalidated_by": verdict["reasons"],
+        "arm": arm or retriever_name,
         "degradation": degradation,
+        # Which plan Postgres actually chose. See plan_probe: the previous
+        # baseline's "dense (pgvector HNSW)" row was an exhaustive scan.
+        "plan": run_out.get("plan", PLAN_UNKNOWN),
+        "recall_ceilings": run_out.get("recall_ceilings", {}),
+        "percent_of_attainable": run_out.get("percent_of_attainable", {}),
         "retrieval_health": run_out.get("retrieval_health", {}),
         "run_id": None,  # filled below from content, so identical runs collide visibly
         "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
@@ -341,8 +382,13 @@ def _print_summary(record: dict) -> None:
         for name in sorted(record["metrics"]):
             print(f"  {name:<24} n/a  (no scorable queries)")
     else:
+        ceilings = record.get("recall_ceilings") or {}
+        pct = record.get("percent_of_attainable") or {}
         for name in sorted(record["metrics"]):
-            print(f"  {name:<24} {record['metrics'][name]:.4f}")
+            line = f"  {name:<24} {record['metrics'][name]:.4f}"
+            if ceilings.get(name):
+                line += f"   ceiling {ceilings[name]:.4f}   {pct[name]:.0%} of attainable"
+            print(line)
 
     print("\n  -- failure attribution -----------------------------------------")
     fb = record["failure_breakdown"]
@@ -371,9 +417,19 @@ def _print_summary(record: dict) -> None:
               f"  (failures={deg.get('failure_count')})")
     else:
         print(f"  KEYWORD_SEARCH_DEGRADED  : UNKNOWN -- {deg.get('note')}")
+    plan = record.get("plan", PLAN_UNKNOWN)
+    print(f"  query plan               : {plan}"
+          + ("   <-- NOT the HNSW index; this is an exhaustive scan"
+             if plan == "seqscan" else ""))
     if health:
         print(f"  rows returned            : {health.get('rows_returned')}")
         print(f"  rows joined to corpus    : {health.get('rows_joined_to_corpus')}")
+        legs = health.get("legs") or {}
+        if legs:
+            print(f"  fusion legs              : dense {legs.get('dense_rows')} rows "
+                  f"({legs.get('dense_empty_queries')} empty), "
+                  f"keyword {legs.get('keyword_rows')} rows "
+                  f"({legs.get('keyword_empty_queries')} empty)")
         empty = health.get("queries_with_empty_run") or 0
         scored = record["n_queries_scored"] or 1
         print(f"  queries with empty run   : {empty} of {record['n_queries_scored']}")
@@ -393,6 +449,23 @@ def _print_summary(record: dict) -> None:
     print("=" * 68)
 
 
+def _variant(args, retriever) -> dict:
+    """Config keys that make two runs of the same retriever incomparable.
+
+    They go into the config hash, so a k_rrf=20 run and a k_rrf=60 run cannot be
+    mistaken for repeats of each other, and a v1-keyword run cannot be compared
+    to a v2-keyword run by accident.
+    """
+    out: dict = {}
+    if getattr(retriever, "k_rrf", None) is not None:
+        out["k_rrf"] = retriever.k_rrf
+    leg = getattr(retriever, "keyword", retriever)
+    rpc = getattr(leg, "rpc_name", None)
+    if rpc:
+        out["keyword_rpc"] = rpc
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Retrieval eval harness (append-only results). See RELEVANCE.md."
@@ -401,6 +474,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--unit", default=UNIT_DOCUMENT, choices=list(VALID_UNITS))
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--chunk-oversample", type=int, default=5)
+    ap.add_argument("--k-rrf", type=int, default=60,
+                    help="RRF constant for --retriever hybrid: score = sum 1/(k_rrf + rank)")
+    ap.add_argument("--arm", help="Label for this run in the results file "
+                                  "(e.g. 'dense_below_crossover')")
     ap.add_argument("--seed", type=int, default=0, help="MockRetriever seed")
     ap.add_argument("--plant-rate", type=float, default=0.0,
                     help="MockRetriever: fraction of relevant docs planted at top")
@@ -454,6 +531,11 @@ def main(argv: list[str] | None = None) -> int:
         retriever = build_retriever(
             "dense", project_id=args.project_id, embed_fn=production_embed_fn()
         )
+    elif args.retriever == "hybrid":
+        retriever = build_retriever(
+            "hybrid", project_id=args.project_id,
+            embed_fn=production_embed_fn(), k_rrf=args.k_rrf,
+        )
     else:
         retriever = build_retriever(args.retriever, project_id=args.project_id)
 
@@ -471,6 +553,13 @@ def main(argv: list[str] | None = None) -> int:
         remap_db_ids=args.retriever != "mock",
     )
 
+    # Persist any newly embedded queries so the next arm reuses the identical
+    # vectors instead of paying for near-identical ones.
+    for leg in (retriever, getattr(retriever, "dense", None)):
+        flush = getattr(getattr(leg, "embed_fn", None), "flush", None)
+        if callable(flush):
+            flush()
+
     record = build_record(
         run_out=run_out,
         label_set=label_set,
@@ -482,6 +571,8 @@ def main(argv: list[str] | None = None) -> int:
         metrics=metrics,
         seed=args.seed if args.retriever == "mock" else None,
         include_misses=not args.no_misses,
+        arm=args.arm,
+        variant=_variant(args, retriever),
     )
     record["run_id"] = hashlib.sha256(
         f"{record['config_hash']}\0{record['timestamp']}".encode("utf-8")

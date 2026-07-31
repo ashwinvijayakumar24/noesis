@@ -316,6 +316,52 @@ def test_rows_that_join_to_nothing_invalidate_the_run():
     assert any("NONE joined" in r for r in v["reasons"])
 
 
+def test_hybrid_with_an_empty_keyword_leg_is_invalid():
+    """A fusion whose lexical leg brought nothing is dense wearing hybrid's name.
+
+    That is the exact silent degradation this harness exists to catch, so it must
+    invalidate the run rather than be reported as a fusion result.
+    """
+    run = _FakeRun().as_dict()
+    run["retrieval_health"]["legs"] = {"dense_rows": 500, "keyword_rows": 0,
+                                       "dense_empty_queries": 0,
+                                       "keyword_empty_queries": 5}
+    v = R.run_verdict(CLEAN, run, "hybrid")
+    assert v["valid"] is False
+    assert any("keyword leg" in r for r in v["reasons"])
+
+
+def test_hybrid_with_an_empty_dense_leg_is_invalid():
+    run = _FakeRun().as_dict()
+    run["retrieval_health"]["legs"] = {"dense_rows": 0, "keyword_rows": 500,
+                                       "dense_empty_queries": 5,
+                                       "keyword_empty_queries": 0}
+    v = R.run_verdict(CLEAN, run, "hybrid")
+    assert v["valid"] is False
+    assert any("dense leg" in r for r in v["reasons"])
+
+
+def test_hybrid_with_both_legs_contributing_is_valid():
+    run = _FakeRun().as_dict()
+    run["retrieval_health"]["legs"] = {"dense_rows": 500, "keyword_rows": 480,
+                                       "dense_empty_queries": 0,
+                                       "keyword_empty_queries": 0}
+    assert R.run_verdict(CLEAN, run, "hybrid")["valid"] is True
+
+
+def test_degraded_flag_still_gates_the_rrf_path():
+    """The keyword leg of a fusion goes through the same swallow-prone RPC."""
+    degraded = {**CLEAN, "degraded": True, "failure_count": 1,
+                "last_error": "UndefinedFunction: keyword_search_chunks_v2"}
+    run = _FakeRun().as_dict()
+    run["retrieval_health"]["legs"] = {"dense_rows": 500, "keyword_rows": 500,
+                                       "dense_empty_queries": 0,
+                                       "keyword_empty_queries": 0}
+    v = R.run_verdict(degraded, run, "hybrid")
+    assert v["valid"] is False
+    assert any("KEYWORD_SEARCH_DEGRADED" in r for r in v["reasons"])
+
+
 def test_unknown_degradation_state_is_not_reported_as_healthy():
     from scripts.eval.retrieval import adapters as A
 
@@ -330,6 +376,41 @@ def test_record_carries_the_verdict_and_the_flag(workspace):
     assert record["invalidated_by"] == []
     assert "degraded" in record["degradation"]
     assert record["retrieval_health"]["rows_returned"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Ceilings travel with the record
+# ---------------------------------------------------------------------------
+
+
+def test_record_carries_recomputed_ceilings_and_percent_of_attainable(workspace):
+    """Ceilings are a property of the LABEL SNAPSHOT, so they are recomputed per
+    run. BASELINE.md's 0.106/0.531/0.779/0.880 belong to a snapshot that no
+    longer exists; carrying them forward would silently rescale every arm."""
+    R.main(_argv(workspace))
+    rec = R.read_results(workspace["results"])[0]
+
+    ceilings = rec["recall_ceilings"]
+    assert set(ceilings) == {"recall@1", "recall@5", "recall@10", "recall@20"}
+    assert all(0.0 < v <= 1.0 for v in ceilings.values())
+    # More depth can never lower the ceiling.
+    assert (ceilings["recall@1"] <= ceilings["recall@5"]
+            <= ceilings["recall@10"] <= ceilings["recall@20"])
+
+    pct = rec["percent_of_attainable"]
+    for name, value in rec["metrics"].items():
+        if name in ceilings:
+            assert pct[name] == pytest.approx(value / ceilings[name])
+            assert pct[name] <= 1.0 + 1e-9
+        else:
+            # MRR/NDCG/MAP have no construction ceiling here: None, never 1.0.
+            assert pct[name] is None
+
+
+def test_record_carries_the_query_plan(workspace):
+    """A mock has no plan; it must say "unknown" rather than inherit "index"."""
+    R.main(_argv(workspace))
+    assert R.read_results(workspace["results"])[0]["plan"] == "unknown"
 
 
 def test_cli_exits_nonzero_and_shouts_when_the_run_is_invalid(workspace, capsys, monkeypatch):

@@ -1,3 +1,13 @@
+> **SUPERSEDED by `scripts/eval/BASELINE_15.md`. Do not quote the numbers below.**
+> Two reasons: (1) the "dense (pgvector HNSW, cosine)" row was measured against an
+> exhaustive sequential scan, not the HNSW index — Postgres declined the index
+> above LIMIT ≈ 35 on the 2124-chunk corpus and the harness asks for 50; (2) the
+> label snapshot this document ran under (fingerprint `019bee4a06eb2d39`, 118
+> documents, 4 topics, 59 queries) no longer exists — the corpus is now 344
+> documents / 5948 chunks across all 15 topics. Every arm has been re-measured
+> under the current snapshot, and the construction ceilings recomputed. This file
+> is kept as history, not as a reference.
+
 # Retrieval baseline — first measured numbers, 2026-07-30
 
 Before this run, `grep -rE "ndcg|MRR|recall@"` over this repository returned

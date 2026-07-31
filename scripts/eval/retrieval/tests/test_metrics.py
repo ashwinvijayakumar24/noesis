@@ -16,7 +16,9 @@ from scripts.eval.retrieval.metrics import (
     attribute_failures,
     compute_metrics,
     evaluate_run,
+    percent_of_attainable,
     pool_to_unit,
+    recall_ceilings,
     truncate,
 )
 
@@ -228,3 +230,72 @@ def test_ranking_vs_retrieval_needs_untruncated_run():
     misses, _ = attribute_failures(qrels, full_runs, k=10, corpus_doc_ids={"deep"})
     assert misses[0].mode is FailureMode.RANKING
     assert misses[0].rank == 51
+
+
+# ---------------------------------------------------------------------------
+# Construction ceilings
+# ---------------------------------------------------------------------------
+
+
+def test_recall_ceiling_on_a_synthetic_label_set():
+    """Hand computed.
+
+    Every query inherits its manuscript's WHOLE reference list, so recall@k is
+    capped at min(k, |rel_q|)/|rel_q| for that query, and the run's ceiling is
+    the mean over queries -- the same unweighted-over-queries average ranx uses
+    for recall, so measured/ceiling is a ratio of like for like.
+
+    q1 has 2 relevant docs, q2 has 4, q3 has 10.
+      k=1  : (1/2 + 1/4 + 1/10) / 3 = (0.5 + 0.25 + 0.1)/3   = 0.283333...
+      k=5  : (2/2 + 4/4 + 5/10) / 3 = (1 + 1 + 0.5)/3         = 0.833333...
+      k=10 : (2/2 + 4/4 + 10/10)/3  = 1.0
+      k=20 : capped at 1.0 -- more depth than there are relevant docs
+    """
+    qrels = {
+        "q1": {"a": 1, "b": 1},
+        "q2": {"a": 1, "b": 1, "c": 1, "d": 1},
+        "q3": {f"d{i}": 1 for i in range(10)},
+    }
+    c = recall_ceilings(qrels, [1, 5, 10, 20])
+    assert c["recall@1"] == pytest.approx(0.2833333, abs=1e-6)
+    assert c["recall@5"] == pytest.approx(0.8333333, abs=1e-6)
+    assert c["recall@10"] == pytest.approx(1.0)
+    assert c["recall@20"] == pytest.approx(1.0)
+
+
+def test_recall_ceiling_is_1_when_every_query_has_one_relevant_doc():
+    """The benchmark shape people quote recall@10 from. Ours is not this shape."""
+    qrels = {f"q{i}": {"a": 1} for i in range(5)}
+    assert recall_ceilings(qrels, [1, 10])["recall@1"] == pytest.approx(1.0)
+
+
+def test_recall_ceiling_ignores_queries_with_no_relevant_docs():
+    """Unscorable queries are dropped by compute_metrics too; including them in
+    the ceiling would deflate it and inflate percent-of-attainable."""
+    with_empty = recall_ceilings({"q1": {"a": 1, "b": 1}, "q2": {}}, [1])
+    without = recall_ceilings({"q1": {"a": 1, "b": 1}}, [1])
+    assert with_empty == without
+
+
+def test_recall_ceiling_on_no_scorable_queries_is_zero_not_one():
+    assert recall_ceilings({}, [1, 10]) == {"recall@1": 0.0, "recall@10": 0.0}
+
+
+def test_percent_of_attainable_is_none_where_no_ceiling_exists():
+    """None, not 1.0: "no ceiling computed" and "at its ceiling" are different
+    claims and must not be confused in a results record."""
+    pct = percent_of_attainable(
+        {"recall@10": 0.25, "ndcg@10": 0.6}, {"recall@10": 0.5}
+    )
+    assert pct["recall@10"] == pytest.approx(0.5)
+    assert pct["ndcg@10"] is None
+
+
+def test_measured_recall_never_exceeds_its_own_ceiling():
+    """The property that makes the ceiling worth reporting at all."""
+    qrels = {"q1": {"a": 1, "b": 1, "c": 1}}
+    run = {"q1": {"a": 0.9, "b": 0.8, "c": 0.7}}   # a perfect retriever
+    measured = compute_metrics(qrels, run, ["recall@1", "recall@5"])
+    ceiling = recall_ceilings(qrels, [1, 5])
+    assert measured["recall@1"] <= ceiling["recall@1"] + 1e-9
+    assert measured["recall@5"] == pytest.approx(ceiling["recall@5"])
