@@ -22,7 +22,12 @@ scoring code as the control.
 |---|---|---|---|---|---|---|---|---|---|
 | **dense ×5** (control) | 338 | 0.2200 | 0.5199 | 42.3% | 0.5196 | 0.7336 | 0.2321 | — (27.7 ms retrieval) | $0.00 |
 | **dense ×5 → bge-reranker-v2-m3 (50) → take 10** | 338 | **0.2270** | 0.5199 | **43.7%** | **0.5328** | **0.7438** | **0.2349** | **13,314 ms / 16,506 ms** (n=108) | $0.00 |
-| Δ | | **+0.0070 (+3.2%)** | — | +1.35 pts | +0.0132 (+2.5%) | +0.0102 (+1.4%) | +0.0028 (+1.2%) | **+481× the first stage** | |
+| dense ×5 → **shipped `gpt-5-mini` reranker** → take 10 | 338 | 0.2200 | 0.5199 | 42.3% | 0.5196 | 0.7336 | 0.2321 | 1,782 ms / 2,395 ms (n=338) | **$0.33134** |
+| Δ (cross-encoder − control) | | **+0.0070 (+3.2%)** | — | +1.35 pts | +0.0132 (+2.5%) | +0.0102 (+1.4%) | +0.0028 (+1.2%) | **+481× the first stage** | |
+| Δ (`gpt-5-mini` − control) | | **0.0000** | — | 0.00 | **0.0000** | **0.0000** | **0.0000** | +1,782 ms | +$0.33 |
+
+The `gpt-5-mini` row is identical to the control **to four decimal places on every
+metric**, because it never reranked anything. See below.
 
 `run_id` `cc6db8bc0388`, config hash `464430efb82b54ed`; control `6fc17ba43999`,
 config hash `6eb1e010040c0684`. Model revision
@@ -127,8 +132,10 @@ raises if it moved by a cent or a call. All 338 query embeddings were served fro
 `cache/retrieval_query_embeddings`, so even the dense leg made no API call. Model
 weights (~2.2 GB) download once from HuggingFace and cost nothing to run.
 
-Total spend for this task: **$0.0020**, all of it from a two-query smoke test of
-the `gpt-5-mini` arm below. Budget was $2.
+Total spend for this task: **$0.33335** against a $2 budget — $0.00201 for a
+two-query smoke test and $0.33134 for the full `gpt-5-mini` arm below, which is
+the only arm that spent anything. `unpriced_calls` was 0 throughout, so unlike
+most figures in this project this one is not a floor.
 
 ---
 
@@ -149,14 +156,38 @@ content        : ''
 **The entire token budget is consumed by reasoning before a single output token
 is emitted.** `json.loads('')` then raises, and the function's
 `except Exception: return chunks[:top_k]` hands back the first stage's order —
-silently, with nothing logged and nothing counted. Observed no-op rate on a
-smoke test: **2 of 2 calls (n=2)**.
+silently, with nothing logged and nothing counted.
 
-This is on a live production path: `literature_search.py:149` calls
+Measured as a full arm, n = 338:
+
+| | |
+|---|---|
+| calls | 338 |
+| empty-content responses | **338** |
+| parse failures | **338** |
+| no-op fallbacks | **338** |
+| **no-op rate** | **1.000 (338/338)** |
+| last error | `JSONDecodeError: Expecting value: line 1 column 1 (char 0)` |
+| spend | **$0.33134** ($0.00098/query) |
+| added latency | p50 **1,782 ms**, p95 2,395 ms (n=338) |
+
+Its recall@10 is **0.2200 — the control's, exactly**, as are its NDCG@10, MRR and
+MAP to four decimals. That is not a reranker that failed to help. It is a
+reranker that has never run: every call bought the dense ordering back at full
+price.
+
+This is on a live production path — `literature_search.py:149` calls
 `retrieve_relevant_chunks_hybrid(..., use_reranking=True)` for the Tier-2 broad
-fallback. So production pays for a reranker on every such call and receives the
-unranked list. A full n = 338 arm is queued to put a real denominator under that
-rate; the mechanism above does not depend on it.
+fallback. At the measured rates that path pays **$0.00098 and 1.78 s per
+retrieval** for a no-op, and neither the spend nor the failure appears in any log
+or counter.
+
+Two independent bugs stack here, and fixing either alone is not enough: the token
+budget makes the call always return empty, and the bare `except` makes that
+invisible. The fix is `max_completion_tokens` large enough to clear the reasoning
+budget (plus `response_format={"type":"json_object"}`), **and** a counted,
+logged failure path — the same treatment `keyword_search` got when its silent
+degradation was found.
 
 `test_rerank.py` pins the two constants that make this inevitable
 (`max_completion_tokens=100`, a `gpt-5*` model), so a fix forces this section to
