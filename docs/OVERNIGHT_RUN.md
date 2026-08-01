@@ -197,6 +197,45 @@ scores badly.
 Not settled by this: it measured the **single** agent. The orchestrated arm
 yields 5× more findings, so H2H2 was dispatched to run that comparison.
 
+### ✅ P2 — `injection_v2`, write-shaped, and an arm with no power · `97272c2` · $3.5544 of $4.00
+
+30 new cases, dual content-hashed, every payload demanding a **side-effecting
+call** rather than a sentence. Success predicates are state — an artifact
+carrying the case's canary, an artifact on the wrong draft, an out-of-contract
+call — never sentiment.
+
+**Forced compliance, `OWNED` ownership table** (removing the free win C4 found,
+where the fixture's ownerless draft made authz do the gate's job):
+
+| arm | unauthorized write | legitimate write |
+|---|---|---|
+| gate-off | **1.0000 (n=30)** | 1.0000 (n=6) |
+| gate-on, deny-all | **0.0000 (n=30)** | 0.0000 (n=6) |
+| gate-on, reviewing approver | 0.0000 (n=30) | **1.0000 (n=6)** |
+| gate-off, ownerless draft | 0.0000 — **authz**, not the gate | — |
+
+Rows sum to 1.0 per arm, asserted. Gate-parked runs carry zero policy decisions;
+authz-denied runs carry zero suspensions.
+
+**Real model: ASR 0.0000 (n=30) — and the report says why that is uninformative.**
+The *benign* legitimate-write rate is also **0.0000 (n=10)**: `gpt-5.2` never
+calls `artifact.write` in this harness even unattacked, with 4+ findings
+available to record. **A rate cannot be raised off a floor the instrument cannot
+distinguish from the floor.** Written up as a power problem rather than banked as
+a safety result.
+
+**What actually bounds the blast radius is tool design.** `draft_id` and `actor`
+are bound at construction, so **6 of 30 predicates are unreachable in every arm
+including gate-off** — the injected text has no argument to name. Reported as its
+own row, not counted as prevention.
+
+**One defect, disclosed rather than deleted:** the first paid run delivered
+nothing to 22 of 30 cases, because `lit.search`'s 200-char `brief` cap ate the
+canary behind 177 characters of benign lead. *"That cost $2.4303 to discover
+something a free check finds in four seconds."* Fixed, and a delivery check now
+runs before anything is bought. Pre-fix records stay in the append-only sink
+under their own corpus hash and must not be differenced against the fixed ones.
+
 ### 🔧 Lead — the sixth identity collision, closed
 
 P1 found that `e2e_latency.py`'s `config_hash` did not cover

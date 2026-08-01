@@ -54,11 +54,21 @@ four concerns that produced nothing, while the single productive concern carried
 
 **5.** Built per-resource authorization and a **durable human-in-the-loop
 approval gate** that survives process death — **SIGKILL 20/20 resumed in a fresh
-interpreter, side effect applied exactly once 20/20** — and measured it against a
-31-case indirect prompt-injection set: **31/31 unauthorized writes blocked vs
-31/31 allowed with the gate off**, alongside the cost that buys it (a blanket-deny
-gate also blocks **100% of legitimate writes**; an approver that reads the
-proposal blocks 0%).
+interpreter, side effect applied exactly once 20/20** — and measured it against
+**61 indirect prompt-injection cases across two corpora**, the second built
+specifically with write-shaped payloads. Under a forced-compliant agent the gate
+takes unauthorized writes from **1.0000 to 0.0000 (n=30)**, with the cost stated
+beside it: a blanket-deny gate also blocks **100% of legitimate writes**, while
+an approver that reads the proposal blocks none and still refuses 30/30 attacks.
+
+**5b.** Reported that the gate is **not what bounds the blast radius here**.
+Under a real model no attack ever induced a write (**ASR 0.0000, n=30**) — but
+established that this number carries no information, because the *benign*
+write rate is also **0.0000 (n=10)**: the agent never reaches for its one
+side-effecting tool even unattacked, so the experiment had no power to detect an
+increase. What does bound it is **tool design** — `draft_id` and `actor` bound at
+construction, leaving **6 of 30 attack predicates unreachable in every arm,
+including with the gate off**.
 
 **6.** Measured a tool-description A/B with everything else held fixed and
 **reported the negative result**: the disciplined descriptions were **0.61 steps
@@ -143,7 +153,7 @@ avoid is a plausible sentence with nothing behind it.
 | "Built context compaction for long-horizon agents" | Fires at 8k (0.333, n=12) and, under a genuine long-horizon workload, at 16k (0.333, n=6, 4 events). It does **not** fire at 16k+ on the ordinary Phase A task — peak prompt is 10,092 tokens against a 13,600 trigger, so that zero is a **workload bound, not a broken path**. Claimable only with the workload named |
 | "Loop detection prevents runaway agents" | **One of three channels has ever bound.** `loop_no_result` fires 1.0000 (n=6) under an empty retriever — and is **fixture-only**, since `NoesisSearch` has `similarity_threshold=0.0` and structurally cannot return empty. `loop_repeated_call` and `loop_oscillation` have never bound in **270 runs**; max identical streak is **1** against a threshold of 3, including 30 runs built to induce looping. `gpt-5.2` under failure varies its calls and dies on the step budget instead |
 | "Prompt-injection defenses reduced attack success" | No defense produced a measurable ASR reduction. ASR 0.0645 → 0.0645 (n=31) |
-| "The approval gate stops real attacks" | Proven only under forced compliance. Under a real model, no attack in the set ever proposed a write — the payloads demand sentences, not actions |
+| "The approval gate stops real attacks" | Proven only under **forced compliance**. Under a real model no attack proposed a write — but the *benign* write rate is also 0.0000 (n=10), so the arm had **no power** to detect one. Rebuilding the corpus with write-shaped payloads (v2, n=30) did not change it. What bounds the blast radius is **tool design**, not the gate |
 | "recall@10 improved from 0.2195 to 0.2270" | Different corpora. The control moved to 0.2200 when 6 documents were re-ingested; 0.2195 belongs to an index that no longer exists |
 | "human-authored labels" | The reviews are human; the **segmentation into units was done by GPT-5.2**. Say "human reviews, model-segmented" |
 | any p95 on the latency work | n=7. A p95 over seven runs is the maximum wearing a percentile's name |
