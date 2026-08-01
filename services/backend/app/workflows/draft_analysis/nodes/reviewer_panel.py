@@ -420,6 +420,18 @@ def _reviewer_manuscript_text(draft_content: str) -> str:
 #     A section nobody sees is a regression, not a saving. Sections claimed by
 #     no persona therefore go to *every* persona; sections claimed by several
 #     are shared.
+#
+#     THIS PROPERTY DOES NOT HOLD AT THE CURRENT BUDGET, AND THE FLAG IS OFF
+#     PARTLY BECAUSE OF IT. Routing unclaimed spans to all three personas is
+#     what was supposed to guarantee coverage, and it is the very thing that
+#     breaks it: that text is bought three times out of three separate 24k
+#     budgets, so distinct capacity collapses toward 24k instead of growing to
+#     72k. Measured on the eval corpus, 7 of 15 manuscripts lose text; coverage
+#     runs 41%-100% and the median loser sits near 65%. `scoped_coverage_report`
+#     computes this exactly and `log_scoped_coverage` records it per run, so the
+#     shortfall is never silent. Anyone reviving this needs a rule that does not
+#     triple-count unclaimed text — not a larger budget, which would only change
+#     the experiment.
 #   * CACHEABLE PREFIX. Scoping makes the manuscript block differ per persona,
 #     which is the one thing the cross-persona prompt cache cannot tolerate. So
 #     the manuscript block is pushed as late as it can go: the system preamble,
@@ -619,35 +631,35 @@ def _allocate_span_budget(lengths: list[int], budget: int) -> list[int]:
     ]
 
 
-def scoped_manuscript_text(
-    state: DraftAnalysisState, reviewer_type: str
-) -> str | None:
-    """This persona's manuscript block, or None when scoping cannot apply.
+def persona_demand(spans: list[dict], reviewer_type: str) -> int:
+    """Chars this persona would need to see every span assigned to it."""
+    return sum(len(s["text"]) for s in spans if reviewer_type in s["owners"])
+
+
+def persona_allowance(spans: list[dict], reviewer_type: str) -> dict[int, int] | None:
+    """Chars of each span (by index) this persona is budgeted, or None if none.
 
     Budget is the same ``REVIEWER_MANUSCRIPT_MAX_CHARS`` every persona gets
     today; it is spent on this persona's lane rather than on the head of the
     document. Claimed spans are funded before unclaimed ones, so a reviewer's
-    own lane is never cut in order to show it text outside that lane. The small
-    unclaimed reserve exists only for the pathological case where one persona's
-    claimed lane alone overflows the budget — without it, an unclaimed span
-    could be dropped by every persona at once and coverage would break.
-    """
-    spans = manuscript_spans(state)
-    if not spans:
-        return None
+    own lane is never cut in order to show it text outside that lane.
 
-    mine = [s for s in spans if reviewer_type in s["owners"]]
+    Truncation is always a prefix cut, so an allowance of *n* means the first
+    *n* chars of the span reach this persona. That is what makes union coverage
+    exactly computable — see ``scoped_coverage_report``.
+    """
+    mine = [i for i, s in enumerate(spans) if reviewer_type in s["owners"]]
     if not mine:
         return None
 
     budget = REVIEWER_MANUSCRIPT_MAX_CHARS
-    claimed = [s for s in mine if s["lane"] is not None]
-    unclaimed = [s for s in mine if s["lane"] is None]
-    claimed_total = sum(len(s["text"]) for s in claimed)
+    claimed = [i for i in mine if spans[i]["lane"] is not None]
+    unclaimed = [i for i in mine if spans[i]["lane"] is None]
+    claimed_total = sum(len(spans[i]["text"]) for i in claimed)
 
     if claimed_total >= budget:
         reserve = min(
-            sum(len(s["text"]) for s in unclaimed),
+            sum(len(spans[i]["text"]) for i in unclaimed),
             budget // SCOPED_UNCLAIMED_RESERVE_DIVISOR,
         )
         claimed_budget = budget - reserve
@@ -657,14 +669,120 @@ def scoped_manuscript_text(
 
     allowance: dict[int, int] = {}
     for group, group_budget in ((claimed, claimed_budget), (unclaimed, reserve)):
-        sizes = _allocate_span_budget([len(s["text"]) for s in group], group_budget)
-        for span, size in zip(group, sizes):
-            allowance[id(span)] = size
+        sizes = _allocate_span_budget(
+            [len(spans[i]["text"]) for i in group], group_budget
+        )
+        for index, size in zip(group, sizes):
+            allowance[index] = size
+    return allowance
+
+
+def scoped_coverage_report(state: DraftAnalysisState) -> dict | None:
+    """How much of the manuscript the whole panel actually sees. None if unscoped.
+
+    THE BUDGET DOES NOT ADD UP, AND THIS IS WHERE THAT BECOMES VISIBLE.
+    Three personas x 24k is 72k of *slots*, not 72k of distinct manuscript: a
+    span claimed by two personas is paid for twice, and a span claimed by nobody
+    goes to all three and is paid for three times. Since the unclaimed-goes-to-
+    everybody rule is exactly what most manuscripts trigger most often (the
+    parser labels the majority of real sections ``other``), distinct capacity
+    collapses toward a single 24k budget rather than expanding to 72k. On the
+    eval corpus, 7 of 15 manuscripts lose text, the worst covering 41% of its
+    141k chars.
+
+    That is a property of the design, not a bug in the arithmetic, and the fix
+    is not a bigger budget — it is a scoping rule that does not triple-count the
+    text nobody claims. Until then this report exists so the loss is recorded
+    rather than silently absorbed into a plausible-looking review.
+
+    Because truncation is always a prefix cut, the union across personas of what
+    is seen of a span is just the largest single allowance for it, so
+    ``covered_chars`` is exact, not an estimate.
+    """
+    spans = manuscript_spans(state)
+    if not spans:
+        return None
+
+    best: list[int] = [0] * len(spans)
+    for reviewer_type in REVIEWER_PERSONAS:
+        allowance = persona_allowance(spans, reviewer_type)
+        if not allowance:
+            continue
+        for index, size in allowance.items():
+            best[index] = max(best[index], min(size, len(spans[index]["text"])))
+
+    dropped = [
+        {
+            "title": spans[i]["title"],
+            "lane": spans[i]["lane"],
+            "dropped_chars": len(spans[i]["text"]) - best[i],
+        }
+        for i in range(len(spans))
+        if best[i] < len(spans[i]["text"])
+    ]
+    manuscript_chars = sum(len(s["text"]) for s in spans)
+    covered_chars = sum(best)
+    return {
+        "manuscript_chars": manuscript_chars,
+        "covered_chars": covered_chars,
+        "dropped_chars": manuscript_chars - covered_chars,
+        "coverage_ratio": (covered_chars / manuscript_chars) if manuscript_chars else 1.0,
+        "spans": len(spans),
+        "dropped_spans": dropped,
+    }
+
+
+def log_scoped_coverage(state: DraftAnalysisState, reviewer_type: str) -> dict | None:
+    """Record any manuscript text the scoped panel drops. Never silent.
+
+    Text vanishing between the parser and the reviewer is the same class of
+    defect as a swallowed exception: the run still produces a confident-looking
+    review, from an input nobody was told was incomplete.
+    """
+    report = scoped_coverage_report(state)
+    if not report:
+        return None
+    if report["dropped_chars"] <= 0:
+        logger.info(
+            "[ReviewerPanel] scoped coverage complete: %s spans, %s chars, reviewer=%s",
+            report["spans"], report["manuscript_chars"], reviewer_type,
+        )
+        return report
+    worst = sorted(
+        report["dropped_spans"], key=lambda d: d["dropped_chars"], reverse=True
+    )[:5]
+    logger.warning(
+        "[ReviewerPanel] SCOPED COVERAGE SHORTFALL reviewer=%s: %.1f%% of the "
+        "manuscript reaches the panel (%s of %s chars); %s of %s spans truncated "
+        "for every reviewer. Largest losses: %s",
+        reviewer_type,
+        100 * report["coverage_ratio"],
+        report["covered_chars"],
+        report["manuscript_chars"],
+        len(report["dropped_spans"]),
+        report["spans"],
+        ", ".join(
+            f"{d['title'][:40]!r}[{d['lane']}] -{d['dropped_chars']}c" for d in worst
+        ),
+    )
+    return report
+
+
+def scoped_manuscript_text(
+    state: DraftAnalysisState, reviewer_type: str
+) -> str | None:
+    """This persona's manuscript block, or None when scoping cannot apply."""
+    spans = manuscript_spans(state)
+    if not spans:
+        return None
+    allowance = persona_allowance(spans, reviewer_type)
+    if allowance is None:
+        return None
 
     parts: list[str] = []
-    for span in mine:  # document order is preserved by `spans`
-        size = allowance.get(id(span), 0)
-        text = span["text"]
+    for index in sorted(allowance):  # document order
+        size = allowance[index]
+        text = spans[index]["text"]
         if size >= len(text):
             parts.append(text)
         elif size > 0:
@@ -1132,6 +1250,17 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
     # parallel panel calls share a cacheable token prefix. See the ordering note
     # above REVIEWER_PERSONAS.
     messages = build_reviewer_messages(state, reviewer_type)
+
+    # Scoping can drop manuscript text that reaches no reviewer at all. Record
+    # it before the call so a shortfall is on the record next to the review it
+    # produced, rather than inferred later from a suspiciously thin report.
+    if scoped_panel_enabled():
+        try:
+            log_scoped_coverage(state, reviewer_type)
+        except Exception as _coverage_exc:  # never block the panel on telemetry
+            logger.warning(
+                "[ReviewerPanel] scoped coverage accounting failed: %s", _coverage_exc
+            )
 
     try:
         response = await asyncio.wait_for(

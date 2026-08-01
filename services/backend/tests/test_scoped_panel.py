@@ -1,10 +1,15 @@
 """Per-reviewer section scoping — ``DRAFT_REVIEWER_SCOPED_PANEL``.
 
-No network. These tests pin the two properties that make the scoped panel safe
-to measure against the unscoped one:
+No network. These tests pin what the scoped panel actually does:
 
-  * **Union coverage is total.** Every span of the manuscript reaches at least
-    one persona. A section nobody sees is a regression, not an optimisation.
+  * **Union coverage is NOT total at the current budget.** This was the build's
+    acceptance criterion and the feature does not meet it. Three personas x 24k
+    does not buy 72k of distinct manuscript, because a span claimed by nobody is
+    routed to all three and paid for three times. Measured on the eval corpus,
+    7 of 15 manuscripts lose text and the worst sees 41% of itself. The tests
+    below assert the property that *is* true — a span survives whole iff some
+    owning persona can afford its whole assignment — and assert that the
+    shortfall is reported rather than silently absorbed.
   * **Flag off is byte-identical.** The assembled message payload with the flag
     off is exactly the string today's code produces. Without that, an A/B
     between the two arms compares two changes, not one.
@@ -33,7 +38,10 @@ from app.workflows.draft_analysis.nodes.reviewer_panel import (
     build_manuscript_block,
     build_reviewer_messages,
     build_shared_reviewer_prefix,
+    log_scoped_coverage,
     manuscript_spans,
+    persona_demand,
+    scoped_coverage_report,
     scoped_manuscript_text,
     scoped_panel_enabled,
     section_lane,
@@ -254,40 +262,181 @@ def test_every_span_reaches_at_least_one_persona():
 
 @pytest.mark.unit
 @requires_corpus
-def test_union_coverage_is_total_on_real_manuscripts(monkeypatch):
-    """Flag ON: every section of every real manuscript reaches some persona,
-    with non-empty text, after budgeting and truncation."""
-    monkeypatch.setenv("DRAFT_REVIEWER_SCOPED_PANEL", "1")
-    monkeypatch.delenv("DRAFT_REVIEWER_COMPACT_MANUSCRIPT", raising=False)
+def test_every_span_reaches_a_reviewer_at_least_in_part():
+    """The weak property — every span is *represented*.
 
+    Kept because it is worth having, and labelled honestly because it is NOT
+    the acceptance criterion. Every span gets a floor allocation, so this
+    passes by construction and cannot detect a truncated tail. An earlier
+    version of this file checked each span's first 120 chars and called the
+    result "union coverage is total"; it was structurally incapable of failing.
+    The real criterion is asserted below.
+    """
     for paper_id, state in REAL_STATES:
         spans = manuscript_spans(state)
-        assert spans, f"{paper_id}: expected usable spans"
-        blocks = {rt: scoped_manuscript_text(state, rt) for rt in REVIEWER_TYPES}
-        assert all(b is not None for b in blocks.values()), paper_id
-
+        blocks = [scoped_manuscript_text(state, rt) for rt in REVIEWER_TYPES]
         for span in spans:
-            # The head of a span is unique enough to identify it and survives
-            # truncation, which only ever cuts a span's tail.
             head = span["text"][:120]
             if not head.strip():
                 continue
-            assert any(head in block for block in blocks.values()), (
-                f"{paper_id}: section {span['title']!r} (lane={span['lane']}) "
-                f"reached no reviewer — coverage hole"
-            )
+            assert any(head in b for b in blocks), f"{paper_id}: {span['title']!r}"
 
 
 @pytest.mark.unit
 @requires_corpus
-def test_under_cap_manuscripts_are_covered_in_full(monkeypatch):
-    """When nothing needs truncating, coverage is not merely partial: the union
-    of the three scoped blocks contains every span whole."""
+def test_union_coverage_is_total_exactly_when_the_budget_can_hold_it():
+    """The true property, and it does NOT hold on most real manuscripts.
+
+    A span survives whole iff some persona that owns it can afford its entire
+    assignment. That is an independent predicate — computed from demand, not
+    from the allocator's own output — so it is a real oracle for the allocator.
+
+    On the eval corpus this test documents a genuine coverage regression: the
+    aggregate 3 x 24k does not buy 72k of distinct manuscript, because spans
+    claimed by nobody are bought once per persona. If a future change makes
+    coverage total everywhere, the `assert lossy` line below fails loudly and
+    the docstring stops being true — which is the point.
+    """
+    lossy: list[tuple[str, float]] = []
+    for paper_id, state in REAL_STATES:
+        spans = manuscript_spans(state)
+        report = scoped_coverage_report(state)
+        assert report is not None, paper_id
+
+        for index, span in enumerate(spans):
+            affordable = any(
+                persona_demand(spans, rt) <= REVIEWER_MANUSCRIPT_MAX_CHARS
+                for rt in span["owners"]
+            )
+            fully_covered = not any(
+                d["title"] == span["title"] and d["dropped_chars"] > 0
+                for d in report["dropped_spans"]
+            )
+            if affordable:
+                assert fully_covered, (
+                    f"{paper_id}: {span['title']!r} was affordable to an owner "
+                    f"yet still lost text — allocator bug, not a budget limit"
+                )
+
+        if report["coverage_ratio"] < 1.0:
+            lossy.append((paper_id, report["coverage_ratio"]))
+
+    assert lossy, (
+        "No manuscript lost text. If that is now true, the coverage defect this "
+        "flag shipped with has been fixed — update this test and the module "
+        "comment in reviewer_panel.py rather than deleting the assertion."
+    )
+
+
+@pytest.mark.unit
+@requires_corpus
+def test_the_coverage_report_never_understates_the_loss():
+    """The report is the only thing standing between this feature and silent
+    text loss, so it is checked against an independent substring measurement
+    rather than trusted."""
+    for paper_id, state in REAL_STATES:
+        spans = manuscript_spans(state)
+        blocks = [
+            b for b in (scoped_manuscript_text(state, rt) for rt in REVIEWER_TYPES)
+            if b is not None
+        ]
+        report = scoped_coverage_report(state)
+
+        measured_covered = 0
+        for span in spans:
+            text = span["text"]
+            best = 0
+            for block in blocks:  # longest prefix of this span present anywhere
+                low, high = best, len(text)
+                while low < high:
+                    mid = (low + high + 1) // 2
+                    if text[:mid] in block:
+                        low = mid
+                    else:
+                        high = mid - 1
+                best = max(best, low)
+            measured_covered += best
+
+        assert report["covered_chars"] <= measured_covered, (
+            f"{paper_id}: report claims {report['covered_chars']} chars covered "
+            f"but only {measured_covered} are actually present in any block"
+        )
+        assert (
+            report["covered_chars"] + report["dropped_chars"]
+            == report["manuscript_chars"]
+        ), f"{paper_id}: coverage accounting does not reconcile"
+
+
+@pytest.mark.unit
+@requires_corpus
+def test_the_shortfall_is_logged_not_swallowed(monkeypatch, caplog):
+    """Requirement: if scoping drops text, the run says so."""
+    import logging
+
+    monkeypatch.setenv("DRAFT_REVIEWER_SCOPED_PANEL", "1")
+    lossy = [
+        (pid, st) for pid, st in REAL_STATES
+        if (scoped_coverage_report(st) or {}).get("dropped_chars", 0) > 0
+    ]
+    assert lossy, "expected at least one manuscript to lose text"
+
+    paper_id, state = lossy[0]
+    with caplog.at_level(logging.WARNING):
+        report = log_scoped_coverage(state, "methodology")
+
+    assert report["dropped_chars"] > 0
+    assert "SCOPED COVERAGE SHORTFALL" in caplog.text, paper_id
+    # The message must carry the magnitude, not just the fact.
+    assert str(report["manuscript_chars"]) in caplog.text
+    assert str(report["covered_chars"]) in caplog.text
+
+
+@pytest.mark.unit
+def test_a_complete_run_is_logged_as_complete(monkeypatch, caplog):
+    import logging
+
     monkeypatch.setenv("DRAFT_REVIEWER_SCOPED_PANEL", "1")
     state = _short_manuscript_state()
+    with caplog.at_level(logging.DEBUG):
+        report = log_scoped_coverage(state, "clarity")
+
+    assert report["dropped_chars"] == 0
+    assert report["coverage_ratio"] == 1.0
+    assert "SCOPED COVERAGE SHORTFALL" not in caplog.text
+
+
+@pytest.mark.unit
+def test_under_cap_manuscripts_are_covered_in_full(monkeypatch):
+    """When the budget genuinely does not bind, coverage IS total.
+
+    Note the qualifier — this is the regime real corpus manuscripts mostly do
+    not occupy (they run 26k-141k chars against a 24k per-persona budget), so
+    this test alone must never be read as evidence that coverage holds.
+    """
+    monkeypatch.setenv("DRAFT_REVIEWER_SCOPED_PANEL", "1")
+    state = _short_manuscript_state()
+    assert scoped_coverage_report(state)["coverage_ratio"] == 1.0
     blocks = [scoped_manuscript_text(state, rt) for rt in REVIEWER_TYPES]
     for span in manuscript_spans(state):
         assert any(span["text"] in block for block in blocks), span["title"]
+
+
+@pytest.mark.unit
+@requires_corpus
+def test_measured_coverage_on_the_real_corpus_is_recorded():
+    """Pins the measured shape of the defect so a silent drift is visible."""
+    ratios = {
+        paper_id: scoped_coverage_report(state)["coverage_ratio"]
+        for paper_id, state in REAL_STATES
+    }
+    losers = {p: r for p, r in ratios.items() if r < 1.0}
+
+    # Measured 2026-08-01 on 15 cached eval states: 7 lose text, worst ~41%.
+    assert len(losers) >= 5, f"coverage profile changed: {ratios}"
+    assert min(ratios.values()) < 0.60, f"worst-case coverage changed: {ratios}"
+    assert all(r > 0.30 for r in ratios.values()), (
+        f"coverage collapsed further than measured: {ratios}"
+    )
 
 
 # ---------------------------------------------------------------------------
