@@ -270,12 +270,30 @@ def test_published_characterisation_reproduces():
     ch = fs.characterise(gt, pools, fs.indexed_document_ids(gt), k=10)
 
     # The three numbers RERANK.md published, reproduced from a different driver.
-    assert ch.retrieval_failures == 6011
-    assert ch.ranking_failures == 933
-    assert ch.hits == 1610
+    #
+    # Asserted within a tolerance rather than exactly, and the reason is in this
+    # module's own findings: the pool comes from an HNSW index at ef_search=80,
+    # which is an APPROXIMATE search. This file measured that approximation
+    # directly -- 0.0010 of the published 0.2200 -> 0.2227 is ANN error, not
+    # depth -- and then pinned an exact count downstream of it, which is a
+    # contradiction. Two runs a day apart on a digest-identical corpus produced
+    # 6011 and 6013.
+    #
+    # 0.5% is well inside the ANN error this file documents and far below any
+    # change worth noticing: the smallest claim made from these counts is the
+    # 6,011 -> 20 collapse when the depth limit is removed, a factor of 300.
+    def _close(actual: int, published: int, *, tol: float = 0.005) -> bool:
+        return abs(actual - published) <= max(1, round(published * tol))
 
-    # The split that is new here.
-    assert (ch.never_ingested, ch.never_retrieved, ch.retrieved_elsewhere) == (20, 71, 5920)
+    assert _close(ch.retrieval_failures, 6011), ch.retrieval_failures
+    assert _close(ch.ranking_failures, 933), ch.ranking_failures
+    assert _close(ch.hits, 1610), ch.hits
+
+    # The split that is new here. never_ingested is exact -- it counts documents
+    # with zero chunks, which no approximate search can perturb.
+    assert ch.never_ingested == 20
+    assert _close(ch.never_retrieved, 71, tol=0.05), ch.never_retrieved
+    assert _close(ch.retrieved_elsewhere, 5920), ch.retrieved_elsewhere
 
     arm = fs.arm_summary(pools, gt.qrels, 10)
     assert arm["recall@10"] == fs.CONTROL_R10
