@@ -176,10 +176,11 @@ raises if it moved by a cent or a call. All 338 query embeddings were served fro
 `cache/retrieval_query_embeddings`, so even the dense leg made no API call. Model
 weights (~2.2 GB) download once from HuggingFace and cost nothing to run.
 
-Total spend for this task: **$0.33335** against a $2 budget — $0.00201 for a
-two-query smoke test and $0.33134 for the full `gpt-5-mini` arm below, which is
-the only arm that spent anything. `unpriced_calls` was 0 throughout, so unlike
-most figures in this project this one is not a floor.
+Total spend for this task: **$0.61283** against a $2 budget, all of it on the
+`gpt-5-mini` arms below — $0.33134 (as-shipped, n=338), $0.22418 (fixed, n=100),
+$0.04822 (as-shipped, n=100), $0.00908 (two smoke tests). Every cross-encoder arm
+cost exactly $0.00. `unpriced_calls` was 0 on every record, so unlike most
+figures in this project this one is **not** a floor.
 
 ---
 
@@ -228,10 +229,42 @@ or counter.
 
 Two independent bugs stack here, and fixing either alone is not enough: the token
 budget makes the call always return empty, and the bare `except` makes that
-invisible. The fix is `max_completion_tokens` large enough to clear the reasoning
-budget (plus `response_format={"type":"json_object"}`), **and** a counted,
-logged failure path — the same treatment `keyword_search` got when its silent
-degradation was found.
+invisible.
+
+### The same reranker, actually running
+
+To separate "the LLM reranker does not help" from "the LLM reranker never ran",
+the identical call was re-run with `max_completion_tokens=2000` and
+`response_format={"type":"json_object"}` — nothing else changed. **n = 100**
+(topic-stratified, deterministic), its own ceiling **0.5956**, paired against a
+control on the same 100 queries. These do not difference against the n = 338
+table above; different query set, different ceiling.
+
+| arm (n = 100, ceiling 0.5956) | recall@10 | NDCG@10 | MRR | MAP | no-op rate | added p50 | spend |
+|---|---|---|---|---|---|---|---|
+| dense ×5 control | 0.2406 | 0.5132 | 0.7268 | 0.2468 | — | — | $0.00 |
+| `gpt-5-mini` **as shipped** | 0.2406 | 0.5132 | 0.7268 | 0.2468 | **100/100** | 1,798 ms | $0.0482 |
+| `gpt-5-mini` **fixed** | 0.2409 | 0.5207 | 0.7332 | 0.2503 | **0/100** | 10,648 ms | $0.2242 |
+
+Fixed, it runs cleanly — `finish_reason='stop'`, 0 parse failures — and consumes
+**1,408 reasoning tokens** on its last call, which is why a 100-token budget was
+never going to work. And having run, it recovered **1 ranking failure out of
+222** (222 → 221). recall@10 moves +0.0003.
+
+So the honest reading is three-layered, and only the first two were previously
+knowable:
+
+1. As shipped, it does not rerank. 100/100 and 338/338 no-ops.
+2. Fixed, it reranks correctly and costs **$0.00224 and 10.6 s per query** —
+   2.3× the price of the broken version, since reasoning tokens are billed.
+3. Fixed, it buys **+0.0003 recall@10**. On the same failure population the free
+   local cross-encoder recovered **53 of 933 (5.7%)** against this model's
+   **1 of 222 (0.45%)**, at comparable latency and no cost.
+
+The fix worth making is therefore in the *error handling*, not the reranker: a
+counted, logged failure path — the same treatment `keyword_search` got when its
+silent degradation was found. Turning the reranker on properly is not where the
+recall is.
 
 `test_rerank.py` pins the two constants that make this inevitable
 (`max_completion_tokens=100`, a `gpt-5*` model), so a fix forces this section to
