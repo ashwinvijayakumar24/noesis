@@ -272,6 +272,75 @@ def run_verdict(degradation: dict, run_out: dict, retriever_name: str) -> dict:
     return {"valid": not reasons, "reasons": reasons}
 
 
+#: Recorded in place of a real fingerprint when the retriever does not read the
+#: database at all (``--retriever mock``). Distinct from ``"unknown"``, which
+#: means a DB-backed run whose index could not be identified -- an absence, not
+#: a not-applicable.
+INDEX_NOT_APPLICABLE = "n/a"
+INDEX_UNKNOWN = "unknown"
+
+
+def index_fingerprint(retriever_name: str, project_id: str = EVAL_PROJECT_ID) -> dict:
+    """Identify the corpus that was actually searched.
+
+    Added after a concurrency incident that this harness could not have
+    detected. Two agents ran at once: one re-chunked the corpus in place while
+    the other measured a control arm against it. Both records carry the same
+    ``labels_fingerprint``, the same ``queries_fingerprint`` and the same
+    ``config_hash`` -- because ``LabelSet.fingerprint()`` hashes document ids and
+    topic relevance, and document ids are ``uuid5`` over *file content*, which
+    re-chunking does not change. So an index of 5,924 chunks and an index of
+    5,948 chunks were indistinguishable in the record, and a contaminated
+    control read 0.2186 where the real control reads 0.2195.
+
+    The labels fingerprint answers "what was I scored against". Nothing answered
+    "what did I search". This does.
+
+    Returned as a dict and folded into ``config``, so it participates in
+    ``config_hash``: a corpus change now forces a new hash, and the house rule
+    that trends are drawn only within a hash does the rest of the work
+    automatically.
+
+    Never raises. A fingerprint that can take down an eval run would get
+    disabled the first time it was inconvenient, and then it would be absent
+    exactly when it mattered.
+    """
+    if retriever_name == "mock":
+        return {"index_state": INDEX_NOT_APPLICABLE}
+    try:
+        from scripts.eval import db as db_mod  # noqa: PLC0415  (lazy: mock needs no DB)
+
+        with db_mod.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT count(*) AS n_chunks,
+                           count(DISTINCT c.document_id) AS n_docs,
+                           md5(string_agg(c.id::text, ',' ORDER BY c.id)) AS chunk_digest
+                    FROM public.document_chunks c
+                    JOIN public.documents d ON d.id = c.document_id
+                    WHERE d.project_id = %s::uuid
+                    """,
+                    (project_id,),
+                )
+                row = cur.fetchone()
+    except Exception as exc:  # noqa: BLE001 -- see docstring: never raise
+        return {"index_state": INDEX_UNKNOWN, "index_error": f"{type(exc).__name__}: {exc}"}
+
+    if row is None or row[0] == 0:
+        return {"index_state": INDEX_UNKNOWN, "index_error": "no chunks for project"}
+
+    n_chunks, n_docs, chunk_digest = row[0], row[1], row[2] or ""
+    return {
+        # Human-readable, because "5924 vs 5948" is what a person notices in a
+        # diff. The digest is what a machine compares.
+        "index_state": f"{n_chunks}c/{n_docs}d",
+        "index_n_chunks": int(n_chunks),
+        "index_n_documents": int(n_docs),
+        "index_digest": hashlib.sha256(chunk_digest.encode()).hexdigest()[:16],
+    }
+
+
 def build_record(
     run_out: dict,
     label_set: labels_mod.LabelSet,
@@ -299,6 +368,9 @@ def build_record(
         "seed": seed,
         "labels_fingerprint": label_set.fingerprint(),
         "queries_fingerprint": queries_mod.fingerprint(query_list),
+        # What was searched, alongside what it was scored against. See
+        # index_fingerprint() for the incident that made this necessary.
+        **index_fingerprint(retriever_name),
         **(variant or {}),
     }
     result = run_out["result"]
