@@ -58,10 +58,15 @@ measured twice.
 | 5 | **P5** | loop detection: exercise or retire | $4.00 | ✅ $1.64 |
 | 6 | **P3** | size-aware step allocation | $3.00 | ✅ $2.39 |
 
-**P3 is held deliberately.** It changes `OrchestratorConfig`, which H2H is
-measuring right now. Landing it mid-flight would silently change the system
-under test — the exact failure this project hit five times already. It launches
-when H2H reports.
+Two more were added mid-run and are logged below: **H2H2** (orchestrated agent
+vs DAG, $3.77) after H2H's single-agent loss made the orchestrated comparison the
+obvious question, and the lead's own fixes.
+
+*P3 was held at the start rather than launched, because it changes
+`OrchestratorConfig` — which H2H was measuring at the time. Landing it mid-flight
+would have silently changed the system under test, the exact failure this project
+had already hit five times. It launched once H2H reported, and shipped behind a
+default-off flag so H2H2's measurement was untouched too.*
 
 ---
 
