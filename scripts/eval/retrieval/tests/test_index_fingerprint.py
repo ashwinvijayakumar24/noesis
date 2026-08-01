@@ -65,3 +65,43 @@ def test_index_state_participates_in_the_config_hash():
         "this test exists to prevent has recurred"
     )
     assert config_hash(legacy) == config_hash(dict(legacy)), "hash must be stable"
+
+
+def test_a_row_count_is_not_a_corpus_identity():
+    """The check that the incident's own verification failed.
+
+    R1 verified 5,948 chunks / 344 documents and concluded the corpus was
+    intact. It was intact *by count* at every moment -- the restore returned the
+    count while replacing 324 chunk ids and their embeddings. Counting rows is
+    exactly the check that cannot see this.
+    """
+    from scripts.eval.retrieval.run_retrieval_eval import (
+        CorpusChangedUnderRun,
+        assert_corpus_stable,
+    )
+
+    before = {"index_state": "5948c/344d", "index_digest": "8d3edbe3f3b28cdb"}
+    after_same_count = {"index_state": "5948c/344d", "index_digest": "0000000000000000"}
+
+    assert before["index_state"] == after_same_count["index_state"], (
+        "the premise of this test: counts match"
+    )
+    try:
+        assert_corpus_stable(before, after_same_count)
+    except CorpusChangedUnderRun as exc:
+        assert "cannot share a record" in str(exc)
+    else:
+        raise AssertionError("identical counts with different digests must not pass")
+
+
+def test_stable_corpus_passes_and_mock_is_exempt():
+    from scripts.eval.retrieval.run_retrieval_eval import (
+        INDEX_NOT_APPLICABLE,
+        assert_corpus_stable,
+    )
+
+    fp = {"index_state": "5948c/344d", "index_digest": "8d3edbe3f3b28cdb"}
+    assert_corpus_stable(fp, dict(fp))
+    # A mock run has no corpus to be stable about; it must not be forced to
+    # invent a digest just to satisfy the check.
+    assert_corpus_stable({"index_state": INDEX_NOT_APPLICABLE}, {"index_state": "anything"})

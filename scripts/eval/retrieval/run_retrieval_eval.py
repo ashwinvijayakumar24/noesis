@@ -341,6 +341,48 @@ def index_fingerprint(retriever_name: str, project_id: str = EVAL_PROJECT_ID) ->
     }
 
 
+class CorpusChangedUnderRun(RuntimeError):
+    """The searched corpus changed while the run was in flight.
+
+    Raised rather than recorded. A run that straddles a re-ingest measured
+    neither corpus, and there is no honest number to append -- the arms
+    evaluated before the swap describe one index and the arms after it describe
+    another, inside a single record carrying a single config hash.
+
+    This is not hypothetical. It happened: a 25-minute run measured its dense
+    arms against a 5,924-chunk corpus and its keyword and RRF arms against the
+    5,948-chunk corpus that replaced it mid-run. The resulting 0.0019 movement
+    in RRF was published as retriever non-determinism before the timeline was
+    reconstructed. The retriever is in fact bit-reproducible; the corpus was
+    volatile.
+    """
+
+
+def assert_corpus_stable(before: dict, after: dict) -> None:
+    """Compare two fingerprints taken around a run.
+
+    One sample cannot detect a mid-run change -- it stamps whichever state it
+    happened to read and looks clean. Two can. This is the difference between a
+    fingerprint that catches contamination between runs and one that also
+    catches it within a run.
+
+    Compares ``index_digest`` rather than ``index_n_chunks``, because **a row
+    count is not a corpus identity**: the incident's restore returned the count
+    to 5,948 while replacing 324 chunk ids and their embeddings, so every
+    count-based check passed at every moment while the measurement moved.
+    """
+    if before.get("index_state") == INDEX_NOT_APPLICABLE:
+        return
+    if before.get("index_digest") != after.get("index_digest"):
+        raise CorpusChangedUnderRun(
+            "the corpus changed while this run was in flight: "
+            f"{before.get('index_state')}/{before.get('index_digest')} -> "
+            f"{after.get('index_state')}/{after.get('index_digest')}. "
+            "The arms measured before the change and the arms measured after it "
+            "describe different corpora and cannot share a record. Re-run."
+        )
+
+
 def build_record(
     run_out: dict,
     label_set: labels_mod.LabelSet,
