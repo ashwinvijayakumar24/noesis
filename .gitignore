@@ -167,3 +167,8 @@ scripts/eval/openreview/**/*.pdf
 # migrations live in services/backend/migrations/, not here.
 supabase/.branches/
 supabase/.temp/
+
+# Personal working notes: learning audits, resume calibration, spend ledgers,
+# run logs, market research. Useful to the author, noise to anyone else, and
+# not about the product. Kept locally, out of the repo.
+private/

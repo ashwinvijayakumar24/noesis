@@ -5,7 +5,7 @@ Why this exists
 ---------------
 Five append-only measurement sinks feed this repo, and four of them are
 gitignored. On a fresh clone the only surviving record of any benchmark was
-hand-written prose in ``docs/history/WAVE_LOG.md``. That is the same failure already fixed
+hand-written prose in ``docs/ENGINEERING_LOG.md``. That is the same failure already fixed
 once for ``run_eval.py`` -- which used to overwrite ``scoreboard.json`` in
 place, destroying all eval history -- and then reintroduced one level down, at
 the ``.gitignore``.

@@ -101,7 +101,7 @@ EVAL_DIR = Path(__file__).resolve().parent.parent
 #: with the labels, so both the numerator and the yardstick change at once.
 EXPECTED_LABELS_FINGERPRINT = "230c6ea9d9b7e8fd"
 
-#: Published control on that snapshot, from docs/history/WAVE_LOG.md.
+#: Published control on that snapshot, from docs/ENGINEERING_LOG.md.
 CONTROL_RECALL_AT_10 = 0.2195
 CONTROL_CEILING_AT_10 = 0.5199
 

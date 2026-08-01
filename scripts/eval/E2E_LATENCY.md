@@ -5,7 +5,7 @@ append to `scripts/eval/results/e2e_latency.jsonl`, keyed by a config hash that
 covers the fixture, the parser, the LLM mode and the eval skip flags. Tests:
 `scripts/eval/tests/test_e2e_latency.py` (25 tests).
 
-`docs/history/WAVE_LOG.md` says it twice: *"A node replay is not an end-to-end
+`docs/ENGINEERING_LOG.md` says it twice: *"A node replay is not an end-to-end
 user-visible time. The end-to-end path has never been measured, not once."*
 This is that measurement. It starts the stopwatch when the user's file arrives
 at the upload route and stops it when the analysis JSON is in the user's hand.

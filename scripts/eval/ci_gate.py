@@ -88,7 +88,7 @@ APPEND_ONLY = (
 #: consolidated measurement docs now live, and scripts/eval/, which no longer
 #: holds any but is kept so a stray measurement doc dropped back beside the
 #: harness is still gated. gold/*.md are reference critiques, not measurement
-#: reports, so they are excluded. So is docs/history/, an archive of documents
+#: reports, so they are excluded. So is private/, the author's working notes,
 #: that state their numbers as they were written and are never edited again, and
 #: CI_DOC, this gate's own documentation, which quotes metrics as examples of
 #: what it flags.
@@ -100,7 +100,7 @@ def _is_measurement_doc(rel: str) -> bool:
         rel.startswith(_DOC_ROOTS)
         and rel.endswith(".md")
         and "/gold/" not in rel
-        and not rel.startswith("docs/history/")
+        and not rel.startswith("private/")
         and rel != CI_DOC
     )
 

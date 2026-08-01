@@ -3,7 +3,7 @@
 **Label snapshot `230c6ea9d9b7e8fd`. Queries fingerprint `1f6c584e8fd6c055`. n = 338 scorable
 queries, 8,554 relevant judgments, 344 indexed documents / 5,948 chunks, 15 of 15 topics.**
 
-`docs/history/WAVE_LOG.md` carries a standing caveat on the retrieval baseline:
+`docs/ENGINEERING_LOG.md` carries a standing caveat on the retrieval baseline:
 
 > "The query set also contains a large population of contentless claims that no retriever can
 > serve; filtering them would raise every arm and improve nothing."
@@ -408,7 +408,7 @@ after the incident. Only `index_digest` distinguishes them.
   population it says is unservable.
 - Inter-annotator agreement. One labeller, no second pass.
 
-### Recommended correction to `WAVE_LOG.md`
+### Recommended correction to `ENGINEERING_LOG.md`
 
 > ~~The query set also contains a large population of contentless claims that no retriever can
 > serve; filtering them would raise every arm and improve nothing.~~

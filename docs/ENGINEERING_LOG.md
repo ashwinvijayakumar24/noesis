@@ -1,4 +1,4 @@
-# WAVE_LOG.md
+# ENGINEERING_LOG.md
 
 Running record of each wave from `EXECUTION_PLAN.md`: what was built, what was verified, and what was found. Numbers here are measured, not estimated. Anything unverified says so.
 
@@ -267,7 +267,7 @@ What the harness established that transfers back here:
 
 `53s → 18s` and `66%` (no sequential baseline exists) · "no quality loss" (and **any** quality delta — unresolvable at present n) · "lifted quality on evals" · user counts · whether 0.75 is the right gate threshold · production retrieval quality · the section-aware chunking arm · ANN latency at the current corpus size · RRF as a first-stage pool feeding a reranker (still open: reranking was measured on a *dense* first stage, never on an RRF pool) · whether non-gold items are findings or hallucinations (unmeasurable under this label design).
 
-> The full claim-by-claim mapping, with each figure's source document and the corrections it forced, is `LEARNING_AUDIT_ADDENDUM.md` §3.
+> The full claim-by-claim mapping, with each figure's source document and the corrections it forced, is the claims audit (private) §3.
 
 ---
 
@@ -302,7 +302,7 @@ The two failures are **pre-existing on the uncommitted working tree**, not regre
 
 ### Findings from live DB introspection (PostgreSQL 17.6, 2026-07-30)
 
-The database was unpaused, so four of the audit's open questions are closed. Details in `LEARNING_AUDIT.md` § CORRECTIONS.
+The database was unpaused, so four of the audit's open questions are closed. Details in the learning audit (private) § CORRECTIONS.
 
 | Finding | Value |
 |---|---|

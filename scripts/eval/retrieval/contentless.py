@@ -1,7 +1,7 @@
 """Contentless-claim detection for the retrieval query set.
 
 WHY THIS EXISTS
-    ``docs/history/WAVE_LOG.md`` carries a standing caveat about the retrieval
+    ``docs/ENGINEERING_LOG.md`` carries a standing caveat about the retrieval
     baseline:
 
         "The query set also contains a large population of contentless claims
@@ -85,7 +85,7 @@ NO LLM CALLS, EVER
     whether a claim is contentless would be asking the family of model that
     *wrote the claim extraction* to adjudicate its own output, would cost money
     per benchmark rerun, and -- because ``temperature`` is stripped for every
-    ``gpt-5.2*`` model with no seed anywhere (see WAVE_LOG variance section) --
+    ``gpt-5.2*`` model with no seed anywhere (see ENGINEERING_LOG variance section) --
     would not reproduce. ``test_contentless.py`` asserts the spend counters read
     exactly zero after classifying the whole query set.
 
@@ -613,7 +613,7 @@ ARMS = (
 
 #: Metrics reported per arm. recall@10 is the headline because the labels measure
 #: "would we have found what the author cited"; every precision-like metric is a
-#: lower bound under that design (WAVE_LOG standing caveat).
+#: lower bound under that design (ENGINEERING_LOG standing caveat).
 ARM_METRICS = ["recall@10", "ndcg@10", "mrr"]
 
 
