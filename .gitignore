@@ -126,6 +126,11 @@ scripts/eval/cache/
 # by (nodes x papers x repeat) per run, not by document count, so it does not
 # run away the way the two sinks below do.
 !scripts/eval/results/node_eval.jsonl
+# e2e_latency.jsonl is tracked for the same reason: one record per measurement
+# session (~7 KB), bounded by runs-per-session rather than by document count,
+# and it is the ONLY record of the user-visible end-to-end path that survives a
+# clone. Re-measuring it costs real GPT-5.2 spend.
+!scripts/eval/results/e2e_latency.jsonl
 #
 # Deliberately NOT tracked, and why:
 #
