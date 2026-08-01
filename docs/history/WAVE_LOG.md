@@ -214,6 +214,34 @@ json.loads('') -> JSONDecodeError
 
 Fixed: budget 2000, `response_format={"type": "json_object"}`, verified live (`finish_reason "stop"`, 64 reasoning + 21 output tokens, correct reordering). The fallback stays — a reranker that takes down retrieval is worse than one that declines to reorder — but its invisibility is gone: outcomes counted in `_RERANK_STATS`, empty bodies distinguished from parse failures, both paths logged, and `rerank_stats()` lets an eval arm assert the reranker actually ran. Corrected, it recovers **1 ranking failure of 222 (+0.0003 recall@10)** at $0.00224 and 10.6 s/query — **0.45%** of its failure population against the free local cross-encoder's **5.7%**.
 
+### 🟢 The agent harness, scored against this pipeline — `github.com/ashwinvijayakumar24/reviewer-agent`
+
+A separate repo (`reviewer-agent`, 546 tests standalone / 576 against a Noesis checkout) built an autonomous critique agent and scored it against **this** 18-node DAG on identical labels. Its acceptance test was *"if it can't be scored against the Noesis DAG on the same labels, it's a toy."* It can be, and here is the score.
+
+| | single agent | **orchestrated** | **this DAG** |
+|---|---:|---:|---:|
+| severity-weighted recall, per run | 0.0063 (n=12) | **0.0362** (n=12) | **0.0496** (n=6) |
+| label units matched, of 212 | 2 | **19** | **21** |
+| $ per **verified** finding | $0.0062 | **$0.0045** | $0.0114 |
+| unverified-quote rate | 0.2679 | 0.0805 | 0.0000 *by construction* |
+| wall clock / manuscript | 12.74 s | 59.6 s | 74.08 s |
+
+**Orchestrated, the agent reaches recall indistinguishable from this DAG's** (Welch t=0.57, df=7.3, **p ≈ 0.59**) at **2.53× lower cost per verified finding**. As a single actor it lost by 7.87×.
+
+**Four caveats travel with that, and the last one is about this pipeline:**
+
+1. **The DAG ran degraded** — empty corpus, so `search_literature` and `detect_gaps` returned nothing. It still won on absolute unit count.
+2. **Both systems miss 94% of weighted human concerns.** This measures how far a critique agent is from useful, not that it is useful.
+3. The agent's orchestrated arm still matches **fewer units in absolute count** (19 vs 21).
+4. **This DAG's 0.0000 unverified-quote rate is by construction, not virtue** — `strip_unanchored_findings` deletes non-verbatim anchors upstream. The comparable figure is cost *per verified finding*, not the two rates.
+
+What the harness established that transfers back here:
+
+- **Fund fewer workers adequately rather than all workers partially.** Producers 0.8182 vs 0.4211 (n=60, Fisher **p=0.0033**) and 0.7619 vs 0.2759 (n=71, **p=0.000076**), on two independent populations. Directly relevant to this repo's hardcoded 3-reviewer panel.
+- **Per-resource authorization**, built and adversarially tested — ownership looked up, never taken from the request. **This repo has that exact bug live** at `drafts.py:2304-2310`, which validates the token and never checks draft ownership. The harness contains a working, tested implementation of the fix.
+- **A durable approval gate** across real process death (SIGKILL 20/20, side effect applied exactly once), built on the same lesson as N11 here.
+- **61 injection cases across two corpora: no defense reduced attack success rate.** What bounds the blast radius is tool design — identifiers bound at construction, so injected text has no argument to name — not the gate.
+
 ### Still unmeasured
 
 `53s → 18s` and `66%` (no sequential baseline exists) · "no quality loss" (and **any** quality delta — unresolvable at present n) · "lifted quality on evals" · user counts · whether 0.75 is the right gate threshold · production retrieval quality · the section-aware chunking arm · ANN latency at the current corpus size · RRF as a first-stage pool feeding a reranker (still open: reranking was measured on a *dense* first stage, never on an RRF pool) · whether non-gold items are findings or hallucinations (unmeasurable under this label design).

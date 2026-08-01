@@ -162,3 +162,8 @@ scripts/eval/cache/
 scripts/eval/pdfs/*.pdf
 scripts/eval/corpora/**/*.pdf
 scripts/eval/openreview/**/*.pdf
+
+# Supabase CLI scratch from `supabase start` -- .branches/.temp only. Real
+# migrations live in services/backend/migrations/, not here.
+supabase/.branches/
+supabase/.temp/
