@@ -421,7 +421,11 @@ class TestDraftAnalysisRouteV2:
     @pytest.mark.asyncio
     async def test_upload_draft_stores_paper_type_and_citation_style(self):
         route = _load_module(["app", "api", "routes", "drafts.py"], "drafts_route_v2_test")
-        fake_supabase = FakeSupabase({"drafts": []})
+        # upload_draft now verifies the caller owns project_id before writing,
+        # so the fixture has to record that ownership.
+        fake_supabase = FakeSupabase(
+            {"drafts": [], "projects": [{"id": "project-1", "user_id": "user-1"}]}
+        )
         upload_file = UploadFile(
             file=io.BytesIO(b"short academic draft content " * 20),
             filename="draft.txt",

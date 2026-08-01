@@ -408,6 +408,87 @@ def get_current_user(authorization: str = Header(None)):
         )
 
 
+# The single client-visible refusal for a project the caller may not use.
+# 404 rather than 403, deliberately: 403 confirms the project exists, which
+# turns every refusal into a probe for valid project ids. 404 keeps "not yours"
+# and "no such project" indistinguishable, and it is already the convention
+# elsewhere in this file (list_project_drafts answers a foreign project the
+# same way), so no client learns a new status code from this change.
+PROJECT_ACCESS_DENIAL = "Project not found"
+
+
+def _project_owner_id(project_id: str) -> Optional[str]:
+    """Look up the recorded owner of a project. The lookup, not a claim.
+
+    Returns ``None`` for an unknown project, a project with no recorded owner,
+    and a failed lookup -- all three deny, because none of them established
+    that the caller owns anything.
+    """
+    if not project_id:
+        return None
+    try:
+        result = supabase.table("projects")\
+            .select("user_id")\
+            .eq("id", project_id)\
+            .limit(1)\
+            .execute()
+    except Exception as e:
+        logger.warning("project ownership lookup failed for %s: %s", project_id, safe_exception(e))
+        return None
+
+    rows = getattr(result, "data", None) or []
+    if not rows:
+        return None
+    return rows[0].get("user_id") or None
+
+
+def authorize_project_write(actor_id: Optional[str], project_id: str) -> tuple[bool, str]:
+    """Decide whether ``actor_id`` may file a draft into ``project_id``.
+
+    The project id arrives in a request body or form field, which makes it a
+    *claim*: "put this in project P" is not evidence that P is the caller's.
+    So ownership is looked up. Deny is the default -- unknown actor, unknown
+    project, ownerless project and a failed lookup all fall through to a deny,
+    and the single allow is reached only by passing every check.
+
+    Returns ``(allowed, reason)``. The reason is for the log and never names
+    the owner; the client sees :data:`PROJECT_ACCESS_DENIAL`, which is one
+    string for every cause.
+    """
+    if not actor_id:
+        allowed, reason = False, "unknown actor: no authenticated subject on the request"
+    elif not project_id:
+        allowed, reason = False, "unknown resource: no project id on the request"
+    else:
+        owner_id = _project_owner_id(project_id)
+        if owner_id is None:
+            allowed, reason = False, "unknown resource: no such project, or no recorded owner"
+        elif owner_id != actor_id:
+            allowed, reason = False, (
+                "actor is not the recorded owner; ownership is looked up, "
+                "not taken from the request"
+            )
+        else:
+            allowed, reason = True, "actor is the recorded owner"
+
+    logger.info(
+        "project-write authz verdict=%s action=draft.create actor=%s resource=%s :: %s",
+        "allow" if allowed else "deny",
+        actor_id,
+        project_id,
+        reason,
+    )
+    return allowed, reason
+
+
+def assert_project_writable(actor_id: Optional[str], project_id: str) -> None:
+    """Authorize or raise. Used at the call site of the write, so there is no
+    path where a caller forgets to check the boolean and inserts anyway."""
+    allowed, _reason = authorize_project_write(actor_id, project_id)
+    if not allowed:
+        raise HTTPException(status_code=404, detail=PROJECT_ACCESS_DENIAL)
+
+
 class ExtensionAnalyzeRequest(BaseModel):
     content: str
     title: Optional[str] = "Overleaf Document"
@@ -431,6 +512,11 @@ async def analyze_draft_from_extension(
 
     if not content or len(content) < 50:
         raise HTTPException(status_code=400, detail="Document content too short")
+
+    # A project_id in the body is the caller's claim, not proof. Check it
+    # before anything is written; an unowned project must not receive a draft.
+    if project_id:
+        assert_project_writable(user_id, project_id)
 
     # If no project_id provided, use or create a default project
     if not project_id:
@@ -520,6 +606,12 @@ async def upload_draft(
     try:
         paper_type, citation_style = _validate_upload_context(paper_type, citation_style)
 
+        # The project_id form field is the caller's claim. Check it before the
+        # file is read or written to storage, so a refused upload leaves
+        # nothing behind.
+        if project_id:
+            assert_project_writable(user_id, project_id)
+
         # Read file content
         file_content = await file.read()
         file_size = len(file_content)
@@ -604,9 +696,13 @@ async def upload_draft(
         # Determine version number (increment if draft with same title exists)
         version = 1
         if project_id and title:
-            # Check for existing drafts with same title in project
+            # Check for existing drafts with same title in project. Scoped to
+            # the caller: without the user_id filter this reads other users'
+            # rows, so a guessed project id plus a guessed title answers
+            # "does this draft exist, and how many versions has it had".
             existing_drafts = supabase.table("drafts").select("version")\
                 .eq("project_id", project_id)\
+                .eq("user_id", user_id)\
                 .eq("title", title or file.filename)\
                 .order("version", desc=True)\
                 .limit(1)\
