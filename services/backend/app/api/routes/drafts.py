@@ -2290,24 +2290,125 @@ async def react_to_feedback(
     return {"success": True, "action": body.action, "feedback_id": feedback_id}
 
 
+# WebSocket close codes for the analysis stream.
+#   4001 -- unauthenticated: the token is missing, expired or rejected. The
+#           client should re-authenticate and reconnect.
+#   4003 -- authenticated but NOT authorized for this draft. Reconnecting with a
+#           fresh token will not help; the client must stop.
+# They are distinguishable on the wire because the deny happens *after*
+# ``accept()``: a close sent before the handshake completes is delivered as a
+# plain HTTP rejection with no application close code, so the two cases would
+# otherwise be indistinguishable to the browser. The 4001 path is left exactly
+# as it was, so "no code at all" reads as unauthenticated and 4003 as
+# unauthorized.
+WS_UNAUTHENTICATED = 4001
+WS_UNAUTHORIZED = 4003
+
+# The single client-visible denial. Every deny says this and nothing more: it
+# never names the owner, and it is identical whether the draft belongs to
+# someone else or does not exist, so a denial cannot be used to probe which
+# draft ids are real. The distinguishing detail lives only in the server log.
+DRAFT_STREAM_DENIAL = "not authorized for this draft"
+
+
+def _draft_owner_id(draft_id: str) -> Optional[str]:
+    """Look up the recorded owner of a draft. The lookup, not a claim.
+
+    Returns ``None`` for an unknown draft, a draft with no recorded owner, and
+    a failed lookup. All three deny -- a lookup that could not establish
+    ownership has not established ownership.
+    """
+    if not draft_id:
+        return None
+    try:
+        result = supabase.table("drafts")\
+            .select("user_id")\
+            .eq("id", draft_id)\
+            .limit(1)\
+            .execute()
+    except Exception as e:
+        logger.warning("draft ownership lookup failed for %s: %s", draft_id, safe_exception(e))
+        return None
+
+    rows = getattr(result, "data", None) or []
+    if not rows:
+        return None
+    return rows[0].get("user_id") or None
+
+
+def authorize_draft_stream(actor_id: Optional[str], draft_id: str) -> tuple[bool, str]:
+    """Decide whether ``actor_id`` may stream ``draft_id``, and say why.
+
+    Ownership is *looked up*, never taken from the request: a caller that
+    presents a token proves only that it is someone, not that it is the owner
+    of the draft it named. Deny is the default -- unknown actor, unknown draft
+    and ownerless draft all fall through to a deny, and the single allow is
+    reached only by passing every check, so a new failure mode fails closed.
+
+    Returns ``(allowed, reason)``. The reason is for the log; it never names
+    the owner, because telling an unauthorized caller who owns the draft
+    answers a question they had no right to ask. What goes to the client is
+    :data:`DRAFT_STREAM_DENIAL`, which is the same string for every deny.
+    """
+    if not actor_id:
+        allowed, reason = False, "unknown actor: no authenticated subject on the connection"
+    elif not draft_id:
+        allowed, reason = False, "unknown resource: no draft id on the connection"
+    else:
+        owner_id = _draft_owner_id(draft_id)
+        if owner_id is None:
+            allowed, reason = False, "unknown resource: no such draft, or no recorded owner"
+        elif owner_id != actor_id:
+            allowed, reason = False, (
+                "actor is not the recorded owner; ownership is looked up, "
+                "not taken from the request"
+            )
+        else:
+            allowed, reason = True, "actor is the recorded owner"
+
+    logger.info(
+        "draft-stream authz verdict=%s action=analysis.stream actor=%s resource=%s :: %s",
+        "allow" if allowed else "deny",
+        actor_id,
+        draft_id,
+        reason,
+    )
+    return allowed, reason
+
+
 @router.websocket("/{draft_id}/analysis-stream")
 async def draft_analysis_stream(
     draft_id: str,
     websocket: WebSocket,
     token: str = Query(...),
 ):
-    """Stream draft analysis progress via WebSocket."""
-    # Validate token via Supabase
+    """Stream draft analysis progress via WebSocket.
+
+    Two gates, and they are not the same gate. The token proves the caller is
+    *someone* (4001 on failure); the ownership lookup proves the caller is
+    someone entitled to *this draft* (4003 on failure). Without the second one
+    any logged-in user could stream any draft id they could name.
+    """
+    # Gate 1 -- authentication. Validate token via Supabase.
     try:
         user_response = supabase.auth.get_user(token)
         if not user_response.user:
-            await websocket.close(code=4001)
+            await websocket.close(code=WS_UNAUTHENTICATED)
             return
     except Exception:
-        await websocket.close(code=4001)
+        await websocket.close(code=WS_UNAUTHENTICATED)
         return
 
+    actor_id = getattr(user_response.user, "id", None)
+
+    # Gate 2 -- authorization. Accept first so the close code reaches the
+    # client, then deny before a single progress event is read or sent.
     await websocket.accept()
+
+    allowed, _reason = authorize_draft_stream(actor_id, draft_id)
+    if not allowed:
+        await websocket.close(code=WS_UNAUTHORIZED, reason=DRAFT_STREAM_DENIAL)
+        return
 
     r = aioredis.from_url(REDIS_URL)
 
