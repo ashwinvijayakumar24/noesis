@@ -577,6 +577,21 @@ def _variant(args, retriever) -> dict:
     rpc = getattr(leg, "rpc_name", None)
     if rpc:
         out["keyword_rpc"] = rpc
+    # A reranker's identity is part of what was measured. Two reranked runs
+    # under different weights, a different revision or a different max_length
+    # are different measurements, and max_length matters more than it looks:
+    # chunks here are median 6,025 chars against a 512-token window, so the
+    # cross-encoder sees roughly the first third and that truncation is a real
+    # term in the result.
+    rr = getattr(retriever, "reranker", None)
+    if rr is not None:
+        out.update({
+            "reranker_model": rr.model_name,
+            "reranker_revision": rr.revision,
+            "reranker_max_length": rr.max_length,
+            "reranker_device": rr.device,
+            "reranker_top_n": getattr(retriever, "top_n", None),
+        })
     return out
 
 
@@ -584,7 +599,13 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Retrieval eval harness (append-only results). See docs/EVAL_GUIDE.md §Relevance."
     )
-    ap.add_argument("--retriever", default="mock", choices=["mock", "dense", "keyword", "hybrid"])
+    ap.add_argument("--retriever", default="mock",
+                    choices=["mock", "dense", "keyword", "hybrid", "rerank"])
+    ap.add_argument("--rerank-device", default=None,
+                    help="torch device for --retriever rerank (default: auto)")
+    ap.add_argument("--rerank-top-n", type=int, default=50,
+                    help="candidates fed to the cross-encoder. Latency is linear in this "
+                         "at ~2.6 ms/candidate, so it is the cost dial, not a quality dial")
     ap.add_argument("--unit", default=UNIT_DOCUMENT, choices=list(VALID_UNITS))
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--chunk-oversample", type=int, default=5)
@@ -649,6 +670,25 @@ def main(argv: list[str] | None = None) -> int:
         retriever = build_retriever(
             "hybrid", project_id=args.project_id,
             embed_fn=production_embed_fn(), k_rrf=args.k_rrf,
+        )
+    elif args.retriever == "rerank":
+        # Imported here rather than at module scope: the cross-encoder pulls in
+        # torch and a 2.1 GB model, and `--retriever mock` must keep running end
+        # to end with no database, no network and no weights.
+        from scripts.eval.retrieval.rerank import (  # noqa: PLC0415
+            SCORE_CACHE_DIR,
+            CrossEncoderReranker,
+            RerankingRetriever,
+            ScoreCache,
+        )
+
+        retriever = RerankingRetriever(
+            build_retriever(
+                "dense", project_id=args.project_id, embed_fn=production_embed_fn()
+            ),
+            CrossEncoderReranker(device=args.rerank_device),
+            top_n=args.rerank_top_n,
+            cache=ScoreCache(SCORE_CACHE_DIR / "bge-reranker-v2-m3.json"),
         )
     else:
         retriever = build_retriever(args.retriever, project_id=args.project_id)
