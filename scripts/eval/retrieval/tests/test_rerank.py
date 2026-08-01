@@ -414,32 +414,46 @@ RAG_RETRIEVAL = (
 )
 
 
-def test_llm_arm_constants_match_the_shipped_reranker():
-    """This arm is a copy, so drift in the original must break the build.
+def test_llm_arm_still_mirrors_the_parts_of_the_shipped_call_it_claims_to():
+    """This arm is a copy, so drift in the parts it reproduces must break the build.
 
-    ``rerank_results`` swallows its own failures and records no usage, which is
-    why it is mirrored rather than called. A mirror that silently falls out of
-    date measures a reranker nobody ships.
+    The model, the 20-candidate window and the 500-character truncation are still
+    the shipped values and are still mirrored here. The completion budget is NOT
+    — see the next test.
     """
     src = RAG_RETRIEVAL.read_text(encoding="utf-8")
     assert f'model="{LLM_RERANK_MODEL}"' in src
     assert f"chunks[:{LLM_RERANK_WINDOW}]" in src
     assert f"[:{LLM_RERANK_CHUNK_CHARS}]" in src
-    assert f"max_completion_tokens={LLM_RERANK_MAX_COMPLETION_TOKENS}" in src
 
 
-def test_shipped_reranker_still_has_the_uncounted_silent_noop():
-    """Guards the finding, not the code.
+def test_the_silent_noop_was_fixed_upstream_and_stays_fixed():
+    """Guards the fix that this arm's measurement produced.
 
-    If someone fixes ``rerank_results`` to surface its failures, this test fails
-    and RERANK.md's claim about an uncounted no-op has to be re-checked rather
-    than left standing as a stale accusation.
+    The as-shipped arm measured a 338/338 no-op rate against
+    ``max_completion_tokens=100``; commit 663e0f6 raised it to 2000, pinned
+    ``response_format``, and made both failure paths counted and logged. This
+    test is the regression guard for that, and the reason RERANK.md's "as
+    shipped" arm is explicitly labelled as the PRE-FIX configuration rather than
+    as current behaviour.
+
+    ``LLM_RERANK_MAX_COMPLETION_TOKENS`` is deliberately still 100 here: it is
+    what the measured arm ran with, and changing it would silently redefine an
+    already-published number.
     """
     src = RAG_RETRIEVAL.read_text(encoding="utf-8")
     tail = src.split("def rerank_results")[1].split("\ndef ")[0]
-    assert "except Exception" in tail
+    assert "max_completion_tokens=2000" in tail
+    assert 'response_format={"type": "json_object"}' in tail
+    # the fallback is allowed to stay; its invisibility is not
     assert "return chunks[:top_k]" in tail
-    assert "logger" not in tail  # nothing is logged; nothing is counted
+    assert "_RERANK_STATS" in tail
+    assert "logger" in tail
+
+
+def test_the_measured_arm_pins_the_pre_fix_budget():
+    """The published no-op number belongs to a specific configuration."""
+    assert LLM_RERANK_MAX_COMPLETION_TOKENS == 100
 
 
 def test_llm_reranker_orders_named_indices_first_and_counts_noops():
@@ -476,9 +490,10 @@ def test_reasoning_token_budget_makes_the_shipped_reranker_structurally_inert():
     Measured against the live API on 2026-08-01: ``finish_reason='length'``,
     ``completion_tokens=100``, ``reasoning_tokens=100``, ``content=''``. The
     budget is consumed by reasoning before a single output token is emitted, so
-    ``json.loads('')`` always raises and the reranker always falls back. This
-    test pins the two constants that make that inevitable, so a fix to either
-    one forces RERANK.md's claim to be re-measured.
+    ``json.loads('')`` always raises and the reranker always falls back.
+
+    Pins the configuration the published 338/338 figure was measured under.
     """
     assert LLM_RERANK_MAX_COMPLETION_TOKENS == 100
     assert LLM_RERANK_MODEL.startswith("gpt-5")
+    assert LLMReranker.FIXED_MAX_COMPLETION_TOKENS > 1408  # observed reasoning use

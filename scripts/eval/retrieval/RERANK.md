@@ -22,7 +22,7 @@ scoring code as the control.
 |---|---|---|---|---|---|---|---|---|---|
 | **dense ×5** (control) | 338 | 0.2200 | 0.5199 | 42.3% | 0.5196 | 0.7336 | 0.2321 | — (27.7 ms retrieval) | $0.00 |
 | **dense ×5 → bge-reranker-v2-m3 (50) → take 10** | 338 | **0.2270** | 0.5199 | **43.7%** | **0.5328** | **0.7438** | **0.2349** | **13,314 ms / 16,506 ms** (n=108) | $0.00 |
-| dense ×5 → **shipped `gpt-5-mini` reranker** → take 10 | 338 | 0.2200 | 0.5199 | 42.3% | 0.5196 | 0.7336 | 0.2321 | 1,782 ms / 2,395 ms (n=338) | **$0.33134** |
+| dense ×5 → `gpt-5-mini` reranker **as shipped pre-`663e0f6`** → take 10 | 338 | 0.2200 | 0.5199 | 42.3% | 0.5196 | 0.7336 | 0.2321 | 1,782 ms / 2,395 ms (n=338) | **$0.33134** |
 | Δ (cross-encoder − control) | | **+0.0070 (+3.2%)** | — | +1.35 pts | +0.0132 (+2.5%) | +0.0102 (+1.4%) | +0.0028 (+1.2%) | **+481× the first stage** | |
 | Δ (`gpt-5-mini` − control) | | **0.0000** | — | 0.00 | **0.0000** | **0.0000** | **0.0000** | +1,782 ms | +$0.33 |
 
@@ -184,9 +184,18 @@ figures in this project this one is **not** a floor.
 
 ---
 
-## The shipped `gpt-5-mini` reranker is structurally inert
+## The shipped `gpt-5-mini` reranker was structurally inert
 
 Measured as a byproduct, and worth more than the arm it came from.
+
+> **Fixed upstream in `663e0f6` while this was being written.** The budget is now
+> 2000, `response_format` is pinned to `json_object`, and both failure paths are
+> counted in `_RERANK_STATS` and logged. Everything below describes the
+> configuration the arms were measured under — `max_completion_tokens=100` — and
+> is a record of what was shipped, **not** of current behaviour. `rerank.py`
+> keeps 100 on purpose: it is what the published 338/338 figure ran with, and
+> changing it would silently redefine an already-published number.
+> `test_rerank.py` now guards the fix instead of the bug.
 
 `app/services/rag_retrieval.py:rerank_results` asks `gpt-5-mini` to return a JSON
 array of indices with `max_completion_tokens=100`. Against the live API on
