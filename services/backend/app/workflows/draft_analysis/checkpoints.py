@@ -348,6 +348,7 @@ from langgraph.checkpoint.base import (
     get_checkpoint_id,
 )
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from langgraph.types import Send
 
 
 #: State channels that carry raw manuscript body text and are therefore never
@@ -521,13 +522,62 @@ class NoesisPostgresSaver(BaseCheckpointSaver):
 
     @staticmethod
     def _scrub_mapping(value: Any) -> Tuple[Any, list[str]]:
-        """Drop manuscript keys from a dict-valued channel payload."""
+        """Drop manuscript keys from a write or channel payload, whatever its shape.
+
+        Three shapes have to be handled, and the third one is not hypothetical --
+        it is a leak a cross-process test found in the first version of this
+        method, which handled only ``dict``:
+
+        ``dict``
+            The ordinary case, including ``__start__``, which stages the entire
+            input state as one dict.
+        ``list``/``tuple``
+            Fan-out writes arrive as a sequence.
+        :class:`~langgraph.types.Send`
+            ``route_to_reviewer_panel`` dispatches ``Send("reviewer_panel_node",
+            {**state, "reviewer_type": rt})`` -- the **entire state**, manuscript
+            included, as the task argument. LangGraph persists those Sends as
+            pending writes on the ``__pregel_tasks`` channel, so a scrubber that
+            only understood dicts wrote the full manuscript to disk once per
+            persona while every dict-shaped assertion still passed.
+
+        Returns the cleaned value and the manuscript key names removed anywhere
+        inside it. Key names, not paths: rehydration puts each one back wherever
+        it finds a container that should have it.
+        """
+        if isinstance(value, Send):
+            clean_arg, removed = NoesisPostgresSaver._scrub_mapping(value.arg)
+            if not removed:
+                return value, []
+            return Send(value.node, clean_arg), removed
+        if isinstance(value, (list, tuple)):
+            cleaned = []
+            removed: list[str] = []
+            for item in value:
+                clean_item, item_removed = NoesisPostgresSaver._scrub_mapping(item)
+                cleaned.append(clean_item)
+                removed.extend(item_removed)
+            if not removed:
+                return value, []
+            return cleaned, sorted(set(removed))
         if not isinstance(value, dict):
             return value, []
         removed = sorted(k for k in value if k in MANUSCRIPT_CHANNELS)
         if not removed:
             return value, []
         return {k: v for k, v in value.items() if k not in MANUSCRIPT_CHANNELS}, removed
+
+    def _rehydrate_mapping(self, value: Any, removed: Sequence[str]) -> Any:
+        """Inverse of :meth:`_scrub_mapping`, following the same three shapes."""
+        if not removed:
+            return value
+        if isinstance(value, Send):
+            return Send(value.node, self._rehydrate_mapping(value.arg, removed))
+        if isinstance(value, (list, tuple)):
+            return [self._rehydrate_mapping(item, removed) for item in value]
+        if isinstance(value, dict):
+            return {**value, **{key: self.rehydrate[key] for key in removed}}
+        return value
 
     def _scrub_channel_values(
         self, values: Dict[str, Any]
@@ -558,14 +608,15 @@ class NoesisPostgresSaver(BaseCheckpointSaver):
                 "persisted, so they cannot be recovered from the checkpoint row."
             )
         out = dict(values)
+        nested_by_channel: Dict[str, list[str]] = {}
         for path in scrubbed:
             if self._PATH_SEP in path:
                 channel, key = path.split(self._PATH_SEP, 1)
-                nested = dict(out.get(channel) or {})
-                nested[key] = self.rehydrate[key]
-                out[channel] = nested
+                nested_by_channel.setdefault(channel, []).append(key)
             else:
                 out[path] = self.rehydrate[path]
+        for channel, keys in nested_by_channel.items():
+            out[channel] = self._rehydrate_mapping(out.get(channel), keys)
         return out
 
     def _scrub_checkpoint(self, checkpoint: Checkpoint) -> Tuple[Checkpoint, list[str]]:
@@ -686,8 +737,10 @@ class NoesisPostgresSaver(BaseCheckpointSaver):
                 # lost; the only channel a node ever writes here is ``structure``,
                 # produced by a node that makes no LLM call.
                 continue
-            # Dict-valued writes (notably ``__start__``, which carries the entire
-            # input state) get the same nested scrub as checkpoints.
+            # Structured writes -- ``__start__`` (the entire input state as one
+            # dict) and ``__pregel_tasks`` (the reviewer fan-out's ``Send``
+            # objects, each carrying a full copy of state) -- get the same nested
+            # scrub as checkpoints.
             clean, removed = self._scrub_mapping(value)
             type_, payload = self.serde.dumps_typed(clean)
             rows.append(
@@ -771,13 +824,13 @@ class NoesisPostgresSaver(BaseCheckpointSaver):
             pending = []
             for task_id, channel, type_, blob, scrubbed in cur.fetchall():
                 value = self.serde.loads_typed((type_, bytes(blob)))
-                for key in scrubbed or []:
-                    if key not in self.rehydrate:
-                        raise CheckpointRehydrationError(
-                            f"Pending write for channel '{channel}' omits manuscript "
-                            f"key '{key}' by design; re-supply it to resume."
-                        )
-                    value = {**value, key: self.rehydrate[key]}
+                missing = [k for k in (scrubbed or []) if k not in self.rehydrate]
+                if missing:
+                    raise CheckpointRehydrationError(
+                        f"Pending write for channel '{channel}' omits manuscript "
+                        f"key(s) {missing} by design; re-supply them to resume."
+                    )
+                value = self._rehydrate_mapping(value, scrubbed or [])
                 pending.append((task_id, channel, value))
 
         return tuple_._replace(pending_writes=pending)
