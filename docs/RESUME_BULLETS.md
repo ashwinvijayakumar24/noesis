@@ -19,8 +19,19 @@ existing product. They are deliberately separate resume lines.
 
 **1.** Built a tool-calling critique agent — dynamic tool selection, enforced step
 budgets, loop detection, and context compaction under a swept context ceiling —
-and benchmarked it against a hand-built 18-node LangGraph pipeline on the same
-ICLR review labels; **475 tests, runs green with zero external dependencies**.
+and benchmarked it head-to-head against a production 18-node LangGraph pipeline
+on identical labels; **531 tests, green on a fresh clone with zero external
+dependencies**.
+
+**1b.** **Ran the comparison and reported that the agent lost.** Severity-weighted
+recall **0.0063/run (n=12) against the DAG's 0.0496 (n=6)**; **2 of 212 label
+units matched versus 21**; a cost advantage of only **1.84× per verified
+finding** — and the DAG won while *degraded*, with an empty corpus disabling its
+literature and gap nodes. Bounded the confounds rather than asserting them:
+paid to re-run the matcher at a relaxed threshold to test whether finding length
+explained the gap (ratio 8.3× → **5.4×, ordering unchanged**), and measured that
+the largest uncontrolled confound points the other way — the DAG reads **+24.3%
+more text**, so only 62.2% of its anchors exist in the agent's haystack at all.
 
 **2.** Ran the orchestration comparison honestly and **published the loss**:
 orchestrated workers cost **2.56× more per finding** than a single agent
@@ -127,6 +138,8 @@ avoid is a plausible sentence with nothing behind it.
 |---|---|
 | "Improved retrieval by 3.2%" | True and useless without the +13.3 s/query it costs, which makes it unshippable |
 | "Multi-agent system outperforms single-agent" | It loses. 2.56× per finding, 1.69× per verified finding |
+| "The agent matches / beats the existing pipeline" | **It loses by 7.9× on severity-weighted recall** and matched 2 of 212 label units against the DAG's 21. Its only edge is 1.84× cost per verified finding |
+| "Built an agent that reviews papers" | Both systems miss **92% of weighted human concerns**. The honest framing is that this measured how far a critique agent is from useful, not that it is useful |
 | "Built context compaction for long-horizon agents" | Fires at 8k (0.333, n=12) and, under a genuine long-horizon workload, at 16k (0.333, n=6, 4 events). It does **not** fire at 16k+ on the ordinary Phase A task — peak prompt is 10,092 tokens against a 13,600 trigger, so that zero is a **workload bound, not a broken path**. Claimable only with the workload named |
 | "Loop detection prevents runaway agents" | **One of three channels has ever bound.** `loop_no_result` fires 1.0000 (n=6) under an empty retriever — and is **fixture-only**, since `NoesisSearch` has `similarity_threshold=0.0` and structurally cannot return empty. `loop_repeated_call` and `loop_oscillation` have never bound in **270 runs**; max identical streak is **1** against a threshold of 3, including 30 runs built to induce looping. `gpt-5.2` under failure varies its calls and dies on the step budget instead |
 | "Prompt-injection defenses reduced attack success" | No defense produced a measurable ASR reduction. ASR 0.0645 → 0.0645 (n=31) |

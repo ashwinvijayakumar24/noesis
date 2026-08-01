@@ -163,6 +163,40 @@ Also found: `match_document_chunks` pins `hnsw.ef_search = 80` inside its own
 body so callers cannot sweep it, and **0.0010 of the published 0.2200 → 0.2227
 is ANN approximation rather than depth**.
 
+### ✅ H2H — the acceptance test ran, and the agent lost · `39518e4` · $2.2057 of $8.00
+
+`AGENT_HARNESS_PLAN.md` set the criterion: *"If it can't be scored against the
+Noesis DAG on the same labels, it's a toy. Kill it."* It can now be scored. It
+scores badly.
+
+| | agent | Noesis DAG | ratio |
+|---|---:|---:|---:|
+| severity-weighted recall, per run | **0.0063** (n=12) | **0.0496** (n=6) | 7.87× |
+| pooled over all runs | 0.0098 (n=212) | 0.0815 (n=212) | 8.29× |
+| **distinct units matched** | **2 of 212** | **21 of 212** | |
+| $ / finding | $0.0045 (n=56) | $0.0094 (n=99) | 2.09× |
+| **$ / verified finding** | **$0.0062** (n=41) | **$0.0114** (n=82) | **1.84×** |
+| wall clock / manuscript | 12.74 s (n=12) | 74.08 s (n=6) | 5.81× |
+
+- **The DAG won degraded.** It ran with an empty corpus, so `search_literature`
+  and `detect_gaps` returned nothing.
+- **The per-run mean difference is not significant** (Welch t=1.98, df=5.4,
+  p≈0.10). The evidence is the *count* — 2 units versus 21 — not the mean, and
+  the report says so rather than leaning on the ratio.
+- **Confounds bounded, not asserted.** $0.6152 was spent re-running the matcher
+  at a relaxed cosine threshold to test whether finding length explained the gap
+  (DAG findings average 643 chars, agent 214): ratio 8.3× → **5.4×, ordering
+  unchanged**. The largest uncontrolled confound points *against* the DAG — it
+  reads **+24.3% more text**, so only **62.2% of its anchors exist in the
+  agent's haystack**.
+- **The DAG's 0.0000 unverified-quote rate is by construction, not virtue** —
+  `strip_unanchored_findings` deletes non-verbatim anchors upstream.
+- **Both systems are bad in absolute terms:** 0.0815 means **92% of weighted
+  human concerns are missed**.
+
+Not settled by this: it measured the **single** agent. The orchestrated arm
+yields 5× more findings, so H2H2 was dispatched to run that comparison.
+
 ### 🔧 Lead — the sixth identity collision, closed
 
 P1 found that `e2e_latency.py`'s `config_hash` did not cover
