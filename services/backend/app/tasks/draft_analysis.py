@@ -91,12 +91,6 @@ def analyze_draft_task(self, draft_id: str, project_id: str):
                 supabase.table("drafts").update({
                     "status": "failed",
                     "updated_at": datetime.datetime.utcnow().isoformat(),
-                    "metadata": {
-                        "error": safe_exception(e),
-                        "error_type": type(e).__name__,
-                        "task_id": self.request.id,
-                        "retries": self.request.retries,
-                    }
                 }).eq("id", draft_id).execute()
             except Exception as update_error:
                 print(f"[CELERY-DRAFT] WARNING: Failed to update draft status: {update_error}")

@@ -2,9 +2,11 @@
 API routes for platform-wide data (stats, analytics)
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Header
 from typing import Optional
 
+from app.core.security_middleware import SecureAuthValidator
+from app.core.supabase_client import get_supabase_client
 from app.services.platform_stats import get_platform_stats, update_platform_stats_cache
 from app.services.analytics_service import (
     get_platform_analytics,
@@ -16,6 +18,16 @@ from app.services.analytics_service import (
 
 
 router = APIRouter()
+
+
+def _require_user(authorization: str = Header(None)) -> str:
+    """Validate the Bearer token and return the user id (401 on failure)."""
+    token = SecureAuthValidator.validate_bearer_token(authorization)
+    supabase = get_supabase_client()
+    user_response = supabase.auth.get_user(token)
+    if not user_response or not user_response.user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return user_response.user.id
 
 
 @router.get("/platform/stats")
@@ -65,7 +77,7 @@ async def refresh_platform_stats():
 
 
 @router.get("/analytics/dashboard")
-async def analytics_dashboard():
+async def analytics_dashboard(user_id: str = Depends(_require_user)):
     """
     Get comprehensive analytics dashboard
 

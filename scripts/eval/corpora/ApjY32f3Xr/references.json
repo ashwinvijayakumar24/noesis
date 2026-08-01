@@ -1,0 +1,353 @@
+{
+  "corpus": "ApjY32f3Xr",
+  "source_pdf": "ApjY32f3Xr.pdf",
+  "source_sha256": "228825544607393a58422f681b2bc8ecf2d987ac445e57415f480cf4f4d627f7",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:54.682489Z",
+  "references_attempted": 38,
+  "references_resolved": 29,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W3205927194",
+      "title": "Multi-Objective Loss Balancing for Physics-Informed Deep Learning",
+      "doi": "10.48550/arxiv.2110.09813",
+      "status": "resolved",
+      "filename": "bischof_2021_multi_objective_loss_balancing_for_physics_informed_deep_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/2110.09813",
+      "raw": "Simon Axelrod and Rafael Gomez-Bombarelli. Geom, energy-annotated molecular conformations for property prediction and molecular generation. Scientific Data, 9(1):185, 2022. Rafael Bischof and Michael Kraus. Multi-objective loss balancing for physics-informed deep learning. arXiv preprint arXiv:2110.09813, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3195878466",
+      "title": "Which priors matter? Benchmarking models for learning latent dynamics",
+      "doi": "10.48550/arxiv.2111.05458",
+      "status": "resolved",
+      "filename": "botev_2021_which_priors_matter_benchmarking_models_for_learning_latent_dynamics.pdf",
+      "oa_url": "https://arxiv.org/pdf/2111.05458",
+      "raw": "Aleksandar Botev, Andrew Jaegle, Peter Wirnsberger, Daniel Hennes, and Irina Higgins. Which priors matter? benchmarking models for learning latent dynamics. arXiv preprint arXiv:2111.05458, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3203714988",
+      "title": "ClimART: A Benchmark Dataset for Emulating Atmospheric Radiative Transfer in Weather and Climate Models",
+      "doi": "10.48550/arxiv.2111.14671",
+      "status": "resolved",
+      "filename": "cachay_2021_climart_a_benchmark_dataset_for_emulating_atmospheric_radiative_tran.pdf",
+      "oa_url": "https://arxiv.org/pdf/2111.14671",
+      "raw": "Emmanuel Boutet, Damien Lieberherr, Michael Tognolli, Michel Schneider, Parit Bansal, Alan J Bridge, Sylvain Poux, Lydie Bougueleret, and Ioannis Xenarios. Uniprotkb/swiss-prot, the manually annotated section of the uniprot knowledgebase: how to use the entry view. Plant bioinformatics: methods and protocols, pp. 23–54, 2016. Salva Rühling Cachay, Venkatesh Ramesh, Jason NS Cole, Howard Barker, and David Rolnick. Climart: A benchmark dataset for emulating atmospheric radiative transfer in weather and climate models. arXiv preprint arXiv:2111.14671, 2021. DM Causon and CG Mingham. Introductory finite difference methods for PDEs. Bookboon, 2010."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3008453832",
+      "title": "NeuroDiffEq: A Python package for solving differential equations with neural networks",
+      "doi": "10.21105/joss.01931",
+      "status": "resolved",
+      "filename": "chen_2020_neurodiffeq_a_python_package_for_solving_differential_equations_with_n.pdf",
+      "oa_url": "https://joss.theoj.org/papers/10.21105/joss.01931.pdf",
+      "raw": "Feiyu Chen, David Sondak, Pavlos Protopapas, Marios Mattheakis, Shuheng Liu, Devansh Agarwal, and Marco Di Giovanni. Neurodiffeq: A python package for solving differential equations with neural networks. Journal of Open Source Software, 5(46):1931, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226103040",
+      "title": "State-of-the-Art Review of Design of Experiments for Physics-Informed Deep Learning",
+      "doi": "10.48550/arxiv.2202.06416",
+      "status": "resolved",
+      "filename": "das_2022_state_of_the_art_review_of_design_of_experiments_for_physics_informed_d.pdf",
+      "oa_url": "https://arxiv.org/pdf/2202.06416",
+      "raw": "Salvatore Cuomo, Vincenzo Schiano Di Cola, Fabio Giampaolo, Gianluigi Rozza, Maziar Raissi, and Francesco Piccialli. Scientific machine learning through physics–informed neural networks: where we are and what’s next. Journal of Scientific Computing, 92(3):88, 2022. Sourav Das and Solomon Tesfamariam. State-of-the-art review of design of experiments for physicsinformed deep learning. arXiv preprint arXiv:2202.06416, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4302369407",
+      "title": "Physics-guided Neural Networks (PGNN): An Application in Lake Temperature Modeling",
+      "doi": "10.48550/arxiv.1710.11431",
+      "status": "resolved",
+      "filename": "daw_2017_physics_guided_neural_networks_pgnn_an_application_in_lake_temperature_.pdf",
+      "oa_url": "https://arxiv.org/pdf/1710.11431",
+      "raw": "Arka Daw, Anuj Karpatne, William Watkins, Jordan Read, and Vipin Kumar. Physics-guided neural networks (pgnn): An application in lake temperature modeling. arXiv preprint arXiv:1710.11431, 2017. Tobin A Driscoll, Nicholas Hale, and Lloyd N Trefethen. Chebfun guide, 2014."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1555627060",
+      "title": "Finite Volume Methods for Hyperbolic Problems",
+      "doi": "10.1017/cbo9780511791253",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Robert Eymard, Thierry Gallouët, and Raphaèle Herbin. Finite volume methods. Handbook of numerical analysis, 7:713–1018, 2000."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4319793518",
+      "title": "Can Physics-Informed Neural Networks beat the Finite Element Method?",
+      "doi": "10.48550/arxiv.2302.04107",
+      "status": "resolved",
+      "filename": "grossmann_2023_can_physics_informed_neural_networks_beat_the_finite_element_meth.pdf",
+      "oa_url": "https://arxiv.org/pdf/2302.04107",
+      "raw": "Han Gao, Luning Sun, and Jian-Xun Wang. Phygeonet: Physics-informed geometry-adaptive convolutional neural networks for solving parameterized steady-state pdes on irregular domain. Journal of Computational Physics, 428:110079, 2021. Tamara G Grossmann, Urszula Julia Komorowska, Jonas Latz, and Carola-Bibiane Schönlieb. Can physics-informed neural networks beat the finite element method? arXiv preprint arXiv:2302.04107, 2023. Jayesh K Gupta and Johannes Brandstetter. Towards multi-spatiotemporal-scale generalized pde modeling. arXiv preprint arXiv:2209.15616, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4309208391",
+      "title": "Physics-Informed Machine Learning: A Survey on Problems, Methods and Applications",
+      "doi": "10.48550/arxiv.2211.08064",
+      "status": "resolved",
+      "filename": "hao_2022_physics_informed_machine_learning_a_survey_on_problems_methods_and_appl.pdf",
+      "oa_url": "https://arxiv.org/pdf/2211.08064",
+      "raw": "Zhongkai Hao, Songming Liu, Yichi Zhang, Chengyang Ying, Yao Feng, Hang Su, and Jun Zhu. Physics-informed machine learning: A survey on problems, methods and applications. arXiv preprint arXiv:2211.08064, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3168386838",
+      "title": "NVIDIA SimNet™: An AI-Accelerated Multi-Physics Simulation Framework",
+      "doi": "10.1007/978-3-030-77977-1_36",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Oliver Hennigh, Susheela Narasimhan, Mohammad Amin Nabian, Akshay Subramaniam, Kaustubh Tangsali, Zhiwei Fang, Max Rietmann, Wonmin Byeon, and Sanjay Choudhry. Nvidia simnet™: An ai-accelerated multi-physics simulation framework. In International Conference on Computational Science, pp. 447–461. Springer, 2021. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226072361",
+      "title": "A Large-Scale Benchmark for the Incompressible Navier-Stokes Equations",
+      "doi": "10.48550/arxiv.2112.05309",
+      "status": "resolved",
+      "filename": "huang_2021_a_large_scale_benchmark_for_the_incompressible_navier_stokes_equation.pdf",
+      "oa_url": "https://arxiv.org/pdf/2112.05309",
+      "raw": "Zizhou Huang, Teseo Schneider, Minchen Li, Chenfanfu Jiang, Denis Zorin, and Daniele Panozzo. A large-scale benchmark for the incompressible navier-stokes equations. arXiv preprint arXiv:2112.05309, 2021. Ameya D Jagtap and George E Karniadakis. Extended physics-informed neural networks (xpinns): A generalized space-time domain decomposition based deep learning framework for nonlinear partial differential equations. In AAAI Spring Symposium: MLPS, 2021. Ameya D Jagtap, Kenji Kawaguchi, and George Em Karniadakis. Locally adaptive activation functions with slope recovery for deep and physics-informed neural networks. Proceedings of the Royal Society A, 476(2239):20200334, 2020a. Ameya D Jagtap, Kenji Kawaguchi, and George Em Karniadakis. Adaptive activation functions accelerate convergence in deep and physics-informed neural networks. Journal of Computational Physics, 404:109136, 2020b. Ameya D Jagtap, Ehsan Kharazmi, and George Em Karniadakis. Conservative physics-informed neural networks on discrete domains for conservation laws: Applications to forward and inverse problems. Computer Methods in Applied Mechanics and Engineering, 365:113028, 2020c. George Em Karniadakis, Ioannis G Kevrekidis, Lu Lu, Paris Perdikaris, Sifan Wang, and Liu Yang. Physics-informed machine learning. Nature Reviews Physics, 3(6):422–440, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2991550674",
+      "title": "Variational Physics-Informed Neural Networks For Solving Partial Differential Equations",
+      "doi": "10.48550/arxiv.1912.00873",
+      "status": "resolved",
+      "filename": "kharazmi_2019_variational_physics_informed_neural_networks_for_solving_partial_d.pdf",
+      "oa_url": "https://arxiv.org/pdf/1912.00873",
+      "raw": "Ehsan Kharazmi, Zhongqiang Zhang, and George Em Karniadakis. Variational physics-informed neural networks for solving partial differential equations. arXiv preprint arXiv:1912.00873, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2977109506",
+      "title": "PyDEns: a Python Framework for Solving Differential Equations with Neural Networks",
+      "doi": "10.48550/arxiv.1909.11544",
+      "status": "resolved",
+      "filename": "koryagin_2019_pydens_a_python_framework_for_solving_differential_equations_with_.pdf",
+      "oa_url": "https://arxiv.org/pdf/1909.11544",
+      "raw": "Ehsan Kharazmi, Zhongqiang Zhang, and George Em Karniadakis. hp-vpinns: Variational physicsinformed neural networks with domain decomposition. Computer Methods in Applied Mechanics and Engineering, 374:113547, 2021. Reza Khodayi-Mehr and Michael Zavlanos. Varnet: Variational neural networks for the solution of partial differential equations. In Learning for Dynamics and Control, pp. 298–307. PMLR, 2020. R Khudorozhkov, S Tsimfer, and A Koryagin. Pydens framework for solving differential equations with deep learning. arXiv preprint arXiv:1909.11544, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3197732874",
+      "title": "Characterizing possible failure modes in physics-informed neural networks",
+      "doi": "10.48550/arxiv.2109.01050",
+      "status": "resolved",
+      "filename": "krishnapriyan_2021_characterizing_possible_failure_modes_in_physics_informed_neu.pdf",
+      "oa_url": "https://arxiv.org/pdf/2109.01050",
+      "raw": "Aditi Krishnapriyan, Amir Gholami, Shandian Zhe, Robert Kirby, and Michael W Mahoney. Characterizing possible failure modes in physics-informed neural networks. Advances in Neural Information Processing Systems, 34:26548–26560, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2992541290",
+      "title": "D3M: A Deep Domain Decomposition Method for Partial Differential Equations",
+      "doi": "10.1109/access.2019.2957200",
+      "status": "resolved",
+      "filename": "li_2019_d3m_a_deep_domain_decomposition_method_for_partial_differential_equation.pdf",
+      "oa_url": "https://ieeexplore.ieee.org/ielx7/6287639/8948470/08918421.pdf",
+      "raw": "Ke Li, Kejun Tang, Tianfan Wu, and Qifeng Liao. D3m: A deep domain decomposition method for partial differential equations. IEEE Access, 8:5283–5294, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4392004327",
+      "title": "Physics-Informed Neural Operator for Learning Partial Differential Equations",
+      "doi": "10.1145/3648506",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://dl.acm.org/doi/pdf/10.1145/3648506",
+      "raw": "Yuhao Liu, Xiaojian Li, and Zhengxian Liu. An improved physics-informed neural network based on a new adaptive gradient descent algorithm for solving partial differential equations of nonlinear systems. 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2957969499",
+      "title": "DeepXDE: A Deep Learning Library for Solving Differential Equations",
+      "doi": "10.1137/19m1274067",
+      "status": "resolved",
+      "filename": "lu_2021_deepxde_a_deep_learning_library_for_solving_differential_equations.pdf",
+      "oa_url": "https://arxiv.org/pdf/1907.04502",
+      "raw": "Lu Lu, Xuhui Meng, Zhiping Mao, and George Em Karniadakis. Deepxde: A deep learning library for solving differential equations. SIAM review, 63(1):208–228, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221019179",
+      "title": "A comprehensive and fair comparison of two neural operators (with practical extensions) based on $\\mathrm{FAIR}$ data",
+      "doi": "10.1016/j.cma.2022.114778",
+      "status": "resolved",
+      "filename": "lu_2021_a_comprehensive_and_fair_comparison_of_two_neural_operators_with_practic.pdf",
+      "oa_url": "https://arxiv.org/pdf/2111.05512",
+      "raw": "Lu Lu, Xuhui Meng, Shengze Cai, Zhiping Mao, Somdatta Goswami, Zhongqiang Zhang, and George Em Karniadakis. A comprehensive and fair comparison of two neural operators (with practical extensions) based on fair data. Computer Methods in Applied Mechanics and Engineering, 393:114778, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3180558463",
+      "title": "Inverse Dirichlet weighting enables reliable training of physics informed neural networks",
+      "doi": "10.1088/2632-2153/ac3712",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1088/2632-2153/ac3712",
+      "raw": "Suryanarayana Maddu, Dominik Sturm, Christian L Müller, and Ivo F Sbalzarini. Inverse dirichlet weighting enables reliable training of physics informed neural networks. Machine Learning: Science and Technology, 3(1):015026, 2022. Stefano Markidis. The old and the new: Can physics-informed deep-learning replace traditional linear solvers? Frontiers in big Data, 4:669097, 2021. Keith W Morton and David Francis Mayers. Numerical solution of partial differential equations: an introduction. Cambridge university press, 2005. 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W6891718750",
+      "title": "Finite Basis Physics-Informed Neural Networks (FBPINNs): a scalable domain decomposition approach for solving differential equations",
+      "doi": "10.48550/arxiv.2107.07871",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.48550/arxiv.2107.07871",
+      "raw": "Ben Moseley, Andrew Markham, and Tarje Nissen-Meyer. Finite basis physics-informed neural networks (fbpinns): a scalable domain decomposition approach for solving differential equations. arXiv preprint arXiv:2107.07871, 2021. COMSOL Multiphysics. Introduction to comsol multiphysics®. COMSOL Multiphysics, Burlington, MA, accessed Feb, 9:2018, 1998. Mohammad Amin Nabian, Rini Jasmine Gladstone, and Hadi Meidani. Efficient training of physicsinformed neural networks via importance sampling. Computer-Aided Civil and Infrastructure Engineering, 36(8):962–977, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3196146596",
+      "title": "An Extensible Benchmark Suite for Learning to Simulate Physical Systems",
+      "doi": "10.48550/arxiv.2108.07799",
+      "status": "resolved",
+      "filename": "otness_2021_an_extensible_benchmark_suite_for_learning_to_simulate_physical_syst.pdf",
+      "oa_url": "https://arxiv.org/pdf/2108.07799",
+      "raw": "Karl Otness, Arvi Gjoka, Joan Bruna, Daniele Panozzo, Benjamin Peherstorfer, Teseo Schneider, and Denis Zorin. An extensible benchmark suite for learning to simulate physical systems. arXiv preprint arXiv:2108.07799, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2752848290",
+      "title": "ExtremeWeather: A large-scale climate dataset for semi-supervised detection, localization, and understanding of extreme weather events",
+      "doi": "10.48550/arxiv.1612.02095",
+      "status": "resolved",
+      "filename": "racah_2016_extremeweather_a_large_scale_climate_dataset_for_semi_supervised_dete.pdf",
+      "oa_url": "https://arxiv.org/pdf/1612.02095",
+      "raw": "Evan Racah, Christopher Beckham, Tegan Maharaj, Samira Ebrahimi Kahou, Mr Prabhat, and Chris Pal. Extremeweather: A large-scale climate dataset for semi-supervised detection, localization, and understanding of extreme weather events. Advances in neural information processing systems, 30, 2017. Christopher Rackauckas and Qing Nie. Differentialequations. jl–a performant and feature-rich ecosystem for solving differential equations in julia. Journal of open research software, 5(1), 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2899283552",
+      "title": "Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations",
+      "doi": "10.1016/j.jcp.2018.10.045",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://www.osti.gov/biblio/1595805",
+      "raw": "Maziar Raissi, Paris Perdikaris, and George E Karniadakis. Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. Journal of Computational physics, 378:686–707, 2019. Junuthula Narasimha Reddy. Introduction to the finite element method. McGraw-Hill Education, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3165855227",
+      "title": "Data vs. Physics: The Apparent Pareto Front of Physics-Informed Neural Networks",
+      "doi": "10.48550/arxiv.2105.00862",
+      "status": "resolved",
+      "filename": "rohrhofer_2021_data_vs_physics_the_apparent_pareto_front_of_physics_informed_neu.pdf",
+      "oa_url": "https://arxiv.org/pdf/2105.00862",
+      "raw": "Pu Ren, Chengping Rao, Yang Liu, Jian-Xun Wang, and Hao Sun. Phycrnet: Physics-informed convolutional-recurrent network for solving spatiotemporal pdes. Computer Methods in Applied Mechanics and Engineering, 389:114399, 2022. Franz M Rohrhofer, Stefan Posch, and Bernhard C Geiger. On the pareto front of physics-informed neural networks. arXiv preprint arXiv:2105.00862, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3156609952",
+      "title": "Parallel physics-informed neural networks via domain decomposition",
+      "doi": "10.1016/j.jcp.2021.110683",
+      "status": "resolved",
+      "filename": "shukla_2021_parallel_physics_informed_neural_networks_via_domain_decomposition.pdf",
+      "oa_url": "https://arxiv.org/pdf/2104.10013",
+      "raw": "Khemraj Shukla, Ameya D Jagtap, and George Em Karniadakis. Parallel physics-informed neural networks via domain decomposition. Journal of Computational Physics, 447:110683, 2021. Justin Sirignano and Konstantinos Spiliopoulos. Dgm: A deep learning algorithm for solving partial differential equations. Journal of computational physics, 375:1339–1364, 2018."
+    },
+    {
+      "openalex_id": null,
+      "title": "Sobolev training for the neural network solutions of pdes. 2021",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Hwijae Son, Jin Woo Jang, Woo Jin Han, and Hyung Ju Hwang. Sobolev training for the neural network solutions of pdes. 2021."
+    },
+    {
+      "openalex_id": null,
+      "title": "How pinns cheat: Predicting chaotic motion of a double pendulum",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Sophie Steger, Franz M Rohrhofer, and Bernhard C Geiger. How pinns cheat: Predicting chaotic motion of a double pendulum. In The Symbiosis of Deep Learning and Differential Equations II, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4320505317",
+      "title": "PDEBENCH: An Extensive Benchmark for Scientific Machine Learning",
+      "doi": "10.48550/arxiv.2210.07182",
+      "status": "resolved",
+      "filename": "takamoto_2022_pdebench_an_extensive_benchmark_for_scientific_machine_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/2210.07182",
+      "raw": "Makoto Takamoto, Timothy Praditia, Raphael Leiteritz, Daniel MacKinlay, Francesco Alesiani, Dirk Pflüger, and Mathias Niepert. Pdebench: An extensive benchmark for scientific machine learning. Advances in Neural Information Processing Systems, 35:1596–1611, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4311866524",
+      "title": "DAS-PINNs: A deep adaptive sampling method for solving high-dimensional partial differential equations",
+      "doi": "10.48550/arxiv.2112.14038",
+      "status": "resolved",
+      "filename": "tang_2021_das_pinns_a_deep_adaptive_sampling_method_for_solving_high_dimensional.pdf",
+      "oa_url": "https://arxiv.org/pdf/2112.14038",
+      "raw": "Kejun Tang, Xiaoliang Wan, and Chao Yang. Das: A deep adaptive sampling method for solving partial differential equations. arXiv preprint arXiv:2112.14038, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3006689658",
+      "title": "Deep learning of subsurface flow via theory-guided neural network",
+      "doi": "10.1016/j.jhydrol.2020.124700",
+      "status": "resolved",
+      "filename": "wang_2020_deep_learning_of_subsurface_flow_via_theory_guided_neural_network.pdf",
+      "oa_url": "https://arxiv.org/pdf/1911.00103",
+      "raw": "Nanzhe Wang, Dongxiao Zhang, Haibin Chang, and Heng Li. Deep learning of subsurface flow via theory-guided neural network. Journal of Hydrology, 584:124700, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3200673624",
+      "title": "Understanding and Mitigating Gradient Flow Pathologies in Physics-Informed Neural Networks",
+      "doi": "10.1137/20m1318043",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Sifan Wang, Yujun Teng, and Paris Perdikaris. Understanding and mitigating gradient flow pathologies in physics-informed neural networks. SIAM Journal on Scientific Computing, 43(5):A3055–A3081, 2021a. 12 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3116268267",
+      "title": "On the eigenvector bias of Fourier feature networks: From regression to solving multi-scale PDEs with physics-informed neural networks",
+      "doi": "10.1016/j.cma.2021.113938",
+      "status": "resolved",
+      "filename": "wang_2021_on_the_eigenvector_bias_of_fourier_feature_networks_from_regression_to.pdf",
+      "oa_url": "https://arxiv.org/pdf/2012.10047",
+      "raw": "Sifan Wang, Hanwen Wang, and Paris Perdikaris. On the eigenvector bias of fourier feature networks: From regression to solving multi-scale pdes with physics-informed neural networks. Computer Methods in Applied Mechanics and Engineering, 384:113938, 2021b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221160766",
+      "title": "Respecting causality is all you need for training physics-informed neural networks",
+      "doi": "10.48550/arxiv.2203.07404",
+      "status": "resolved",
+      "filename": "wang_2022_respecting_causality_is_all_you_need_for_training_physics_informed_neu.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.07404",
+      "raw": "Sifan Wang, Shyam Sankaran, and Paris Perdikaris. Respecting causality is all you need for training physics-informed neural networks. arXiv preprint arXiv:2203.07404, 2022a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3205073660",
+      "title": "When and why PINNs fail to train: A neural tangent kernel perspective",
+      "doi": "10.1016/j.jcp.2021.110768",
+      "status": "resolved",
+      "filename": "wang_2021_when_and_why_pinns_fail_to_train_a_neural_tangent_kernel_perspective.pdf",
+      "oa_url": "https://www.osti.gov/servlets/purl/1977272",
+      "raw": "Sifan Wang, Xinling Yu, and Paris Perdikaris. When and why pinns fail to train: A neural tangent kernel perspective. Journal of Computational Physics, 449:110768, 2022b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4307154444",
+      "title": "A comprehensive study of non-adaptive and residual-based adaptive sampling for physics-informed neural networks",
+      "doi": "10.1016/j.cma.2022.115671",
+      "status": "resolved",
+      "filename": "wu_2022_a_comprehensive_study_of_non_adaptive_and_residual_based_adaptive_sampli.pdf",
+      "oa_url": "https://www.osti.gov/servlets/purl/1903149",
+      "raw": "Chenxi Wu, Min Zhu, Qinyang Tan, Yadhu Kartha, and Lu Lu. A comprehensive study of nonadaptive and residual-based adaptive sampling for physics-informed neural networks. Computer Methods in Applied Mechanics and Engineering, 403:115671, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4379540081",
+      "title": "MultiAdam: Parameter-wise Scale-invariant Optimizer for Multiscale Training of Physics-informed Neural Networks",
+      "doi": "10.48550/arxiv.2306.02816",
+      "status": "resolved",
+      "filename": "yao_2023_multiadam_parameter_wise_scale_invariant_optimizer_for_multiscale_train.pdf",
+      "oa_url": "https://arxiv.org/pdf/2306.02816",
+      "raw": "Jiachen Yao, Chang Su, Zhongkai Hao, Songming Liu, Hang Su, and Jun Zhu. Multiadam: Parameterwise scale-invariant optimizer for multiscale training of physics-informed neural networks. arXiv preprint arXiv:2306.02816, 2023. Bing Yu et al. The deep ritz method: a deep learning-based numerical algorithm for solving variational problems. Communications in Mathematics and Statistics, 6(1):1–12, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3209909540",
+      "title": "Gradient-enhanced physics-informed neural networks for forward and inverse PDE problems",
+      "doi": "10.1016/j.cma.2022.114823",
+      "status": "resolved",
+      "filename": "yu_2022_gradient_enhanced_physics_informed_neural_networks_for_forward_and_inver.pdf",
+      "oa_url": "https://arxiv.org/pdf/2111.02801",
+      "raw": "Jeremy Yu, Lu Lu, Xuhui Meng, and George Em Karniadakis. Gradient-enhanced physics-informed neural networks for forward and inverse pde problems. Computer Methods in Applied Mechanics and Engineering, 393:114823, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3037134996",
+      "title": "Physics-informed multi-LSTM networks for metamodeling of nonlinear structures",
+      "doi": "10.1016/j.cma.2020.113226",
+      "status": "resolved",
+      "filename": "zhang_2020_physics_informed_multi_lstm_networks_for_metamodeling_of_nonlinear_st.pdf",
+      "oa_url": "https://arxiv.org/pdf/2002.10253",
+      "raw": "Ruiyang Zhang, Yang Liu, and Hao Sun. Physics-informed multi-lstm networks for metamodeling of nonlinear structures. Computer Methods in Applied Mechanics and Engineering, 369:113226, 2020. 13"
+    }
+  ]
+}

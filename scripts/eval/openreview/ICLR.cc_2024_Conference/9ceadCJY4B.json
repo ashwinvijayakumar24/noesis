@@ -1,0 +1,63 @@
+{
+  "abstract": "With the emergence of generative conversational large language models (LLMs) like ChatGPT, serving as virtual assistants in various fields, the stability and reliability of their responses have become crucial. However, during usage, it has been observed that these models tend to waver in their judgements when confronted with follow-up questions from users expressing skepticism or disagreement. In this work, we draw inspiration from questioning strategies in education and propose a \\textsc{Follow-up Questioning Mechanism} along with two evaluation metrics to assess the judgement consistency of LLMs before and after exposure to disturbances. We evaluate the judgement consistency of ChatGPT, PaLM2-Bison, and Vicuna-13B under this mechanism across eight reasoning benchmarks. Empirical results show that even when the initial answers are correct, judgement consistency sharply decreases when LLMs face disturbances such as questioning, negation, or misleading. Additionally, we study these models' judgement consistency under various settings (sampling temperature and prompts) to validate this issue further, observing the impact of prompt tone and conducting an in-depth error analysis for deeper behavioral insights. Furthermore, we also explore several prompting methods to mitigate this issue and demonstrate their effectiveness.",
+  "accepted": false,
+  "decision": "Reject",
+  "meta_review": {
+    "primary_reasons": "This paper draws inspiration from questioning strategies in education and proposes to use follow-up questions that express disagreements/doubts to challenge an LLM's response. The reviewers think that the paper is well-written and the experiments are comprehensive. However, the remaining weakness after rebuttal is the lack of novelty, compared with existing work such as Wang et al. 2023a. Although the authors added one sentence in the revised version, \"Despite some studies on the reliability of LLMs (Radhakrishnan et al., 2023; Wang et al., 2023a; Turpin et al., 2023), our mechanism is closer to the interactions that ordinary users might have with LLMs in real life and features a more comprehensive scenario setup, compared to their more academically oriented settings or methodologies\", I find it to be unsatisfactory by just saying existing work uses \"more academically oriented settings or methodologies\". A more detailed discussion on what existing work has done and how current work's contribution is significant given existing work is needed. Given this, I would recommend rejecting the paper, but would not mind if the paper gets accepted.",
+    "recommendation": ""
+  },
+  "paper_id": "9ceadCJY4B",
+  "pdf_path": "openreview/ICLR.cc_2024_Conference/9ceadCJY4B.pdf",
+  "pdf_url": "https://openreview.net/pdf/a03f2633eaaf5fdfd96135b665ef4fe753a61b5d.pdf",
+  "raw_reply_invitations": [
+    "ICLR.cc/2024/Conference/-/Edit",
+    "ICLR.cc/2024/Conference/-/Post_Submission",
+    "ICLR.cc/2024/Conference/-/Submission",
+    "ICLR.cc/2024/Conference/Submission9468/-/Decision",
+    "ICLR.cc/2024/Conference/Submission9468/-/Meta_Review",
+    "ICLR.cc/2024/Conference/Submission9468/-/Official_Comment",
+    "ICLR.cc/2024/Conference/Submission9468/-/Official_Review",
+    "ICLR.cc/2024/Conference/Submission9468/-/Rebuttal_Revision",
+    "ICLR.cc/2024/Conference/Submission9468/-/Revision"
+  ],
+  "reviews": [
+    {
+      "confidence": 4,
+      "contribution": 2,
+      "presentation": 3,
+      "questions": "None",
+      "rating": 5,
+      "reviewer": "anon1",
+      "soundness": 3,
+      "strengths": "- The paper is overall well-written and easy to follow.\n- The experiments are quite comprehensive, covering a wide range of reasoning tasks and LLMs. The findings are also consistent across different models and tasks, suggesting that what's found in this paper is a rather systematic issue of current (conversational) LLMs.\n- The analysis of the impact of different settings & alternative prompt designs on the model behavior could be interesting and valuable to the community.",
+      "summary": "This paper explores testing the judgment consistency of conversational LLMs (e.g., ChatGPT) by using follow-up questions that express disagreements/doubts and challenge the model's response. Across a range of reasoning benchmarks, the authors find that modern conversational LLMs (e.g., ChatGPT, PaLM2-Bison, Vicuna-13B) are vulnerable to such disturbances, changing their beliefs into wrong answers for a large portion of examples where they can generate correct initial solutions. The authors also experimented with different settings including sampling temperature and prompt choices, and found that despite occasional improvements, such an issue largely remains.",
+      "weaknesses": "- The overall novelty of this work is a bit limited given that prior work (many of which are also cited by the authors) has investigated the \"sycophantic\" behavior of LLMs, and the proposed methods in the paper are quite similar to the ones in prior work. For example, the paper by [Turpin et al.] which the authors seem to miss studies LLM's behavior when there exists bias in the context, where one of the settings is exactly about putting human user's belief (in a wrong answer) in the context, which is close to the type L (leading questions) prompt explored in this paper. Similar findings are also present in [Perez et al., 2022] as cited. [Wang et al., 2023a] as cited explores using another conversational LLM conditioned on a wrong solution to engage in a debate with the original LLM; the \"follow-up\" responses by the simulated user there also share many similarities with the ones proposed (expressing disagreement, doubt, different opinions, etc.).\n- The qualitative analysis misses some rather important details such as the proportion of each error category. While there are some discussions/insights about the issue in the paper, overall, as an analysis/evaluation type work, I feel the contribution could be strengthened if more fruitful thoughts/speculations about the underlying cause of the observed issues (and potential ways of mitigating them) are included.\n\n\n[Turpin et al.] Language Models Don't Always Say What They Think: Unfaithful Explanations in Chain-of-Thought Prompting. arXiv-23."
+    },
+    {
+      "confidence": 4,
+      "contribution": 3,
+      "presentation": 4,
+      "questions": "- Considering the rapid advancements in AI technologies, how might the results differ when applied to newer or upcoming LLMs? Is there room for future research to address this limitation?\n- Can you provide insights into how the proposed mechanisms and solutions could be practically applied in real-world scenarios, especially in fields where LLMs are extensively used, such as customer support or healthcare?",
+      "rating": 6,
+      "reviewer": "anon2",
+      "soundness": 3,
+      "strengths": "- **Comprehensive Evaluation**: The research evaluates multiple LLMs (ChatGPT, PaLM2-Bison, and Vicuna-13B) across eight reasoning benchmarks, ensuring a comprehensive analysis of their performance under different conditions.\n- **Thorough Analysis**: The study conducts a detailed analysis of disturbances, sampling temperature, prompts, and prompt tone, offering valuable insights into the factors affecting judgement consistency.\n- **Effective Solutions**: The research explores various prompting methods and demonstrates their effectiveness in mitigating the issue, suggesting practical solutions for enhancing LLMs' reliability.",
+      "summary": "The research addresses a critical concern in the use of generative conversational large language models (LLMs) like ChatGPT, focusing on their judgement consistency when faced with follow-up questions expressing skepticism or disagreement. Drawing inspiration from educational questioning strategies, the study proposes a FOLLOW-UP QUESTIONING MECHANISM and introduces evaluation metrics to assess LLMs' consistency before and after disturbances. The study evaluates ChatGPT, PaLM2-Bison, and Vicuna-13B across reasoning benchmarks, revealing a decline in judgement consistency even when initial answers are correct. The research explores the impact of disturbances, sampling temperature, and prompts, conducting an in-depth error analysis. Moreover, it introduces and evaluates various prompting methods to mitigate this issue, demonstrating their effectiveness.",
+      "weaknesses": "- **Limited Scope of LLMs**: The study evaluates a specific set of LLMs (ChatGPT, PaLM2-Bison, and Vicuna-13B), potentially limiting the generalizability of the findings to other models in the rapidly evolving landscape of conversational AI.\n- **Scope of Disturbances**: While disturbances like questioning, negation, and misleading are considered, the study might benefit from exploring a wider range of disturbances to provide a more comprehensive understanding of LLMs' judgement consistency challenges.\n- **Lack of Real-World Application**: The research focuses on theoretical evaluation and proposed mechanisms; it would strengthen its impact by discussing practical implications and real-world applications of the proposed solutions."
+    },
+    {
+      "confidence": 4,
+      "contribution": 2,
+      "presentation": 3,
+      "questions": "1. I didn't understand the second sentence in footnote 1.\n\n2. Modification Rate (M. Rate) was not clear to me.",
+      "rating": 6,
+      "reviewer": "anon3",
+      "soundness": 3,
+      "strengths": "- The paper is clearly written and easy to follow. \n- It addresses the critical issue of trustworthiness in large language models. \n- The well-designed experiments and mitigation approaches clearly demonstrate the problem of LLMs and draw attention to its importance.",
+      "summary": "This paper investigates the problem of answer consistency in large language models (LLMs), especially when prompted with questioning, disagreement, or misleading input. The authors designed a follow-up questioning mechanism, inspired by questioning strategies in education, to experiment with LLMs. After an initial correct response, the authors attempted prompts of questioning, disagreement, or misleading input in two different ways, one of the three and all of the three in a sequential manner. The authors conducted experiments on ChatGPT, PaLM2-Bison and Vicuna-13B using four kinds of objective reasoning questions: arithmetic reasoning, commonsense reasoning, symbolic reasoning, and knowledge reasoning. They found that a significant decrease in judgement consistency occurred after the models were prompted with questioning, disagreement, or misleading input, both in isolation and in sequence. The authors also tried some mitigation methods, but there is still room for improvement",
+      "weaknesses": "- I do not see a major problem with the paper. While some people may prefer a paper that proposes a new model, this investigative paper could still be a valuable contribution to the field."
+    }
+  ],
+  "title": "Ask Again, Then Fail: Large Language Models\u2019 Vacillations in Judgement",
+  "venue": "ICLR.cc/2024/Conference"
+}

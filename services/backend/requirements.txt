@@ -49,6 +49,7 @@ markdown==3.7
 httpx==0.27.2
 requests==2.32.5
 aiohttp==3.11.11
+openreview-py==1.54.0
 
 # Data processing
 pandas==2.2.3
@@ -77,3 +78,10 @@ cohere==5.13.4
 pytest==8.3.2
 pytest-asyncio==0.24.0
 pytest-mock==3.14.0
+pytest-timeout==2.3.1
+rank-bm25==0.2.2
+
+# Sentence segmentation for chunking. Replaces a naive str.replace splitter that
+# shattered on "et al.", "Fig. 3", "p. 12", and "p < 0.05." — i.e. on every
+# academic PDF. See rag_chunking.py.
+pysbd==0.3.4

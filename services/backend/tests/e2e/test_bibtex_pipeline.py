@@ -34,7 +34,7 @@ class TestBibTeXImport:
     ):
         """Importing a .bib file creates documents in the project."""
         resp = await async_client.post(
-            "/documents/import-bibtex",
+            f"/projects/{test_project['id']}/import-bibtex",
             files={"file": ("refs.bib", SAMPLE_BIBTEX, "text/plain")},
             data={"project_id": test_project["id"]},
             headers=auth_headers,
@@ -56,7 +56,7 @@ class TestBibTeXImport:
         self, async_client: httpx.AsyncClient, test_project: dict
     ):
         resp = await async_client.post(
-            "/documents/import-bibtex",
+            f"/projects/{test_project['id']}/import-bibtex",
             files={"file": ("refs.bib", SAMPLE_BIBTEX, "text/plain")},
             data={"project_id": test_project["id"]},
         )
@@ -87,7 +87,7 @@ class TestBibTeXImport:
     ):
         """Malformed .bib file returns error, not 500."""
         resp = await async_client.post(
-            "/documents/import-bibtex",
+            f"/projects/{test_project['id']}/import-bibtex",
             files={"file": ("bad.bib", b"this is not bibtex at all!", "text/plain")},
             data={"project_id": test_project["id"]},
             headers=auth_headers,

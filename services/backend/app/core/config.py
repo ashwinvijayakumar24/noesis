@@ -18,9 +18,6 @@ class Settings(BaseSettings):
     OPENAI_ZERO_DATA_RETENTION: bool = True  # Privacy-first default
     OPENAI_ORGANIZATION_ID: Optional[str] = None
 
-    # Cohere Configuration (for reranking in RAG optimization)
-    COHERE_API_KEY: Optional[str] = None
-
     # Sentry Configuration (Error Tracking)
     SENTRY_DSN: Optional[str] = None
 
@@ -31,17 +28,15 @@ class Settings(BaseSettings):
     STRIPE_PRICE_ID_PRO: Optional[str] = None  # Monthly Pro plan
     STRIPE_PRICE_ID_TEAM: Optional[str] = None  # Monthly Team plan
 
-    # Figma Configuration (for MCP integration)
-    FIGMA_PAT: Optional[str] = None
-
-    # Database Configuration
-    DATABASE_URL: Optional[str] = None
-
     # Redis Configuration
     REDIS_URL: Optional[str] = None
 
     # GROBID Configuration
     GROBID_URL: Optional[str] = None
+    # PDF body parser: "grobid" (default) or "docling". Docling gives per-block
+    # coordinates (fixes anchoring); GROBID stays as automatic fallback + references.
+    PDF_PARSER: str = "grobid"
+    DOCLING_URL: Optional[str] = None
 
     # Application Configuration
     ENVIRONMENT: str = "development"

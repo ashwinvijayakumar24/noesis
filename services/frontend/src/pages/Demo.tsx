@@ -2,40 +2,25 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { SparklesIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
-import toast from 'react-hot-toast'
 import { NoesisLogo } from '../components/ui/NoesisLogo'
 import { Button } from '../components/ui/Button'
-import EmailCaptureModal from '../components/EmailCaptureModal'
 import DraftAnalysisShowcase from '../components/draft-analysis/DraftAnalysisShowcase'
+import { FREEZE_MODE } from '../config/site'
+
+const ctaLabel = FREEZE_MODE ? 'Contact Sales' : 'Sign Up Free'
 
 export default function Demo() {
   const navigate = useNavigate()
-  const [showEmailModal, setShowEmailModal] = useState(false)
   const [analysisComplete, setAnalysisComplete] = useState(false)
 
   useEffect(() => {
     document.title = 'Demo - Noesis Draft Analysis'
-    const readyTimer = setTimeout(() => {
-      setAnalysisComplete(true)
-      const emailTimer = setTimeout(() => setShowEmailModal(true), 5000)
-      return () => clearTimeout(emailTimer)
-    }, 1200)
-
+    const readyTimer = setTimeout(() => setAnalysisComplete(true), 1200)
     return () => clearTimeout(readyTimer)
   }, [])
 
   const handleSignup = () => {
-    navigate('/signup')
-  }
-
-  const handleEmailSubmit = async (email: string) => {
-    try {
-      navigate(`/signup?email=${encodeURIComponent(email)}`)
-      toast.success('Redirecting to signup...')
-    } catch (error) {
-      toast.error('Something went wrong. Please try again.')
-      throw error
-    }
+    navigate(FREEZE_MODE ? '/contact' : '/signup')
   }
 
   return (
@@ -48,7 +33,7 @@ export default function Demo() {
             <span className="text-text-secondary">Scripted draft-analysis walkthrough. No live analysis is running.</span>
           </div>
           <Button onClick={handleSignup} variant="primary" size="sm">
-            Sign Up Free
+            {ctaLabel}
           </Button>
         </div>
       </div>
@@ -105,7 +90,7 @@ export default function Demo() {
               </p>
               <div className="mt-6 flex items-center justify-center gap-4">
                 <Button onClick={handleSignup} variant="primary" size="lg" className="flex items-center gap-2">
-                  Sign Up Free
+                  {ctaLabel}
                   <ArrowRightIcon className="h-5 w-5" />
                 </Button>
                 <button
@@ -119,12 +104,6 @@ export default function Demo() {
           </motion.div>
         )}
       </div>
-
-      <EmailCaptureModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        onSubmit={handleEmailSubmit}
-      />
     </div>
   )
 }

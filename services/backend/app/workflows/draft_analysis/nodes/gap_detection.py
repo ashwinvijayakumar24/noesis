@@ -5,8 +5,8 @@ Analyzes citation mappings to identify coverage gaps in the draft.
 """
 
 from app.workflows.draft_analysis.state import DraftAnalysisState, Gap
+from app.workflows.draft_analysis.nodes.claim_extraction import _is_deductive_synthesis
 from app.core.logging_config import get_logger
-from app.core.supabase_client import supabase
 from typing import List
 import re
 
@@ -30,16 +30,39 @@ def _is_generic_gap_text(text: str) -> bool:
 
 
 def _is_systematic_review(state: DraftAnalysisState) -> bool:
+    profile = state.get("manuscript_profile") or {}
+    lenses = set(profile.get("review_lenses") or [])
+    if profile:
+        return profile.get("genre") == "systematic_review" or "systematic_review_methods" in lenses
     paper_type = (state.get("paper_type") or "").lower()
-    draft_content = (state.get("draft_content") or "")[:6000].lower()
+    draft_content = (state.get("draft_content") or "")[:6000]
     return (
         "systematic" in paper_type
-        or "review" in paper_type
-        or "systematic review" in draft_content
-        or "prisma" in draft_content
-        or "meta-analysis" in draft_content
-        or "meta analysis" in draft_content
+        or bool(re.search(r"\bsystematic review\b|\bPRISMA\b|\bmeta[- ]analysis\b", draft_content, flags=re.IGNORECASE))
     )
+
+
+def _expects_baseline_comparisons(state: DraftAnalysisState) -> bool:
+    profile = state.get("manuscript_profile") or {}
+    evidence_mode = str(profile.get("evidence_mode") or "").lower()
+    routing_domain = str(profile.get("routing_domain") or "").lower()
+    if evidence_mode in {"conceptual", "pedagogical", "theoretical"}:
+        return False
+    if routing_domain in {
+        "humanities_education",
+        "humanities_theory",
+        "social_science_qualitative",
+        "computer_science_conceptual",
+        "law_policy",
+        "business_management",
+        "environmental_ecology",
+        "math_statistics",
+        "neuroscience_cognitive_science",
+    }:
+        return False
+    if evidence_mode in {"empirical_ml", "empirical"}:
+        return True
+    return routing_domain in {"computer_science_ml", "electrical_engineering"}
 
 
 def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
@@ -63,44 +86,9 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
     draft_id = state["draft_id"]
 
-    # OPTIMIZATION: Check if gaps already exist in database (from Phase 1)
-    try:
-        existing_gaps_res = supabase.table("coverage_gaps")\
-            .select("id, gap_type, description, priority, suggested_papers, reasoning")\
-            .eq("draft_id", draft_id)\
-            .execute()
-
-        if existing_gaps_res.data and len(existing_gaps_res.data) > 0:
-            logger.info(f"[Gap Detection] Found {len(existing_gaps_res.data)} existing gaps in database - SKIPPING re-detection")
-
-            # Convert database records to Gap objects
-            gaps: List[Gap] = []
-            for db_gap in existing_gaps_res.data:
-                description = db_gap.get("description", "")
-                if _is_generic_gap_text(description):
-                    continue
-                if _is_systematic_review(state) and "baseline comparisons" in description.lower():
-                    continue
-                gap: Gap = {
-                    "id": db_gap["id"],
-                    "gap_type": db_gap["gap_type"],
-                    "description": description,
-                    "severity": db_gap.get("priority", "major"),  # Map priority -> severity
-                    "affected_claims": [],
-                    "suggested_papers": db_gap.get("suggested_papers", []),
-                    "reasoning": db_gap.get("reasoning", "")
-                }
-                gaps.append(gap)
-
-            return {
-                'coverage_gaps': gaps,
-                'current_step': 'Gap Detection (Cached)',
-                'progress_percentage': 70
-            }
-
-    except Exception as db_error:
-        logger.warning(f"[Gap Detection] Could not check for existing gaps: {db_error}")
-        # Continue with detection if database check fails
+    # Always recompute gaps for the current run. Reusing rows here can carry stale
+    # issues from a previous analysis before the final persistence layer replaces
+    # draft-scoped rows.
 
     claims_with_citations = state.get("claims_with_citations", [])
 
@@ -118,6 +106,14 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
         for claim_citation in claims_with_citations:
             claim = claim_citation['claim']
             if claim.get("requires_citation") is False:
+                continue
+            # Backstop (issue #2): never flag the author's own deductive/transitional
+            # conclusion as a missing citation, even if requires_citation was mislabeled
+            # upstream ("In short, these make SIBs promising" is not a citable empirical
+            # fact). Uses the high-precision phrasing check ONLY — the broader role-based
+            # suppression already runs at claim extraction, and re-deriving it here would
+            # wrongly drop genuine empirical result claims.
+            if _is_deductive_synthesis(claim.get("claim_text", "")):
                 continue
 
             quality = claim_citation.get('citation_quality', 'unknown')
@@ -182,7 +178,12 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             for claim in methodological_claims
         )
 
-        if not _is_systematic_review(state) and not has_baseline_comparison and methodological_claims:
+        if (
+            _expects_baseline_comparisons(state)
+            and not _is_systematic_review(state)
+            and not has_baseline_comparison
+            and methodological_claims
+        ):
             gap: Gap = {
                 'gap_type': 'methodological_gaps',
                 'description': "No baseline comparisons mentioned for methodology",
@@ -203,6 +204,13 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
             f"minor={len(minor_gaps)}"
         )
 
+        # Schema gate: ensure gaps is a list of dicts
+        if not isinstance(gaps, list):
+            raise ValueError(f"coverage_gaps is {type(gaps)}, expected list")
+        for i, g in enumerate(gaps):
+            if not isinstance(g, dict):
+                raise ValueError(f"gap[{i}] is {type(g)}, expected dict")
+
         return {
             'coverage_gaps': gaps,
             'current_step': 'Gap Detection',
@@ -211,11 +219,11 @@ def detect_gaps_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
     except Exception as e:
         logger.error(f"[Gap Detection] Error: {e}")
-        errors = state.get('errors', [])
-        errors.append(f"Gap detection failed: {str(e)}")
-
+        warnings = list(state.get('warnings') or [])
+        warnings.append(f"Gap detection failed: {str(e)}")
         return {
-            'errors': errors,
+            'coverage_gaps': [],
+            'warnings': warnings,
             'current_step': 'Gap Detection (Failed)',
             'progress_percentage': 70
         }

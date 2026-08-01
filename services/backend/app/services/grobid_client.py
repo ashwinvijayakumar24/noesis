@@ -81,7 +81,7 @@ class GrobidClient:
                         "consolidateCitations": "1",  # Consolidate references
                         "includeRawCitations": "1",  # Include raw citation text
                         "includeRawAffiliations": "1",  # Include affiliations
-                        "teiCoordinates": ["s", "biblStruct", "ref"]  # Include coordinates
+                        "teiCoordinates": ["s", "p", "biblStruct", "ref", "figure", "table"]  # Include coordinates
                     }
                 )
 
@@ -127,6 +127,7 @@ class GrobidClient:
 
             # Extract abstract
             abstract = self._extract_abstract(root)
+            abstract_paragraphs = self._extract_abstract_paragraphs(root)
 
             # Extract body sections with structure
             sections = self._extract_sections(root)
@@ -141,6 +142,7 @@ class GrobidClient:
                 "title": metadata.get("title", ""),
                 "authors": metadata.get("authors", []),
                 "abstract": abstract,
+                "abstract_paragraphs": abstract_paragraphs,
                 "sections": sections,
                 "references": references,
                 "full_text": full_text,
@@ -240,6 +242,29 @@ class GrobidClient:
 
         return ""
 
+    def _extract_abstract_paragraphs(self, root: ET.Element) -> List[Dict[str, Any]]:
+        """Extract abstract paragraphs with coordinates when GROBID provides them."""
+        abstract_elem = root.find('.//tei:profileDesc//tei:abstract', TEI_NAMESPACE)
+        if abstract_elem is None:
+            return []
+
+        paragraph_data: List[Dict[str, Any]] = []
+        paragraph_elems = abstract_elem.findall('.//tei:p', TEI_NAMESPACE)
+        if not paragraph_elems:
+            paragraph_elems = abstract_elem.findall('.//tei:div', TEI_NAMESPACE)
+
+        for idx, elem in enumerate(paragraph_elems):
+            text = ''.join(elem.itertext()).strip()
+            if not text:
+                continue
+            paragraph_data.append({
+                "id": f"abstract-para-{idx}",
+                "text": text,
+                "coordinates": self._extract_coordinates(elem),
+                "sentences": self._extract_sentence_coords(elem),
+            })
+        return paragraph_data
+
     def _extract_coordinates(self, element: ET.Element) -> Dict:
         """
         Extract PDF bounding box coordinates from TEI element.
@@ -299,10 +324,14 @@ class GrobidClient:
             else:
                 title = "Untitled Section"
 
-            # Extract section content and paragraph-level coordinates
+            # Extract section content and paragraph-level coordinates.
+            # Use DIRECT-child paragraphs only ('./tei:p'). The outer loop already
+            # visits every nested div, so a recursive './/tei:p' here would pull a
+            # subsection's paragraphs into its parent AND emit them again under the
+            # subsection itself, duplicating text and headings across sections.
             paragraphs = []
             paragraph_data = []
-            for p_idx, p in enumerate(div.findall('.//tei:p', TEI_NAMESPACE)):
+            for p_idx, p in enumerate(div.findall('./tei:p', TEI_NAMESPACE)):
                 text = ''.join(p.itertext()).strip()
                 if text:
                     paragraphs.append(text)

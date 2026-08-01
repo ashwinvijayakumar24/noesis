@@ -86,7 +86,89 @@ dump.rdb
 .coverage
 htmlcov/
 
+# Other tool caches — regenerated on every run, never worth a diff
+.mypy_cache/
+.ruff_cache/
+
 # Alembic
 alembic/versions/*.pyc
 .vercel
 .env*.local
+
+# Parser spike artifacts (local only)
+pdfs/
+scripts/parser_spike_out/
+.spike-venv/
+
+# Agent tooling scratch — the Playwright MCP server writes screenshots and trace
+# dumps here on every browser session. Regenerated, and noisy in `git status`.
+.playwright-mcp/
+
+# Hand-dropped PDFs used for manual smoke/stress runs against the upload path.
+# ~3 MB of binaries with no code referencing them; they are inputs a human picks
+# by hand, not fixtures, so they stay local rather than in the repo.
+scripts/testing_pdfs/
+
+# Eval harness — results are local only; corpora/gold/config are committed
+# NOTE: `results/*` not `results/` -- git cannot re-include a file whose PARENT
+# DIRECTORY is excluded, so the negations below only work against a glob.
+scripts/eval/results/*
+scripts/eval/cache/
+# ...but keep the append-only eval history. results/ is ignored because it holds
+# large per-run exports, and that ignore is why this project has no before/after
+# record of its own eval scores: run_eval.py overwrote scoreboard.json in place
+# AND the directory was untracked, so nothing survived. The history files are
+# small, append-only, and are the durable record.
+!scripts/eval/results/history.jsonl
+!scripts/eval/results/openreview_history.jsonl
+# node_eval.jsonl is tracked too: ~16 KB for 14 records, and it is the ONLY
+# per-node cost/latency record that survives a clone. Its records are bounded
+# by (nodes x papers x repeat) per run, not by document count, so it does not
+# run away the way the two sinks below do.
+!scripts/eval/results/node_eval.jsonl
+# e2e_latency.jsonl is tracked for the same reason: one record per measurement
+# session (~7 KB), bounded by runs-per-session rather than by document count,
+# and it is the ONLY record of the user-visible end-to-end path that survives a
+# clone. Re-measuring it costs real GPT-5.2 spend.
+!scripts/eval/results/e2e_latency.jsonl
+#
+# Deliberately NOT tracked, and why:
+#
+#   results/node_eval_spans.jsonl  -- raw OTel-shaped spans, one line per span,
+#     unbounded: every replay of every node appends. Nothing here is lost by
+#     ignoring it; benchmarks.py distils the per-node latency and cost out of
+#     it, and node_eval.jsonl (tracked, above) carries the same costs already.
+#
+#   cache/ingest_manifest.jsonl    -- 155 KB and grows by one record per
+#     document per ingest run. Covered by the `scripts/eval/cache/` rule above.
+#     BENCHMARKS.md carries the rollup that matters: extractor, chunking config,
+#     embedding model+dims, token/chunk totals, error and ceiling counts.
+#
+#   results/retrieval_eval.jsonl   -- bimodal: a summary record is ~2.7 KB, but
+#     a record carrying its per-query `misses` list is 66-99 KB, i.e. ~97% of
+#     the file is one debug payload that is regenerable from the labels. The
+#     distilled board carries EVERYTHING ELSE from these records -- every
+#     metric with its n, config hash, both fingerprints, the recall ceiling and
+#     percent-of-attainable, the validity flag and degradation reason, the
+#     failure_breakdown (which is exactly the rollup of `misses`), the
+#     retrieval_health counters and the corpus/resolution summary. Losing the
+#     per-query miss list costs debugging convenience, not a benchmark.
+#
+# The distilled outputs are the durable record and ARE tracked. They live in
+# scripts/eval/ (not results/), so no negation is needed for them -- listed
+# here only so the intent is written down next to the exclusions:
+#   scripts/eval/BENCHMARKS.md
+#   scripts/eval/benchmarks.json
+scripts/eval/pdfs/*.pdf
+scripts/eval/corpora/**/*.pdf
+scripts/eval/openreview/**/*.pdf
+
+# Supabase CLI scratch from `supabase start` -- .branches/.temp only. Real
+# migrations live in services/backend/migrations/, not here.
+supabase/.branches/
+supabase/.temp/
+
+# Personal working notes: learning audits, resume calibration, spend ledgers,
+# run logs, market research. Useful to the author, noise to anyone else, and
+# not about the product. Kept locally, out of the repo.
+private/

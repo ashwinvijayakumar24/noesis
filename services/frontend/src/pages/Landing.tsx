@@ -13,6 +13,16 @@ import {
 } from '@heroicons/react/24/outline'
 import PublicLayout from '../components/layout/PublicLayout'
 import DraftAnalysisShowcase from '../components/draft-analysis/DraftAnalysisShowcase'
+import { FREEZE_MODE } from '../config/site'
+
+// During freeze mode the backend is offline, so the primary CTA points at the
+// Contact page (B2B) instead of self-serve signup.
+const primaryCtaTo = FREEZE_MODE ? '/contact' : '/signup'
+const primaryCtaLabelHero = FREEZE_MODE ? 'Book a Demo' : 'Start Free'
+const primaryCtaLabelFooter = FREEZE_MODE ? 'Contact Sales' : 'Get Started Free'
+// Pricing is hidden in B2B freeze mode — secondary CTA points at the live demo instead.
+const secondaryCtaTo = FREEZE_MODE ? '/demo' : '/pricing'
+const secondaryCtaLabel = FREEZE_MODE ? 'See the Demo' : 'View Pricing'
 
 const checks = [
   {
@@ -188,18 +198,17 @@ export default function Landing() {
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  disabled
-                  className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-border-default bg-bg-elevated px-5 py-3 text-sm font-semibold text-text-tertiary opacity-80"
-                >
-                  Start Free
-                </button>
                 <Link
-                  to="/pricing"
+                  to={primaryCtaTo}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-accent-primary/60 bg-accent-primary px-5 py-3 text-sm font-semibold text-white transition-all duration-150 hover:border-accent-hover hover:bg-accent-hover"
+                >
+                  {primaryCtaLabelHero}
+                </Link>
+                <Link
+                  to={secondaryCtaTo}
                   className="inline-flex items-center justify-center rounded-md border border-border-default bg-bg-surface px-5 py-3 text-sm font-semibold text-text-primary transition-all duration-150 hover:border-border-strong hover:bg-bg-elevated"
                 >
-                  View Pricing
+                  {secondaryCtaLabel}
                 </Link>
               </div>
 
@@ -298,32 +307,54 @@ export default function Landing() {
               </div>
             </div>
 
-            <div className="space-y-5">
-              <SectionHeader
-                eyebrow="Pricing"
-                title="Start with a real manuscript before paying."
-                description="Free includes enough quota to evaluate one focused project. Pro raises monthly draft, PDF, and BibTeX limits for active researchers."
-              />
-              <div className="rounded-lg border border-border-default bg-bg-surface p-5">
-                <div className="grid gap-3 text-sm text-text-secondary sm:grid-cols-2">
-                  <div className="rounded-lg border border-border-default bg-bg-elevated p-4">
-                    <p className="font-semibold text-text-primary">Free</p>
-                    <p className="mt-2 leading-6">2 draft analyses per month, 30 PDF uploads, and 30 BibTeX references.</p>
-                  </div>
-                  <div className="rounded-lg border border-border-default bg-bg-elevated p-4">
-                    <p className="font-semibold text-text-primary">Pro</p>
-                    <p className="mt-2 leading-6">20 draft analyses per month, 100 PDF uploads, and 100 BibTeX references.</p>
-                  </div>
+            {FREEZE_MODE ? (
+              <div className="space-y-5">
+                <SectionHeader
+                  eyebrow="For research teams"
+                  title="Rolling out to labs and departments."
+                  description="We're onboarding research groups one at a time and tailoring access to how your team drafts and submits. Reach out to set up your group."
+                />
+                <div className="rounded-lg border border-border-default bg-bg-surface p-5">
+                  <p className="text-sm leading-6 text-text-secondary">
+                    Group onboarding, shared literature workspaces, and pre-submission review across your team's manuscripts.
+                  </p>
+                  <Link
+                    to="/contact"
+                    className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-accent-primary transition-colors duration-150 hover:text-accent-hover"
+                  >
+                    Contact sales
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </Link>
                 </div>
-                <Link
-                  to="/pricing"
-                  className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-accent-primary transition-colors duration-150 hover:text-accent-hover"
-                >
-                  Compare plans
-                  <ArrowRightIcon className="h-4 w-4" />
-                </Link>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-5">
+                <SectionHeader
+                  eyebrow="Pricing"
+                  title="Start with a real manuscript before paying."
+                  description="Free includes enough quota to evaluate one focused project. Pro raises monthly draft, PDF, and BibTeX limits for active researchers."
+                />
+                <div className="rounded-lg border border-border-default bg-bg-surface p-5">
+                  <div className="grid gap-3 text-sm text-text-secondary sm:grid-cols-2">
+                    <div className="rounded-lg border border-border-default bg-bg-elevated p-4">
+                      <p className="font-semibold text-text-primary">Free</p>
+                      <p className="mt-2 leading-6">2 draft analyses per month, 30 PDF uploads, and 30 BibTeX references.</p>
+                    </div>
+                    <div className="rounded-lg border border-border-default bg-bg-elevated p-4">
+                      <p className="font-semibold text-text-primary">Pro</p>
+                      <p className="mt-2 leading-6">20 draft analyses per month, 100 PDF uploads, and 100 BibTeX references.</p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/pricing"
+                    className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-accent-primary transition-colors duration-150 hover:text-accent-hover"
+                  >
+                    Compare plans
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -339,13 +370,12 @@ export default function Landing() {
               Noesis is built for researchers who want sharper claims, better citation coverage, and fewer avoidable reviewer objections.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <button
-                type="button"
-                disabled
-                className="inline-flex cursor-not-allowed items-center justify-center rounded-md border border-border-default bg-bg-elevated px-5 py-3 text-sm font-semibold text-text-tertiary opacity-80"
+              <Link
+                to={primaryCtaTo}
+                className="inline-flex items-center justify-center rounded-md border border-accent-primary/60 bg-accent-primary px-5 py-3 text-sm font-semibold text-white transition-all duration-150 hover:border-accent-hover hover:bg-accent-hover"
               >
-                Get Started Free
-              </button>
+                {primaryCtaLabelFooter}
+              </Link>
               <Link
                 to="/privacy"
                 className="inline-flex items-center justify-center rounded-md border border-border-default bg-bg-elevated px-5 py-3 text-sm font-semibold text-text-primary transition-colors duration-150 hover:border-border-strong"

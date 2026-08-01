@@ -19,7 +19,6 @@ PLAN_PDF_LIMITS = {'free': 30, 'pro': 100, 'team': 9999, 'enterprise': 9999, 'ad
 PLAN_DRAFT_LIMITS = {'free': 2, 'pro': 20, 'team': 9999, 'enterprise': 9999, 'admin': 9999}
 PLAN_BIB_LIMITS = {'free': 30, 'pro': 100, 'team': 9999, 'enterprise': 9999, 'admin': 9999}
 PROJECT_LIMITS = {'free': 3, 'pro': 10, 'team': 999, 'enterprise': 999, 'admin': 999}
-DEFAULT_CHAT_LIMIT = 500
 
 
 def _get_redis_client():
@@ -117,7 +116,6 @@ def sync_user_quota_plan(user_id: str, plan_tier: str) -> Dict[str, Any]:
     else:
         supabase.table('user_quotas').insert({
             'user_id': user_id,
-            'monthly_chat_messages_limit': DEFAULT_CHAT_LIMIT,
             'current_month_bib_refs': 0,
             **quota_payload,
         }).execute()
@@ -312,11 +310,6 @@ async def create_default_quota(user_id: str) -> None:
     sync_user_quota_plan(user_id, _get_user_plan_tier(user_id))
 
 
-async def upgrade_quota_to_tier(user_id: str, plan_tier: str) -> Dict[str, Any]:
-    """Synchronize an existing user's enforced quotas with a billing tier."""
-    return sync_user_quota_plan(user_id, plan_tier)
-
-
 async def reset_quota(user_id: str) -> None:
     """Reset user quota counters (called when quota_reset_date is passed)."""
     if not supabase:
@@ -391,11 +384,6 @@ async def get_user_quota_info(user_id: str) -> Dict[str, Any]:
             'current': quota['current_month_drafts'],
             'limit': quota['monthly_draft_limit'],
             'remaining': quota['monthly_draft_limit'] - quota['current_month_drafts']
-        },
-        'chat_messages': {
-            'current': quota['current_month_chat_messages'],
-            'limit': quota['monthly_chat_messages_limit'],
-            'remaining': quota['monthly_chat_messages_limit'] - quota['current_month_chat_messages']
         },
         'quota_reset_date': quota['quota_reset_date']
     }

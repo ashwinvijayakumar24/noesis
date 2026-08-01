@@ -34,6 +34,18 @@ def extract_structure_node(state: DraftAnalysisState) -> DraftAnalysisState:
     logger.info(f"[Structure Extraction] draft_content length={len(draft_content)} chars")
 
     try:
+        if state.get("structure"):
+            structure = dict(state["structure"])
+            logger.info(
+                "[Structure Extraction] Using structure from workflow state with %s sections",
+                len(structure.get("sections", [])),
+            )
+            return {
+                'structure': structure,
+                'current_step': 'Structure Extraction',
+                'progress_percentage': 10
+            }
+
         existing_structure = None
         try:
             analysis_response = (
@@ -137,11 +149,22 @@ def extract_structure_node(state: DraftAnalysisState) -> DraftAnalysisState:
 
     except Exception as e:
         logger.error(f"[Structure Extraction] Error: {e}")
-        errors = state.get('errors', [])
-        errors.append(f"Structure extraction failed: {str(e)}")
-
+        warnings = list(state.get('warnings') or [])
+        warnings.append(f"Structure extraction failed: {str(e)}")
+        word_count = len((state.get("draft_content") or "").split())
         return {
-            'errors': errors,
+            'structure': {
+                'sections': [],
+                'word_count': word_count,
+                'page_count': max(1, word_count // 250),
+                'has_abstract': False,
+                'has_introduction': False,
+                'has_methods': False,
+                'has_results': False,
+                'has_discussion': False,
+                'has_conclusion': False,
+            },
+            'warnings': warnings,
             'current_step': 'Structure Extraction (Failed)',
             'progress_percentage': 10
         }

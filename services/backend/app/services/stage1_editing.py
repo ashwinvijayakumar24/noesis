@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 from app.core.logging_config import get_logger
@@ -33,6 +32,8 @@ Return valid JSON:
 }}
 
 Return max 15 items per category. Focus on patterns, not every individual instance.
+If citation style is auto, infer the likely field convention from the manuscript.
+For materials science, chemistry, and engineering drafts, numbered bracket citations like [1,2] are acceptable and should not be flagged as APA violations.
 If the draft looks clean in a category, return an empty list for that category."""
 
 
@@ -45,26 +46,9 @@ def _default_stage1_payload() -> dict[str, list[dict[str, Any]]]:
     }
 
 
-def _extract_json_object(raw_content: str) -> dict[str, Any]:
-    content = (raw_content or "").strip()
-    if content.startswith("```"):
-        lines = content.splitlines()
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].startswith("```"):
-            lines = lines[:-1]
-        content = "\n".join(lines).strip()
-
-    start = content.find("{")
-    end = content.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("Stage 1 response did not contain JSON")
-    return json.loads(content[start:end + 1])
-
-
 async def run_stage1_editing(
     draft_content: str,
-    citation_style: str = "apa",
+    citation_style: str = "auto",
     paper_type: str = "journal_article",
 ) -> dict[str, list[dict[str, Any]]]:
     """Run the mechanical editing pass and return a stable payload shape."""

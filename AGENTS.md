@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [noesis] recent context, 2026-05-28 9:32pm EDT
+# [noesis] recent context, 2026-06-04 10:50pm EDT
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (18,730t read) | 581,725t work | 97% savings
+Stats: 50 obs (18,303t read) | 630,484t work | 97% savings
 
 ### Apr 28, 2026
 S14 Noesis tagline refinement — multiple rounds of 50-char company description options (Apr 28 at 12:14 AM)
@@ -21,38 +21,10 @@ S19 Noesis improvements.md — Full 3-Pillar RFC Written to Project Root (May 10
 ### May 11, 2026
 S20 Noesis improvements.md — Open Questions Replaced with Resolved + New Follow-Ups (May 11 at 12:25 AM)
 S25 Noesis Git — Kill-State Tagged and Repo Reset to Pre-Kill Active Dev State (May 11 at 12:40 AM)
-### May 23, 2026
-261 11:28a 🔵 Noesis Backend Infrastructure — Full Stack Inventory
-### May 24, 2026
-262 12:03p ✅ Noesis README — Resume Metrics and Architecture Details Added
-263 12:04p ✅ Noesis README — Resume Bullet Points Added for Public GitHub Release
 ### May 25, 2026
-264 2:20p ⚖️ Noesis — Revived for Output Quality Audit and Pivot to Lab/Enterprise Tier
-266 " 🔵 Noesis Git History — Kill-State Commits Identified for Snapshot/Restore
-268 " ✅ Noesis Git — Kill-State Tagged and Repo Reset to Pre-Kill Active Dev State
 S29 Locate .env file and set up environment variables for Noesis backend (May 25 at 2:20 PM)
-275 2:24p 🔵 OpenAI API Key Exposed in Plain Text Chat Message
-276 2:25p 🔵 Noesis Backend — .env File Location and Environment Variable Map
-280 2:32p 🔵 Noesis — Missing src/lib/supabase.ts Module
-281 2:33p 🔵 Noesis Frontend — src/lib/ Directory Entirely Missing
-284 " 🔴 Noesis Frontend — Created Missing src/lib/supabase.ts
-285 " 🔵 Noesis Frontend — analytics Lib API Surface Identified
-289 2:34p ✅ Noesis Frontend — .env.local Created with Supabase Credentials
-290 " 🔵 Noesis Docker Compose — Frontend Missing Supabase Env Vars in Container
 S35 Noesis Frontend — .env.local Created with Supabase Credentials (May 25 at 2:34 PM)
-293 2:42p 🔵 Noesis Frontend — lib/errorHandler Missing, Login.tsx Import Broken
-294 2:43p 🔵 Noesis Frontend — Complete lib/ Gap Map: api, apiErrors, errorHandler All Missing
-297 7:06p ⚖️ Noesis Output Quality Evaluation Strategy — LLM Comparison Framework
-298 7:07p 🔵 Noesis Draft Analysis Output — Sepsis MLA Paper (draft_id: c6599176)
-300 " 🔵 Noesis Paper Recommendations — Wrong Draft Linked, Zero Results for Test Draft
-303 7:10p 🟣 Noesis Output Quality Export Script — JSON + Markdown Generated Inside Container
-308 7:12p 🔵 Docker cp Permission — Intermittent Socket Access Failure on Second Call
-309 " 🟣 Noesis Evaluation Export Files — Successfully Copied to Host Workspace
 ### May 27, 2026
-317 1:46p 🔵 Noesis Git Working Tree — Extensive Uncommitted Changes Including New Workflow Nodes and Migrations
-318 1:59p ⚖️ Noesis Feature Scope Reduction — Remove Literature Map and Paper Discovery
-319 " ⚖️ Noesis Feature Reduction — Remove Literature Map, Paper Discovery, Paper Summarization
-320 2:12p ⚖️ Noesis Feature Scope — Remove Literature Map, Paper Discovery, and Paper Summarization
 321 2:13p 🔵 Noesis Feature Surface Map — Full Scope of Features Under Consideration for Removal
 ### May 28, 2026
 322 4:16p ⚖️ Noesis Homepage — Full Overhaul Planned with Linear Dark Theme
@@ -78,8 +50,35 @@ S35 Noesis Frontend — .env.local Created with Supabase Credentials (May 25 at 
 342 " ✅ Noesis PublicLayout.tsx — Nav Auth Buttons Disabled for Soft Launch
 343 5:18p ✅ Noesis App.tsx + ProtectedRoute.tsx — All Auth Routes Redirect to Homepage
 344 7:20p 🔵 Noesis — Vercel Project Architecture Confirmed
+### May 29, 2026
+345 2:01p ⚖️ Noesis Output Quality — Stress Test Niche Selection Request
+346 2:14p ⚖️ Noesis Output Quality — Two Additional Test Niches Selected
+347 2:15p 🟣 EmptyStateGuide — Redesigned with Import .bib CTA + Compact Layout
+348 " ✅ ProjectDetail.tsx — EmptyStateGuide Wired to Import Modal
+349 2:33p 🔵 Noesis Literature Upload — Duplicate Records on Retry After Partial Failure
+350 2:34p 🔵 Noesis Document Upload — No Idempotency Guard in Upload Pipeline
+351 " 🔴 Noesis Document Upload — Idempotency Helpers Added to documents.py
+352 2:35p 🔴 Noesis Document Upload — Full Idempotency Implementation with Deterministic Storage Paths
+353 " 🟣 Noesis DB Migration 026 — Partial Unique Index for Manual Upload Idempotency
+354 2:36p 🔴 Noesis Document Upload — Orphaned Storage Object Cleanup on Concurrent Duplicate Insert
+355 " 🔵 Noesis UploadDocumentModal — Frontend Already Handles duplicate Flag and Partial Failure Retry
+356 " 🔴 Noesis documents.py — file.filename None Safety via original_filename Variable
+357 " 🔴 Noesis UploadDocumentModal — selectedFiles Snapshot on Submit
+358 2:37p ✅ Noesis Idempotency Fix — Working Tree State at Completion
+359 2:50p 🔵 Noesis Supabase Schema — Actual Table Names vs Expected Names + Column Inventory
+360 " 🔵 Noesis Live DB State — Two Active Projects with 8 and 9 Documents Post-Upload Bug
+361 2:51p ⚖️ Noesis Output Quality — 2 Additional Stress-Test Niches Needed
+362 2:53p 🔵 Noesis Export — docker cp Blocked by Socket Permissions
+363 " 🟣 Noesis Export Script — exports/export_latest_noesis_draft_tmp.py Created
+364 2:54p 🔵 Noesis Export Script — ModuleNotFoundError When Run from /tmp
+365 " 🔵 Noesis Export — Sodium-Ion Battery Draft Successfully Exported
+366 2:56p 🟣 Noesis Sodium-Ion Battery Draft Export — Confirmed Full Quality Data in exports/
+368 " 🔵 Noesis Export — Heredoc Python via docker exec Breaks on Host Shell Escape
+369 2:57p 🟣 Noesis Export — Draft PDF Full Text Extracted and Injected into Sodium-Ion Export
+370 2:58p 🟣 Noesis Sodium-Ion Export — Final Enriched Files Confirmed on Host
+371 3:06p 🔵 Noesis Output Quality Bug — Cross-Project Content Contamination in Sodium-Ion Battery Meta Review
 
-Access 582k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 630k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
 
 <project-workflow>

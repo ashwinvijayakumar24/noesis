@@ -1,24 +1,25 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { NoesisLogo } from '../ui/NoesisLogo'
+import { FREEZE_MODE } from '../../config/site'
 
 interface PublicLayoutProps {
   children: ReactNode
   className?: string
 }
 
+// Pricing exposes self-serve consumer tiers — drop it from nav in B2B freeze mode.
 const navLinks = [
   { label: 'Home', to: '/' },
-  { label: 'Pricing', to: '/pricing' },
+  ...(FREEZE_MODE ? [] : [{ label: 'Pricing', to: '/pricing' }]),
   { label: 'Privacy', to: '/privacy' },
 ]
 
 function navLinkClass(isActive: boolean) {
   return [
-    'rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150',
-    isActive
-      ? 'bg-bg-elevated text-text-primary'
-      : 'text-text-tertiary hover:bg-bg-elevated/70 hover:text-text-primary',
+    'group relative px-3 py-2 text-sm font-medium transition-colors duration-150',
+    'after:absolute after:bottom-1 after:left-3 after:h-px after:w-[calc(100%-1.5rem)] after:origin-left after:scale-x-0 after:bg-accent-primary after:transition-transform after:duration-150 after:ease-out hover:after:scale-x-100',
+    isActive ? 'text-text-primary' : 'text-text-tertiary hover:text-text-primary',
   ].join(' ')
 }
 
@@ -46,20 +47,29 @@ export default function PublicLayout({ children, className = '' }: PublicLayoutP
           </nav>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled
-              className="cursor-not-allowed rounded-md px-3 py-2 text-sm font-medium text-text-muted opacity-70"
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              disabled
-              className="inline-flex cursor-not-allowed items-center gap-2 rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm font-semibold text-text-tertiary opacity-80"
-            >
-              Get Started
-            </button>
+            {FREEZE_MODE ? (
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2 rounded-md border border-accent-primary/60 bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:border-accent-hover hover:bg-accent-hover"
+              >
+                Contact Sales
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="rounded-md px-3 py-2 text-sm font-medium text-text-secondary transition-colors duration-150 hover:bg-bg-elevated/70 hover:text-text-primary"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center gap-2 rounded-md border border-accent-primary/60 bg-accent-primary px-3 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:border-accent-hover hover:bg-accent-hover"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -76,14 +86,16 @@ export default function PublicLayout({ children, className = '' }: PublicLayoutP
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm text-text-tertiary">
-            <Link to="/pricing" className="transition-colors duration-150 hover:text-text-primary">
-              Pricing
-            </Link>
+            {!FREEZE_MODE && (
+              <Link to="/pricing" className="transition-colors duration-150 hover:text-text-primary">
+                Pricing
+              </Link>
+            )}
             <Link to="/privacy" className="transition-colors duration-150 hover:text-text-primary">
               Privacy
             </Link>
             <a
-              href="mailto:avijayakumar41@gatech.edu"
+              href="mailto:ashwin@noesis.is"
               className="transition-colors duration-150 hover:text-text-primary"
             >
               Contact

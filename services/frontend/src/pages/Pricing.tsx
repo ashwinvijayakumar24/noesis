@@ -13,6 +13,7 @@ import {
 import PublicLayout from '../components/layout/PublicLayout'
 import { Button } from '../components/ui/Button'
 import { useAuthStore } from '../stores/authStore'
+import { FREEZE_MODE } from '../config/site'
 
 export default function Pricing() {
   const navigate = useNavigate()
@@ -24,8 +25,14 @@ export default function Pricing() {
   }, [])
 
   const handleSubscribe = async (tierName: string) => {
+    // Freeze mode: backend/checkout is offline — route every plan to Contact sales.
+    if (FREEZE_MODE) {
+      navigate('/contact')
+      return
+    }
+
     if (tierName === 'Enterprise') {
-      window.location.href = 'mailto:avijayakumar41@gatech.edu?subject=Enterprise%20Plan%20Inquiry'
+      window.location.href = 'mailto:ashwin@noesis.is?subject=Enterprise%20Plan%20Inquiry'
       return
     }
 
@@ -86,9 +93,10 @@ export default function Pricing() {
       cta: 'Get Started Free',
       subtext: null,
       features: [
-        '1 active project',
-        '3 draft analyses per month',
-        '30 literature uploads per month',
+        '3 active projects',
+        '2 draft analyses per month',
+        '30 PDF uploads per month total',
+        '30 BibTeX references per month total',
         'Complete manuscript review from start to finish'
       ],
     },
@@ -102,9 +110,10 @@ export default function Pricing() {
       cta: 'Subscribe to Pro',
       subtext: null,
       features: [
-        '3 active projects',
-        '10 draft analyses per month',
-        '100 literature uploads per month total',
+        '10 active projects',
+        '20 draft analyses per month',
+        '100 PDF uploads per month total',
+        '100 BibTeX references per month total',
         'Priority processing',
         'Larger draft size limits',
         'Exportable analysis reports',
@@ -117,14 +126,12 @@ export default function Pricing() {
       description: 'For small research groups that need higher operational caps.',
       icon: UserGroupIcon,
       highlighted: false,
-      cta: 'Coming Soon',
+      cta: 'Subscribe to Team',
       subtext: null,
       features: [
         'Everything in Pro',
-        'Up to 10 users billed per seat',
-        'Effectively unlimited usage across literature uploads, draft analyses, and project workspaces',
-        'Shared project workspaces',
-        'Team collaboration features',
+        '2-3 users billed per seat',
+        'Effectively unlimited usage across PDFs, BibTeX, and draft analyses',
         'Shared literature libraries',
         'Dedicated support',
       ],
@@ -136,7 +143,7 @@ export default function Pricing() {
       description: 'For departments and institutions with procurement requirements.',
       icon: BuildingOffice2Icon,
       highlighted: false,
-      cta: 'Coming Soon',
+      cta: 'Contact Us',
       subtext: null,
       features: [
         'Coming Soon',
@@ -222,9 +229,11 @@ export default function Pricing() {
                     variant={tier.highlighted ? 'primary' : 'secondary'}
                     size="md"
                     className="w-full"
-                    disabled
+                    disabled={loading && tier.name !== 'Free' && tier.name !== 'Enterprise'}
                   >
-                    {loading ? 'Processing...' : tier.cta}
+                    {loading && tier.name !== 'Free' && tier.name !== 'Enterprise'
+                      ? 'Processing...'
+                      : tier.cta}
                   </Button>
                   {tier.subtext && (
                     <p className="text-center text-xs font-mono text-text-muted">{tier.subtext}</p>
@@ -257,7 +266,7 @@ export default function Pricing() {
                 },
                 {
                   question: 'Do you offer academic or institutional pricing?',
-                  answer: 'Not at the moment, but we are working on it! Reach out to avijayakumar41@gatech.edu if you are interested.',
+                  answer: 'Not at the moment, but we are working on it! Reach out to ashwin@noesis.is if you are interested.',
                 },
               ].map((item) => (
                 <div key={item.question} className="rounded-lg border border-border-default bg-bg-surface p-5">

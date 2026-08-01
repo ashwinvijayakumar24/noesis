@@ -16,13 +16,17 @@ import {
   SHOWCASE_DRAFT_META,
   SHOWCASE_FEEDBACK,
   SHOWCASE_GAPS,
+  SHOWCASE_META_REVIEW,
   SHOWCASE_READINESS,
+  SHOWCASE_REVIEWER_PANEL,
+  SHOWCASE_REVISION_TASKS,
   SHOWCASE_TAB_CATEGORY_MAP,
   SHOWCASE_TAB_FOCUS,
   SHOWCASE_TABS,
   type ShowcaseClaim,
   type ShowcaseFeedbackItem,
   type ShowcaseGap,
+  type ShowcaseRevisionTask,
   type ShowcaseTabId,
 } from './draftAnalysisShowcaseFixture'
 
@@ -64,6 +68,7 @@ export default function DraftAnalysisShowcase({
   const [claims, setClaims] = useState<ShowcaseClaim[]>(SHOWCASE_CLAIMS)
   const [gaps, setGaps] = useState<ShowcaseGap[]>(SHOWCASE_GAPS)
   const [feedback, setFeedback] = useState<ShowcaseFeedbackItem[]>(SHOWCASE_FEEDBACK)
+  const [revisionTasks, setRevisionTasks] = useState<ShowcaseRevisionTask[]>(SHOWCASE_REVISION_TASKS)
   const [statusFilter, setStatusFilter] = useState<'new' | 'saved' | 'dismissed'>('new')
   const [annotation, setAnnotation] = useState<{
     id?: string
@@ -77,20 +82,21 @@ export default function DraftAnalysisShowcase({
   const viewerRef = useRef<DocumentViewerRef>(null)
 
   const issueLookup = useMemo(() => {
-    const lookup = new Map<string, ShowcaseClaim | ShowcaseGap | ShowcaseFeedbackItem>()
+    const lookup = new Map<string, ShowcaseClaim | ShowcaseGap | ShowcaseFeedbackItem | ShowcaseRevisionTask>()
     claims.forEach((item) => lookup.set(`claim:${item.id}`, item))
     gaps.forEach((item) => lookup.set(`gap:${item.id}`, item))
     feedback.forEach((item) => lookup.set(`feedback:${item.id}`, item))
+    revisionTasks.forEach((item) => lookup.set(`task:${item.id}`, item))
     return lookup
-  }, [claims, gaps, feedback])
+  }, [claims, gaps, feedback, revisionTasks])
 
-  const setActiveIssue = (issue?: ShowcaseClaim | ShowcaseGap | ShowcaseFeedbackItem) => {
+  const setActiveIssue = (issue?: ShowcaseClaim | ShowcaseGap | ShowcaseFeedbackItem | ShowcaseRevisionTask) => {
     if (!issue) return
     setAnnotation({
       id: issue.id,
       line_number: issue.line_number,
-      text_snippet: issue.text_snippet,
-      section_type: issue.section_type,
+      text_snippet: issue.text_snippet ?? ('anchor_text' in issue ? issue.anchor_text : undefined),
+      section_type: 'section_type' in issue ? issue.section_type : issue.section,
       section_location: 'section_location' in issue ? issue.section_location : undefined,
       color: 'yellow',
     })
@@ -124,6 +130,10 @@ export default function DraftAnalysisShowcase({
       setGaps((current) => current.map((item) => (item.id === id ? { ...item, status: nextStatus } : item)))
       return
     }
+    if (type === 'task') {
+      setRevisionTasks((current) => current.map((item) => (item.id === id ? { ...item, status: nextStatus } : item)))
+      return
+    }
     setFeedback((current) => current.map((item) => (item.id === id ? { ...item, status: nextStatus } : item)))
   }
 
@@ -148,11 +158,11 @@ export default function DraftAnalysisShowcase({
     }
   }
 
-  const addressedCount = [...claims, ...gaps, ...feedback].filter((item) => item.status === 'saved').length
+  const addressedCount = revisionTasks.filter((item) => item.status === 'saved').length
   const liveCounts = {
     claims: claims.length,
     gaps: gaps.length,
-    feedback: feedback.filter((item) => item.feedback_type !== 'strength').length,
+    feedback: revisionTasks.length,
   }
 
   return (
@@ -225,7 +235,7 @@ export default function DraftAnalysisShowcase({
               <TopActionItems actions={SHOWCASE_ACTION_ITEMS} />
               <div className="grid grid-cols-3 gap-2">
                 <SummaryMetric label="Actioned" value={String(addressedCount)} note="Resolved during this review pass" />
-                <SummaryMetric label="Feedback" value={String(liveCounts.feedback)} note={`${SHOWCASE_COUNTS.weakArguments} argument issues`} />
+                <SummaryMetric label="Queue" value={String(liveCounts.feedback)} note="Prioritized revision tasks" />
                 <SummaryMetric label="Questions" value={String(SHOWCASE_COUNTS.reviewerQuestions)} note="Reviewer prompts to answer" />
               </div>
             </div>
@@ -244,6 +254,7 @@ export default function DraftAnalysisShowcase({
                 claims={claims}
                 gaps={gaps}
                 feedback={feedback}
+                revisionTasks={revisionTasks}
                 readinessScore={SHOWCASE_READINESS.score}
                 statusFilter={statusFilter}
                 onStatusFilterChange={setStatusFilter}
@@ -253,6 +264,8 @@ export default function DraftAnalysisShowcase({
                 initialCategory={SHOWCASE_TAB_CATEGORY_MAP[activeTab]}
                 maxVisibleItems={isPreview ? 1 : showDocumentPane ? 3 : 4}
                 compactPreview={isPreview}
+                reviewerPanel={SHOWCASE_REVIEWER_PANEL}
+                metaReview={SHOWCASE_META_REVIEW}
               />
             </motion.div>
           </AnimatePresence>

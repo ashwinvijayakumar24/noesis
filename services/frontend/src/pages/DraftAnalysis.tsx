@@ -93,6 +93,7 @@ interface Draft {
   status: string
   paper_type?: string
   citation_style?: string
+  active_analysis_run_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -195,13 +196,13 @@ export default function DraftAnalysis() {
   const [editorDecision, setEditorDecision] = useState<any | null>(null)
   const [reviewerPanel, setReviewerPanel] = useState<any[]>([])
   const [metaReview, setMetaReview] = useState<any | null>(null)
-  const feedbackCacheRef = useRef<Partial<Record<FeedbackStatusFilter, {
+  const feedbackCacheRef = useRef<Record<string, {
     claims: Claim[]
     gaps: Gap[]
     feedback: Feedback[]
     revisionTasks: RevisionTask[]
     readinessScore: number | null
-  }>>>({})
+  }>>({})
   const checkAnalysisStatusRef = useRef<(() => Promise<void>) | null>(null)
   const { progress: estimatedProgress } = useEstimatedProgress(180)
   const stream = useAnalysisStream(
@@ -209,12 +210,27 @@ export default function DraftAnalysis() {
     draft?.status === 'processing' || draft?.status === 'uploaded',
   )
 
+  useEffect(() => {
+    feedbackCacheRef.current = {}
+    setClaims([])
+    setGaps([])
+    setFeedback([])
+    setRevisionTasks([])
+    setEditingFeedback(EMPTY_EDITING_FEEDBACK)
+    setReadinessScore(null)
+    setEditorDecision(null)
+    setReviewerPanel([])
+    setMetaReview(null)
+  }, [draftId])
+
   const fetchFeedbackForStatus = useCallback(async (
     nextStatus: FeedbackStatusFilter,
     force = false,
   ) => {
     if (!draftId || !token) return
-    const cached = feedbackCacheRef.current[nextStatus]
+    const runId = draft?.active_analysis_run_id ?? 'no-run'
+    const cacheKey = `${draftId}:${runId}:${nextStatus}`
+    const cached = feedbackCacheRef.current[cacheKey]
     if (!force && cached) {
       setClaims(cached.claims)
       setGaps(cached.gaps)
@@ -228,6 +244,8 @@ export default function DraftAnalysis() {
       setFeedbackLoading(true)
       const actionableOnly = nextStatus === 'new'
       const data = await api.drafts.getAllFeedback(token, draftId, nextStatus, actionableOnly)
+      const responseRunId = data.active_analysis_run_id ?? runId
+      const responseCacheKey = `${draftId}:${responseRunId}:${nextStatus}`
       const payload = {
         claims: data.claims || [],
         gaps: data.gaps || [],
@@ -235,7 +253,7 @@ export default function DraftAnalysis() {
         revisionTasks: data.revision_tasks || [],
         readinessScore: data.readiness_score ?? null,
       }
-      feedbackCacheRef.current[nextStatus] = payload
+      feedbackCacheRef.current[responseCacheKey] = payload
       setClaims(payload.claims)
       setGaps(payload.gaps)
       setFeedback(payload.feedback)
@@ -246,7 +264,7 @@ export default function DraftAnalysis() {
     } finally {
       setFeedbackLoading(false)
     }
-  }, [draftId, token])
+  }, [draft?.active_analysis_run_id, draftId, token])
 
   const handleStatusChange = useCallback(async (
     feedbackId: string,
@@ -275,14 +293,16 @@ export default function DraftAnalysis() {
     page_number?: number
   }) => {
     const isPdf = draft?.file_type === 'application/pdf' || draft?.file_type === 'pdf'
+    const snippet = item.text_snippet || item.content_text || ''
     if (isPdf) {
       if (item.pdf_coordinates) {
         documentViewerRef.current?.highlightRegion(item.pdf_coordinates)
+      } else if (snippet) {
+        documentViewerRef.current?.highlightText(snippet, item.page_number, false)
       } else if (item.page_number) {
         documentViewerRef.current?.scrollToPage(item.page_number)
       } else {
         toast('Exact location unavailable for this item yet. Reanalyze the draft to regenerate anchors.', {
-          icon: 'ℹ️',
           duration: 3000,
         })
       }
@@ -290,7 +310,7 @@ export default function DraftAnalysis() {
       if (item.line_number) {
         documentViewerRef.current?.scrollToLine(item.line_number)
       }
-      documentViewerRef.current?.highlightText(item.content_text || '', undefined, false)
+      documentViewerRef.current?.highlightText(snippet, undefined, false)
     }
   }, [draft?.file_type])
 

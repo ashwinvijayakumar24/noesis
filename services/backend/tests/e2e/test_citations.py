@@ -19,7 +19,8 @@ class TestCitationFormatting:
         assert resp.status_code in (200, 204, 404, 405)
 
     async def test_citations_require_auth(self, async_client: httpx.AsyncClient):
-        resp = await async_client.get("/citations/")
+        # Bare /citations/ has no route; use a real secured citations endpoint.
+        resp = await async_client.get("/citations/project/00000000-0000-0000-0000-000000000000")
         assert resp.status_code in (401, 403)
 
     async def test_format_citation_apa(
@@ -33,7 +34,7 @@ class TestCitationFormatting:
             json={
                 "title": "Deep Learning",
                 "authors": ["LeCun, Y.", "Bengio, Y.", "Hinton, G."],
-                "year": 2015,
+                "year": "2015",
                 "journal": "Nature",
                 "volume": "521",
                 "pages": "436-444",
@@ -57,7 +58,7 @@ class TestCitationFormatting:
             json={
                 "title": "Attention Is All You Need",
                 "authors": ["Vaswani, A."],
-                "year": 2017,
+                "year": "2017",
                 "style": "bibtex",
             },
             headers=auth_headers,

@@ -113,6 +113,10 @@ class DraftAnalysisState(TypedDict):
     paper_type: NotRequired[str]
     citation_style: NotRequired[str]
     analysis: NotRequired[Dict[str, Any]]
+    parse_artifact: NotRequired[Dict[str, Any]]
+    parser_quality: NotRequired[Dict[str, Any]]
+    forced_route: NotRequired[str]
+    stage_only: NotRequired[bool]
 
     # Structure analysis
     structure: NotRequired[DraftStructure]
@@ -132,6 +136,14 @@ class DraftAnalysisState(TypedDict):
 
     # Gap detection
     coverage_gaps: NotRequired[List[Gap]]
+
+    # Plan 02 — draft's own reference list
+    resolved_references: NotRequired[List[Dict[str, Any]]]
+    unused_references: NotRequired[List[Dict[str, Any]]]
+    claim_to_own_reference_suggestions: NotRequired[List[Dict[str, Any]]]
+
+    # Plan 04 — citation misrepresentation verdicts
+    citation_verdicts: NotRequired[List[Dict[str, Any]]]
 
     # Literature recommendations
     literature_recommendations: NotRequired[List[Dict[str, Any]]]
@@ -175,16 +187,9 @@ class DraftAnalysisState(TypedDict):
     # Phase 4 — LLM-as-a-judge
     citation_judge_output: NotRequired[Dict[str, Any]]
     reviewer_judge_output: NotRequired[Dict[str, Any]]
+    analysis_quality_judge: NotRequired[Dict[str, Any]]
+    quality_retry_instruction: NotRequired[str]
     # Judged/retried reviewer outputs written by reviewer_judge_node.
     # Separate from reviewer_outputs (which uses an additive reducer) so we can
     # replace/store the final set without double-appending via the reducer.
     judged_reviewer_outputs: NotRequired[List[Dict[str, Any]]]
-
-
-class ValidationState(TypedDict):
-    """State for human validation steps."""
-    validation_type: str  # claim_validation, gap_validation
-    items_to_validate: List[Dict[str, Any]]
-    validated_items: NotRequired[List[Dict[str, Any]]]
-    validation_status: str  # pending, approved, rejected
-    user_feedback: NotRequired[str]

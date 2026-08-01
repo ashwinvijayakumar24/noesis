@@ -54,6 +54,31 @@ services:
       - noesis-network
 
   # ============================================
+  # Docling (layout PDF parser — per-block coordinates)
+  # Used when PDF_PARSER=docling; GROBID stays as fallback + references.
+  # ============================================
+  docling-serve:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    container_name: noesis-docling-prod
+    platform: linux/amd64
+    restart: unless-stopped
+
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+
+    # CPU layout inference needs RAM headroom for the bundled models.
+    deploy:
+      resources:
+        limits:
+          memory: 4096M
+          cpus: '2.0'
+        reservations:
+          memory: 2048M
+
+    networks:
+      - noesis-network
+
+  # ============================================
   # FastAPI Backend
   # ============================================
   backend:
@@ -69,6 +94,8 @@ services:
     environment:
       # Docker internal networking
       GROBID_URL: http://grobid:8070
+      DOCLING_URL: http://docling-serve:5001
+      PDF_PARSER: ${PDF_PARSER:-docling}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
@@ -93,6 +120,8 @@ services:
       redis:
         condition: service_healthy
       grobid:
+        condition: service_started
+      docling-serve:
         condition: service_started
 
     healthcheck:
@@ -127,6 +156,8 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0
       GROBID_URL: http://grobid:8070
+      DOCLING_URL: http://docling-serve:5001
+      PDF_PARSER: ${PDF_PARSER:-docling}
       ENVIRONMENT: production
       LOG_LEVEL: INFO
 
@@ -148,6 +179,8 @@ services:
       redis:
         condition: service_healthy
       grobid:
+        condition: service_started
+      docling-serve:
         condition: service_started
 
     healthcheck:

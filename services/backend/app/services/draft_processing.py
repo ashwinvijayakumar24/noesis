@@ -24,6 +24,19 @@ from app.core.logging_config import get_logger
 from app.core.openai_client import get_openai_client, get_completion_params
 from app.core.privacy import safe_exception, strip_manuscript_content_from_structure
 from app.services.grobid_client import get_grobid_client
+from app.services.draft_parse_artifacts import (
+    ParseQualityError,
+    assess_parse_quality,
+    build_anchor_map,
+    build_local_fallback_structure,
+    build_structure_from_extracted_data,
+    persist_parse_artifact,
+)
+from app.services.draft_multimodal_parser import (
+    extract_multimodal_pdf_evidence,
+    merge_multimodal_evidence,
+    should_run_multimodal_fallback,
+)
 from app.services.draft_errors import (
     DraftProcessingError,
     FileTooLargeError,
@@ -39,10 +52,39 @@ from app.services.draft_errors import (
     wrap_extraction_error
 )
 import datetime
+import os
 import re
 import asyncio
 
 logger = get_logger(__name__)
+
+#: The one question ``validate_file_format`` asks of the extracted text.
+MIN_EXTRACTABLE_CHARS = 50
+
+#: Off by default -- the default is the behaviour measured at
+#: ``scripts/eval/E2E_LATENCY.md`` (user-visible p50 212.82 s, n=7), in which the
+#: PDF is parsed twice per upload: once inside ``validate_file_format`` and again
+#: inside ``ingest_draft``. The first parse costs 52.38 s p50 and its result is
+#: used for exactly one thing -- ``len(full_text) < MIN_EXTRACTABLE_CHARS`` --
+#: and then discarded. Set DRAFT_VALIDATION_CHEAP_PARSE=1 to answer that one
+#: question with a local PyMuPDF read instead of the full GROBID/Docling
+#: document pipeline. PDFs only; DOCX and TXT extraction is already local and
+#: is left exactly as it was. See scripts/eval/E2E_DOUBLEPARSE.md for what the
+#: cheap gate does and does not reject.
+DRAFT_VALIDATION_CHEAP_PARSE_ENV = "DRAFT_VALIDATION_CHEAP_PARSE"
+
+
+def cheap_validation_enabled() -> bool:
+    """Whether the next ``validate_file_format`` uses the cheap PDF probe.
+
+    Read per call rather than captured at import so the flag can be flipped in a
+    running process (and so a test does not have to reload the module) -- the
+    same shape as ``rag_retrieval.keyword_search_rpc_name``.
+    """
+    return (os.getenv(DRAFT_VALIDATION_CHEAP_PARSE_ENV) or "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
 
 # ============================================
 # Text Extraction Functions
@@ -71,6 +113,30 @@ async def extract_text_from_pdf(file_bytes: bytes) -> Dict[str, Any]:
         FileEmptyError: If PDF contains no extractable text
     """
     try:
+        # Docling path (layout-faithful extraction with per-block coordinates) when
+        # enabled via PDF_PARSER=docling. GROBID emits near-zero coordinates on real
+        # PDFs (the cause of failed anchoring); Docling gives a page+bbox for every
+        # block. We keep GROBID's structured references (its genuine strength).
+        if (getattr(settings, "PDF_PARSER", "grobid") or "grobid").lower() == "docling":
+            from app.services.docling_client import extract_with_docling
+            docling_data = await extract_with_docling(file_bytes)
+            if docling_data and docling_data.get("sections") and (docling_data.get("full_text") or "").strip():
+                try:
+                    grobid_refs = (await get_grobid_client().process_pdf(file_bytes)).get("references") or []
+                    if grobid_refs:
+                        docling_data["references"] = grobid_refs
+                except Exception as ref_err:
+                    logger.info("[Docling] GROBID reference enrichment skipped: %s", safe_exception(ref_err))
+                logger.info(
+                    "Extracted via Docling: sections=%s references=%s pages=%s chars=%s",
+                    len(docling_data["sections"]),
+                    len(docling_data.get("references") or []),
+                    docling_data.get("metadata", {}).get("page_count"),
+                    len(docling_data.get("full_text") or ""),
+                )
+                return docling_data
+            logger.warning("Docling parse unavailable/empty; falling back to GROBID")
+
         # Use GROBID for structured extraction
         grobid = get_grobid_client()
         structured_data = await grobid.process_pdf(file_bytes)
@@ -142,6 +208,54 @@ def extract_text_from_pdf_fallback(file_bytes: bytes) -> str:
     except Exception as e:
         logger.error("PDF extraction failed: %s", safe_exception(e))
         raise PDFExtractionError("PDF extraction failed")
+
+
+def probe_pdf_text(file_bytes: bytes, min_chars: int = MIN_EXTRACTABLE_CHARS) -> str:
+    """Cheap answer to "is this a readable PDF with text in it".
+
+    Same reader and same failure mode as ``extract_text_from_pdf_fallback`` --
+    PyMuPDF, locally, no GROBID and no Docling -- but it stops as soon as it has
+    seen ``min_chars`` of non-whitespace text, so a readable manuscript costs one
+    or two pages instead of the whole document pipeline.
+
+    Returns the text read so far, which the caller compares against its own
+    threshold. Only the two error cases raise, and they raise the same errors the
+    full parse raises for the same input:
+
+    - ``PDFExtractionError`` if PyMuPDF cannot open the bytes at all
+    - nothing for an openable PDF with no text: the empty string is returned and
+      the caller's ``< MIN_EXTRACTABLE_CHARS`` branch rejects it, as before
+
+    This is a strictly cheaper gate, not the same gate. It cannot see whether
+    GROBID will parse the document, only whether there is text to parse. See
+    scripts/eval/E2E_DOUBLEPARSE.md.
+    """
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+    except Exception as e:
+        logger.error("PDF probe failed to open document: %s", safe_exception(e))
+        raise PDFExtractionError("PDF extraction failed")
+
+    try:
+        chunks: List[str] = []
+        seen = 0
+        for page in doc:
+            page_text = page.get_text()
+            chunks.append(page_text)
+            seen += len(page_text.strip())
+            if seen >= min_chars:
+                break
+        text = "".join(chunks)
+        logger.info(
+            "PDF probe read %s characters from %s of %s pages",
+            len(text), len(chunks), doc.page_count,
+        )
+        return text
+    except Exception as e:
+        logger.error("PDF probe failed: %s", safe_exception(e))
+        raise PDFExtractionError("PDF extraction failed")
+    finally:
+        doc.close()
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
@@ -433,7 +547,7 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         file_type = draft_record.data["file_type"]
         user_id = draft_record.data["user_id"]
         paper_type = draft_record.data.get("paper_type", "journal_article")
-        citation_style = draft_record.data.get("citation_style", "apa")
+        citation_style = draft_record.data.get("citation_style", "auto")
         logger.info(
             f"[INGEST] ✓ Found draft: file_type={file_type}, user_id={user_id}, "
             f"paper_type={paper_type}, citation_style={citation_style}"
@@ -485,45 +599,99 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
         # For PDFs, GROBID already provides structure - use that directly
         # For DOCX/TXT, use GPT-4 analysis
         logger.info(f"[INGEST] Step 5: Analyzing document structure...")
-        if file_type == 'pdf' and extracted_data.get("sections"):
-            logger.info(f"[INGEST] Using GROBID structure ({len(extracted_data['sections'])} sections)")
-            # Convert GROBID sections to our structure format
-            structure = {
-                "sections": [
-                    {
-                        "id": s.get("id"),
-                        "title": s.get("title", ""),
-                        "type": s.get("type", "other"),
-                        "content": s.get("content", ""),
-                        "coordinates": s.get("coordinates", {}),
-                        "paragraphs": s.get("paragraphs", []),
-                        "start_position": 0,  # GROBID doesn't provide exact positions
-                        "word_count": len(s.get("content", "").split()),
-                        "has_subsections": False
-                    }
-                    for s in extracted_data["sections"]
-                ],
-                "word_count": len(full_text.split()),
-                "page_count": extracted_data.get("metadata", {}).get("page_count", 0),
-                "has_abstract": any(s.get("type") == "abstract" for s in extracted_data["sections"]),
-                "has_introduction": any(s.get("type") == "introduction" for s in extracted_data["sections"]),
-                "has_methods": any(s.get("type") == "methods" for s in extracted_data["sections"]),
-                "has_results": any(s.get("type") == "results" for s in extracted_data["sections"]),
-                "has_discussion": any(s.get("type") == "discussion" for s in extracted_data["sections"]),
-                "has_conclusion": any(s.get("type") == "conclusion" for s in extracted_data["sections"]),
-                "document_metadata": {
-                    "has_abstract": any(s.get("type") == "abstract" for s in extracted_data["sections"]),
-                    "has_introduction": any(s.get("type") == "introduction" for s in extracted_data["sections"]),
-                    "has_conclusion": any(s.get("type") == "conclusion" for s in extracted_data["sections"]),
-                    "appears_complete": len(extracted_data["sections"]) >= 3,
-                    "primary_structure": "standard",
-                    "grobid_extracted": True
-                }
-            }
+        parse_artifact_id = None
+        anchor_map = []
+        parse_quality = {}
+        multimodal_fallback_used = False
+        if file_type == 'pdf' and (extracted_data.get("sections") or extracted_data.get("abstract")):
+            logger.info(f"[INGEST] Using GROBID structure ({len(extracted_data.get('sections', []))} body sections)")
+            structure = build_structure_from_extracted_data(extracted_data)
+            anchor_map = build_anchor_map(structure)
+            parse_quality = assess_parse_quality(
+                full_text=full_text,
+                structure=structure,
+                anchor_map=anchor_map,
+                file_type=file_type,
+            )
+            if should_run_multimodal_fallback(
+                file_type=file_type,
+                full_text=full_text,
+                extracted_data=extracted_data,
+                parse_quality=parse_quality,
+            ):
+                logger.warning(
+                    "[INGEST] Parser risk detected; running multimodal fallback "
+                    "score=%s flags=%s sections=%s refs=%s",
+                    parse_quality.get("parser_quality_score"),
+                    parse_quality.get("parser_quality_flags"),
+                    len(extracted_data.get("sections", [])),
+                    len(extracted_data.get("references", [])),
+                )
+                multimodal = await extract_multimodal_pdf_evidence(file_bytes)
+                if multimodal.get("evidence_sections") or multimodal.get("detected_tables"):
+                    multimodal_fallback_used = True
+                    extracted_data = merge_multimodal_evidence(extracted_data, multimodal)
+                    full_text = extracted_data["full_text"]
+                    structure = build_structure_from_extracted_data(extracted_data)
+                    anchor_map = build_anchor_map(structure)
+                    parse_quality = assess_parse_quality(
+                        full_text=full_text,
+                        structure=structure,
+                        anchor_map=anchor_map,
+                        file_type=file_type,
+                    )
+                    parse_quality["multimodal_fallback_used"] = True
+                    parse_quality["multimodal_fallback_reason"] = "parser_risk_detected"
+                elif parse_quality.get("parse_blocked"):
+                    parse_quality["multimodal_fallback_used"] = False
+                    parse_quality["multimodal_fallback_reason"] = "fallback_failed_or_empty"
+            parse_artifact_id = persist_parse_artifact(
+                draft_id=draft_id,
+                parser_name=parse_quality.get("parser_name", "grobid"),
+                parser_metadata={
+                    **(extracted_data.get("metadata") or {}),
+                    "grobid_sections_count": len(extracted_data.get("sections", [])),
+                    "grobid_references_count": len(extracted_data.get("references", [])),
+                    "multimodal_fallback_used": multimodal_fallback_used,
+                },
+                anchor_map=anchor_map,
+                structure=structure,
+                quality=parse_quality,
+            )
+            if parse_quality.get("parse_blocked"):
+                raise ParseQualityError(
+                    "PDF parser quality too low for reliable analysis: "
+                    f"{parse_quality.get('parse_blocked_reason')}"
+                )
         else:
-            logger.info(f"[INGEST] Using GPT-4 structure analysis")
-            structure = analyze_document_structure(full_text)
-            structure["document_metadata"]["grobid_extracted"] = False
+            if file_type == 'pdf':
+                logger.info("[INGEST] Using local PDF text fallback structure")
+                structure = build_local_fallback_structure(full_text)
+                anchor_map = build_anchor_map(structure)
+            else:
+                logger.info(f"[INGEST] Using GPT-4 structure analysis")
+                structure = analyze_document_structure(full_text)
+                structure["document_metadata"]["grobid_extracted"] = False
+            parse_quality = assess_parse_quality(
+                full_text=full_text,
+                structure=structure,
+                anchor_map=anchor_map,
+                file_type=file_type,
+            )
+            if file_type == 'pdf':
+                parse_artifact_id = persist_parse_artifact(
+                    draft_id=draft_id,
+                    parser_name=parse_quality.get("parser_name", "local_text_fallback"),
+                    parser_metadata={
+                        **(extracted_data.get("metadata") or {}),
+                        "grobid_sections_count": len(extracted_data.get("sections", [])),
+                        "grobid_references_count": len(extracted_data.get("references", [])),
+                        "local_text_fallback": True,
+                    },
+                    anchor_map=anchor_map,
+                    structure=structure,
+                    quality=parse_quality,
+                )
 
         logger.info(f"[INGEST] ✓ Structure analysis complete")
 
@@ -534,6 +702,7 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
 
         # 5. Store analysis in draft_analysis table
         logger.info(f"[INGEST] Step 7: Storing analysis in database...")
+        supabase.table("draft_analysis").delete().eq("draft_id", draft_id).execute()
         analysis_record = {
             "draft_id": draft_id,
             "structure": strip_manuscript_content_from_structure(structure),
@@ -547,23 +716,23 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
                 "paper_type": paper_type,
                 "citation_style": citation_style,
                 "grobid_sections_count": len(extracted_data.get("sections", [])),
-                "grobid_references_count": len(extracted_data.get("references", []))
+                "grobid_references_count": len(extracted_data.get("references", [])),
+                "parser_name": parse_quality.get("parser_name"),
+                "parser_quality_score": parse_quality.get("parser_quality_score"),
+                "parser_quality_flags": parse_quality.get("parser_quality_flags", []),
+                "multimodal_fallback_used": parse_quality.get("multimodal_fallback_used", False),
+                "multimodal_fallback_reason": parse_quality.get("multimodal_fallback_reason", ""),
+                "parse_artifact_id": parse_artifact_id,
+                "parse_blocked_reason": parse_quality.get("parse_blocked_reason", ""),
             }
         }
 
-        supabase.table("draft_analysis").insert(analysis_record).execute()
+        analysis_insert_res = supabase.table("draft_analysis").insert(analysis_record).execute()
         logger.info(f"[INGEST] ✓ Stored draft analysis in database")
 
         # Stage 1 editing data is substantive analysis output, not metadata.
         editing_result = await editing_task
-        analysis_res = (
-            supabase.table("draft_analysis")
-            .select("analysis")
-            .eq("draft_id", draft_id)
-            .single()
-            .execute()
-        )
-        current_analysis = (analysis_res.data or {}).get("analysis") or {}
+        current_analysis = ((analysis_insert_res.data or [{}])[0].get("analysis") or {}) if analysis_insert_res.data else {}
         current_analysis["editing_feedback"] = editing_result
         supabase.table("draft_analysis").update(
             {
@@ -598,7 +767,17 @@ async def ingest_draft(draft_id: str, project_id: str) -> Dict[str, Any]:
             "draft_id": draft_id,
             "word_count": word_count,
             "sections_identified": len(structure.get("sections", [])),
-            "file_type": file_type
+            "file_type": file_type,
+            "full_text": full_text,
+            "structure": structure,
+            "parser_quality": parse_quality,
+            "parse_artifact_id": parse_artifact_id,
+            "extracted_refs": extracted_data.get("references") or [],
+            "parse_artifact": {
+                "id": parse_artifact_id,
+                "anchor_map": anchor_map,
+                "parser_quality": parse_quality,
+            },
         }
 
     except Exception as e:
@@ -635,10 +814,15 @@ async def validate_file_format(file_bytes: bytes, file_type: str) -> Dict[str, A
     # Add text extraction check if basic validation passes
     if validation_result["valid"]:
         try:
-            extracted_data = await extract_text(file_bytes, file_type)
-            sample_text = extracted_data["full_text"]
+            if file_type.lower() == "pdf" and cheap_validation_enabled():
+                # The full parse's result was used for the length check below and
+                # then discarded; ingest_draft parses again from scratch.
+                sample_text = probe_pdf_text(file_bytes)
+            else:
+                extracted_data = await extract_text(file_bytes, file_type)
+                sample_text = extracted_data["full_text"]
 
-            if len(sample_text.strip()) < 50:
+            if len(sample_text.strip()) < MIN_EXTRACTABLE_CHARS:
                 error = FileEmptyError(file_type)
                 validation_result["valid"] = False
                 validation_result["errors"].append(error.to_dict())

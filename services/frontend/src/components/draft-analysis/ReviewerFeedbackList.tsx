@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import type { PdfCoordinates } from '../DocumentViewer'
 import UnifiedFeedbackCard from './UnifiedFeedbackCard'
 import EditorDecisionCard from './EditorDecisionCard'
@@ -86,6 +87,7 @@ export type CategoryKey =
   | 'weak_arguments'
   | 'coverage_gaps'
   | 'methodology'
+  | 'clarity_limits'
   | 'reviewer_questions'
 
 interface ListItem {
@@ -140,11 +142,12 @@ const PRIORITY_HEADER_CONFIG = {
 } as const
 
 const CATEGORY_CONFIG: Record<CategoryKey, { label: string }> = {
-  all: { label: 'All issues' },
+  all: { label: 'Revision queue' },
   missing_citations: { label: 'Missing citations' },
-  weak_arguments: { label: 'Weak arguments' },
-  coverage_gaps: { label: 'Coverage gaps' },
-  methodology: { label: 'Methodology' },
+  weak_arguments: { label: 'Claims & evidence' },
+  coverage_gaps: { label: 'Literature & positioning' },
+  methodology: { label: 'Methods & evaluation' },
+  clarity_limits: { label: 'Clarity & limits' },
   reviewer_questions: { label: 'Reviewer questions' },
 }
 
@@ -185,12 +188,81 @@ function classifyFeedback(item: FeedbackItem): CategoryKey {
 }
 
 function classifyTask(item: RevisionTask): CategoryKey {
-  if (item.task_type === 'citation') return 'missing_citations'
-  if (item.task_type === 'literature_positioning') return 'coverage_gaps'
-  if (['methodology', 'causal_claim', 'framework_validation', 'deployment', 'reproducibility'].includes(item.task_type)) {
+  const taskType = (item.task_type || '').toLowerCase()
+  const problemText = `${item.problem || ''} ${item.why_it_matters || ''} ${item.suggested_action || ''}`
+  if (taskType === 'citation') return 'missing_citations'
+  if (taskType === 'literature_positioning') return 'coverage_gaps'
+  if (taskType === 'causal_claim') return 'weak_arguments'
+  if (['methodology', 'evaluation', 'framework_validation', 'deployment', 'reproducibility', 'baseline', 'ablation', 'runtime', 'scalability'].includes(taskType)) {
     return 'methodology'
   }
+  if (['clarity', 'structural', 'limitations', 'presentation'].includes(taskType)) return 'clarity_limits'
+  if (/question|clarify|could you|can you/i.test(problemText)) return 'reviewer_questions'
   return 'weak_arguments'
+}
+
+function recommendationLabel(value?: string) {
+  return String(value || 'major_revision')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function getMetaReviewPayload(metaReview: any | null) {
+  if (!metaReview) return null
+  if (metaReview.meta_review && typeof metaReview.meta_review === 'object') return metaReview.meta_review
+  return metaReview
+}
+
+function ReviewSummaryStrip({
+  readinessScore,
+  revisionTasks,
+  editorDecision,
+  reviewerPanel,
+  metaReview,
+}: {
+  readinessScore: number | null
+  revisionTasks: RevisionTask[]
+  editorDecision?: ReviewerFeedbackListProps['editorDecision']
+  reviewerPanel?: any[]
+  metaReview?: any | null
+}) {
+  const meta = getMetaReviewPayload(metaReview)
+  const mustAddressCount = Array.isArray(meta?.must_address) ? meta.must_address.length : revisionTasks.filter((task) => task.priority === 'high').length
+  const reviewerCount = reviewerPanel?.length || 0
+  const agreement = meta?.reviewer_agreement_level ? String(meta.reviewer_agreement_level) : reviewerCount > 0 ? 'panel' : 'pending'
+  const recommendation = recommendationLabel(meta?.overall_recommendation)
+  const deskStatus = editorDecision
+    ? editorDecision.proceed_to_review
+      ? 'passed desk check'
+      : 'desk check blocked'
+    : 'desk check pending'
+
+  return (
+    <div className="border-b border-border-default bg-bg-surface px-4 py-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Readiness</p>
+          <p className="mt-1 text-sm font-semibold text-text-primary">
+            {readinessScore !== null ? `${Math.round(readinessScore)}/100` : 'Pending'}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Recommendation</p>
+          <p className="mt-1 text-sm font-semibold capitalize text-text-primary">{recommendation}</p>
+        </div>
+        <div className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Must address</p>
+          <p className="mt-1 text-sm font-semibold text-text-primary">{mustAddressCount} issue{mustAddressCount === 1 ? '' : 's'}</p>
+        </div>
+        <div className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Review panel</p>
+          <p className="mt-1 text-sm font-semibold capitalize text-text-primary">
+            {reviewerCount > 0 ? `${reviewerCount} reviewers, ${agreement} agreement` : deskStatus}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function buildItems(
@@ -260,6 +332,7 @@ export default function ReviewerFeedbackList({
   metaReview,
 }: ReviewerFeedbackListProps) {
   const [category, setCategory] = useState<CategoryKey>(initialCategory)
+  const [summaryCollapsed, setSummaryCollapsed] = useState(true)
   const feedbackScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -314,6 +387,7 @@ export default function ReviewerFeedbackList({
       weak_arguments: 0,
       coverage_gaps: 0,
       methodology: 0,
+      clarity_limits: 0,
       reviewer_questions: 0,
     }
     statusFilteredItems.forEach((item) => {
@@ -363,45 +437,88 @@ export default function ReviewerFeedbackList({
   }, [category, statusFilter])
 
   const hasDecisionContext = !compactPreview && (editorDecision || metaReview || (reviewerPanel && reviewerPanel.length > 0))
+  const compactStatusSummary = `${Math.round(readinessScore ?? 0)}/100 · ${statusCounts.new} open · ${addressedCount}/${totalCount} addressed`
 
   return (
     <div className="flex h-full flex-col">
       {!compactPreview && (
         <div className="shrink-0 border-b border-border-default bg-bg-surface">
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <div className="flex items-center gap-3">
-              {readinessScore !== null && (
-                <div className="flex items-baseline gap-1">
-                  <span className="text-base font-semibold text-text-primary tabular-nums">
-                    {Math.round(readinessScore)}/100
+          {summaryCollapsed ? (
+            <div className="flex items-center justify-between gap-3 border-b border-border-default px-4 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-text-primary">
+                  {recommendationLabel(getMetaReviewPayload(metaReview)?.overall_recommendation)}
+                </p>
+                <p className="mt-0.5 truncate font-mono text-xs text-text-muted">
+                  {readinessScore !== null ? compactStatusSummary : `${statusCounts.new} open · ${addressedCount}/${totalCount} addressed`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSummaryCollapsed(false)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-default px-2.5 py-1.5 text-xs font-semibold text-text-secondary transition-colors duration-150 hover:bg-bg-elevated hover:text-text-primary active:translate-y-px"
+                aria-expanded="false"
+                aria-label="Show review summary"
+              >
+                <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
+                Summary
+              </button>
+            </div>
+          ) : (
+            <>
+              <ReviewSummaryStrip
+                readinessScore={readinessScore}
+                revisionTasks={revisionTasks}
+                editorDecision={editorDecision}
+                reviewerPanel={reviewerPanel}
+                metaReview={metaReview}
+              />
+              <div className="flex items-center justify-between gap-4 px-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  {readinessScore !== null && (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-base font-semibold text-text-primary tabular-nums">
+                        {Math.round(readinessScore)}/100
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide text-text-muted">readiness</span>
+                    </div>
+                  )}
+                  <span className="text-xs text-text-muted">
+                    {addressedCount} of {totalCount} addressed
                   </span>
-                  <span className="text-[10px] uppercase tracking-wide text-text-muted">readiness</span>
                 </div>
-              )}
-              <span className="text-xs text-text-muted">
-                {addressedCount} of {totalCount} addressed
-              </span>
-            </div>
-          </div>
-
-          <div className="px-4 pb-3">
-            <div className="flex flex-wrap gap-1.5">
-              {visibleCategories.map((key) => (
                 <button
-                  key={key}
-                  onClick={() => setCategory(key)}
-                  className={`min-h-10 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
-                    category === key
-                      ? 'border-border-strong bg-bg-surface text-text-primary'
-                      : 'border-transparent bg-transparent text-text-secondary hover:border-border-default hover:bg-bg-surface hover:text-text-primary'
-                  }`}
+                  type="button"
+                  onClick={() => setSummaryCollapsed(true)}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-default px-2.5 py-1.5 text-xs font-semibold text-text-secondary transition-colors duration-150 hover:bg-bg-elevated hover:text-text-primary active:translate-y-px"
+                  aria-expanded="true"
+                  aria-label="Hide review summary"
                 >
-                  {CATEGORY_CONFIG[key].label}
-                  {categoryCounts[key] > 0 && <span className="ml-1.5 text-text-muted">{categoryCounts[key]}</span>}
+                  <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
+                  Collapse
                 </button>
-              ))}
-            </div>
-          </div>
+              </div>
+
+              <div className="px-4 pb-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {visibleCategories.map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => setCategory(key)}
+                      className={`min-h-10 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
+                        category === key
+                          ? 'border-border-strong bg-bg-surface text-text-primary'
+                          : 'border-transparent bg-transparent text-text-secondary hover:border-border-default hover:bg-bg-surface hover:text-text-primary'
+                      }`}
+                    >
+                      {CATEGORY_CONFIG[key].label}
+                      {categoryCounts[key] > 0 && <span className="ml-1.5 text-text-muted">{categoryCounts[key]}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex space-x-1 border-t border-border-default px-4">
             {(['new', 'saved', 'dismissed'] as StatusFilter[]).map((status) => {

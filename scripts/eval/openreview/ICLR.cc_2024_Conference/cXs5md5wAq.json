@@ -1,0 +1,75 @@
+{
+  "abstract": "Understanding the interactions and interplay of microorganisms is a great challenge with many applications in medical and environmental settings. In this work, we model bacterial communities directly from their genomes using graph neural networks (GNNs). GNNs leverage the inductive bias induced by the set nature of bacteria, enforcing permutation invariance and granting combinatorial generalization. We propose to learn the dynamics implicitly by directly predicting community relative abundance profiles at steady state, thus escaping the need for growth curves. On two real-world datasets, we show for the first time generalization to unseen bacteria and different community structures. \nTo investigate the prediction results more deeply, we created a simulation for flexible data generation and analyze effects of bacteria interaction strength, community size, and training data amount.",
+  "accepted": false,
+  "decision": "Reject",
+  "meta_review": {
+    "primary_reasons": "The paper studies bacterial communities by applying GNNs. All reviewers generally agreed that the area is interesting, but raised a bunch of questions about the methodology, the details, scalability, and more. Just as one example, it's not clear why a fully-connected graph makes sense here (in the absence of more specific knowledge on the community graph). While the authors provided some answers, ultimately there's enough outstanding questions and unclear items to make me believe the paper is still below the bar in the current iteration. However, I am optimistic about a future draft.",
+    "recommendation": ""
+  },
+  "paper_id": "cXs5md5wAq",
+  "pdf_path": "openreview/ICLR.cc_2024_Conference/cXs5md5wAq.pdf",
+  "pdf_url": "https://openreview.net/pdf/a4578db3b369ee02db6e42b64d333e578e1b692e.pdf",
+  "raw_reply_invitations": [
+    "ICLR.cc/2024/Conference/-/Edit",
+    "ICLR.cc/2024/Conference/-/Post_Submission",
+    "ICLR.cc/2024/Conference/-/Submission",
+    "ICLR.cc/2024/Conference/Submission9504/-/Decision",
+    "ICLR.cc/2024/Conference/Submission9504/-/Meta_Review",
+    "ICLR.cc/2024/Conference/Submission9504/-/Official_Comment",
+    "ICLR.cc/2024/Conference/Submission9504/-/Official_Review",
+    "ICLR.cc/2024/Conference/Submission9504/-/Rebuttal_Revision",
+    "ICLR.cc/2024/Conference/Submission9504/-/Revision"
+  ],
+  "reviews": [
+    {
+      "confidence": 4,
+      "contribution": 2,
+      "presentation": 2,
+      "questions": "What is the rationale for using a GNN on a very simple graph?\n\nWhat is the benefit of focusing on predicting steady state, instead of focusing on dynamical changes to the relative abundances (e.g., dysbiosis).",
+      "rating": 3,
+      "reviewer": "anon1",
+      "soundness": 2,
+      "strengths": "Understanding how distinct bacteria form communities is an important problem, and the manuscript provides a solid introduction to the topic and, in the experimental section, asks important questions about our ability to understand community formation.",
+      "summary": "The paper aims at predicting steady-state composition of microbial communities from the gene content of their genomes using graph neural networks.",
+      "weaknesses": "The proposed approach for using GNNs for bacterial communities is vaguely described and not well justified. The key methods section (2.2) provides a generic description of existing GNN approaches, and is missing key microbiome specific information (in particular, what is the topology of the graph). That information is provided in Supplementary information: the graph is fully connected. This makes statements in the manuscript such as \u201cBy using k graph convolutional layers after one another we can achieve k-hop information propagation\u201d rather misleading. \n\nOverall, the proposed method - applying GNN model in a straightforward way to a very small, fully-connected graph - is poorly justified and weak on novelty."
+    },
+    {
+      "confidence": 3,
+      "contribution": 2,
+      "presentation": 2,
+      "questions": "1. How the nodes, edges and their associated attributes/features were constructed, especially based on the real-world data? \n\n2. How scalable is the GNN-based implementation with respect to the number of microbial species?",
+      "rating": 3,
+      "reviewer": "anon2",
+      "soundness": 2,
+      "strengths": "The presented comparison results with MLP-based implementation demonstrates the potential of GNN-based implementations to model microbial community dynamics.",
+      "summary": "The paper tested the idea of using MPGNN or GraphSAGE to learn generalizable microbial community steady-state dynamics. The proposed models were tested on  simulated and previous publicly available microbial datasets and compared with the MLP-based implementation to show the effectiveness, with the discussions on the generalizability of GNN-based implementations.",
+      "weaknesses": "1. The methodological contribution is limited as the presented work is mostly implementing GNNs for microbial steady state predictions. \n\n2. The main core of the paper is based on the assumption that if there is a steady state solution to the dynamics of bacterial species, then that steady state can be predicted using the genome data of the species in the system. This is a reasonable assumption to make. However the fact that this method works only for steady state solutions needs to be emphasized. Indeed in the GLV setting in the famous example of foxes and rabbits, there could be steady state and oscillatory solutions even though the participating genomes are foxes and rabbits in both the cases. It might also be a good idea to highlight why authors expect to find (or not) only steady state solutions in systems involving microorganisms such as bacteria. This will add more strength to the paper.\n\n3. For simulations, the GLV equations along with initial conditions and parameters $\\mu_i, K_i, a_{i,j}$ drawn from different probability density functions are used to generate data. Did all such simulations lead to steady state solutions? Were any simulations that did not lead to steady state solutions discarded? Do the authors also have any comments on the frequency of steady state solutions when random parameters are used?\n\n4. Given the GLV equations, the steady state solutions can be found by solving a system of $|S|$ linear algebraic equations:\n    \\begin{equation}\n        \\sum_{j=1}^{|S|}a_{i,j}n_j = K_i.\n    \\end{equation}\nThe steady state is entirely determined by the parameters $a_{i,j}$ and $K_i$. The authors use a vector composed of $[\\mu_i, K_i, \\nu_i^s, \\nu_i^r, random]$ (where $a_{i,j} \\approx \\nu_i^s. \\nu_j^r$) to simulate the genome data in their simulation. It would be a good idea to highlight that within the simulated genome vector only the components $[K_i, \\nu_i^s, \\nu_i^r]$ determine the steady state solution.\n\n5. The parameter $a_{i,j}$ (broken into two vectors $\\nu_i^s, \\nu_j^r$ to simulate the genome) contains information on the pairwise interaction between different species. On the other hand, the information in a genome is completely intrinsic to a particular species. The authors should square these two facts.\n\n6. A proper simulation would entail simulation of the genome data. The genome data typically do not include information on interaction between species. But for simulations, the interaction matrix was used to derive $\\nu$ vectors. The claim of interpretability seems to be questionable. \n    \n7. The authors appear to be confused on equivariance and invariance. The permutation invariance justification for using graph neural networks is confusing. For example, GLV models are widely used to model the dynamics of microorganisms. But the GLV model is not permutation invariant. The authors stated \"\\textit{When shuffling the order of bacteria within the train and test communities, the accuracy of MLPs drops significantly, clearly showing that the dynamics learned by MLPs are not invariant to permutations...}\" It is to be expected that shuffling the data will lead to reduction in performance of MLP based models. But as long as all the training and testing is done with a particular order of species, it should not matter.\n\n8. The authors need to provide details on how the node (genome) attributes were obtained, especially $\\nu$'s, as in real-world data, the ground-truth interaction $a_{ij}$ is not available."
+    },
+    {
+      "confidence": 3,
+      "contribution": 1,
+      "presentation": 2,
+      "questions": "See weaknesses. \n\nMy main question is if it is true that the lack of data was your biggest challenge? And if so I would like to have it clearly stated so that others may look for additional data sources or make their own datasets available before we dive into new models.",
+      "rating": 6,
+      "reviewer": "anon3",
+      "soundness": 3,
+      "strengths": "I found the paper interesting and I think the authors are correct that a better modeling of bacteria would open up a much better understanding of a wide range of fields. Key strengths:\n* The authors' comparative approach between models is commendable.\n* The paper addresses a clinically relevant topic, shedding light on bacterial interactions.\n* The authors' transparency regarding the challenges in scaling the mod",
+      "summary": "The paper looks at modeling bacterial communities and their interactions using graph neural networks (GNNs). They rely on two open datasets, total n = 552 samples. The authors have downloaded genomes for the bacteria that was converted to growth encodings. To address the issue with limited data the authors also used a simulator based on the Lotka-Volterra model. They compare three different models, MLP as the standard, GNNs and MPGNN. Using GNN/MPGNN the authors were able to model but the models were sensitive to variations and generalizing to larger systems was poor. Models were better than MLP but only marginally.",
+      "weaknesses": "While I enjoyed reading something on the outskirts of my experience, although I have grown my own tuberculosis communities in the early days of my research, I struggle with some of the basic premises:\n* Motivation & Context: The paper's motivation needs clearer alignment with real-world applications. The authors cite that understanding these communities is essential for gut, industry and space but I find the step from this paper to extrapolating to gut seems huge. The largest studied communities are 26 and this needs to be put in context with the other fields, citing Wikipedia \u201c1010 to 1011 cells per gram of intestinal content\u201d seems far off from the estimated single colonies. The types of bacteria should also be matched with the environment that you aim to generalize for.\n* Sample Size & DNA Inclusion: I'm concerned about the limited independent samples, especially in combination with the attempt to include DNA. Making sense of DNA has proven much more difficult than thought of in the beginning and I\u2019m not convinced that the addition made sense. Adding it to the paper risks of overfitting the data even more. I wonder if the field wouldn\u2019t benefit more from going from 500 samples to 1-2000 more than this paper. My experience with building models on this type of data is that they are frustratingly brittle due to the lack of data.\n* Clarity & Explanation: Coming from medicin to ML is always a challenge. It would be helpful if the paper could provide clearer explanations for terms and metrics, especially for readers transitioning from medical backgrounds. E.g. keystone bacteria are not explained, good vs acceptable R2 is unclear to the reader (I can\u2019t even find clearly how is this calculated, despite looking in appendix A which I should not have to for the main outcome), I assume that R2 is highly dependent on the underlying complexity, also the datasets have completely different bacteria suggesting that their purpose was different but this is unclear to me despite reading it several times.\n* Simulation Impact: The paper should provide a clearer explanation of the effect of simulated colonies on the models' stability.\nRegarding the conclusion I\u2019m a little confused as to why it doesn\u2019t recommend including more data. I believe the authors have devoted significant time to this paper and before we put others down this path, perhaps we should wait for more data or do the authors truly feel that GEMs will be the solution?"
+    },
+    {
+      "confidence": 3,
+      "contribution": 3,
+      "presentation": 4,
+      "questions": "Where are the circles for fig3A (models not on permuted data)? Why only select some of the combinations and not showing all of them? It would also be great if the authors could compare with standard practice of this task instead of just comparing with GraphSAGE. For example, by fitting the mechanistic model.\n\nHave the authors experimented with other GNN models? Since graphsage is only one instantiation and there are many recent ones with more expressive powers. \n\nModeling the dynamics sounds interesting. Could the authors also use GNN in an iterative way to model the dynamics? For example, using ideas from this paper: http://proceedings.mlr.press/v119/sanchez-gonzalez20a.html",
+      "rating": 6,
+      "reviewer": "anon4",
+      "soundness": 3,
+      "strengths": "- Novel problem setup and the first use of GNN to tackle this problem. \n- The use of GNN matches with the data well since it is modeling a dynamic system. \n- Very interesting set of experiments and they are extensive. \n- The presentation is nice and clear.\n- Nice simulation data construction and results.",
+      "summary": "The study focuses on understanding the interactions between microorganisms, which is of significant importance in both medical and environmental contexts. The authors introduce a novel approach by modeling bacterial communities using graph neural networks (GNNs) directly from the genomes of the bacteria. The inherent properties of GNNs, such as permutation invariance, allow them to effectively capture the relationships within the bacterial set, thus offering combinatorial generalization.",
+      "weaknesses": "- Methodological novelty is limited since it is basically fitting a GNN on a bacterial community graph. This is not to say the novelty of the paper is limited. Since I do believe it is tackling an interesting new problem with impact. I would suggest the authors consider a journal paper instead."
+    }
+  ],
+  "title": "Modelling Microbial Communities with Graph Neural Networks",
+  "venue": "ICLR.cc/2024/Conference"
+}

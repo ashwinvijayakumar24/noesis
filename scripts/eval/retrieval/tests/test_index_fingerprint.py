@@ -1,0 +1,107 @@
+"""The record must identify what was searched, not only what it was scored against.
+
+Regression test for a concurrency incident: one agent re-chunked the shared eval
+corpus in place while another measured a control arm against it. Both runs
+produced records with identical ``labels_fingerprint``, ``queries_fingerprint``
+and ``config_hash``, because label fingerprints hash document ids and document
+ids are ``uuid5`` over file content -- which re-chunking does not change.
+
+The contaminated control read recall@10 0.2186 against a 5,924-chunk index where
+the real control reads 0.2195 against 5,948. Nothing in the record could have
+told them apart, so nothing downstream could either.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+_REPO_ROOT = str(Path(__file__).resolve().parents[4])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from scripts.eval.retrieval.run_retrieval_eval import (  # noqa: E402
+    INDEX_NOT_APPLICABLE,
+    INDEX_UNKNOWN,
+    config_hash,
+    index_fingerprint,
+)
+
+
+def test_mock_retriever_is_not_applicable_not_unknown():
+    """A retriever that never touches the DB has no index state to report.
+
+    That is different from a DB-backed run whose index could not be identified.
+    Collapsing the two would turn a clean run into a suspicious one and, worse,
+    make a genuinely suspicious one look routine.
+    """
+    assert index_fingerprint("mock") == {"index_state": INDEX_NOT_APPLICABLE}
+
+
+def test_failure_is_reported_never_raised():
+    """A fingerprint that can fail a run gets removed the first time it is
+    inconvenient, and is then missing exactly when it matters."""
+    fp = index_fingerprint("dense", project_id="00000000-0000-0000-0000-000000000000")
+    assert fp["index_state"] in {INDEX_UNKNOWN, "0c/0d"} or "index_n_chunks" in fp
+
+
+def test_index_state_participates_in_the_config_hash():
+    """The whole point. Two corpora must not share a hash.
+
+    Built from literal config dicts rather than a live DB so the property is
+    tested even on a machine with no database.
+    """
+    base = {
+        "retriever": "dense",
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "queries_fingerprint": "1f6c584e8fd6c055",
+    }
+    legacy = {**base, "index_state": "5948c/344d", "index_digest": "8d3edbe3f3b28cdb"}
+    exact = {**base, "index_state": "5924c/344d", "index_digest": "0000000000000000"}
+
+    assert config_hash(legacy) != config_hash(exact), (
+        "two different corpora produced the same config hash -- the incident "
+        "this test exists to prevent has recurred"
+    )
+    assert config_hash(legacy) == config_hash(dict(legacy)), "hash must be stable"
+
+
+def test_a_row_count_is_not_a_corpus_identity():
+    """The check that the incident's own verification failed.
+
+    R1 verified 5,948 chunks / 344 documents and concluded the corpus was
+    intact. It was intact *by count* at every moment -- the restore returned the
+    count while replacing 324 chunk ids and their embeddings. Counting rows is
+    exactly the check that cannot see this.
+    """
+    from scripts.eval.retrieval.run_retrieval_eval import (
+        CorpusChangedUnderRun,
+        assert_corpus_stable,
+    )
+
+    before = {"index_state": "5948c/344d", "index_digest": "8d3edbe3f3b28cdb"}
+    after_same_count = {"index_state": "5948c/344d", "index_digest": "0000000000000000"}
+
+    assert before["index_state"] == after_same_count["index_state"], (
+        "the premise of this test: counts match"
+    )
+    try:
+        assert_corpus_stable(before, after_same_count)
+    except CorpusChangedUnderRun as exc:
+        assert "cannot share a record" in str(exc)
+    else:
+        raise AssertionError("identical counts with different digests must not pass")
+
+
+def test_stable_corpus_passes_and_mock_is_exempt():
+    from scripts.eval.retrieval.run_retrieval_eval import (
+        INDEX_NOT_APPLICABLE,
+        assert_corpus_stable,
+    )
+
+    fp = {"index_state": "5948c/344d", "index_digest": "8d3edbe3f3b28cdb"}
+    assert_corpus_stable(fp, dict(fp))
+    # A mock run has no corpus to be stable about; it must not be forced to
+    # invent a digest just to satisfy the check.
+    assert_corpus_stable({"index_state": INDEX_NOT_APPLICABLE}, {"index_state": "anything"})

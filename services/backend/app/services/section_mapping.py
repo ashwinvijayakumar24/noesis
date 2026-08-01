@@ -17,8 +17,25 @@ import re
 from typing import Dict, Any, List, Optional
 from app.core.supabase_client import supabase
 from app.core.logging_config import get_logger
+from app.services.draft_analysis_runs import active_run_filter
 
 logger = get_logger(__name__)
+
+
+def _active_analysis_run_id(draft_id: str) -> str | None:
+    try:
+        res = (
+            supabase.table("drafts")
+            .select("active_analysis_run_id")
+            .eq("id", draft_id)
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            return res.data[0].get("active_analysis_run_id")
+    except Exception:
+        return None
+    return None
 
 # ============================================
 # Section Type Detection Patterns
@@ -183,13 +200,14 @@ async def assign_section_types_to_feedback(draft_id: str) -> Dict[str, Any]:
     logger.info(f"Assigning section types for draft {draft_id}")
 
     try:
+        active_run_id = _active_analysis_run_id(draft_id)
         # 1. Load draft structure
-        analysis_response = (
+        analysis_response = active_run_filter(
             supabase.table("draft_analysis")
             .select("structure")
-            .eq("draft_id", draft_id)
-            .execute()
-        )
+            .eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
         if not analysis_response.data:
             logger.warning(f"No draft_analysis found for draft {draft_id}")
@@ -206,7 +224,7 @@ async def assign_section_types_to_feedback(draft_id: str) -> Dict[str, Any]:
         if not sections:
             logger.warning(f"No sections found in draft structure for {draft_id}")
             # Fall back to using section_location for detection
-            return await assign_section_types_from_location(draft_id)
+            return await assign_section_types_from_location(draft_id, active_run_id=active_run_id)
 
         logger.info(f"Found {len(sections)} sections in draft structure")
 
@@ -220,13 +238,13 @@ async def assign_section_types_to_feedback(draft_id: str) -> Dict[str, Any]:
             logger.debug(f"Mapped '{title}' -> {section_type}")
 
         # 3. Update claims
-        claims_updated = await update_claims_section_types(draft_id, section_mapping)
+        claims_updated = await update_claims_section_types(draft_id, section_mapping, active_run_id=active_run_id)
 
         # 4. Update coverage gaps
-        gaps_updated = await update_gaps_section_types(draft_id, section_mapping)
+        gaps_updated = await update_gaps_section_types(draft_id, section_mapping, active_run_id=active_run_id)
 
         # 5. Update reviewer feedback
-        feedback_updated = await update_feedback_section_types(draft_id, section_mapping)
+        feedback_updated = await update_feedback_section_types(draft_id, section_mapping, active_run_id=active_run_id)
 
         logger.info(
             f"Section type assignment complete: "
@@ -246,7 +264,10 @@ async def assign_section_types_to_feedback(draft_id: str) -> Dict[str, Any]:
         raise
 
 
-async def assign_section_types_from_location(draft_id: str) -> Dict[str, Any]:
+async def assign_section_types_from_location(
+    draft_id: str,
+    active_run_id: str | None = None,
+) -> Dict[str, Any]:
     """
     Fallback: Assign section types based on section_location field.
 
@@ -267,13 +288,13 @@ async def assign_section_types_from_location(draft_id: str) -> Dict[str, Any]:
 
     try:
         # Update claims based on section_location
-        claims_response = (
+        claims_response = active_run_filter(
             supabase.table("draft_claims")
             .select("id, section_location")
             .eq("draft_id", draft_id)
-            .is_("section_type", "null")
-            .execute()
-        )
+            .is_("section_type", "null"),
+            active_run_id,
+        ).execute()
 
         for claim in claims_response.data:
             section_type = detect_section_type_from_location(claim.get("section_location", ""))
@@ -283,13 +304,13 @@ async def assign_section_types_from_location(draft_id: str) -> Dict[str, Any]:
             claims_updated += 1
 
         # Update gaps based on section_location
-        gaps_response = (
+        gaps_response = active_run_filter(
             supabase.table("coverage_gaps")
             .select("id, description")
             .eq("draft_id", draft_id)
-            .is_("section_type", "null")
-            .execute()
-        )
+            .is_("section_type", "null"),
+            active_run_id,
+        ).execute()
 
         for gap in gaps_response.data:
             # Gaps don't have section_location, use description heuristic
@@ -300,13 +321,13 @@ async def assign_section_types_from_location(draft_id: str) -> Dict[str, Any]:
             gaps_updated += 1
 
         # Update feedback based on section_reference
-        feedback_response = (
+        feedback_response = active_run_filter(
             supabase.table("reviewer_feedback")
             .select("id, section_reference")
             .eq("draft_id", draft_id)
-            .is_("section_type", "null")
-            .execute()
-        )
+            .is_("section_type", "null"),
+            active_run_id,
+        ).execute()
 
         for feedback in feedback_response.data:
             section_type = detect_section_type_from_location(feedback.get("section_reference", ""))
@@ -335,7 +356,8 @@ async def assign_section_types_from_location(draft_id: str) -> Dict[str, Any]:
 
 async def update_claims_section_types(
     draft_id: str,
-    section_mapping: Dict[str, str]
+    section_mapping: Dict[str, str],
+    active_run_id: str | None = None,
 ) -> int:
     """
     Update section_type for all claims in a draft.
@@ -349,12 +371,12 @@ async def update_claims_section_types(
     Returns:
         Number of claims updated
     """
-    claims_response = (
+    claims_response = active_run_filter(
         supabase.table("draft_claims")
         .select("id, section_location")
-        .eq("draft_id", draft_id)
-        .execute()
-    )
+        .eq("draft_id", draft_id),
+        active_run_id,
+    ).execute()
 
     updated_count = 0
 
@@ -387,7 +409,8 @@ async def update_claims_section_types(
 
 async def update_gaps_section_types(
     draft_id: str,
-    section_mapping: Dict[str, str]
+    section_mapping: Dict[str, str],
+    active_run_id: str | None = None,
 ) -> int:
     """
     Update section_type for all coverage gaps in a draft.
@@ -402,12 +425,12 @@ async def update_gaps_section_types(
     Returns:
         Number of gaps updated
     """
-    gaps_response = (
+    gaps_response = active_run_filter(
         supabase.table("coverage_gaps")
         .select("id, gap_type, description")
-        .eq("draft_id", draft_id)
-        .execute()
-    )
+        .eq("draft_id", draft_id),
+        active_run_id,
+    ).execute()
 
     updated_count = 0
 
@@ -444,7 +467,8 @@ async def update_gaps_section_types(
 
 async def update_feedback_section_types(
     draft_id: str,
-    section_mapping: Dict[str, str]
+    section_mapping: Dict[str, str],
+    active_run_id: str | None = None,
 ) -> int:
     """
     Update section_type for all reviewer feedback in a draft.
@@ -458,12 +482,12 @@ async def update_feedback_section_types(
     Returns:
         Number of feedback items updated
     """
-    feedback_response = (
+    feedback_response = active_run_filter(
         supabase.table("reviewer_feedback")
         .select("id, section_reference, feedback_type")
-        .eq("draft_id", draft_id)
-        .execute()
-    )
+        .eq("draft_id", draft_id),
+        active_run_id,
+    ).execute()
 
     updated_count = 0
 
@@ -500,52 +524,3 @@ async def update_feedback_section_types(
 
     logger.debug(f"Updated section_type for {updated_count} feedback items")
     return updated_count
-
-
-async def auto_migrate_existing_draft(draft_id: str) -> Dict[str, Any]:
-    """
-    Auto-migrate an existing draft to use section-based navigation.
-
-    This is called when a user opens an old draft for the first time
-    after the section-based redesign. No re-analysis is needed - we
-    just assign section types based on existing data.
-
-    Args:
-        draft_id: UUID of the draft
-
-    Returns:
-        Migration result with statistics
-    """
-    logger.info(f"Auto-migrating existing draft {draft_id} to section-based view")
-
-    try:
-        # Check if already migrated (section_type AND status both set)
-        claims_check = (
-            supabase.table("draft_claims")
-            .select("id")
-            .eq("draft_id", draft_id)
-            .not_.is_("section_type", "null")
-            .not_.is_("status", "null")
-            .limit(1)
-            .execute()
-        )
-
-        if claims_check.data:
-            logger.info(f"Draft {draft_id} already migrated")
-            return {
-                "already_migrated": True,
-                "claims_updated": 0,
-                "gaps_updated": 0,
-                "feedback_updated": 0
-            }
-
-        # Perform migration
-        result = await assign_section_types_to_feedback(draft_id)
-        result["already_migrated"] = False
-
-        logger.info(f"Auto-migration complete for draft {draft_id}")
-        return result
-
-    except Exception as e:
-        logger.error(f"Auto-migration failed for draft {draft_id}: {e}")
-        raise

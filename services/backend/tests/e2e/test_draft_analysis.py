@@ -7,6 +7,12 @@ import pytest
 import httpx
 
 
+def _draft_id(resp: httpx.Response) -> str:
+    """Upload returns {"draft": {...}}; tolerate a flat shape too."""
+    data = resp.json()
+    return data.get("id") or (data.get("draft") or {}).get("id")
+
+
 @pytest.mark.integration
 class TestDraftUpload:
     async def test_upload_txt_draft_returns_id(
@@ -24,8 +30,7 @@ class TestDraftUpload:
             headers=auth_headers,
         )
         assert resp.status_code in (200, 201), f"Draft upload failed: {resp.text}"
-        data = resp.json()
-        assert "id" in data
+        assert _draft_id(resp)
 
     async def test_draft_appears_in_list(
         self,
@@ -42,7 +47,7 @@ class TestDraftUpload:
             headers=auth_headers,
         )
         assert resp.status_code in (200, 201)
-        draft_id = resp.json()["id"]
+        draft_id = _draft_id(resp)
 
         list_resp = await async_client.get(
             f"/drafts/?project_id={test_project['id']}", headers=auth_headers
@@ -71,7 +76,7 @@ class TestDraftUpload:
             headers=auth_headers,
         )
         assert upload_resp.status_code in (200, 201)
-        draft_id = upload_resp.json()["id"]
+        draft_id = _draft_id(upload_resp)
 
         # Trigger analysis
         analyze_resp = await async_client.post(
@@ -99,7 +104,7 @@ class TestDraftUpload:
             headers=auth_headers,
         )
         assert upload_resp.status_code in (200, 201)
-        draft_id = upload_resp.json()["id"]
+        draft_id = _draft_id(upload_resp)
 
         # Trigger
         await async_client.post(f"/drafts/{draft_id}/analyze", headers=auth_headers)
@@ -124,13 +129,20 @@ class TestDraftUpload:
         )
         assert analysis_resp.status_code == 200
         analysis = analysis_resp.json()
-        # Should have at least one of: claims, gaps, feedback
-        has_content = (
-            analysis.get("claims") or
-            analysis.get("coverage_gaps") or
-            analysis.get("reviewer_feedback") or
-            analysis.get("draft_analysis")
-        )
+        # Should have meaningful analysis content. The current (v2) analysis
+        # payload surfaces action items, a readiness score, an editor decision,
+        # and a score breakdown rather than raw claims/gaps at the top level.
+        has_content = any([
+            analysis.get("claims"),
+            analysis.get("coverage_gaps"),
+            analysis.get("reviewer_feedback"),
+            analysis.get("draft_analysis"),
+            analysis.get("action_items"),
+            analysis.get("priority_actions"),
+            analysis.get("score_breakdown"),
+            analysis.get("editor_decision"),
+            analysis.get("readiness_score") is not None,
+        ])
         assert has_content, f"Analysis output empty: {analysis}"
 
 

@@ -17,6 +17,81 @@ from app.services.embedding_cache import get_cached_embedding, cache_embedding
 from app.services.retry_utils import retry_openai
 from typing import List, Dict, Any
 import json
+import logging
+import os
+import threading
+
+logger = logging.getLogger(__name__)
+
+
+class _DegradationFlag:
+    """Records that a retrieval leg silently degraded, so callers can see it.
+
+    A bare ``except`` that returns ``[]`` turns a hard failure into a plausible
+    empty result. That is how the keyword leg of hybrid search returned nothing
+    for the entire life of the feature without anyone noticing. Logging alone is
+    not enough -- nothing reads the logs during an eval run -- so the state is
+    also queryable, and an eval harness can assert on it.
+    """
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self._lock = threading.Lock()
+        self._count = 0
+        self._last_error: str | None = None
+
+    def record(self, exc: BaseException) -> None:
+        with self._lock:
+            self._count += 1
+            self._last_error = f"{type(exc).__name__}: {exc}"
+
+    def clear(self) -> None:
+        """Called on a successful call, so the flag reflects current state."""
+        with self._lock:
+            self._count = 0
+            self._last_error = None
+
+    @property
+    def degraded(self) -> bool:
+        with self._lock:
+            return self._count > 0
+
+    def snapshot(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "name": self.name,
+                "degraded": self._count > 0,
+                "failure_count": self._count,
+                "last_error": self._last_error,
+            }
+
+
+KEYWORD_SEARCH_DEGRADED = _DegradationFlag("keyword_search_chunks")
+
+#: The two keyword RPCs. The legacy one builds its tsquery with plainto_tsquery,
+#: which ANDs every lemma; on the ~20-word manuscript claims this system actually
+#: searches with, that returned ZERO rows for 55 of the 59 eval queries
+#: (recall@10 = 0.0026 against dense at 0.4221). Migration 038 adds a second
+#: function that ORs the query's lemmas and ranks with ts_rank(..., 1|32),
+#: measured at recall@10 = 0.2841 on the same queries. See
+#: scripts/eval/KEYWORD_QUERY.md.
+KEYWORD_SEARCH_RPC_LEGACY = "keyword_search_chunks"
+KEYWORD_SEARCH_RPC_V2 = "keyword_search_chunks_v2"
+
+#: Off by default. The v2 RPC is better on 59 eval queries from 4 manuscripts,
+#: which is not enough to change production retrieval under everyone silently.
+#: Set KEYWORD_SEARCH_V2=1 to opt in.
+KEYWORD_SEARCH_V2_ENV = "KEYWORD_SEARCH_V2"
+
+
+def keyword_search_rpc_name() -> str:
+    """Which keyword RPC the next ``keyword_search`` call will use.
+
+    Read per call rather than captured at import so the flag can be flipped in a
+    running process (and so a test does not have to reload the module).
+    """
+    enabled = (os.getenv(KEYWORD_SEARCH_V2_ENV) or "").strip().lower() in {"1", "true", "yes", "on"}
+    return KEYWORD_SEARCH_RPC_V2 if enabled else KEYWORD_SEARCH_RPC_LEGACY
 
 
 def embed_query(query: str, model: str = "text-embedding-3-large") -> List[float]:
@@ -343,13 +418,38 @@ Output: ["transformer architecture attention mechanisms", "self-attention neural
         )
 
         result = json.loads(response.choices[0].message.content)
-        variations = result.get("queries", result.get("variations", [query]))
+        variations = _coerce_variations(result)
 
         return [query] + variations[:3]  # Original + 3 variations
 
     except Exception as e:
         # Fallback: return original query
         return [query]
+
+
+def _coerce_variations(result: Any) -> List[str]:
+    """Pull the query list out of whatever shape the model returned.
+
+    The prompt asks for a bare JSON array, but models routinely wrap it in an
+    object instead, so both are accepted. (Previously only the object shape was
+    handled -- a bare array hit `list.get`, raised AttributeError, and the whole
+    expansion silently degraded to the original query on EVERY call.)
+
+    Returns [] when nothing usable is present, so the caller still emits the
+    original query rather than raising.
+    """
+    if isinstance(result, list):
+        candidates = result
+    elif isinstance(result, dict):
+        candidates = result.get("queries", result.get("variations"))
+        if not isinstance(candidates, list):
+            # Single-key object wrapping the array under some other name.
+            list_values = [v for v in result.values() if isinstance(v, list)]
+            candidates = list_values[0] if len(list_values) == 1 else []
+    else:
+        candidates = []
+
+    return [str(item).strip() for item in candidates if isinstance(item, str) and item.strip()]
 
 
 def keyword_search(
@@ -367,21 +467,47 @@ def keyword_search(
 
     Returns:
         List of matching chunks with keyword relevance scores
+
+    Which RPC runs is decided by ``keyword_search_rpc_name()`` (env flag
+    ``KEYWORD_SEARCH_V2``, default off). Both return the same columns --
+    ``id, document_id, content, rank`` -- so ``hybrid_search``, which reads only
+    ``id`` and ``rank``, is unaffected by the choice.
     """
     # Use PostgreSQL full-text search (ts_rank)
+    rpc_name = keyword_search_rpc_name()
     try:
         response = supabase.rpc(
-            "keyword_search_chunks",
+            rpc_name,
             {
                 "proj_id": project_id,
                 "search_query": query,
                 "match_count": limit
             }
         ).execute()
+        KEYWORD_SEARCH_DEGRADED.clear()
         return response.data if response.data else []
-    except Exception:
-        # Some deployed schemas only have vector search RPCs. Hybrid retrieval
-        # should degrade to semantic search rather than fail the draft analysis.
+    except Exception as exc:
+        # Degrade to semantic-only rather than failing the whole draft analysis --
+        # but SAY SO. This handler previously swallowed the exception silently, and
+        # that is how `keyword_search_chunks` raising 42703 ("column dc.metadata
+        # does not exist") went unnoticed for the entire life of hybrid retrieval:
+        # every call returned [], hybrid_search fused 0.7*semantic + 0.3*nothing,
+        # and no signal ever reached a log or a metric. Fixed in migration 037,
+        # but the next schema drift would have been just as invisible.
+        # Both RPC paths land here: the flag must fire for v2 exactly as it does
+        # for the legacy function, or switching paths would reintroduce the
+        # silent-failure hole it was added to close.
+        KEYWORD_SEARCH_DEGRADED.record(exc)
+        logger.error(
+            "[keyword_search] RPC %s failed; hybrid retrieval is "
+            "degrading to semantic-only for project=%s. This is NOT a silent fallback -- "
+            "results are now missing their lexical leg. error=%s: %s",
+            rpc_name,
+            project_id,
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
         return []
 
 
@@ -502,6 +628,24 @@ def hybrid_search(
     return scored_results[:limit]
 
 
+#: Outcome counters for the LLM reranker. Exists because the failure this
+#: module shipped was not "the reranker is wrong" but "the reranker is
+#: invisible": it returned the unranked list on every call and nothing anywhere
+#: recorded that it had. A counter is the cheapest thing that makes the
+#: difference between "ran and changed nothing" and "never ran" observable.
+_RERANK_STATS: Dict[str, int] = {"reranked": 0, "failed": 0, "empty_response": 0}
+
+
+def rerank_stats() -> Dict[str, int]:
+    """Snapshot of reranker outcomes since process start.
+
+    Read by the eval harness so a rerank arm can assert the reranker actually
+    ran. An arm whose ``failed`` equals its query count is measuring a fallback
+    path, not a reranker, and must not be reported as a reranking result.
+    """
+    return dict(_RERANK_STATS)
+
+
 def rerank_results(
     chunks: List[Dict[str, Any]],
     query: str,
@@ -546,11 +690,36 @@ Example: {{"indices": [3, 7, 1, 15, 9]}}
         response = client.chat.completions.create(
             model="gpt-5-mini",
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=100,
+            # gpt-5-mini is a REASONING model: reasoning tokens are drawn from
+            # max_completion_tokens before a single visible character is emitted.
+            # This was 100, and measurement showed reasoning consuming all 100 --
+            # finish_reason "length", content "", json.loads raising, and the
+            # except below silently returning the unranked list. Every call, on
+            # every path, since the model was switched. Same family as the
+            # max_tokens -> max_completion_tokens migration: the model changed,
+            # the token-budget semantics changed with it, the number did not.
+            max_completion_tokens=2000,
+            # The prompt asks for JSON and nothing enforced it. Constraining the
+            # response format removes the most likely remaining parse failure.
+            response_format={"type": "json_object"},
             **get_completion_params()
         )
 
-        result = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content or ""
+        if not content.strip():
+            # Distinct from a parse failure and worth its own line: an empty
+            # body means the budget was exhausted, not that the model answered
+            # badly, and the two have different fixes.
+            _RERANK_STATS["empty_response"] += 1
+            logger.warning(
+                "rerank_results: empty response (finish_reason=%s, completion_tokens=%s) "
+                "-- returning unranked order",
+                response.choices[0].finish_reason,
+                getattr(response.usage, "completion_tokens", None),
+            )
+            return chunks[:top_k]
+
+        result = json.loads(content)
         indices = result.get("indices", list(range(top_k)))
 
         # Reorder chunks based on indices
@@ -566,10 +735,25 @@ Example: {{"indices": [3, 7, 1, 15, 9]}}
                     reranked.append(chunk)
                     break
 
+        _RERANK_STATS["reranked"] += 1
         return reranked
 
     except Exception as e:
-        # Fallback: return original order
+        # Fallback: return original order.
+        #
+        # The fallback itself is right -- a reranker that takes down retrieval is
+        # worse than one that declines to reorder. What was wrong is that it was
+        # SILENT and UNCOUNTED, so a reranker that failed on 100% of calls was
+        # indistinguishable from one that ran and changed nothing. An eval arm
+        # measured exactly that: recall@10, NDCG@10 and MRR bit-identical to the
+        # unranked control to 17 significant figures, at n=338 and again at
+        # n=100, which no working reranker can produce.
+        _RERANK_STATS["failed"] += 1
+        logger.warning(
+            "rerank_results: %s -- returning unranked order (%s)",
+            type(e).__name__,
+            e,
+        )
         return chunks[:top_k]
 
 
@@ -577,7 +761,8 @@ def retrieve_relevant_chunks_hybrid(
     project_id: str,
     query: str,
     limit: int = 5,
-    use_reranking: bool = True
+    use_reranking: bool = True,
+    min_similarity: float = 0.0,
 ) -> List[Dict[str, Any]]:
     """
     Enhanced retrieval using hybrid search + reranking
@@ -589,9 +774,13 @@ def retrieve_relevant_chunks_hybrid(
         query: Search query
         limit: Final number of results
         use_reranking: Whether to rerank results with LLM
+        min_similarity: Minimum semantic similarity a chunk must clear to be
+            eligible. When > 0, weak matches are dropped rather than padding the
+            result to ``limit`` (no top_k fill). Default 0.0 preserves prior
+            behaviour for callers that have not opted into a floor.
 
     Returns:
-        High-quality ranked results
+        High-quality ranked results (may be fewer than ``limit`` if matches are weak)
     """
     # Step 1: Hybrid search (get top 20)
     hybrid_results = hybrid_search(
@@ -601,6 +790,16 @@ def retrieve_relevant_chunks_hybrid(
         semantic_weight=0.7,
         keyword_weight=0.3
     )
+
+    # Step 1b: Apply the relevance floor BEFORE reranking/limiting so the result
+    # is never padded with weak, potentially off-topic chunks.
+    if min_similarity > 0.0:
+        hybrid_results = [
+            chunk for chunk in hybrid_results
+            if chunk.get("semantic_score", chunk.get("similarity", 0.0)) >= min_similarity
+        ]
+        if not hybrid_results:
+            return []
 
     # Step 2: Rerank to get best N
     if use_reranking and len(hybrid_results) > limit:

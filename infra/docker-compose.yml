@@ -1,6 +1,73 @@
+# ============================================================================
+# Noesis local stack — Docker Compose PROFILES
+# ============================================================================
+#
+# WHY PROFILES: Docker Desktop on the dev machines is allocated ~8.2 GB
+# (`docker info` -> MemTotal=8217903104). GROBID and Docling are each
+# multi-GB (and run under linux/amd64 emulation on Apple Silicon, which
+# costs extra). Bringing up every service at once OOMs. Upcoming work adds a
+# local Postgres+pgvector service and an observability service, which makes
+# the ceiling worse. Profiles let you start only what a given task needs.
+#
+# PROFILES
+#   core   redis                          (+ pgvector Postgres, TODO below)
+#          Infrastructure only. Lightest possible footprint (~10-20 MB).
+#   parse  grobid, docling-serve
+#          PDF parsing sidecars. Heavy: multi-GB images, GB-scale RSS.
+#   app    redis, backend, celery-worker, frontend
+#          The application itself. Redis is REPEATED here on purpose: the
+#          backend and the worker both depends_on redis with
+#          condition: service_healthy, so `--profile app` alone must be able
+#          to bring redis up. Same reasoning will apply to pgvector Postgres
+#          once it is added — it will need both `core` and `app`.
+#          !! `app` CANNOT be started alone — see the hazard section below.
+#          Use `--profile app --profile parse`.
+#   obs    (reserved) Langfuse observability. TODO placeholder below; no
+#          service declares this profile yet, so it will NOT appear in
+#          `docker compose config --profiles` until the service is added.
+#   full   everything. WILL NOT FIT IN 8 GB — for reference/CI-with-more-RAM
+#          only. Documented, not recommended.
+#
+# A service may carry several profiles; that is how a shared dependency such
+# as redis stays startable from more than one entry point.
+#
+# CROSS-PROFILE depends_on HAZARD (read before editing)
+#   celery-worker (profile: app) has `depends_on: grobid` (condition:
+#   service_started); grobid lives in `parse`. Compose does NOT auto-enable a
+#   dependency's profile. Verified with Compose v2.40.3:
+#     $ docker compose --profile app config --services
+#     service "celery-worker" depends on undefined service "grobid":
+#     invalid compose project        (exit 1)
+#   So `--profile app` ALONE IS A HARD ERROR. Supported invocation is
+#   `--profile app --profile parse` (verified exit 0). grobid was deliberately
+#   NOT added to the `app` profile: doing so would drag a multi-GB emulated
+#   image into what is meant to be the light path, defeating the point of
+#   profiles. If you want a genuinely light app-only stack, comment out the
+#   two grobid lines under celery-worker's depends_on and add `app` handling
+#   then — that is a behavioural change to depends_on, so make it deliberately.
+#   No other hazards exist: backend -> redis (redis carries `app`) and
+#   frontend -> backend (both `app`), and docling-serve is referenced only by
+#   URL at runtime, never via depends_on.
+#
+# COMMANDS
+#   docker compose --profile core  up -d          # redis only (lightest)
+#   docker compose --profile parse up -d          # grobid + docling only
+#   docker compose --profile app --profile parse up -d   # app (see hazard)
+#   docker compose --profile full  up -d          # everything (OOM risk)
+#   docker compose --profile core  down           # stop a profile
+#   docker compose down -v                        # stop all + drop volumes
+#   docker compose config --profiles              # list defined profiles
+#   docker compose --profile core config --services # what a profile starts
+#
+# See README-profiles.md for the memory table.
+# ============================================================================
+
 services:
   # Redis for Celery task queue (Phase 3)
+  # Profiles: core (it is base infra) AND app (backend + worker depends_on it
+  # with condition: service_healthy, so `--profile app` alone must start it).
   redis:
+    profiles: ["core", "app", "full"]
     image: redis:7-alpine
     container_name: noesis-redis
     ports:
@@ -13,7 +80,78 @@ services:
     volumes:
       - redis-data:/data
 
+  # Local Postgres + pgvector — mirrors production's retrieval schema so
+  # retrieval experiments (HNSW parameter sweeps, ef_search tuning, latency
+  # measurement) can run without touching production and without network RTT
+  # polluting the numbers. Production is PostgreSQL 17.6 on Supabase, so we
+  # pin pg17.
+  #
+  # Profiles: core (base infra) AND app (the backend/worker will depend on it,
+  # so `--profile app` alone has to be able to start it) — same reasoning as
+  # redis above.
+  #
+  # Schema, in order, on a FRESH local DB:
+  #   1. scripts/eval/schema/000_local_base_stubs.sql — 036 assumes migrations
+  #      001-035 already ran, so a fresh DB needs the minimal `documents` /
+  #      `drafts` tables that 036's RPCs join against.
+  #   2. services/backend/migrations/036_recovered_production_ddl.sql
+  #   3. services/backend/migrations/037_fix_keyword_search_chunks.sql
+  # See the volumes block below for the exact apply commands.
+  pgvector:
+    profiles: ["core", "app", "full"]
+    image: pgvector/pgvector:pg17
+    container_name: noesis-pgvector
+    environment:
+      # LOCAL DEV ONLY. These are deliberately obvious throwaway values and are
+      # NOT used by any deployed environment. Production credentials live in
+      # Supabase and must never be copied here; likewise nothing here may ever
+      # be reused anywhere real. Do not point this service at a .env file.
+      POSTGRES_DB: noesis_eval
+      POSTGRES_USER: noesis_local
+      POSTGRES_PASSWORD: noesis_local_dev_only
+    ports:
+      # Host port 5433, NOT 5432: a developer-installed Postgres (Homebrew,
+      # Postgres.app, another project's compose stack) almost always owns 5432,
+      # and the collision surfaces as a confusing "port is already allocated"
+      # or, worse, a silent connection to the WRONG database. 5433 keeps this
+      # container unambiguous. In-container port stays 5432.
+      - "5433:5432"
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+      # INTENDED: mount the migrations directory read-only so files can be
+      # applied by path inside the container:
+      #   - ../services/backend/migrations:/migrations:ro
+      # DISABLED because this repo lives under /Applications, which is NOT in
+      # Docker Desktop's default file-sharing allowlist (/Users, /Volumes,
+      # /private, /tmp, /var/folders). With the mount enabled the container
+      # refuses to start:
+      #   Error response from daemon: mounts denied: the path
+      #   .../services/backend/migrations is not shared from the host
+      # Fix if you want it: Docker Desktop -> Settings -> Resources ->
+      # File Sharing -> add /Applications/Ashwin, then restart Docker and
+      # uncomment the line above.
+      #
+      # Until then, apply migrations over stdin — works with no mount at all:
+      #   docker compose exec -T pgvector psql -U noesis_local -d noesis_eval \
+      #     < ../scripts/eval/schema/000_local_base_stubs.sql
+      #   docker compose exec -T pgvector psql -U noesis_local -d noesis_eval \
+      #     < ../services/backend/migrations/036_recovered_production_ddl.sql
+      #   docker compose exec -T pgvector psql -U noesis_local -d noesis_eval \
+      #     < ../services/backend/migrations/037_fix_keyword_search_chunks.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U noesis_local -d noesis_eval"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # Profiles: parse only. Multi-GB image, amd64 emulation on Apple Silicon.
+  # NOTE: celery-worker (profile app) depends_on this, and Compose does NOT
+  # auto-enable it — `--profile app` alone fails. See the hazard note in the
+  # header; run `--profile app --profile parse`.
   grobid:
+    profiles: ["parse", "full"]
     image: lfoppiano/grobid:0.7.0
     container_name: noesis-grobid
     platform: linux/amd64  # Run with emulation on Apple Silicon
@@ -23,7 +161,25 @@ services:
     # The backend handles GROBID failures gracefully
     restart: unless-stopped
 
+  # Docling layout parser (per-block coordinates). Used when PDF_PARSER=docling;
+  # GROBID stays as automatic fallback + reference extraction.
+  # Profiles: parse only. Nothing declares a depends_on against it — the
+  # backend reaches it over DOCLING_URL at request time and degrades to GROBID
+  # — so `--profile app` will NOT pull it in.
+  docling-serve:
+    profiles: ["parse", "full"]
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    container_name: noesis-docling
+    platform: linux/amd64
+    ports:
+      - "5001:5001"
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+    restart: unless-stopped
+
+  # Profiles: app. depends_on redis, which also carries `app` — safe.
   backend:
+    profiles: ["app", "full"]
     build:
       context: ../services/backend
       dockerfile: Dockerfile
@@ -32,6 +188,8 @@ services:
       - ../services/backend/.env
     environment:
       GROBID_URL: http://grobid:8070
+      DOCLING_URL: http://docling-serve:5001
+      PDF_PARSER: ${PDF_PARSER:-docling}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
@@ -47,7 +205,12 @@ services:
       retries: 5
       start_period: 40s
 
+  # Profiles: app. HAZARD: depends_on grobid, which is `parse`-only, and
+  # Compose does not auto-enable it — `--profile app` alone errors with
+  # "depends on undefined service grobid". Always start this profile as
+  # `--profile app --profile parse`.
   celery-worker:
+    profiles: ["app", "full"]
     build:
       context: ../services/backend
       dockerfile: Dockerfile
@@ -59,6 +222,8 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0
       GROBID_URL: http://grobid:8070
+      DOCLING_URL: http://docling-serve:5001
+      PDF_PARSER: ${PDF_PARSER:-docling}
     command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=3,1 --queues=default,analysis,insights
     depends_on:
       redis:
@@ -73,7 +238,9 @@ services:
       retries: 3
       start_period: 30s
 
+  # Profiles: app. depends_on backend (service_healthy), also `app` — safe.
   frontend:
+    profiles: ["app", "full"]
     build:
       context: ../services/frontend
       dockerfile: Dockerfile
@@ -88,5 +255,13 @@ services:
       backend:
         condition: service_healthy
 
+  # TODO(obs): Langfuse observability service goes HERE, added by a later task.
+  # It must carry profiles: ["obs", "full"]. Until then the `obs` profile is
+  # not declared by any service and therefore does NOT appear in
+  # `docker compose config --profiles` — that is expected, not a bug.
+  # If it grows a depends_on on Postgres/Redis, add `obs` to that service's
+  # profile list too (same pattern as redis in core+app).
+
 volumes:
   redis-data:
+  pgvector-data:

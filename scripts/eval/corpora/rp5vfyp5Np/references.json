@@ -1,0 +1,272 @@
+{
+  "corpus": "rp5vfyp5Np",
+  "source_pdf": "rp5vfyp5Np.pdf",
+  "source_sha256": "8722b6f45902786c6f84f2311fcb0a6729e0ce26778bfa14f014a2a1987f08d8",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:57.238923Z",
+  "references_attempted": 29,
+  "references_resolved": 17,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W2804791273",
+      "title": "Reward Constrained Policy Optimization",
+      "doi": "10.48550/arxiv.1805.11074",
+      "status": "resolved",
+      "filename": "tessler_2018_reward_constrained_policy_optimization.pdf",
+      "oa_url": "https://arxiv.org/pdf/1805.11074",
+      "raw": "Joshua Achiam, David Held, Aviv Tamar, and Pieter Abbeel. Constrained policy optimization. In doina Precup and Yee Whye Teh (eds.), Proceedings of the 34th International Conference on Machine Learning (ICML), volume 70, pp. 22–31. PMLR, 06–11 Aug 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3015176854",
+      "title": "Attacking vision-based perception in end-to-end autonomous driving models",
+      "doi": "10.1016/j.sysarc.2020.101766",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Adith Boloor, Karthik Garimella, Xin He, Christopher Gill, Yevgeniy Vorobeychik, and Xuan Zhang. Attacking vision-based perception in end-to-end autonomous driving models. Journal of Systems Architecture, 110:101766, 2020. Ralph Allan Bradley and Milton E. Terry. Rank analysis of incomplete block designs: I. the method of paired comparisons. Biometrika, 39(3/4):324–345, 1952."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3201189939",
+      "title": "Targeted Attack on Deep RL-based Autonomous Driving with Learned Visual Patterns",
+      "doi": "10.1109/icra46639.2022.9811574",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Prasanth Buddareddygari, Travis Zhang, Yezhou Yang, and Yi Ren. Targeted attack on deep rl-based autonomous driving with learned visual patterns. In International Conference on Robotics and Automation (ICRA), pp. 10571–10577, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3169291081",
+      "title": "Decision Transformer: Reinforcement Learning via Sequence Modeling",
+      "doi": "10.48550/arxiv.2106.01345",
+      "status": "resolved",
+      "filename": "chen_2021_decision_transformer_reinforcement_learning_via_sequence_modeling.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.01345",
+      "raw": "Lili Chen, Kevin Lu, Aravind Rajeswaran, Kimin Lee, Aditya Grover, Misha Laskin, Pieter Abbeel, Aravind Srinivas, and Igor Mordatch. Decision transformer: Reinforcement learning via sequence modeling. In Advances in Neural Information Processing Systems (NeurIPS), volume 34, pp. 15084–15097. Curran Associates, Inc., 2021. Paul F Christiano, Jan Leike, Tom Brown, Miljan Martic, Shane Legg, and Dario Amodei. Deep reinforcement learning from human preferences. In Advances in Neural Information Processing Systems (NeurIPS), volume 30. Curran Associates, Inc., 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2945924974",
+      "title": "Adversarial Policies: Attacking Deep Reinforcement Learning",
+      "doi": "10.48550/arxiv.1905.10615",
+      "status": "resolved",
+      "filename": "gleave_2019_adversarial_policies_attacking_deep_reinforcement_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/1905.10615",
+      "raw": "Adam Gleave, Michael Dennis, Cody Wild, Neel Kant, Sergey Levine, and Stuart Russell. Adversarial policies: Attacking deep reinforcement learning. In International Conference on Learning Representations (ICLR), 2020. URL https://openreview.net/forum?id=HJgEMpVFwB."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1945616565",
+      "title": "Explaining and Harnessing Adversarial Examples",
+      "doi": "10.48550/arxiv.1412.6572",
+      "status": "resolved",
+      "filename": "goodfellow_2014_explaining_and_harnessing_adversarial_examples.pdf",
+      "oa_url": "https://arxiv.org/pdf/1412.6572",
+      "raw": "Ian J. Goodfellow, Jonathon Shlens, and Christian Szegedy. Explaining and harnessing adversarial examples. In International Conference on Learning Representations (ICLR), 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281480521",
+      "title": "A Review of Safe Reinforcement Learning: Methods, Theory and Applications",
+      "doi": "10.48550/arxiv.2205.10330",
+      "status": "resolved",
+      "filename": "gu_2022_a_review_of_safe_reinforcement_learning_methods_theory_and_applications.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.10330",
+      "raw": "Shangding Gu, Long Yang, Yali Du, Guang Chen, Florian Walter, Jun Wang, Yaodong Yang, and Alois Knoll. A review of safe reinforcement learning: Methods, theory and applications. arXiv preprint arXiv:2205.10330, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2781726626",
+      "title": "Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor",
+      "doi": "10.48550/arxiv.1801.01290",
+      "status": "resolved",
+      "filename": "haarnoja_2018_soft_actor_critic_off_policy_maximum_entropy_deep_reinforcement_le.pdf",
+      "oa_url": "https://arxiv.org/pdf/1801.01290",
+      "raw": "Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey Levine. Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In International Conference on Machine Learning (ICML), volume 80, pp. 1861–1870, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2586751528",
+      "title": "Adversarial Attacks on Neural Network Policies",
+      "doi": "10.48550/arxiv.1702.02284",
+      "status": "resolved",
+      "filename": "huang_2017_adversarial_attacks_on_neural_network_policies.pdf",
+      "oa_url": "https://arxiv.org/pdf/1702.02284",
+      "raw": "Sandy H. Huang, Nicolas Papernot, Ian J. Goodfellow, Yan Duan, and Pieter Abbeel. Adversarial attacks on neural network policies. In International Conference on Learning Representations (ICLR), 2017."
+    },
+    {
+      "openalex_id": null,
+      "title": "Targeted attacks on deep reinforcement learning agents through adversarial observations. abs/1905.12282, 2019a. 10 Under review as a conference paper at ICLR 2024",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Léonard Hussenot, Matthieu Geist, and Olivier Pietquin. Targeted attacks on deep reinforcement learning agents through adversarial observations. abs/1905.12282, 2019a. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2947234734",
+      "title": "Targeted Attacks on Deep Reinforcement Learning Agents through Adversarial Observations.",
+      "doi": null,
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://arxiv.org/abs/1905.12282v1",
+      "raw": "Léonard Hussenot, Matthieu Geist, and Olivier Pietquin. Targeted attacks on deep reinforcement learning agents through adversarial observations. CoRR, abs/1905.12282, 2019b. URL http: //arxiv.org/abs/1905.12282."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2889659926",
+      "title": "Reward learning from human preferences and demonstrations in Atari",
+      "doi": "10.48550/arxiv.1811.06521",
+      "status": "resolved",
+      "filename": "ibarz_2018_reward_learning_from_human_preferences_and_demonstrations_in_atari.pdf",
+      "oa_url": "https://arxiv.org/pdf/1811.06521",
+      "raw": "Borja Ibarz, Jan Leike, Tobias Pohlen, Geoffrey Irving, Shane Legg, and Dario Amodei. Reward learning from human preferences and demonstrations in atari. In Advances in Neural Information Processing Systems (NeurIPS), volume 31. Curran Associates, Inc., 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2950624398",
+      "title": "When to Trust Your Model: Model-Based Policy Optimization",
+      "doi": "10.48550/arxiv.1906.08253",
+      "status": "resolved",
+      "filename": "jänner_2019_when_to_trust_your_model_model_based_policy_optimization.pdf",
+      "oa_url": "https://arxiv.org/pdf/1906.08253",
+      "raw": "Michael Janner, Justin Fu, Marvin Zhang, and Sergey Levine. When to trust your model: Model-based policy optimization. In Advances in Neural Information Processing Systems (NeurIPS), volume 32, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2919115771",
+      "title": "Deep learning",
+      "doi": "10.1038/nature14539",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://hal.science/hal-04206682",
+      "raw": "Yann LeCun, Yoshua Bengio, and Geoffrey Hinton. Deep learning. Nature, 521(7553):436–444, 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3167658443",
+      "title": "PEBBLE: Feedback-Efficient Interactive Reinforcement Learning via Relabeling Experience and Unsupervised Pre-training",
+      "doi": "10.48550/arxiv.2106.05091",
+      "status": "resolved",
+      "filename": "lee_2021_pebble_feedback_efficient_interactive_reinforcement_learning_via_relabe.pdf",
+      "oa_url": "https://arxiv.org/pdf/2106.05091",
+      "raw": "Kimin Lee, Laura M Smith, and Pieter Abbeel. Pebble: Feedback-efficient interactive reinforcement learning via relabeling experience and unsupervised pre-training. In International Conference on Machine Learning (ICML), volume 139, pp. 6152–6163, 2021a. Xian Yeow Lee, Yasaman Esfandiari, Kai Liang Tan, and Soumik Sarkar. Query-based targeted action-space adversarial policies on deep reinforcement learning agents. In Proceedings of the ACM/IEEE 12th International Conference on Cyber-Physical Systems, pp. 87–97, 2021b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281800227",
+      "title": "Reward Uncertainty for Exploration in Preference-based Reinforcement Learning",
+      "doi": "10.48550/arxiv.2205.12401",
+      "status": "resolved",
+      "filename": "liang_2022_reward_uncertainty_for_exploration_in_preference_based_reinforcement_.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.12401",
+      "raw": "Xinran Liang, Katherine Shu, Kimin Lee, and Pieter Abbeel. Reward uncertainty for exploration in preference-based reinforcement learning. In International Conference on Learning Representations (ICLR), 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2941205169",
+      "title": "Tactics of Adversarial Attack on Deep Reinforcement Learning Agents",
+      "doi": "10.24963/ijcai.2017/525",
+      "status": "resolved",
+      "filename": "lin_2017_tactics_of_adversarial_attack_on_deep_reinforcement_learning_agents.pdf",
+      "oa_url": "https://www.ijcai.org/proceedings/2017/0525.pdf",
+      "raw": "Yen-Chen Lin, Zhang-Wei Hong, Yuan-Hong Liao, Meng-Li Shih, Ming-Yu Liu, and Min Sun. Tactics of adversarial attack on deep reinforcement learning agents. In IJCAI, pp. 3756–3762, 2017a. URL https://doi.org/10.24963/ijcai.2017/525."
+    },
+    {
+      "openalex_id": "https://openalex.org/W7133196217",
+      "title": "Meta-Reward-Net: Implicitly Differentiable Reward Learning for Preference-Based Reinforcement Learning",
+      "doi": "10.52202/068431-1618",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Runze Liu, Fengshuo Bai, Yali Du, and Yaodong Yang. Meta-reward-net: Implicitly differentiable reward learning for preference-based reinforcement learning. In Alice H. Oh, Alekh Agarwal, Danielle Belgrave, and Kyunghyun Cho (eds.), Advances in Neural Information Processing Systems (NeurIPS), 2022. Julien Mairal. Stochastic majorization-minimization algorithms for large-scale optimization. In Advances in Neural Information Processing Systems (NeurIPS), volume 26, 2013."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2773691349",
+      "title": "Adversarially Robust Policy Learning: Active construction of physically-plausible perturbations",
+      "doi": "10.1109/iros.2017.8206245",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Ajay Mandlekar, Yuke Zhu, Animesh Garg, Li Fei-Fei, and Silvio Savarese. Adversarially robust policy learning: Active construction of physically-plausible perturbations. In International Conference on Intelligent Robots and Systems (IROS), pp. 3932–3939, 2017. Yu Nesterov. Introductory lectures on convex programming, 1998."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221163700",
+      "title": "SURF: Semi-supervised Reward Learning with Data Augmentation for Feedback-efficient Preference-based Reinforcement Learning",
+      "doi": "10.48550/arxiv.2203.10050",
+      "status": "resolved",
+      "filename": "park_2022_surf_semi_supervised_reward_learning_with_data_augmentation_for_feedba.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.10050",
+      "raw": "Jongjin Park, Younggyo Seo, Jinwoo Shin, Honglak Lee, Pieter Abbeel, and Kimin Lee. SURF: Semi-supervised reward learning with data augmentation for feedback-efficient preference-based reinforcement learning. In International Conference on Learning Representations (ICLR), 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2773525213",
+      "title": "Robust Deep Reinforcement Learning with Adversarial Attacks",
+      "doi": "10.48550/arxiv.1712.03632",
+      "status": "resolved",
+      "filename": "pattanaik_2017_robust_deep_reinforcement_learning_with_adversarial_attacks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1712.03632",
+      "raw": "Anay Pattanaik, Zhenyi Tang, Shuijing Liu, Gautham Bommannan, and Girish Chowdhary. Robust deep reinforcement learning with adversarial attacks. In International Conference on Autonomous Agents and MultiAgent Systems (AAMAS). International Foundation for Autonomous Agents and Multiagent Systems, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2602963933",
+      "title": "Robust Adversarial Reinforcement Learning",
+      "doi": "10.48550/arxiv.1703.02702",
+      "status": "resolved",
+      "filename": "pinto_2017_robust_adversarial_reinforcement_learning.pdf",
+      "oa_url": "https://arxiv.org/pdf/1703.02702",
+      "raw": "Lerrel Pinto, James Davidson, Rahul Sukthankar, and Abhinav Gupta. Robust adversarial reinforcement learning. In International Conference on Machine Learning (ICML), volume 70 of Proceedings of Machine Learning Research, pp. 2817–2826. PMLR, 06–11 Aug 2017. 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": null,
+      "title": "Who is the strongest enemy? towards optimal and efficient evasion attacks in deep RL",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Yanchao Sun, Ruijie Zheng, Yongyuan Liang, and Furong Huang. Who is the strongest enemy? towards optimal and efficient evasion attacks in deep RL. In International Conference on Learning Representations (ICLR), 2022. URL https://openreview.net/forum?id= JM2kFbJvvI. Richard S Sutton and Andrew G Barto. Reinforcement learning: An introduction. MIT press, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2158782408",
+      "title": "MuJoCo: A physics engine for model-based control",
+      "doi": "10.1109/iros.2012.6386109",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Emanuel Todorov, Tom Erez, and Yuval Tassa. Mujoco: A physics engine for model-based control. In International Conference on Intelligent Robots and Systems (IROS), pp. 5026–5033, 2012."
+    },
+    {
+      "openalex_id": null,
+      "title": "Peter Vamplew, Benjamin J Smith, Johan Källström, Gabriel Ramos, Roxana R˘adulescu, Diederik M Roijers, Conor F Hayes, Fredrik Heintz, Patrick Mannion",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Peter Vamplew, Benjamin J Smith, Johan Källström, Gabriel Ramos, Roxana R˘adulescu, Diederik M Roijers, Conor F Hayes, Fredrik Heintz, Patrick Mannion, Pieter JK Libin, et al. Scalar reward is not enough: A response to silver, singh, precup and sutton (2021). Autonomous Agents and Multi-Agent Systems (AAMAS), 36(2):41, 2022. Laurens van der Maaten and Geoffrey Hinton. Visualizing data using t-sne. Journal of Machine"
+    },
+    {
+      "openalex_id": null,
+      "title": "Learning Research, 9(86):2579–2605, 2008",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Learning Research, 9(86):2579–2605, 2008."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2981344907",
+      "title": "Meta-World: A Benchmark and Evaluation for Multi-Task and Meta Reinforcement Learning",
+      "doi": "10.48550/arxiv.1910.10897",
+      "status": "resolved",
+      "filename": "yu_2019_meta_world_a_benchmark_and_evaluation_for_multi_task_and_meta_reinforcem.pdf",
+      "oa_url": "https://arxiv.org/pdf/1910.10897",
+      "raw": "Tianhe Yu, Deirdre Quillen, Zhanpeng He, Ryan Julian, Karol Hausman, Chelsea Finn, and Sergey Levine. Meta-world: A benchmark and evaluation for multi-task and meta reinforcement learning. In Conference on Robot Learning (CoRL), volume 100 of Proceedings of Machine Learning Research, pp. 1094–1100. PMLR, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3011736333",
+      "title": "Robust Deep Reinforcement Learning against Adversarial Perturbations on State Observations",
+      "doi": "10.48550/arxiv.2003.08938",
+      "status": "resolved",
+      "filename": "zhang_2020_robust_deep_reinforcement_learning_against_adversarial_perturbations_.pdf",
+      "oa_url": "https://arxiv.org/pdf/2003.08938",
+      "raw": "Huan Zhang, Hongge Chen, Chaowei Xiao, Bo Li, Mingyan Liu, Duane Boning, and Cho-Jui Hsieh. Robust deep reinforcement learning against adversarial perturbations on state observations. In Advances in Neural Information Processing Systems (NeurIPS), volume 33, pp. 21024–21037. Curran Associates, Inc., 2020."
+    },
+    {
+      "openalex_id": null,
+      "title": "2Jπ(ˆα2(ω1)) + T X t=1 (2ηt+1ρ2 + Lη2 t+1ρ2) # ≤ 1 PT t=1 βt",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Huan Zhang, Hongge Chen, Duane S Boning, and Cho-Jui Hsieh. Robust reinforcement learning on state observations with learned optimal adversary. In International Conference on Learning Representations (ICLR), 2021. 12 Under review as a conference paper at ICLR 2024 A THE FULL PROCEDURE OF BATTLE The Combined Policy. In order to address the inefficiency caused by the discrepancy between πθ and πν◦α in the state distribution, we propose a strategy to construct the behavior policy π for data collection in our practical implementation. Inspired by Branched rollout (Janner et al., 2019), we combine the intention policy πθ with the perturbed policy πν◦α. Specifically, we define π1:h = π1:h ν◦α and πh+1:H = πh+1:H θ , where h is sampled from a uniform distribution U(0, H) and H represents the task horizon. The resulting combined policy π is responsible for data collection, which is then stored in the replay buffer during the learning process. We present the detailed procedures of our proposed method in Algorithm 1. Our method, referred to as BATTLE, is built upon the well-established preference-based RL algorithm PEBBLE (Lee et al., 2021a). Algorithm 1 BATTLE Input: a fixed victim policy πν, frequency of human feedback K, outer loss updating frequency M, task horizon H 1: Initialize parameters of Qϕ, πθ, brψ, πα and hω 2: Initialize B and πθ with unsupervised exploration 3: Initialize preference data set D ←∅ 4: for each iteration do 5: // Construct the combined policy π 6: if episode is done then 7: h ∼U(0, H) 8: π1:h = π1:h ν◦α and πh+1:H = πh+1:H θ 9: end if 10: Take action at ∼π and collect st+1 11: Store transition into dataset B ←B ∪{(st, at, brψ(st), st+1)} 12: // Query preference and Reward learning 13: if iteration % K == 0 then 14: for each query step do 15: Sample pair of trajectories (σ0, σ1) 16: Query preference y from manipulator 17: Store preference data into dataset D ←D ∪{(σ0, σ1, y)} 18: end for 19: for each gradient step do 20: Sample batch {(σ0, σ1, y)i}n i=1 from D 21: Optimize (2) to update brψ 22: end for 23: end if 24: // Inner loss optimization 25: for each gradient step do 26: Sample random mini-batch transitions from B 27: Optimize πα: minimize (6) with respect to α 28: end for 29: // Outer loss optimization 30: if iteration % M == 0 then 31: Sample random mini-batch transitions from B 32: Optimize hω: minimize (7) with respect to ω 33: end if 34: // Intention policy learning 35: Update Qϕ and πθ according to (3) and (4), respectively. 36: end for Output: adversarial policy πα 13 Under review as a conference paper at ICLR 2024 B DERIVATION OF THE GRADIENT OF THE OUTER-LEVEL LOSS In this section, we present detailed derivation of the gradient of the outer loss Jπ with respect to the parameters of the weighting function ω. According to the chain rule, we can derive that ∇ωJπ(ˆα(ω))|ωt =∂Jπ(ˆα(ω)) ∂ˆα(ω) ˆαt ∂ˆαt(ω) ∂ω ωt =∂Jπ(ˆα(ω)) ∂ˆα(ω) ˆαt ∂ˆαt(ω) ∂h(s; ω) ωt ∂h(s; ω) ∂ω ωt = −ηt ∂Jπ(ˆα(ω)) ∂ˆα(ω) ˆαt X s∼B ∂DKL (πν◦α(s) ∥πθ(s)) ∂α αt ∂h(s; ω) ∂ω ωt = −ηt X s∼B \u0012∂Jπ(ˆα(ω)) ∂ˆα(ω) ⊤ ˆαt ∂DKL (πν◦α(s) ∥πθ(s)) ∂α αt \u0013 ∂h(s; ω) ∂ω ωt. (10) For brevity of expression, we let: f(s) = ∂Jπ(ˆα(ω)) ∂ˆα(ω) ⊤ ˆαt ∂DKL (πν◦α(s) ∥πθ(s)) ∂ˆα αt. (11) The gradient of outer-level optimization loss with respect to parameters ω is: ∇ωJπ(ˆα(ω))|ωt = −ηt X s∼B f(s) · ∂h(s; ω) ∂ω ωt. (12) C CONNECTION BETWEEN RSA-MDP AND MDP Lemma C.1. Given a RSA-MDP M = (S, A, B, bR, P, γ) and a fixed victim policy πν, there exists a MDP ˆ M = (S, ˆ A, bR, bP, γ) such that the optimal policy of ˆ M is equivalent to the optimal adversary πα in RSA-MDP given a fixed victim, where b A = S and bP(s′|s, a) = X a∈A πν(a|ba)P(s′|s, a) for s, s′ ∈S and ba ∈b A. D THEORETICAL ANALYSIS AND PROOFS D.1 THEOREM 1: CONVERGENCE RATE OF THE OUTER LOSS Lemma D.1. (Lemma 1.2.3 in Nesterov (1998)) If function f(x) is Lipschitz smooth on Rn with constant L, then ∀x, y ∈Rn, we have f(y) −f(x) −f ′(x)⊤(y −x) ≤L 2 ∥y −x∥2 . (13) Proof. ∀x, y ∈Rn, we have f(y) = f(x) + Z 1 0 f ′(x + τ(y −x))⊤(y −x)dτ = f(x) + f ′(x)⊤(y −x) + Z 1 0 [f ′(x + τ(y −x)) −f ′(x)]⊤(y −x)dτ. (14) Then we can derive that f(y) −f(x) −f ′(x)⊤(y −x) = Z 1 0 [f ′(x + τ(y −x)) −f ′(x)]⊤(y −x)dτ ≤ Z 1 0 [f ′(x + τ(y −x)) −f ′(x)]⊤(y −x) dτ ≤ Z 1 0 ∥f ′(x + τ(y −x)) −f ′(x)∥· ∥y −x∥dτ ≤ Z 1 0 τL ∥y −x∥2 dτ = L 2 ∥y −x∥2 , (15) 14 Under review as a conference paper at ICLR 2024 where the first inequality holds for R b a f(x)dx ≤ R b a |f(x)| dx, the second inequality holds for Cauchy-Schwarz inequality, and the last inequality holds for the definition of Lipschitz smoothness. Theorem D.2. Suppose Jπ is Lipschitz-smooth with constant L, the gradient of Jπ and Latt is bounded by ρ. Let the training iterations be T, the inner-level optimization learning rate ηt = min{1, c1 T } for some constant c1 > 0 where c1 T < 1. Let the outer-level optimization learning rate βt = min{ 1 L, c2 √ T } for some constant c2 > 0 where c2 ≤ √ T L , and P∞ t=1 βt ≤∞, P∞ t=1 β2 t ≤∞. The convergence rate of Jπ achieves min 1≤t≤T E h ∥∇ωJπ(αt+1(ωt))∥2i ≤O \u0012 1 √ T \u0013 . (16) Proof. First, Jπ(ˆαt+2(ωt+1)) −Jπ(ˆαt+1(ωt)) = {Jπ(ˆαt+2(ωt+1)) −Jπ(ˆαt+1(ωt+1))} + {Jπ(ˆαt+1(ωt+1)) −Jπ(ˆαt+1(ωt))} . (17) Then we separately derive the two terms of (17). For the first term, Jπ(ˆαt+2(ωt+1)) −Jπ(ˆαt+1(ωt+1)) ≤∇ˆαJπ(ˆαt+1(ωt+1))⊤(ˆαt+2(ωt+1) −ˆαt+1(ωt+1)) + L 2 ∥ˆαt+2(ωt+1) −ˆαt+1(ωt+1)∥2 ≤∥∇ˆαJπ(ˆαt+1(ωt+1))∥· ∥ˆαt+2(ωt+1) −ˆαt+1(ωt+1)∥+ L 2 ∥ˆαt+2(ωt+1) −ˆαt+1(ωt+1)∥2 ≤ρ · ∥−ηt+1∇ˆαLatt(ˆαt+1)∥+ L 2 ∥−ηt+1∇ˆαLatt(ˆαt+1)∥2 ≤ηt+1ρ2 + L 2 η2 t+1ρ2, (18) where ˆαt+2(ωt+1) −ˆαt+1(ωt+1) = −ηt+1∇ˆαLatt(ˆαt+1), the first inequality holds for Lemma D.1, the second inequality holds for Cauchy-Schwarz inequality, the third inequality holds for ∥∇ˆαJπ(ˆαt+1(ωt+1))∥≤ρ, and the last inequality holds for ∥∇ˆαLatt(ˆαt+1)∥≤ρ. It can be proved that the gradient of ω with respect to Jπ is Lipschitz continuous and we assume the Lipschitz constant is L. Therefore, for the second term, Jπ(ˆαt+1(ωt+1)) −Jπ(ˆαt+1(ωt)) ≤∇ωJπ(ˆαt+1(ωt))⊤(ωt+1 −ωt) + L 2 ∥ωt+1 −ωt∥2 = −βt∇ωJπ(ˆαt+1(ωt))⊤∇ωJπ(ˆαt+1(ωt)) + Lβ2 t 2 ∥∇ωJπ(ˆαt+1(ωt))∥2 = −(βt −Lβ2 t 2 ) ∥∇ωJπ(ˆαt+1(ωt))∥2 , (19) where ωt+1 −ωt = −βt∇ωJπ(ˆαt+1(ωt)), and the first inequality holds for Lemma D.1. Therefore, (17) becomes Jπ(ˆαt+2(ωt+1)) −Jπ(ˆαt+1(ωt)) ≤ηt+1ρ2 + L 2 η2 t+1ρ2 −(βt −Lβ2 t 2 ) ∥∇ωJπ(ˆαt+1(ωt))∥2 . (20) Rearranging the terms of (20), we obtain (βt −Lβ2 t 2 ) ∥∇ωJπ(ˆαt+1(ωt))∥2 ≤Jπ(ˆαt+1(ωt)) −Jπ(ˆαt+2(ωt+1)) + ηt+1ρ2 + L 2 η2 t+1ρ2. (21) 15 Under review as a conference paper at ICLR 2024 Then, we sum up both sides of (21), T X t=1 (βt −Lβ2 t 2 ) ∥∇ωJπ(ˆαt+1(ωt))∥2 ≤Jπ(ˆα2(ω1)) −Jπ(ˆαT +2(ωT +1)) + T X t=1 (ηt+1ρ2 + L 2 η2 t+1ρ2) ≤Jπ(ˆα2(ω1)) + T X t=1 (ηt+1ρ2 + L 2 η2 t+1ρ2). (22) Therefore, min 1≤t≤T E h ∥∇ωJπ(ˆαt+1(ωt))∥2i ≤ PT t=1(βt −Lβ2 t 2 ) ∥∇ωJπ(ˆαt+1(ωt))∥2 PT t=1(βt −Lβ2 t 2 ) ≤ 1 PT t=1(2βt −Lβ2 t ) \" 2Jπ(ˆα2(ω1)) + T X t=1 (2ηt+1ρ2 + Lη2 t+1ρ2) # ≤ 1 PT t=1 βt \" 2Jπ(ˆα2(ω1)) + T X t=1 ηt+1ρ2(2 + Lηt+1) # ≤1 Tβt \u0002 2Jπ(ˆα2(ω1)) + Tηt+1ρ2(2 + L) \u0003 =2Jπ(ˆα2(ω1)) Tβt + ηt+1ρ2(2 + L) βt =2Jπ(ˆα2(ω1)) T max{L, √ T c2 } + min{1, c1 T } max{L, √ T c2 }ρ2(2 + L) ≤2Jπ(ˆα2(ω1)) c2 √ T + c1ρ2(2 + L) c2 √ T =O \u0012 1 √ T \u0013 , (23) where the second inequality holds according to (22), the third inequality holds for PT t=1 \u00002βt −Lβ2 t \u0001 ≥PT t=1 βt. D.2 THEOREM 2: CONVERGENCE OF THE INNER LOSS Lemma D.3. (Lemma A.5 in Mairal (2013)) Let (an)n≥1, (bn)n≥1 be two non-negative real sequences such that the series P∞ n=1 an diverges, the series P∞ n=1 anbn converges, and there exists C > 0 such that |bn+1 −bn| ≤Can. Then, the sequence (bn)n≥1 converges to 0. Theorem D.4. Suppose Jπ is Lipschitz-smooth with constant L, the gradient of Jπ and Latt is bounded by ρ. Let the training iterations be T, the inner-level optimization learning rate ηt = min{1, c1 T } for some constant c1 > 0 where c1 T < 1. Let the outer-level optimization learning rate βt = min{ 1 L, c2 √ T } for some constant c2 > 0 where c2 ≤ √ T L , and P∞ t=1 βt ≤∞, P∞ t=1 β2 t ≤∞. Latt achieves lim t→∞E h ∥∇αLatt(αt; ωt)∥2i = 0. (24) Proof. First, Latt(αt+1; ωt+1) −Latt(αt; ωt) = {Latt(αt+1; ωt+1) −Latt(αt+1; ωt)} + {Latt(αt+1; ωt) −Latt(αt; ωt)} . (25) 16 Under review as a conference paper at ICLR 2024 For the first term in (25), Latt(αt+1; ωt+1) −Latt(αt+1; ωt) ≤∇ωLatt(αt+1; ωt)⊤(ωt+1 −ωt) + L 2 ∥ωt+1 −ωt∥2 = −βt∇ωLatt(αt+1; ωt)⊤∇ωJπ(αt+1(ωt)) + Lβ2 t 2 ∥∇ωJπ(αt+1(ωt))∥2 . (26) where ωt+1 −ωt = −βt∇ωJπ(αt+1(ωt)), and the first inequality holds according to Lemma D.1. For the second term in (25), Latt(αt+1; ωt) −Latt(αt; ωt) ≤∇αLatt(αt; ωt)⊤(αt+1 −αt) + L 2 ∥αt+1 −αt∥2 = −ηt∇αLatt(αt; ωt)⊤∇αLatt(αt; ωt) + Lη2 t 2 ∥∇αLatt(αt; ωt)∥2 = −(ηt −Lη2 t 2 ) ∥∇αLatt(αt; ωt)∥2 . (27) where αt+1 −αt = −ηt∇αLatt(αt; ωt), and the first inequality holds according to Lemma (D.1). Therefore, (25) becomes Latt(αt+1; ωt+1) −Latt(αt; ωt) ≤−βt∇ωLatt(αt+1; ωt)⊤∇ωJπ(αt+1(ωt)) + Lβ2 t 2 ∥∇ωJπ(αt+1(ωt))∥2 −(ηt −Lη2 t 2 ) ∥∇αLatt(αt; ωt)∥2 . (28) Taking expectation of both sides of (28) and rearranging the terms, we obtain ηtE h ∥∇αLatt(αt; ωt)∥2i + βtE [∥∇ωLatt(αt+1; ωt)∥· ∥∇ωJπ(αt+1(ωt))∥] ≤E [Latt(αt; ωt)] −E [Latt(αt+1; ωt+1)] + Lβ2 t 2 E h ∥∇ωJπ(αt+1(ωt))∥2i + Lη2 t 2 E h ∥∇αLatt(αt; ωt)∥2i . (29) Summing up both sides of (29) from t = 1 to ∞, ∞ X t=1 ηtE h ∥∇αLatt(αt; ωt)∥2i + ∞ X t=1 βtE [∥∇ωLatt(αt+1; ωt)∥· ∥∇ωJπ(αt+1(ωt))∥] ≤E [Latt(α1; ω1)] −lim t→∞E [Latt(αt+1; ωt+1)] + ∞ X t=1 Lβ2 t 2 E h ∥∇ωJπ(αt+1(ωt))∥2i + ∞ X t=1 Lη2 t 2 E h ∥∇αLatt(αt; ωt)∥2i ≤ ∞ X t=1 L(η2 t + β2 t )ρ2 2 + E [Latt(α1; ω1)] ≤∞, (30) where the second inequality holds for P∞ t=1 η2 t ≤∞, P∞ t=1 β2 t ≤∞, ∥∇αLatt(αt; ωt)∥≤ρ, ∥∇ωJπ(αt+1(ωt))∥≤ρ. Since ∞ X t=1 βtE [∥∇ωLatt(αt+1; ωt)∥· ∥∇ωJπ(αt+1(ωt))∥] ≤Lρ ∞ X t=1 βt ≤∞. (31) Therefore, we have ∞ X t=1 ηtE h ∥∇αLatt(αt; ωt)∥2i < ∞. (32) 17 Under review as a conference paper at ICLR 2024 Since |(∥a∥+ ∥b∥)(∥a∥−∥b∥)| ≤∥a + b∥∥a −b∥, we can derive that E h ∥∇αLatt(αt+1; ωt+1)∥2i −E h ∥∇αLatt(αt; ωt)∥2i = E h\u0000∥∇αLatt(αt+1; ωt+1)∥+ ∥∇αLatt(αt; ωt)∥ \u0001 + \u0000∥∇αLatt(αt+1; ωt+1)∥−∥∇αLatt(αt; ωt)∥ \u0001i ≤E h ∥∇αLatt(αt+1; ωt+1)∥+ ∥∇αLatt(αt; ωt)∥ ∥∇αLatt(αt+1; ωt+1)∥−∥∇αLatt(αt; ωt)∥ i ≤E h ∥∇αLatt(αt+1; ωt+1) + ∇αLatt(αt; ωt)∥· ∥∇αLatt(αt+1; ωt+1) −∇αLatt(αt; ωt)∥ i ≤E h\u0000∥∇αLatt(αt+1; ωt+1)∥+ ∥∇αLatt(αt; ωt)∥ \u0001 ∥∇αLatt(αt+1; ωt+1) −∇αLatt(αt; ωt)∥ i ≤2LρE h ∥(αt+1, ωt+1) −(αt, ωt)∥ i ≤2LρηtβtE h ∥(∇αLatt(αt; ωt), ∇ωJπ(αt+1(ωt)))∥ i ≤2Lρηtβt r E h ∥∇αLatt(αt; ωt)∥2i + E h ∥∇ωJπ(αt+1(ωt))∥2i ≤2Lρηtβt p 2ρ2 ≤2 √ 2Lρ2ηtβt. (33) Since P∞ t=1 ηt = ∞, according to Lemma D.3, we have lim t→∞E h ∥∇αLatt(αt; ωt)∥2i = 0. (34) E DETAILS OF PBRL In this section, we present details of the scripted teacher and preference collection. It is a crucial part of the PbRL, and BATTLE follows these settings as Lee et al. (2021a). Scripted Teacher. To evaluate the performance systemically, a useful way is to consider a scripted teacher that provides preferences between a pair of agent’s trajectory segments according to the oracle reward function. Leveraging the preference labels from the human teacher is ideal, while it is hard to evaluate algorithms quantitatively and quickly. Specifically, the scripted teacher can immediately provide ground truth rewards based on the state s and action a. It is a function designed to approximate the human’s intention. Preference Collection. During training, we need to query human preference labels at regular intervals. It samples a batch of segment pairs and calculates the cumulative reward of each segment with rewards provided by the scripted teacher. For a specific segment pair, human prefers the segment with a larger cumulative reward. The segment with a larger cumulative reward is labelled with 1, and the smaller one is labelled with 0. As for the computational cost, we assume that M preference labels are required, the segment length is N in a run, and the time complexity is O(MN). However, it is negligible compared with adversary training, which involves complex gradient computation. F EXPERIMENTAL DETAILS In this section, we provide a concrete description of our experiments and detailed hyper-parameters of BATTLE. For each run of experiments, we run on a single Nvidia Tesla V100 GPUs and 16 CPU cores (Intel Xeon Gold 6230 CPU @ 2.10GHz) for training. F.1 TASKS In phase one of our experiments, we evaluate our method on eight robotic manipulation tasks obtained from Meta-world (Yu et al., 2020). These tasks serve as a representative set for testing the effectiveness of our approach. In phase two, we further assess our method on two locomotion tasks sourced from Mujoco (Todorov et al., 2012). By including tasks from both domains, we aim to demonstrate the versatility and generalizability of our approach across different task types. The specific tasks we utilize in our experiments are as follows: 18 Under review as a conference paper at ICLR 2024 Meta-world • Door Lock: An agent controls a simulated Sawyer arm to lock the door. • Door Unlock: An agent controls a simulated Sawyer arm to unlock the door. • Drawer Open: An agent controls a simulated Sawyer arm to open the drawer to a target position. • Drawer Close: An agent controls a simulated Sawyer arm to close the drawer to a target position. • Faucet Open: An agent controls a simulated Sawyer arm to open the faucet to a target position. • Faucet Close: An agent controls a simulated Sawyer arm to close the faucet to a target position. • Window Open: An agent controls a simulated Sawyer arm to open the window to a target position. • Window Close: An agent controls a simulated Sawyer arm to close the window to a target position. Mujoco • Half Cheetah: A 2-dimensional robot with nine links and eight joints aims to learn to run forward (right) as fast as possible. • Walker: A 2-dimensional two-legged robot aims to move in the forward (right). F.2 HYPER-PARAMETERS SETTING We adopt the PEBBLE algorithm as our baseline approach for SA-RL (Zhang et al., 2021), and we keep the same parameter settings and neural network structure as described in their work. The specific hyperparameters for SA-RL are provided in Table 4. Similarly, for PA-AD (Sun et al., 2022), we use identical hyperparameter values to those of SA-RL, ensuring a fair comparison between the two methods. Table 3: Hyper-parameters of BATTLE for adversary training. Hyper-parameter Value Hyper-parameter Value Number of layers 3 Hidden units of each layer 256 Learning rate 0.0003 Batch size 1024 Length of segment 50 Number of reward functions 3 Frequency of feedback 5000 Feedback batch size 128 Adversarial budget 0.1 (β1, β2) (0.9, 0.999) Table 4: Hyper-parameters of SA-RL for adversary training. Hyper-parameter Value Hyper-parameter Value Number of layers 3 Hidden units of each layer 256 Learning rate 0.00005 Mini-Batch size 32 Length of segment 50 Number of reward functions 3 Frequency of feedback 5000 Feedback batch size 128 Adversarial budget 0.1 Entropy coefficient 0.0 Clipping parameter 0.2 Discount γ 0.99 GAE lambda 0.95 KL divergence target 0.01 F.3 VICTIM SETTING Our experiment is divided into two phases. In the first phase, we conduct experiments using a variety of simulated robotic manipulation tasks from the Meta-world environment. In the second phase, we shift our focus to two continuous control environments from the OpenAI Gym MuJoCo suite. Meta-world. We train the victim models on the Meta-world tasks using the SAC (Soft Actor-Critic) algorithm proposed by Haarnoja et al. (2018). We employ a fully connected neural network as the 19 Under review as a conference paper at ICLR 2024 policy network for the SAC algorithm. The detailed hyperparameters used in our experiments are provided in Table 5. Table 5: Hyper-parameters of SAC for victim training. Hyper-parameter Value Hyper-parameter Value Number of layers 3 Initial temperature 0.1 Hidden units of each layer 256 Optimizer Adam Learning rate 0.0001 Critic target update freq 2 Discount γ 0.99 Critic EMA τ 0.005 Batch size 1024 (β1, β2) (0.9, 0.999) Steps of unsupervised pre-training 9000 Discount γ 0.99 Mujoco. We directly utilize the well-trained model for demonstrating the vulnerability of the Decision Transformer. Specifically, we use the Cheetah agent4 and the Walker agent5 with expert-level. F.4 SCENARIO DESIGNING To validate the effectiveness of our approach, we carefully designed two experimental scenarios: the Manipulation Scenario and the Opposite Behavior Scenario. In the Manipulation Scenario, the victim policy is a well-trained policy on robotic tasks. The objective of the adversary is to manipulate the agent’s behavior through targeted adversarial attacks, causing the agent to grasp objects that are far from the original target location. The successful execution of such grasping actions indicates the success of the adversarial attack. In the Opposite Behavior Scenario, the victim policy is a well-trained policy on simulated robotic manipulation tasks. The goal of the attacker is to redirect the agent’s behavior towards tasks that are opposite in nature to the original objective. For instance, if the victim policy is designed to open windows, the attacker aims to modify the agent’s behavior to close the windows instead. Table 6: Success rate of different methods with varying numbers of preference labels on the Drawer Open task in the manipulation scenario and the Faucet Close task in the opposite behavior scenario. The success rate is reported as the mean and standard deviation over 30 episodes. Environment Feedback BATTLE (ours) PA-AD SA-RL Drawer Open (manipulation) 3000 65.7% ± 37.1% 0.0% ± 0.0% 8.3% ± 13.2% 5000 86.7% ± 18.1% 0.0% ± 0.0% 21.3% ± 18.9% 7000 95.7% ± 13.6% 0.0% ± 0.0% 28.0% ± 28.1% 9000 97.0% ± 6.9% 0.0% ± 0.0% 13.0% ± 18.5% Faucet Close (opposite behavior) 1000 69.7% ± 35.2% 16.7% ± 9.4% 2.0% ± 6.0% 3000 79.0% ± 16.2% 29.0% ± 14.0% 6.0% ± 11.7% 5000 95.3% ± 9.2% 21.3% ± 12.8% 3.3% ± 12.7% 7000 95.3% ± 7.6% 22.7% ± 12.4% 4.0% ± 7.1% G EXTENSIVE EXPERIMENTS Impact of Feedback Amount. We evaluate the performance of BATTLE using different numbers of preference labels. Table 6 presents the results of all methods with varying numbers of labels: 3000, 5000, 7000, 9000 for the Drawer Open task in the manipulation scenario and 1000, 3000, 5000, 7000 for the Faucet Close task in the opposite behavior scenario. Based on the experimental results shown in Table 6, we conclude that providing an adequate amount of human feedback improves the performance of our method, leading to a stronger adversary and a more stable attack success rate. We observe that the performance of BATTLE consistently improves as the number of preference labels increases, highlighting the crucial impact of the number of preference labels on 4https://huggingface.co/edbeeching/decision-transformer-gym-halfcheetah-expert 5https://huggingface.co/edbeeching/decision-transformer-gym-walker2d-expert 20 Under review as a conference paper at ICLR 2024 adversary learning. In contrast, SA-RL and PA-AD exhibit poor performance even with a sufficient amount of human feedback, with PA-AD failing entirely in the manipulation scenario. This can be attributed to the limited exploration space of these methods, which is constrained by the fixed victim policy. In contrast, BATTLE achieves better exploration by incorporating an intention policy, resulting in improved performance. 0.0 0.2 0.4 0.6 0.8 1.0 Timesteps ×10 6 0 25 50 75 100 Success Rate (%) BATTLE PA-AD SA-RL Drawer Open 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (a) ϵ = 0.05 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (b) ϵ = 0.075 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (c) ϵ = 0.1 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (d) ϵ = 0.15 Faucet Close 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (e) ϵ = 0.02 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (f) ϵ = 0.05 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (g) ϵ = 0.075 0.0 0.2 0.4 0.6 0.8 1.0 Environment Steps ×106 0 25 50 75 100 Success Rate (%) (h) ϵ = 0.1 Figure 8: Training curves of success rate with different adversarial budgets on Drawer Open for the manipulation scenario and Faucet Close for the opposite behavior scenario. The solid line and shaded area denote the mean and the standard deviation of the success rate across five runs. (a) Faucet Open (b) Faucet Close (c) Drawer Open (d) Drawer Close Figure 9: Time series of the normalized learned reward (blue) and the ground truth reward (orange). These rewards are obtained from rollouts generated by a policy optimized using BATTLE. 21 Under review as a conference paper at ICLR 2024 Impact of Different Attack Budgets. We also investigate the impact of the attack budget on the performance. To gain further insights, we conduct additional experiments with different attack budgets: 0.05, 0.075, 0.1, 0.15 for the Drawer Open task and 0.02, 0.05, 0.075, 0.1 for the Faucet Close task in the respective scenarios. In Figure 8, we present the performance of the baseline method and BATTLE with different attack budgets. The experimental results demonstrate that the performance of all methods improves with an increase in the attack budget. Quality of learned reward functions. We further analyze the quality of the reward functions learned by BATTLE compared to the true reward function. In Figure 9, we present four time series plots that depict the normalized learned reward (blue) and the ground truth reward (orange). These plots represent two scenarios: opposite behaviors and manipulation tasks. The results indicate that the learned reward function aligns well with the true reward function derived from human feedback. This alignment is achieved by capturing various human intentions through the preference data. Robust Agents Training and Evaluating. An intuitive application of BATTLE is in evaluating the robustness of a given model or enhancing the robustness of an agent through adversarial training. ATLA (Zhang et al., 2021) is a general training framework for improving robustness, which involves alternating training between an agent and an adversary. Building upon this concept, we introduce BATTLE-ATLA, which combines BATTLE with the ATLA framework by training an agent and a BATTLE attacker alternately. The robustness performance of BATTLE-ATLA for a SAC agent is presented in Table 7 and compared with state-of-the-art robust training methods. The experimental results provide two key insights: firstly, BATTLE-ATLA significantly enhances the robustness of agents, demonstrating its effectiveness in improving agent resilience to adversarial attacks. Secondly, BATTLE exhibits the capability to launch stronger attacks on robust agents, highlighting its effectiveness as an adversary in the adversarial training process. Table 7: Average episode rewards ± standard deviation of robust agents under different attack methods, and results are averaged across 100 episodes. Task Model BATTLE PA-AD SA-RL Average Reward Door Lock BATTLE-ATLA 874±444 628±486 503±120 668 PAAD-ATLA 491±133 483±15 517±129 497 SARL-ATLA 469±11 629±455 583±173 545 Door Unlock BATTLE-ATLA 477±203 745±75 623±60 615 PAAD-ATLA 398±12 381±11 398±79 389 SARL-ATLA 393±36 377±8 385±26 385 Faucet Open BATTLE-ATLA 442±167 451±96 504±55 465 PAAD-ATLA 438±53 588±222 373±32 466 SARL-ATLA 610±293 523±137 495±305 522 Faucet Close BATTLE-ATLA 1048±343 1223±348 570±453 947 PAAD-ATLA 661±279 371±65 704±239 538 SARL-ATLA 1362±149 688±196 426±120 825 22"
+    }
+  ]
+}

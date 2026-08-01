@@ -77,6 +77,11 @@ const CITATION_SOURCE_CONFIG: Record<string, { text: string; label: string }> = 
   arxiv:             { text: 'text-text-secondary', label: 'arXiv' },
 }
 
+function citationSourceConfig(source?: string) {
+  const sourceKey = String(source || 'library').trim().toLowerCase()
+  return CITATION_SOURCE_CONFIG[sourceKey] || CITATION_SOURCE_CONFIG['library']
+}
+
 const META_LABEL_CLASS = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted'
 const META_VALUE_CLASS = 'text-xs font-medium text-text-secondary'
 const META_STATUS_READY_CLASS = 'text-xs font-medium text-accent-primary hover:text-accent-primary/80'
@@ -166,7 +171,7 @@ export default function UnifiedFeedbackCard({
   const contentText = getContentText()
   const suggestions = getSuggestions()
   const metadata = getMetadata()
-  const hasLongContent = contentText.length > 200 || suggestions.length > 3
+  const hasLongContent = (contentText || '').length > 200 || suggestions.length > 3
 
   // Citation chips from supporting_literature
   const suggestedCitations = item.type === 'claim' ? parseSuggestedCitations(item.content) : []
@@ -174,8 +179,9 @@ export default function UnifiedFeedbackCard({
     ? item.content.suggested_sources
     : []
   const isPdf = fileType === 'application/pdf' || fileType === 'pdf'
-  const hasReliablePdfAnchor = Boolean(item.content.pdf_coordinates || item.content.page_number)
-  const canOpenDocument = Boolean(onViewInDocument) && (isPdf ? hasReliablePdfAnchor : Boolean(item.content.line_number))
+  const anchorText = item.content.anchor_text ?? item.content.text_snippet
+  const hasPdfAnchor = Boolean(item.content.pdf_coordinates || item.content.page_number || anchorText)
+  const canOpenDocument = Boolean(onViewInDocument) && (isPdf ? hasPdfAnchor : Boolean(item.content.line_number || anchorText))
   const viewPayload = {
     line_number: item.content.line_number,
     content_text: contentText,
@@ -189,11 +195,21 @@ export default function UnifiedFeedbackCard({
   const locationLabel = isPdf
     ? item.content.pdf_coordinates?.page || item.content.page_number
       ? `Page ${item.content.pdf_coordinates?.page ?? item.content.page_number}`
-      : null
+      : anchorText
+        ? 'Find anchor'
+        : null
     : item.content.line_number
       ? `Line ${item.content.line_number}`
-      : null
-  const anchorText = item.content.anchor_text ?? item.content.text_snippet
+      : anchorText
+        ? 'Find anchor'
+        : null
+
+  // Shown when the document can't be opened (e.g. the landing showcase has no live
+  // file): prefer a section + page reference, falling back to the raw location label.
+  const sectionName = item.content.section_type ?? item.content.section_reference ?? item.content.section
+  const staticLocationLabel = sectionName && item.content.page_number
+    ? `${sectionName} · p. ${item.content.page_number}`
+    : locationLabel ?? 'Location unavailable'
 
   const renderLocationButton = (className = META_STATUS_READY_CLASS) => {
     if (!canOpenDocument || !locationLabel) return null
@@ -317,7 +333,7 @@ export default function UnifiedFeedbackCard({
               <div className={META_LABEL_CLASS}>Location</div>
               <div className="mt-1">
                 {renderLocationButton('text-xs font-medium text-accent-primary hover:text-accent-primary/80') ?? (
-                  <span className="text-xs text-text-muted">Location unavailable</span>
+                  <span className="text-xs text-text-muted">{staticLocationLabel}</span>
                 )}
               </div>
               {typeof item.content.match_confidence === 'number' && (
@@ -364,7 +380,7 @@ export default function UnifiedFeedbackCard({
           </>
         )}
 
-        {(item.type === 'feedback' || item.type === 'task') && (() => {
+        {item.type === 'feedback' && (() => {
           const typeLabel = FEEDBACK_TYPE_LABEL[metadata.feedbackType as string] ?? metadata.feedbackType
           if (!typeLabel) return null
           return <span className="text-text-secondary">{typeLabel}</span>
@@ -377,7 +393,7 @@ export default function UnifiedFeedbackCard({
           <span className="mb-1.5 block text-xs font-medium text-text-secondary">Recommended support</span>
           <div className="space-y-2">
             {suggestedCitations.slice(0, 2).map((cit, i) => {
-              const sourceConfig = CITATION_SOURCE_CONFIG[cit.source] || CITATION_SOURCE_CONFIG['library']
+              const sourceConfig = citationSourceConfig(cit.source)
               return (
                 <div
                   key={i}
@@ -389,7 +405,7 @@ export default function UnifiedFeedbackCard({
                     {cit.similarity && cit.similarity >= 0.7 && (
                       <span className="text-[11px] font-medium text-text-muted">{Math.round(cit.similarity * 100)}%</span>
                     )}
-                    <span className={`text-[11px] font-semibold uppercase tracking-wide ${sourceConfig.text}`}>
+                    <span className={`text-[11px] font-semibold tracking-wide ${sourceConfig.text}`}>
                       {sourceConfig.label}
                     </span>
                   </div>
@@ -441,9 +457,9 @@ export default function UnifiedFeedbackCard({
                         </span>
                         {suggestion.external && (() => {
                           const source = suggestion.source || 'semantic_scholar'
-                          const sourceConfig = CITATION_SOURCE_CONFIG[source] || CITATION_SOURCE_CONFIG['library']
+                          const sourceConfig = citationSourceConfig(source)
                           return (
-                            <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 ${sourceConfig.text}`}>
+                            <span className={`text-[11px] font-semibold tracking-wide shrink-0 ${sourceConfig.text}`}>
                               {sourceConfig.label}
                             </span>
                           )
@@ -492,9 +508,9 @@ export default function UnifiedFeedbackCard({
               </span>
               {(source.source || source.provider) && (() => {
                 const sourceKey = source.source || source.provider
-                const sourceConfig = CITATION_SOURCE_CONFIG[sourceKey] || CITATION_SOURCE_CONFIG['library']
+                const sourceConfig = citationSourceConfig(sourceKey)
                 return (
-                  <span className={`ml-2 text-[11px] font-semibold uppercase tracking-wide ${sourceConfig.text}`}>
+                  <span className={`ml-2 text-[11px] font-semibold tracking-wide ${sourceConfig.text}`}>
                     {sourceConfig.label}
                   </span>
                 )

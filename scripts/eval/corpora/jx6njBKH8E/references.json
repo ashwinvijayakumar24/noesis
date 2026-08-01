@@ -1,0 +1,506 @@
+{
+  "corpus": "jx6njBKH8E",
+  "source_pdf": "jx6njBKH8E.pdf",
+  "source_sha256": "1830d335dbd7b8e8836e0fdb3d3d67a3f01a3e9883b23ce4f019c9d094c60c45",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:55.811400Z",
+  "references_attempted": 55,
+  "references_resolved": 37,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W2473418344",
+      "title": "Deep Learning with Differential Privacy",
+      "doi": "10.1145/2976749.2978318",
+      "status": "resolved",
+      "filename": "abadi_2016_deep_learning_with_differential_privacy.pdf",
+      "oa_url": "https://arxiv.org/pdf/1607.00133",
+      "raw": "Martin Abadi, Andy Chu, Ian Goodfellow, H Brendan McMahan, Ilya Mironov, Kunal Talwar, and Li Zhang. Deep learning with differential privacy. In Proceedings of the 2016 ACM SIGSAC conference on computer and communications security, pp. 308–318, 2016."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3047763836",
+      "title": "Better Fine-Tuning by Reducing Representational Collapse",
+      "doi": "10.48550/arxiv.2008.03156",
+      "status": "resolved",
+      "filename": "aghajanyan_2020_better_fine_tuning_by_reducing_representational_collapse.pdf",
+      "oa_url": "https://arxiv.org/pdf/2008.03156",
+      "raw": "Armen Aghajanyan, Akshat Shrivastava, Anchit Gupta, Naman Goyal, Luke Zettlemoyer, and Sonal Gupta. Better fine-tuning by reducing representational collapse. In International Conference on Learning Representations, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3188505388",
+      "title": "Large-Scale Differentially Private BERT",
+      "doi": "10.18653/v1/2022.findings-emnlp.484",
+      "status": "resolved",
+      "filename": "anil_2022_large_scale_differentially_private_bert.pdf",
+      "oa_url": "https://aclanthology.org/2022.findings-emnlp.484.pdf",
+      "raw": "Rohan Anil, Badih Ghazi, Vineet Gupta, Ravi Kumar, and Pasin Manurangsi. Large-scale differentially private bert. In Findings of the Association for Computational Linguistics: EMNLP 2022, pp. 6481–6491, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4377121468",
+      "title": "PaLM 2 Technical Report",
+      "doi": "10.48550/arxiv.2305.10403",
+      "status": "resolved",
+      "filename": "anil_2023_palm_2_technical_report.pdf",
+      "oa_url": "https://arxiv.org/pdf/2305.10403",
+      "raw": "Rohan Anil, Andrew M Dai, Orhan Firat, Melvin Johnson, Dmitry Lepikhin, Alexandre Passos, Siamak Shakeri, Emanuel Taropa, Paige Bailey, Zhifeng Chen, et al. Palm 2 technical report. arXiv preprint arXiv:2305.10403, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3091002423",
+      "title": "Pseudo-labeling and confirmation bias in deep semi-supervised learning",
+      "doi": null,
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Eric Arazo, Diego Ortego, Paul Albert, Noel E O’Connor, and Kevin McGuinness. Pseudo-labeling and confirmation bias in deep semi-supervised learning. In 2020 International Joint Conference on Neural Networks (IJCNN), pp. 1–8. IEEE, 2020."
+    },
+    {
+      "openalex_id": null,
+      "title": "Mislav Balunovic, Dimitar Dimitrov, Nikola Jovanovi´c, and Martin Vechev. Lamp: Extracting text from gradients with language model priors. Advances in",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mislav Balunovic, Dimitar Dimitrov, Nikola Jovanovi´c, and Martin Vechev. Lamp: Extracting text from gradients with language model priors. Advances in Neural Information Processing Systems, 35:7641–7654, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3002330681",
+      "title": "The Pushshift Reddit Dataset",
+      "doi": "10.1609/icwsm.v14i1.7347",
+      "status": "resolved",
+      "filename": "baumgartner_2020_the_pushshift_reddit_dataset.pdf",
+      "oa_url": "https://ojs.aaai.org/index.php/ICWSM/article/download/7347/7201",
+      "raw": "Jason Baumgartner, Savvas Zannettou, Brian Keegan, Megan Squire, and Jeremy Blackburn. The pushshift reddit dataset. In Proceedings of the international AAAI conference on web and social media, volume 14, pp. 830–839, 2020. Dimitris Bertsimas and John Tsitsiklis. Simulated annealing. Statistical science, 8(1):10–15, 1993."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2112507308",
+      "title": "Poisoning Attacks against Support Vector Machines",
+      "doi": "10.48550/arxiv.1206.6389",
+      "status": "resolved",
+      "filename": "biggio_2012_poisoning_attacks_against_support_vector_machines.pdf",
+      "oa_url": "https://arxiv.org/pdf/1206.6389",
+      "raw": "Battista Biggio, Blaine Nelson, and Pavel Laskov. Poisoning attacks against support vector machines. In Proceedings of the 29th International Coference on International Conference on Machine Learning, pp. 1467–1474, 2012."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3030163527",
+      "title": "Language Models are Few-Shot Learners",
+      "doi": "10.48550/arxiv.2005.14165",
+      "status": "resolved",
+      "filename": "brown_2020_language_models_are_few_shot_learners.pdf",
+      "oa_url": "https://arxiv.org/pdf/2005.14165",
+      "raw": "Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, et al. Language models are few-shot learners. Advances in neural information processing systems, 33:1877–1901, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3011475901",
+      "title": "Cryptanalytic Extraction of Neural Network Models",
+      "doi": "10.1007/978-3-030-56877-1_7",
+      "status": "resolved",
+      "filename": "carlini_2020_cryptanalytic_extraction_of_neural_network_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2003.04884",
+      "raw": "Nicholas Carlini, Matthew Jagielski, and Ilya Mironov. Cryptanalytic extraction of neural network models. In Annual International Cryptology Conference, pp. 189–218. Springer, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3112689365",
+      "title": "Extracting Training Data from Large Language Models",
+      "doi": "10.48550/arxiv.2012.07805",
+      "status": "resolved",
+      "filename": "carlini_2020_extracting_training_data_from_large_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2012.07805",
+      "raw": "Nicholas Carlini, Florian Tramer, Eric Wallace, Matthew Jagielski, Ariel Herbert-Voss, Katherine Lee, Adam Roberts, Tom B Brown, Dawn Song, Ulfar Erlingsson, et al. Extracting training data from large language models. In USENIX Security Symposium, volume 6, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4288057780",
+      "title": "Membership Inference Attacks From First Principles",
+      "doi": "10.1109/sp46214.2022.9833649",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Nicholas Carlini, Steve Chien, Milad Nasr, Shuang Song, Andreas Terzis, and Florian Tramer. Membership inference attacks from first principles. In 2022 IEEE Symposium on Security and Privacy (SP), pp. 1897–1914. IEEE, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4221159672",
+      "title": "Quantifying Memorization Across Neural Language Models",
+      "doi": "10.48550/arxiv.2202.07646",
+      "status": "resolved",
+      "filename": "carlini_2022_quantifying_memorization_across_neural_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2202.07646",
+      "raw": "Nicholas Carlini, Daphne Ippolito, Matthew Jagielski, Katherine Lee, Florian Tramer, and Chiyuan Zhang. Quantifying memorization across neural language models. In The Eleventh International Conference on Learning Representations, 2023. URL https://openreview.net/forum? id=TatRHT_1cK."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4285483870",
+      "title": "RelaxLoss: Defending Membership Inference Attacks without Losing Utility",
+      "doi": "10.48550/arxiv.2207.05801",
+      "status": "resolved",
+      "filename": "chen_2022_relaxloss_defending_membership_inference_attacks_without_losing_utilit.pdf",
+      "oa_url": "https://arxiv.org/pdf/2207.05801",
+      "raw": "Dingfan Chen, Ning Yu, and Mario Fritz. Relaxloss: Defending membership inference attacks without losing utility. arXiv preprint arXiv:2207.05801, 2022. Paul F Christiano, Jan Leike, Tom Brown, Miljan Martic, Shane Legg, and Dario Amodei. Deep reinforcement learning from human preferences. Advances in neural information processing systems, 30, 2017. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": null,
+      "title": "Bert: Pre-training of deep bidirectional transformers for language understanding",
+      "doi": "10.48550/arXiv.1810.04805",
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of deep bidirectional transformers for language understanding. arXiv preprint arXiv:1810.04805, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3046357466",
+      "title": "TweepFake: About detecting deepfake tweets",
+      "doi": "10.1371/journal.pone.0251415",
+      "status": "resolved",
+      "filename": "fagni_2021_tweepfake_about_detecting_deepfake_tweets.pdf",
+      "oa_url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0251415&type=printable",
+      "raw": "Tiziano Fagni, Fabrizio Falchi, Margherita Gambini, Antonio Martella, and Maurizio Tesconi. Tweepfake: About detecting deepfake tweets. Plos one, 16(5):e0251415, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3118781290",
+      "title": "The Pile: An 800GB Dataset of Diverse Text for Language Modeling",
+      "doi": "10.48550/arxiv.2101.00027",
+      "status": "resolved",
+      "filename": "gao_2020_the_pile_an_800gb_dataset_of_diverse_text_for_language_modeling.pdf",
+      "oa_url": "https://arxiv.org/pdf/2101.00027",
+      "raw": "Leo Gao, Stella Biderman, Sid Black, Laurence Golding, Travis Hoppe, Charles Foster, Jason Phang, Horace He, Anish Thite, Noa Nabeshima, et al. The pile: An 800gb dataset of diverse text for language modeling. arXiv preprint arXiv:2101.00027, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2976223659",
+      "title": "Revisiting Self-Training for Neural Sequence Generation",
+      "doi": "10.48550/arxiv.1909.13788",
+      "status": "resolved",
+      "filename": "he_2019_revisiting_self_training_for_neural_sequence_generation.pdf",
+      "oa_url": "https://arxiv.org/pdf/1909.13788",
+      "raw": "Junxian He, Jiatao Gu, Jiajun Shen, and Marc’Aurelio Ranzato. Revisiting self-training for neural sequence generation. In International Conference on Learning Representations, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4242952243",
+      "title": "Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies: Demonstrations",
+      "doi": "10.18653/v1/2021.naacl-demos",
+      "status": "resolved",
+      "filename": "ref_2021_proceedings_of_the_2021_conference_of_the_north_american_chapter_of_the.pdf",
+      "oa_url": "https://aclanthology.org/2021.naacl-demos.pdf",
+      "raw": "Xuanli He, Lingjuan Lyu, Lichao Sun, and Qiongkai Xu. Model extraction and adversarial transferability, your bert is vulnerable! In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, pp. 2006–2012, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2938704169",
+      "title": "The Curious Case of Neural Text Degeneration",
+      "doi": "10.48550/arxiv.1904.09751",
+      "status": "resolved",
+      "filename": "holtzman_2019_the_curious_case_of_neural_text_degeneration.pdf",
+      "oa_url": "https://arxiv.org/pdf/1904.09751",
+      "raw": "Ari Holtzman, Jan Buys, Li Du, Maxwell Forbes, and Yejin Choi. The curious case of neural text degeneration. arXiv preprint arXiv:1904.09751, 2019. Edward J Hu, yelong shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. LoRA: Low-rank adaptation of large language models. In International Conference on Learning Representations, 2022. URL https://openreview.net/forum? id=nZeVKeeFYf9."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3021153741",
+      "title": "Automatic Detection of Generated Text is Easiest when Humans are Fooled",
+      "doi": "10.18653/v1/2020.acl-main.164",
+      "status": "resolved",
+      "filename": "ippolito_2020_automatic_detection_of_generated_text_is_easiest_when_humans_are_f.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/2020.acl-main.164.pdf",
+      "raw": "Daphne Ippolito, Daniel Duckworth, Chris Callison-Burch, and Douglas Eck. Automatic detection of generated text is easiest when humans are fooled. In Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics, pp. 1808–1822, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4283805899",
+      "title": "Measuring Forgetting of Memorized Training Examples",
+      "doi": "10.48550/arxiv.2207.00099",
+      "status": "resolved",
+      "filename": "jagielski_2022_measuring_forgetting_of_memorized_training_examples.pdf",
+      "oa_url": "https://arxiv.org/pdf/2207.00099",
+      "raw": "Matthew Jagielski, Om Thakkar, Florian Tramer, Daphne Ippolito, Katherine Lee, Nicholas Carlini, Eric Wallace, Shuang Song, Abhradeep Guha Thakurta, Nicolas Papernot, and Chiyuan Zhang. Measuring forgetting of memorized training examples. In The Eleventh International Conference on Learning Representations, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2970482702",
+      "title": "PubMedQA: A Dataset for Biomedical Research Question Answering",
+      "doi": "10.18653/v1/d19-1259",
+      "status": "resolved",
+      "filename": "jin_2019_pubmedqa_a_dataset_for_biomedical_research_question_answering.pdf",
+      "oa_url": "https://www.aclweb.org/anthology/D19-1259.pdf",
+      "raw": "Qiao Jin, Bhuwan Dhingra, Zhengping Liu, William Cohen, and Xinghua Lu. Pubmedqa: A dataset for biomedical research question answering. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP), pp. 2567–2577, 2019."
+    },
+    {
+      "openalex_id": null,
+      "title": "Kogpt: Kakaobrain korean(hangul) generative pre-trained transformer. https://github.com/kakaobrain/kogpt, 2021",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Ildoo Kim, Gunsoo Han, Jiyeon Ham, and Woonhyuk Baek. Kogpt: Kakaobrain korean(hangul) generative pre-trained transformer. https://github.com/kakaobrain/kogpt, 2021. Dong-Hyun Lee et al. Pseudo-label: The simple and efficient semi-supervised learning method for deep neural networks. In Workshop on challenges in representation learning, ICML, volume 3, pp. 896. Atlanta, 2013."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3177765786",
+      "title": "Deduplicating Training Data Makes Language Models Better",
+      "doi": "10.18653/v1/2022.acl-long.577",
+      "status": "resolved",
+      "filename": "lee_2022_deduplicating_training_data_makes_language_models_better.pdf",
+      "oa_url": "https://aclanthology.org/2022.acl-long.577.pdf",
+      "raw": "Katherine Lee, Daphne Ippolito, Andrew Nystrom, Chiyuan Zhang, Douglas Eck, Chris Callison- Burch, and Nicholas Carlini. Deduplicating training data makes language models better. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pp. 8424–8445, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Does bert pretrained on clinical notes reveal sensitive data? In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, pp. 946–959, 2021",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Eric Lehman, Sarthak Jain, Karl Pichotta, Yoav Goldberg, and Byron C Wallace. Does bert pretrained on clinical notes reveal sensitive data? In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, pp. 946–959, 2021."
+    },
+    {
+      "openalex_id": null,
+      "title": "Roberta: A robustly optimized bert pretraining approach",
+      "doi": "10.48550/arXiv.1907.11692",
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Mandar Joshi, Danqi Chen, Omer Levy, Mike Lewis, Luke Zettlemoyer, and Veselin Stoyanov. Roberta: A robustly optimized bert pretraining approach. arXiv preprint arXiv:1907.11692, 2019. Ilya Loshchilov and Frank Hutter. SGDR: Stochastic gradient descent with warm restarts. In International Conference on Learning Representations, 2017. URL https://openreview. net/forum?id=Skq89Scxx. 11 Under review as a conference paper at ICLR 2024 Udi Manber and Gene Myers. Suffix arrays: a new method for on-line string searches. siam Journal on Computing, 22(5):935–948, 1993. Nicholas D Matsakis and Felix S Klock. The rust language. ACM SIGAda Ada Letters, 34(3): 103–104, 2014."
+    },
+    {
+      "openalex_id": null,
+      "title": "Justus Mattern, Fatemehsadat Mireshghallah, Zhijing Jin, Bernhard Sch¨olkopf, Mrinmaya Sachan, and Taylor Berg-Kirkpatrick. Membership inference attac",
+      "doi": "10.48550/arXiv.2305.18462",
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Justus Mattern, Fatemehsadat Mireshghallah, Zhijing Jin, Bernhard Sch¨olkopf, Mrinmaya Sachan, and Taylor Berg-Kirkpatrick. Membership inference attacks against language models via neighbourhood comparison. arXiv preprint arXiv:2305.18462, 2023. Michael McCloskey and Neal J Cohen. Catastrophic interference in connectionist networks: The sequential learning problem. In Psychology of learning and motivation, volume 24, pp. 109–165. Elsevier, 1989."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385573947",
+      "title": "Quantifying Privacy Risks of Masked Language Models Using Membership Inference Attacks",
+      "doi": "10.18653/v1/2022.emnlp-main.570",
+      "status": "resolved",
+      "filename": "mireshghallah_2022_quantifying_privacy_risks_of_masked_language_models_using_mem.pdf",
+      "oa_url": "https://aclanthology.org/2022.emnlp-main.570.pdf",
+      "raw": "Fatemehsadat Mireshghallah, Kartik Goyal, Archit Uniyal, Taylor Berg-Kirkpatrick, and Reza Shokri. Quantifying privacy risks of masked language models using membership inference attacks. In Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing, pp. 8332–8347, 2022a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385573004",
+      "title": "An Empirical Analysis of Memorization in Fine-tuned Autoregressive Language Models",
+      "doi": "10.18653/v1/2022.emnlp-main.119",
+      "status": "resolved",
+      "filename": "mireshghallah_2022_an_empirical_analysis_of_memorization_in_fine_tuned_autoregre.pdf",
+      "oa_url": "https://aclanthology.org/2022.emnlp-main.119.pdf",
+      "raw": "Fatemehsadat Mireshghallah, Archit Uniyal, Tianhao Wang, David K Evans, and Taylor Berg- Kirkpatrick. An empirical analysis of memorization in fine-tuned autoregressive language models. In Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing, pp. 1816–1826, 2022b."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4318351452",
+      "title": "Cognitive Constraint Simulation and the Geometry of Human Authorship: A First-Principles Theory of AI Text Detection",
+      "doi": "10.48550/arxiv.2301.11305",
+      "status": "resolved",
+      "filename": "eric_2023_cognitive_constraint_simulation_and_the_geometry_of_human_authorship_a.pdf",
+      "oa_url": "https://arxiv.org/pdf/2301.11305",
+      "raw": "Eric Mitchell, Yoonho Lee, Alexander Khazatsky, Christopher D Manning, and Chelsea Finn. Detectgpt: Zero-shot machine-generated text detection using probability curvature. arXiv preprint arXiv:2301.11305, 2023. OpenAI. Gpt-4 technical report, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226278401",
+      "title": "Training language models to follow instructions with human feedback",
+      "doi": "10.48550/arxiv.2203.02155",
+      "status": "resolved",
+      "filename": "ouyang_2022_training_language_models_to_follow_instructions_with_human_feedback.pdf",
+      "oa_url": "https://arxiv.org/pdf/2203.02155",
+      "raw": "Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al. Training language models to follow instructions with human feedback. Advances in Neural Information Processing Systems, 35: 27730–27744, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2970971581",
+      "title": "PyTorch: An Imperative Style, High-Performance Deep Learning Library",
+      "doi": "10.48550/arxiv.1912.01703",
+      "status": "resolved",
+      "filename": "paszke_2019_pytorch_an_imperative_style_high_performance_deep_learning_library.pdf",
+      "oa_url": "https://arxiv.org/pdf/1912.01703",
+      "raw": "Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, et al. Pytorch: An imperative style, high-performance deep learning library. Advances in neural information processing systems, 32, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2981852735",
+      "title": "Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer",
+      "doi": "10.48550/arxiv.1910.10683",
+      "status": "resolved",
+      "filename": "raffel_2019_exploring_the_limits_of_transfer_learning_with_a_unified_text_to_tex.pdf",
+      "oa_url": "https://arxiv.org/pdf/1910.10683",
+      "raw": "Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, Peter J Liu, et al. Exploring the limits of transfer learning with a unified text-to-text transformer. J. Mach. Learn. Res., 21(140):1–67, 2020."
+    },
+    {
+      "openalex_id": null,
+      "title": "Deepspeed: System optimizations enable training deep learning models with over 100 billion parameters",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jeff Rasley, Samyam Rajbhandari, Olatunji Ruwase, and Yuxiong He. Deepspeed: System optimizations enable training deep learning models with over 100 billion parameters. In Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining, pp. 3505–3506, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3121562065",
+      "title": "ZeRO-Offload: Democratizing Billion-Scale Model Training",
+      "doi": "10.48550/arxiv.2101.06840",
+      "status": "resolved",
+      "filename": "ren_2021_zero_offload_democratizing_billion_scale_model_training.pdf",
+      "oa_url": "https://arxiv.org/pdf/2101.06840",
+      "raw": "Jie Ren, Samyam Rajbhandari, Reza Yazdani Aminabadi, Olatunji Ruwase, Shuangyan Yang, Minjia Zhang, Dong Li, and Yuxiong He. {ZeRO-Offload}: Democratizing {Billion-Scale} model training. In 2021 USENIX Annual Technical Conference (USENIX ATC 21), pp. 551–564, 2021. Baptiste Rozi`ere, Jonas Gehring, Fabian Gloeckle, Sten Sootla, Itai Gat, Xiaoqing Ellen Tan, Yossi"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4386185625",
+      "title": "Code Llama: Open Foundation Models for Code",
+      "doi": "10.48550/arxiv.2308.12950",
+      "status": "resolved",
+      "filename": "rozière_2023_code_llama_open_foundation_models_for_code.pdf",
+      "oa_url": "https://arxiv.org/pdf/2308.12950",
+      "raw": "Adi, Jingyu Liu, Tal Remez, J´er´emy Rapin, et al. Code llama: Open foundation models for code. arXiv preprint arXiv:2308.12950, 2023. Vinu Sankar Sadasivan, Aounon Kumar, Sriram Balasubramanian, Wenxiao Wang, and Soheil Feizi. Can ai-generated text be reliably detected? arXiv preprint arXiv:2303.11156, 2023. Teven Le Scao, Angela Fan, Christopher Akiki, Ellie Pavlick, Suzana Ili´c, Daniel Hesslow, Roman Castagn´e, Alexandra Sasha Luccioni, Franc¸ois Yvon, Matthias Gall´e, et al. Bloom: A 176bparameter open-access multilingual language model. arXiv preprint arXiv:2211.05100, 2022. 12 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4308797462",
+      "title": "Proximal policy optimization algorithm for dynamic pricing with online reviews",
+      "doi": "10.1016/j.eswa.2022.119191",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal policy optimization algorithms. arXiv preprint arXiv:1707.06347, 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4367000527",
+      "title": "BadGPT: Exploring Security Vulnerabilities of ChatGPT via Backdoor Attacks to InstructGPT",
+      "doi": "10.48550/arxiv.2304.12298",
+      "status": "resolved",
+      "filename": "shi_2023_badgpt_exploring_security_vulnerabilities_of_chatgpt_via_backdoor_attac.pdf",
+      "oa_url": "https://arxiv.org/pdf/2304.12298",
+      "raw": "Jiawen Shi, Yixin Liu, Pan Zhou, and Lichao Sun. Badgpt: Exploring security vulnerabilities of chatgpt via backdoor attacks to instructgpt. arXiv preprint arXiv:2304.12298, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2535690855",
+      "title": "Membership Inference Attacks Against Machine Learning Models",
+      "doi": "10.1109/sp.2017.41",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Reza Shokri, Marco Stronati, Congzheng Song, and Vitaly Shmatikov. Membership inference attacks against machine learning models. In 2017 IEEE symposium on security and privacy (SP), pp. 3–18. IEEE, 2017. Liwei Song and Prateek Mittal. Systematic evaluation of privacy risks of machine learning models. In 30th USENIX Security Symposium (USENIX Security 21), pp. 2615–2632, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3082115681",
+      "title": "Learning to summarize from human feedback",
+      "doi": "10.48550/arxiv.2009.01325",
+      "status": "resolved",
+      "filename": "stiennon_2020_learning_to_summarize_from_human_feedback.pdf",
+      "oa_url": "https://arxiv.org/pdf/2009.01325",
+      "raw": "Nisan Stiennon, Long Ouyang, Jeffrey Wu, Daniel Ziegler, Ryan Lowe, Chelsea Voss, Alec Radford, Dario Amodei, and Paul F Christiano. Learning to summarize with human feedback. Advances in Neural Information Processing Systems, 33:3008–3021, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2779809129",
+      "title": "NSML: A Machine Learning Platform That Enables You to Focus on Your Models",
+      "doi": "10.48550/arxiv.1712.05902",
+      "status": "resolved",
+      "filename": "sung_2017_nsml_a_machine_learning_platform_that_enables_you_to_focus_on_your_mod.pdf",
+      "oa_url": "https://arxiv.org/pdf/1712.05902",
+      "raw": "Nako Sung, Minkyu Kim, Hyunwoo Jo, Youngil Yang, Jingwoong Kim, Leonard Lausen, Youngkwan Kim, Gayoung Lee, Donghyun Kwak, Jung-Woo Ha, et al. Nsml: A machine learning platform that enables you to focus on your models. arXiv preprint arXiv:1712.05902, 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3205533264",
+      "title": "Mitigating Membership Inference Attacks by Self-Distillation Through a Novel Ensemble Architecture",
+      "doi": "10.48550/arxiv.2110.08324",
+      "status": "resolved",
+      "filename": "tang_2021_mitigating_membership_inference_attacks_by_self_distillation_through_a.pdf",
+      "oa_url": "https://arxiv.org/pdf/2110.08324",
+      "raw": "Xinyu Tang, Saeed Mahloujifar, Liwei Song, Virat Shejwalkar, Milad Nasr, Amir Houmansadr, and Prateek Mittal. Mitigating membership inference attacks by {Self-Distillation} through a novel ensemble architecture. In 31st USENIX Security Symposium (USENIX Security 22), pp. 1433–1450, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4384918448",
+      "title": "Llama 2: Open Foundation and Fine-Tuned Chat Models",
+      "doi": "10.48550/arxiv.2307.09288",
+      "status": "resolved",
+      "filename": "touvron_2023_llama_2_open_foundation_and_fine_tuned_chat_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2307.09288",
+      "raw": "Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, et al. Llama 2: Open foundation and fine-tuned chat models. arXiv preprint arXiv:2307.09288, 2023. Trieu H Trinh and Quoc V Le. A simple method for commonsense reasoning. arXiv preprint arXiv:1806.02847, 2018."
+    },
+    {
+      "openalex_id": null,
+      "title": "Eric Wallace, Florian Tram`er, Matthew Jagielski, and Ariel Herbert-Voss. Does gpt-2 know your phone number? https://bair.berkeley.edu/blog/2020/12/20",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Eric Wallace, Florian Tram`er, Matthew Jagielski, and Ariel Herbert-Voss. Does gpt-2 know your phone number? https://bair.berkeley.edu/blog/2020/12/20/lmmem/, 2020."
+    },
+    {
+      "openalex_id": null,
+      "title": "Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Clement Delangue, Anthony Moi, Pierric Cistac, Tim Rault, R´emi Louf, Morgan Funtowicz, et",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Clement Delangue, Anthony Moi, Pierric Cistac, Tim Rault, R´emi Louf, Morgan Funtowicz, et al. Transformers: State-of-the-art natural language processing. In Proceedings of the 2020 conference on empirical methods in natural language processing: system demonstrations, pp. 38–45, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4384345715",
+      "title": "Practical and Efficient Model Extraction of Sentiment Analysis APIs",
+      "doi": "10.1109/icse48619.2023.00054",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Weibin Wu, Jianping Zhang, Victor Junqiu Wei, Xixian Chen, Zibin Zheng, Irwin King, and Michael R Lyu. Practical and efficient model extraction of sentiment analysis apis. In 2023 IEEE/ACM 45th International Conference on Software Engineering (ICSE), pp. 524–536. IEEE, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3169483174",
+      "title": "mT5: A Massively Multilingual Pre-trained Text-to-Text Transformer",
+      "doi": "10.18653/v1/2021.naacl-main.41",
+      "status": "resolved",
+      "filename": "xue_2021_mt5_a_massively_multilingual_pre_trained_text_to_text_transformer.pdf",
+      "oa_url": "https://aclanthology.org/2021.naacl-main.41.pdf",
+      "raw": "Linting Xue, Noah Constant, Adam Roberts, Mihir Kale, Rami Al-Rfou, Aditya Siddhant, Aditya Barua, and Colin Raffel. mt5: A massively multilingual pre-trained text-to-text transformer. In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, pp. 483–498, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4385968090",
+      "title": "DeepSpeed-Chat: Easy, Fast and Affordable RLHF Training of ChatGPT-like Models at All Scales",
+      "doi": "10.48550/arxiv.2308.01320",
+      "status": "resolved",
+      "filename": "yao_2023_deepspeed_chat_easy_fast_and_affordable_rlhf_training_of_chatgpt_like_m.pdf",
+      "oa_url": "https://arxiv.org/pdf/2308.01320",
+      "raw": "Zhewei Yao, Reza Yazdani Aminabadi, Olatunji Ruwase, Samyam Rajbhandari, Xiaoxia Wu, Ammar Ahmad Awan, Jeff Rasley, Minjia Zhang, Conglong Li, Connor Holmes, et al. Deepspeedchat: Easy, fast and affordable rlhf training of chatgpt-like models at all scales. arXiv preprint arXiv:2308.01320, 2023."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4308410483",
+      "title": "Enhanced Membership Inference Attacks against Machine Learning Models",
+      "doi": "10.1145/3548606.3560675",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://dl.acm.org/doi/pdf/10.1145/3548606.3560675",
+      "raw": "Jiayuan Ye, Aadyaa Maddi, Sasi Kumar Murakonda, Vincent Bindschaedler, and Reza Shokri. Enhanced membership inference attacks against machine learning models. In Proceedings of the 2022 ACM SIGSAC Conference on Computer and Communications Security, pp. 3093–3106, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2795435272",
+      "title": "Privacy Risk in Machine Learning: Analyzing the Connection to Overfitting",
+      "doi": "10.1109/csf.2018.00027",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Samuel Yeom, Irene Giacomelli, Matt Fredrikson, and Somesh Jha. Privacy risk in machine learning: Analyzing the connection to overfitting. In 2018 IEEE 31st computer security foundations symposium (CSF), pp. 268–282. IEEE, 2018. 13 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2947813521",
+      "title": "Defending Against Neural Fake News",
+      "doi": "10.48550/arxiv.1905.12616",
+      "status": "resolved",
+      "filename": "zellers_2019_defending_against_neural_fake_news.pdf",
+      "oa_url": "https://arxiv.org/pdf/1905.12616",
+      "raw": "Rowan Zellers, Ari Holtzman, Hannah Rashkin, Yonatan Bisk, Ali Farhadi, Franziska Roesner, and Yejin Choi. Defending against neural fake news. Advances in neural information processing systems, 32, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2987861506",
+      "title": "Be Your Own Teacher: Improve the Performance of Convolutional Neural Networks via Self Distillation",
+      "doi": "10.1109/iccv.2019.00381",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Linfeng Zhang, Jiebo Song, Anni Gao, Jingwei Chen, Chenglong Bao, and Kaisheng Ma. Be your own teacher: Improve the performance of convolutional neural networks via self distillation. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 3713–3722, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4322718191",
+      "title": "LLaMA: Open and Efficient Foundation Language Models",
+      "doi": "10.48550/arxiv.2302.13971",
+      "status": "resolved",
+      "filename": "touvron_2023_llama_open_and_efficient_foundation_language_models.pdf",
+      "oa_url": "https://arxiv.org/pdf/2302.13971",
+      "raw": "Susan Zhang, Stephen Roller, Naman Goyal, Mikel Artetxe, Moya Chen, Shuohui Chen, Christopher Dewan, Mona Diab, Xian Li, Xi Victoria Lin, et al. Opt: Open pre-trained transformer language models. arXiv preprint arXiv:2205.01068, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Tokens” refers to words tokenized by the OPT tokenizer from each dataset.",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Yukun Zhu, Ryan Kiros, Rich Zemel, Ruslan Salakhutdinov, Raquel Urtasun, Antonio Torralba, and Sanja Fidler. Aligning books and movies: Towards story-like visual explanations by watching movies and reading books. In Proceedings of the IEEE international conference on computer vision, pp. 19–27, 2015. The appendix begins on the following page. 14 Under review as a conference paper at ICLR 2024 A RELATED WORK A.1 DATA AUGMENTATION-BASED MEMBERSHIP INFERENCE Membership Inference (Shokri et al., 2017) (MI) attacks try to determine whether a data point was part of the training dataset of a Machine Learning (ML) model. Overfitting is known to be a primary reason why training data becomes vulnerable to MI attacks (Yeom et al., 2018; Ye et al., 2022). Some previous studies infer the fitting status from the difference between the loss for an arbitrary data point and the expected loss for its augmentations; specifically, if the sample is a non-member, the expectation of the difference converges to 0, but if it is from the training dataset, it takes a distinguishably small negative value. From this perspective, the directly related work to ours is by Mattern et al. (2023). They calculate the augmentation of the target sample using a masked LM like BERT (Devlin et al., 2018) and compare the expected loss difference, a process similar to our method of calculating perturbation discrepancy (as described in §4.1). However, their study differs from our approach: (1) They require a pre-calculated threshold to decide membership based on the difference, while we do not need a specific threshold. This difference makes our method more straightforward as we only compare relative membership. (2) Their attack, like many others, solely audits the vulnerability of the target model to MI, whereas we focus on enhancing this vulnerability to amplify the attack’s impact. A.2 AMPLIFYING OTHER SECURITY CONCERNS IN LANGUAGE MODELS VIA FINE-TUNING We examine various research on amplifying security concerns by fine-tuning LMs, including the training data exposure. Mireshghallah et al. (2022b) demonstrate that fine-tuning the LM can induce overfitting to memorization, making it susceptible to MI attacks. However, they focus only on the fine-tuning dataset, not the pre-training dataset, to claim the data becomes vulnerable to MI attacks through fine-tuning. This is significantly different from our fine-tuning strategy aimed at exposing the pre-training dataset. As another example, Shi et al. (2023) tried to inject a backdoor into an LM fine-tuned using PPO by poisoning (Biggio et al., 2012) the dataset during the RLHF process. B IMPLEMENTATION DETAILS B.1 ENVIRONMENT SETTINGS Due to limited experimental resources, we conducted experiments on several machines with different computing environments. The primary settings and their roles on each machine are as follows: • Local 1: A single machine with Ubuntu 20.04 LTS, one Intel i9-10920X CPU with 24 cores, two NVIDIA GeForce RTX 3090 GPUs with 24GB VRAM each, 251GiB RAM, Python 3.10, and CUDA version 12.0. On this machine, we conducted RQ1, extracted the fine-tuning dataset, executed TDE attacks on reference and target LMs, and analyzed experimental results. • Local 2: A single machine with Ubuntu 20.04 LTS, one Intel i9-11900F CPU with 16 cores, one NVIDIA GeForce RTX 3090 GPU with 24GB VRAM, 125GiB RAM, approximately 25TB of storage (2TB SSD and 23TB HDD), Python 3.10, and CUDA version 12.2. Here, we reconstructed the pre-training dataset and computed true positives. • Cloud (Naver Smart Machine Learning; NSML) (Sung et al., 2017): A single machine with Ubuntu 20.04 LTS, one Intel Xeon Gold 5220 CPU with 16 cores, two NVIDIA V100 GPUs with 32GB VRAM each, 176GiB RAM, Python 3.8, and CUDA version 11.4. We extracted the fine-tuning dataset on this machine and executed TDE attacks on reference and target LMs. On this machine, we performed PPO fine-tuning for OPT models other than OPT-6.7B and 13B. • Cloud (Kakao i Machine Learning; KiML)4: A single machine with Ubuntu 18.04 LTS, one AMD EPYC 7763 CPU with 64 cores (only 16 cores available), one NVIDIA A100 4https://docs.kakaoi.ai/ml/ 15 Under review as a conference paper at ICLR 2024 Table 3: Details of the reconstructed pre-training datasets of OPT. “Tokens” refers to words tokenized by the OPT tokenizer from each dataset. “Examples” denotes the number of data included in each training dataset. “Binary” represents the size after converting the dataset into a binary file. “Suffix Array” indicates the size after converting the binary file into a suffix array. “Total” is the sum of the sizes of the binary and suffix array files. Dataset Tokens Examples Binary (GB) Suffix Array (GB) Total (GB) BookCorpus 1,084,248,174 74,006,376 2.8 11.0 13.8 USPTO 9,956,527,973 11,123,493 20.0 100.0 120.0 Project Gutenberg 3,066,013,103 28,601 6.1 30.7 36.8 OpenSubtitles 5,464,176,068 632,493 10.9 54.7 65.6 Wikipedia 12,054,096,912 16,940,015 24.2 121.2 145.4 DM Mathematics 7,388,934,036 1,918,563 14.8 74.0 88.8 HackerNews 2,069,555,419 1,571,990 4.2 16.6 20.8 Pile-CC 53,187,982,906 52,442,909 106.8 534.1 640.9 OpenWebText2 16,414,911,293 17,103,564 33.0 131.9 164.9 Reddit 264,176,333,658 6,024,114,846 564.5 2712.5 3277.0 Total 374,862,779,542 6,199,882,850 787.3 3786.7 4574.0 GPU with 80GB VRAM, 128GiB RAM, Python 3.8, and CUDA version 11.4. On this machine, we performed PPO fine-tuning for OPT-6.7B. • Cloud (Vast.ai)5: A single machine with four NVIDIA A100 GPUs with 80GB VRAM each, Python 3.10, and CUDA version 11.7. We conducted PPO fine-tuning for OPT-13B on this machine. All experiments across these machines used the PyTorch (Paszke et al., 2019) (v2.0), HuggingFace Transformers (Wolf et al., 2020) (latest version), and DeepSpeed (Rasley et al., 2020) (v0.10) libraries. We also referred to pre-implemented code from DeepSpeedExamples (Yao et al., 2023) for fine-tuning. B.2 PRE-TRAINING DATASET RECONSTRUCTION As mentioned in §5.1, to verify the results of the TDE attack, we reconstructed 10 out of the 12 datasets used in the OPT pre-training. This process consists of two steps: (1) downloading the datasets and converting them into binary files, and (2) generating a suffix array (Manber & Myers, 1993). We referred to the GitHub repository6 that implemented EXACTSUBSTR by Lee et al. (2022) to generate the suffix array. Table 3 shows the detailed specifications of the reconstructed pre-training datasets. B.3 FINE-TUNING DATASET CREATION In §4.1, we described how to create a fine-tuning dataset with pseudo-labeled membership. Several texts were dropped among the 100,000 generated texts for various reasons: (1) “Span” that the generated text was composed of fewer than the predetermined threshold of 20 words, (2) “NaN” that occurred during the calculation of the log-likelihood of perturb texts for perturbation discrepancy, and (3) “Odd” that due to the previous two reasons, there remained an odd number of generated texts, causing a remainder when matching in pairs. We specify the number of texts dropped for these reasons in Table 4. Given the relatively small proportion of dropped samples to the total number of generated texts, we believe that dropping these samples will have minimal impact on fine-tuning. Generally, as the model size increases, the number of dropped texts tends to decrease, and we speculate this is because larger models generate high-quality texts. Subsequently, in Table 5, we report the fine-tuning dataset size used in §4.2, excluding the dropped generated texts. First, we match the generated texts in pairs and divide them into 80% training and 20% evaluation datasets. Each dataset is then split again into 40% for RM and 60% for the target LM fine-tuning. 5https://vast.ai/ 6https://github.com/google-research/deduplicate-text-datasets 16 Under review as a conference paper at ICLR 2024 Table 4: The number of samples dropped from the initial 100,000 texts generated by each model. OPT Span NaN Odd Total 125M 29 0 1 30 350M 50 10 0 60 1.3B 1 18 1 20 2.7B 2 13 1 16 6.7B 2 0 0 2 13B 2 0 0 2 Total 86 41 3 130 Table 5: The number of elements in all datasets used for fine-tuning RM and target LM. RM Data PPO Data Total OPT Split Size Split Size Split Size 125M train 15,995 train 23,993 train 39,988 eval 3,999 eval 5,998 eval 9,997 total 19,994 total 29,991 total 49,985 350M train 15,990 train 23,986 train 39,976 eval 3,998 eval 5,996 eval 9,994 total 19,988 total 29,982 total 49,970 1.3B train 15,997 train 23,995 train 39,992 eval 3,999 eval 5,999 eval 9,998 total 19,996 total 29,994 total 49,990 2.7B train 15,997 train 23,996 train 39,993 eval 4,000 eval 5,999 eval 9,999 total 19,997 total 29,995 total 49,992 6.7B train 16,000 train 23,999 train 39,999 eval 4,000 eval 6,000 eval 10,000 total 20,000 total 29,999 total 49,999 13B train 16,000 train 23,999 train 39,999 eval 4,000 eval 6,000 eval 10,000 total 20,000 total 29,999 total 49,999 B.4 FINE-TUNING REWARD MODEL This section describes the hyperparameters for training the RM with the pseudo-labeled dataset prepared in Appendix B.3. We referred to the examples in DeepSpeedExamples (Yao et al., 2023) for fine-tuning. All RMs used the pre-trained OPT-350M. For RM training, we employ Zero Redundancy Optimizer 3 (ZeRO-3) Offload (Ren et al., 2021). The training mini-batch size is set to 32; the batch size is a multiplication of per device batch size, the number of GPUs, and gradient accumulation size. Therefore, we have the total optimization steps of 500 iterations. The learning rate is 5 × 10−5, and we use a cosine annealing scheduler (Loshchilov & Hutter, 2017) without a warm-up step. Weight decay is set at 0.1. In Figure 5, we report the training log of the RM for each OPT model based on the derived dataset. The log is publicly available online7. 7https://tensorboard.dev/experiment/cdi2xqDGR3mey3opQu7Idw/ 17 Under review as a conference paper at ICLR 2024 0 100 200 300 400 500 Iterations 0.0 0.5 1.0 1.5 Loss (a) OPT-125M 0 100 200 300 400 500 Iterations 0.0 0.5 1.0 1.5 Loss (b) OPT-350M 0 100 200 300 400 500 Iterations 0.0 0.5 1.0 1.5 Loss (c) OPT-1.3B 0 100 200 300 400 500 Iterations 0.0 0.5 1.0 1.5 Loss (d) OPT-2.7B 0 100 200 300 400 500 Iterations 0.0 0.5 1.0 1.5 Loss (e) OPT-6.7B 0 100 200 300 400 500 Iterations 0.0 0.5 1.0 1.5 Loss (f) OPT-13B Figure 5: Training logs of RM for the dataset generated by each OPT model. B.5 FINE-TUNING TARGET LANGUAGE MODEL This chapter describes the hyperparameters for training the target LM using the pseudo-labeled dataset prepared in Appendix B.3. Similarly to the RM, we referred to the examples in DeepSpeedExamples for fine-tuning. We used ZeRO-3 Offload for both the training of the actor—i.e., the target model— and the critic—i.e., the reward model. The training mini-batch size for all models except OPT-13B is fixed at 32; the batch size is a multiplication of per device batch size, the number of GPUs, and gradient accumulation size. Since renting GPU resources is expensive, we increased the training batch size for OPT-13B to 64 for fast optimization. Therefore, the total optimization step is 750 iterations. The learning rate for actor training is consistently 9.65 × 10−6 regardless of model size, and the learning rate for critic training is 5 × 10−6, both using a cosine annealing scheduler with 100 warm-up steps. Weight decay was not used. We commonly applied a 128-dimensional LoRA (Hu et al., 2022) to the actor model. In Figure 6, we report the training log of the target LM according to the dataset derived from each OPT model. Due to constraints in the experimental environment, we omitted the training log for OPT-6.7B. The log can be checked publicly online8. C FURTHER EXAMPLES C.1 PERTURBED TEXTS Table 6 shows an example of perturbing a single generated sentence using the mask-and-fill approach. For specific methods, refer to §4.1. C.2 PSEUDO-LABELED TEXTS Table 7 shows examples of two matching generated sentences labeled as chosen and rejected. For specific methods, refer to §4.1. C.3 MEMORIZED CONTENTS Table 8, Table 9, Table 10, and Table 11 show some samples memorized by OPT-1.3B (USPTO), OPT-1.3B (Pile-CC), OPT-2.7B (OpenWebText), and OPT-2.7B (Reddit), respectively. We have masked some sensitive information, such as email addresses. 8https://tensorboard.dev/experiment/j6PkVA5lS96X0n1pygo2sQ/ 18 Under review as a conference paper at ICLR 2024 0 250 500 750 Iterations -0.2 -0.1 0.0 0.1 0.2 Loss actor critic (a) OPT-125M 0 250 500 750 Iterations -0.2 -0.1 0.0 0.1 0.2 Loss actor critic (b) OPT-350M 0 250 500 750 Iterations -0.2 -0.1 0.0 0.1 0.2 Loss actor critic (c) OPT-1.3B 0 250 500 750 Iterations -0.2 -0.1 0.0 0.1 0.2 Loss actor critic (d) OPT-2.7B 0 250 500 750 Iterations -0.2 -0.1 0.0 0.1 0.2 Loss N/A (e) OPT-6.7B (N/A) 0 125 250 375 Iterations -1.0 0.0 1.0 2.0 3.0 Loss actor critic (f) OPT-13B Figure 6: Training logs of the target LM trained with datasets generated by each OPT model. We omitted the training log for OPT-6.7B. Table 6: Examples of creating perturbed text for each generation. After selecting two consecutive spans from the generated text (red), we replace them with a single mask (blue) and predict the corrupted span (green). Generated Text I can’t watch the video right now, but this looks very interesting to me. Is it as fun as it looks?\\nFrom the reviews, it’s a good port. The PC version is apparently more stable, but the game is still very enjoyable. Edit: and it has native 60 fps.\\nThank you for that info. I love this game, but I haven’t been able to get it to work on windows.\\nIt’s still in EA but the developer is very active. If you really want to play the game with all the fixes the developer has to offer, then it’s your best bet.\\nCool. I’m gonna give it a try. I’ve always just played it on my Mac with bootcamp. Thanks!\\nI just tried it out. The sound stuttered but not as much as on the emulator. Not as playable for me. I also couldn’t get all the settings to work that are supposed to help performance on the PC version. :(\\nThat sucks. I know there are performance issues, and I’m not surprised at all. But I’ve been really enjoying it on the go.\\nYeah, I enjoyed it. I just have to wait for the PC port to be fixed I guess. But the Masked Text I can’t watch the video right now, but this looks very interesting to me. Is it as fun as it [MASK1] reviews, it’s a good port. The PC version is apparently more stable, but the [MASK2] still very enjoyable. Edit: and [MASK3] native 60 fps.\\nThank you for [MASK4] I love this game, but I haven’t been able to get it to work on windows.\\nIt’s still in EA but the developer is very active. If you really want to play the game with all the fixes the developer has to offer, then it’s your best [MASK5] gonna give it a try. I’ve always just played it on my Mac with bootcamp. Thanks!\\nI just tried [MASK6] The sound stuttered but not as much as on the emulator. Not as playable [MASK7] I also couldn’t get all the settings [MASK8] that are supposed to help performance on the PC version. :(\\nThat sucks. I know there are performance issues, and I’m not surprised at [MASK9] I’ve been really enjoying it on the go.\\nYeah, I enjoyed it. I just have to wait for the PC port to be fixed [MASK10] But the Perturbed Text I can’t watch the video right now, but this looks very interesting to me. Is it as fun as it looks? According to reviews, it’s a good port. The PC version is apparently more stable, but the Mac version is still very enjoyable. Edit: and it’s running at native 60 fps.\\nThank you for this. I love this game, but I haven’t been able to get it to work on windows.\\nIt’s still in EA but the developer is very active. If you really want to play the game with all the fixes the developer has to offer, then it’s your best bet. I’m gonna give it a try. I’ve always just played it on my Mac with bootcamp. Thanks!\\nI just tried it. The sound stuttered but not as much as on the emulator. Not as playable though. I also couldn’t get all the settings adjusted that are supposed to help performance on the PC version. :(\\nThat sucks. I know there are performance issues, and I’m not surprised at all. I’ve been really enjoying it on the go.\\nYeah, I enjoyed it. I just have to wait for the PC port to be fixed . But the 19 Under review as a conference paper at ICLR 2024 Table 7: Pseudo-labeled generations examples. We matched texts with calculated perturbation discrepancies in pairs, labeling the text with the lower value as chosen and the one with the higher value as rejected. Chosen Text (perturbation discrepancy: −1.81) It is a long list, but I will only highlight one of the most salient points about the list. It is a point that many people, in all walks of life, seem to be unaware of. I have noticed over the years that many leaders of businesses and other organizations tend to assume that they are the best leaders, and that everyone else, especially the employees, should just follow them. I think many leaders forget that every company has a culture and a history.\\n\\nYou can’t have one without the other.\\nMany of the leaders of the major companies in America are graduates of Harvard Business School.\\nAnd Harvard is known for being extremely selective.\\nThere are, of course, other schools that also teach business, but Harvard is by far the most expensive,\\nAnd since they don’tsave all of their profits from tuition, they have to charge high prices.\\nThe average price of a full course of studies at Harvard is a whopping $70,000!\\n\\nI don‘t know if you are aware of this, but there are two other schools in the United States that are equally selective in selecting students. One is Stanford, the other is MIT. These schools charge far less than Harvard. Their average price is about Rejected Text (perturbation discrepancy: 0.86) How did you make the bread part?\\nWith yeast\\nI meant to say gmore specifically :P\\nI didn’t! I’m guessing you use sourdough starter. I made a starter a while back using a recipe that came off the internet. I forget the exact measurements but I think it’s flour, salt, water and some starter.\\nWhat kind of flour?\\nAny flour! We bought all purpose and it turned out fine!\\nDid you knead? It usually takes me an hour and a half for a batch like that.\\nNo I did not knead. It’d be nice to try that one day though. That sounds like a good use for an entire day in the kitchen.\\nIt’s a very fun thing to do. I just had to make like 7 of these for a festival this weekend and they took forever.\\nSounds like it! I wish we had a festival nearby. Where do you live?\\nI live in Chicago but I was in a suburb of Cleveland. We’re in the middle of a major food festival right now and there’s still a lot of baking to be done. I’ve got two batches of dough that need to be made in the next Table 8: An example from USPTO memorized by the OPT-1.3B. Generated Text · · · In addition, when an external data is to be decoded, there is a need for increased time for decoding the data, and an error rate can be increased. Thus, there will be a problem that it is hard to increase data capacity at the same time.\\nThe above information disclosed in this Background section is only for enhancement of understanding of the background of the invention and therefore it may contain information that does not form the prior art that is already known in this country to a person of ordinary skill in the art.\\nIt is a primary object of the present invention to provide a dynamic random access memory (DRAM) capable of increasing data capacity by solving the problems described above. · · · Original Example · · · However, the related art does not consider the state of the auxiliary battery, so that the life of the auxiliary battery may be decreased, and further, the auxiliary battery may be discharged in a case in which the load of a vehicle is sharply changed.\\nThe above information disclosed in this Background section is only for enhancement of understanding of the background of the invention and therefore it may contain information that does not form the prior art that is already known in this country to a person of ordinary skill in the art. · · · 20 Under review as a conference paper at ICLR 2024 Table 9: An example from Pile-CC memorized by the OPT-1.3B. Generated Text · · · This article was automatically imported from our old content management system. If you see any display errors, please let us know: @cadence11.ca.\\nView all current articles from our community\\n\\nPostmedia wants to improve your reading experience as well as share the best deals and promotions from our advertisers with you. The information below will be used to optimize the content and make ads across the network more relevant to you. You can always change the information you share with us by editing your profile.\\nBy clicking ”Create Account”, I hearby grant permission to Postmedia to use my account information to create my account.\\nI also accept and agree to be bound by Postmedia’s · · · Original Example · · · We are using Facebook commenting. Visit our FAQ page for more information.\\n\\nAlmost Done!\\n\\nPostmedia wants to improve your reading experience as well as share the best deals and promotions from our advertisers with you. The information below will be used to optimize the content and make ads across the network more relevant to you. You can always change the information you share with us by editing your profile.\\n\\nBy clicking ”Create Account”, I hearby grant permission to Postmedia to use my account information to create my account. · · · Table 10: An example of OpenWebText memorized by the OPT-2.7B. Generated Text \\n\\nThe former president has been silent since he left office in January. He spoke in July at the funeral of Dr. Martin Luther King Jr. and in April, on the second day of this year’s Republican National Convention.\\n\\nMr. Obama had also previously spoken at the April 2004 funeral of civil rights leader Rev. Martin L. King Jr., who was gunned down in 1968.\\n(ABC News)\\n\\nThis site contains copyrighted material the use of which has not always been specifically authorized by the copyright owner. We are making such material available in our efforts to advance understanding of environmental, political, human rights, economic, democracy, scientific, and social justice issues, etc. We believe this constitutes a ’fair use’ of any such copyrighted material as provided for in section 107 of the US Copyright Law. In accordance with Title 17 U.S.C. Section 107, the material on this site is distributed without profit to those who have expressed a prior interest in receiving the included information for research and educational purposes. For more information go to: http://www.law.cornell.edu/uscode/17/107.shtml. If you wish to use copyrighted material from this site for purposes of your own that go beyond ’fair Original Example · · · \\n\\nLet your Friends know! Be sure to SHARE!\\n\\nFair Use Notice:This site contains copyrighted material the use of which has not always been specifically authorized by the copyright owner. We are making such material available in our efforts to advance understanding of environmental, political, human rights, economic, democracy, scientific, and social justice issues, etc. We believe this constitutes a ’fair use’ of any such copyrighted material as provided for in section 107 of the US Copyright Law. In accordance with Title 17"
+    }
+  ]
+}

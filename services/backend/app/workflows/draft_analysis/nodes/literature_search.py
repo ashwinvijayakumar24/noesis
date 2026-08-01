@@ -11,14 +11,81 @@ from app.core.logging_config import get_logger
 from app.core.supabase_client import supabase
 from typing import List, Dict, Any
 import asyncio
+import re
 
 logger = get_logger(__name__)
+
+# Relevance floor for the BROAD chunk fallback (Tier 2). Lower than the precise
+# claim-to-claim threshold (0.7) to keep recall, but high enough that the result
+# is not padded with near-random, cross-domain chunks. Tunable via env.
+import os as _os
+BROAD_FALLBACK_MIN_SIMILARITY = float(_os.getenv("RAG_BROAD_FALLBACK_MIN_SIMILARITY", "0.45"))
+
+
+GENERIC_SOURCE_STOPWORDS = {
+    "about", "across", "analysis", "article", "claim", "claims", "current",
+    "draft", "evidence", "found", "from", "include", "includes", "including",
+    "journal", "literature", "manuscript", "method", "methods", "paper",
+    "papers", "research", "review", "section", "source", "sources", "study",
+    "studies", "support", "supporting", "systematic", "that", "their",
+    "these", "this", "using", "with", "without",
+}
+
+
+def _terms(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z][a-z0-9+-]{2,}", (text or "").lower())
+        if token not in GENERIC_SOURCE_STOPWORDS and len(token) >= 3
+    }
+
+
+def _profile_terms(query: str, manuscript_profile: dict | None = None) -> set[str]:
+    return _terms(" ".join([
+        query or "",
+        str((manuscript_profile or {}).get("routing_domain") or ""),
+        " ".join((manuscript_profile or {}).get("domain_tags") or []),
+        " ".join((manuscript_profile or {}).get("review_lenses") or []),
+    ]))
+
+
+def _result_text(result: dict[str, Any]) -> str:
+    return " ".join(
+        str(result.get(key) or "")
+        for key in ("title", "document_title", "source_title", "content", "abstract", "chunk_text")
+    )
+
+
+def _filter_domain_contamination(
+    *,
+    query: str,
+    results: list[dict[str, Any]],
+    manuscript_profile: dict | None = None,
+) -> list[dict[str, Any]]:
+    query_terms = _terms(query)
+    profile_terms = _profile_terms(query, manuscript_profile)
+    if not query_terms and not profile_terms:
+        return results
+    filtered: list[dict[str, Any]] = []
+    for result in results or []:
+        text = _result_text(result)
+        result_terms = _terms(text)
+        similarity = float(result.get("similarity") or result.get("combined_score") or result.get("relevance_score") or 0.0)
+        query_overlap = result_terms & query_terms
+        profile_overlap = result_terms & profile_terms
+        if similarity < 0.72 and not query_overlap:
+            continue
+        if profile_terms and similarity < 0.82 and not profile_overlap and len(query_overlap) < 2:
+            continue
+        filtered.append(result)
+    return filtered
 
 
 async def search_literature_for_claim(
     claim: Claim,
     project_id: str,
-    max_results: int = 5
+    max_results: int = 5,
+    manuscript_profile: dict | None = None,
 ) -> Dict[str, Any]:
     """
     Search for literature supporting a single claim.
@@ -54,6 +121,12 @@ async def search_literature_for_claim(
         )
 
         if supporting_claims:
+            supporting_claims = _filter_domain_contamination(
+                query=query,
+                results=supporting_claims,
+                manuscript_profile=manuscript_profile,
+            )
+        if supporting_claims:
             logger.info(
                 f"[Literature Search] Found {len(supporting_claims)} supporting claims "
                 f"via claim-to-claim matching (PRECISE)"
@@ -71,11 +144,19 @@ async def search_literature_for_claim(
         logger.info(
             f"[Literature Search] No claim matches found, falling back to RAG chunks (BROAD)"
         )
+        # Broad fallback still needs a relevance floor so the top_k is not filled
+        # with weak, potentially cross-domain chunks that become bogus citations.
         results = retrieve_relevant_chunks_hybrid(
             project_id=project_id,
             query=query,
             limit=max_results,
             use_reranking=True,
+            min_similarity=BROAD_FALLBACK_MIN_SIMILARITY,
+        )
+        results = _filter_domain_contamination(
+            query=query,
+            results=results,
+            manuscript_profile=manuscript_profile,
         )
 
         return {
@@ -102,7 +183,8 @@ async def search_literature_for_claim(
 async def search_all_claims_parallel(
     claims: List[Claim],
     project_id: str,
-    max_results: int = 5
+    max_results: int = 5,
+    manuscript_profile: dict | None = None,
 ) -> List[Dict[str, Any]]:
     """
     Search for literature for all claims in parallel.
@@ -123,6 +205,8 @@ async def search_all_claims_parallel(
     # Create search tasks for all claims
     tasks = [
         search_literature_for_claim(claim, project_id, max_results)
+        if manuscript_profile is None
+        else search_literature_for_claim(claim, project_id, max_results, manuscript_profile)
         for claim in claims
     ]
 
@@ -223,7 +307,12 @@ async def literature_search_node(state: DraftAnalysisState) -> DraftAnalysisStat
         logger.info(f"[Literature Search] Searching for {len(primary_claims)} claims in parallel")
 
         # Run parallel search (this is the key optimization!)
-        search_results = await search_all_claims_parallel(primary_claims, project_id, max_results=5)
+        search_results = await search_all_claims_parallel(
+            primary_claims,
+            project_id,
+            max_results=5,
+            manuscript_profile=state.get("manuscript_profile") or {},
+        )
 
         # Count successful searches
         successful_searches = sum(1 for r in search_results if r['result_count'] > 0)

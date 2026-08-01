@@ -1,0 +1,76 @@
+{
+  "abstract": "Deep learning (DL) models for tabular data problems (e.g. classification, regression) are currently receiving increasingly more attention from researchers.\nHowever, despite the recent efforts, the non-DL algorithms based on gradient-boosted decision trees (GBDT) remain a strong go-to solution for these problems.\nOne of the research directions aimed at improving the position of tabular DL involves designing so-called retrieval-augmented models.\nFor a target object, such models retrieve other objects (e.g. the nearest neighbors) from the available training data and use their features and labels to make a better prediction.\n\nIn this work, we present TabR -- essentially, a feed-forward network with a custom k-Nearest-Neighbors-like component in the middle.\nOn a set of public benchmarks with datasets up to several million objects, TabR marks a big step forward for tabular DL: it demonstrates the best average performance among tabular DL models, becomes the new state-of-the-art on several datasets, and even outperforms GBDT models on the recently proposed \"GBDT-friendly\" benchmark (see Figure 1).\nAmong the important findings and technical details powering TabR, the main ones lie in the attention-like mechanism that is responsible for retrieving the nearest neighbors and extracting valuable signal from them.\nIn addition to the higher performance, TabR is simple and significantly more efficient compared to prior retrieval-based tabular DL models.",
+  "accepted": true,
+  "decision": "Accept (poster)",
+  "meta_review": {
+    "primary_reasons": "This submission contributes a neural architecture dedicated to tabular learning based on combining a feed-forward network with a nearest neighbor mechanism. The submission generated many solid discussions and was seen as an interesting addition to the tabular-learning literature. The reviewers appreciated the extensive experiments, the writing, and the reproducibility of the work. More baselines could have been added, and more attention to categorical variables.",
+    "recommendation": ""
+  },
+  "paper_id": "rhgIgTSSxW",
+  "pdf_path": "openreview/ICLR.cc_2024_Conference/rhgIgTSSxW.pdf",
+  "pdf_url": "https://openreview.net/pdf/178e173a880d7872c0a79d88e005426c20501329.pdf",
+  "raw_reply_invitations": [
+    "ICLR.cc/2024/Conference/-/Edit",
+    "ICLR.cc/2024/Conference/-/Post_Submission",
+    "ICLR.cc/2024/Conference/-/Submission",
+    "ICLR.cc/2024/Conference/Submission9502/-/Camera_Ready_Revision",
+    "ICLR.cc/2024/Conference/Submission9502/-/Decision",
+    "ICLR.cc/2024/Conference/Submission9502/-/Meta_Review",
+    "ICLR.cc/2024/Conference/Submission9502/-/Official_Comment",
+    "ICLR.cc/2024/Conference/Submission9502/-/Official_Review",
+    "ICLR.cc/2024/Conference/Submission9502/-/Rebuttal_Revision",
+    "ICLR.cc/2024/Conference/Submission9502/-/Revision"
+  ],
+  "reviews": [
+    {
+      "confidence": 3,
+      "contribution": 3,
+      "presentation": 3,
+      "questions": "1. Inference time and compexity -- are the studies based on normalized inference time between models? If not, could you comment more? How does the inference complexity depend on the size of the table data?\n\n2. Could a different selection of datasets prove that the tabR is not superior to GBDT? In other words, are these datasets highly representative?\n\n3. Is it not surprising that Step-1 (adding context labels) did not help that much? One would guess that this is a big component of signal in retrieval augmentation.\n\n4. Not a question, but the methodology here reminds one of extreme classification and specifically this paper. https://arxiv.org/abs/2207.04452",
+      "rating": 8,
+      "reviewer": "anon1",
+      "soundness": 3,
+      "strengths": "1. The results seem to be a significant advance over prior work in tabular data predictions. In particular, the first deep learning model to outperform GBDT on an ensemble of datasets.\n2. The experiments and analysis are quite extensive. Multiple datasets of different kinds of data, analysis of training and prediction times.\n3. Clear articulation of which techniques helped. the techniques are overall not too complex.",
+      "summary": "This paper considers the problem of making predictions on tabular data. The authors propose a retrieval-augmented approach where a predictor takes the representation not of the table being predicted but also the representation of the nearest neighbors from a training dataset. The encoding representations and the predictors are training together and use straightforward architecture architectures. The main result is that a combination of the carefully crafted techniques outperforms GBDT on an ensemble of tasks. The training time is higher than GBDT but not unreasonable, and better compared to prior deep learning methods. The prediction times are better",
+      "weaknesses": "A comparison of the inference and query complexity between the methods is lacking."
+    },
+    {
+      "confidence": 2,
+      "contribution": 2,
+      "presentation": 4,
+      "questions": "See weaknesses. Also, what is $I_{cand}$? Is it all rows of the table that labels have been provided for? It's mentioned in page 3 that \"we use the same set of candidates for all input objects\" but what it the set of candidates exactly?",
+      "rating": 6,
+      "reviewer": "anon2",
+      "soundness": 4,
+      "strengths": "1. The extensive amount of open-sourcing and experiment reproducibility is greatly appreciated.\n1. Strong results relative to both deep learning and boosted tree methods, and TabR-S's relatively strong performance relative to out-of-the-box boosted tree libraries suggests this isn't just excessive parameter tweaking and overfitting via architecture search.\n1. Easy to read, with key pieces of information generally emphasized appropriately.",
+      "summary": "This work proposes a retrieval-augmented deep learning architecture for tabular regression/classification. The model passes $x$, the row to be classified/predicted, as well as additional retrieval context rows, through a learned encoder. TabR then retrieves the rows most similar to the encoded form of $x$, where similarity is defined as the Euclidean distance between the encoded versions of two rows, mapped through a linear layer. The top retrieval candidates and their respective labels are then sent through some more learned transformations before being aggregated and combined with the encoded form of the row to be classified/regressed. This combined embedding goes through more MLP layers to result in the output.\n\nThe paper goes through variants of the architecture and how each respective change impacts performance. It then compares against other deep learning-based models as well as gradient boosted decision trees. In both default-hyperparameter and tuned-hyperparameter settings, TabR performs well.",
+      "weaknesses": "1. Paper doesn't go into detail describing differences with prior deep learning-based tabular methods. What might explain the performance differences? Ex. \"prior work, where several layers with multi-head attention between objects and features are often used\" but was this what led to retrieval's low benefit in the past?\n1. Insufficient discussion of categorical variables. Is accuracy or training time particularly affected by their relative abundance relative to numerical features?\n1. The steps of Section 3.2 seem rather arbitrary. Some of the detail could be compressed to make room for more intuition why the final architecture makes more sense (content from A.1.1). Description of architectural changes that didn't work would also be very insightful.\n1. Paper describes training times in A.4, but I believe a summary of this is important enough to warrant inclusion in the main paper. Something like a mention of the geometric mean (over the datasets) of the ratio between TabR's training time to a gradient boosted methods, described in the conclusion, would be sufficient. While the ratio is likely >1, it is better to acknowledge this weakness than to hide it."
+    },
+    {
+      "confidence": 3,
+      "contribution": 3,
+      "presentation": 3,
+      "questions": "1.  What's the reason for choosing m to be 96? How does m affect the performance of TabR?\n2.  What's the inference efficiency of TabR and how does it compare with other baselines (e.g., GBDT)?\n3.  Is TabR applicable to categorical features? It seems like the paper only considers continuous features.",
+      "rating": 6,
+      "reviewer": "anon3",
+      "soundness": 3,
+      "strengths": "1. TabR demonstrates superior performance compared to GBDT and other retrieval-based tabular deep learning models on multiple datasets.\n2. The new similarity module in TabR has a reasonable intuitive motivation, allowing it to find and exploit natural hints in the data for better predictions.",
+      "summary": "The paper introduces TabR, a retrieval-augmented tabular deep learning model that outperforms gradient-boosted decision trees (GBDT) on various datasets. TabR incorporates a novel retrieval module that is similar to the attention mechanism, which helps the model achieve the best average performance among tabular deep learning models and is more efficient compared to prior retrieval-based models.",
+      "weaknesses": "1. Some aspects are not clear, see the questions section."
+    },
+    {
+      "confidence": 4,
+      "contribution": 2,
+      "presentation": 2,
+      "questions": "- In Section 3.1, you mentioned \"continuous (i.e., continuous) features.\" Could this be a typographical error?\n\n- I am curious if the L2 design is sensitive to uninformative features? You can offer some analysis or conduct experiments by adding some gaussian noise columns (uninformative features are commonly seen in tabular datasets) and observe the change of performances. Some transformation like logarithm may impact the results.\n\n- Some questions in weakness.",
+      "rating": 3,
+      "reviewer": "anon4",
+      "soundness": 3,
+      "strengths": "- As emphasized by the authors, their method has managed to outperform tree based models like xgboost on middle-scale datasets.\n\n- Overall, the presentation is clear, and the experiments are comprehensive. The details are clear and the model is highly reproducible.\n\n- This model is the best-performing retrieval based model.",
+      "summary": "The authors meticulously designed a supervised deep learning model for tabular data prediction, which operates in a retrieval-like manner. It outperformed tree-based models on middle-scale datasets, as well as other retrieval-based deep learning tabular learning models. To achieve this, they introduced a k-Nearest-Neighbors-like idea in model design.",
+      "weaknesses": "- The motivations behind the module designs are not entirely clear. It appears that the authors made meticulous module (equation) optimization based on its performance on some datasets empirically. Then: \n\n(1) Why does employing the L2 distance, instand of the dot product, lead to improved performance (as shown in Eq. 3)? \n\n(2) Why is the T function required to use LinearWithoutBias? \n\n(3) We are uncertain about the robustness of the designed modules. If the dataset characteristics are changed, is it likely that the performance rankings will change significantly? The performances only on middle-sized datasets cannot show the robustness.\n\n...\n\nI suggest that providing a theoretical analysis or intuitive motivation would enhance the reader's understanding of those details.\n\n- Some sota DL approaches are not compared, such as T2G-Former (an improved version of FTT)[1], TabPFN [2], and TANGOS [3]. Especially, TabFPN is relatively similar to TabR. These papers are current SOTA, and may outperforms tree based models.\n\n[1] T2G-Former: Organizing tabular features into relation graphs promotes heterogeneous feature interaction\n\n[2] TabPFN: A Transformer That Solves Small Tabular Classification Problems in a Second\n\n[3] TANGOS: Regularizing Tabular Neural Networks through Gradient Orthogonalization and Specialization\n\n- The major comparison lies among middle-scale datasets, accompanied with some results on few other datasets shown in Table 3. In scenarios involving sparse, medium, and dense data-distributed datasets (which typically occur in small, medium-sized, and large-sized datasets, respectively), I suppose that there exists a variance in the nearest neighbor retrieval pattern. Hence, conducting tests solely on medium-sized datasets may not suffice. Furthermore, the issue of inefficiency when dealing with large-scaled datasets appears to have hindered the authors from proving the method's effectiveness in large-scaled datasets.\n\n- The method proposed by the authors appears to have achieved slight performance advantages on certain datasets (although some SOTA are not compared). However, due to the lacks of explanation for the model details that are designed empirically, it seems unnecessary and risky to apply this method in real-world scenarios (for example, it's unclear whether L2 distance may fail when uninformative features are present; or, for instance, when a table has a feature with values [f_1, f_2, f_3, ..., f_n], and we take the logarithm of these values [log f_1, log f_2, log f_3, ..., log f_n] or their reciprocals, the method may perform poorly in such cases)."
+    }
+  ],
+  "title": "TabR: Tabular Deep Learning Meets Nearest Neighbors",
+  "venue": "ICLR.cc/2024/Conference"
+}

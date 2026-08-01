@@ -1,0 +1,73 @@
+{
+  "abstract": "Media platforms compete for users\u2019 attention. Their reach crucially depends on algorithmic real-time bidding and efficiency of hyper-personalized, rapidly generated, and user-optimized content. Attention is, although, a scare and fleeting quantity, often awarded less than 1 second per stimulus. Thus, the current strategy is to rely on the vast amount of user-generated data to mimic the content to the user. The underlying assumption is that this is sufficient incentive for attention. This strategy has evidently failed. As witnessed by the alarmingly low or short-lived successes of campaigns in recent times. This mismatch is exacerbated because most content consumed today is digital. Whereas strategies for digital content mimic our past understanding from mass-media. Hence, we formalize a new understanding of communication, specifically for the digital mediums. We prove that the digital medium needs a new understanding of communication protocols. To that end, we take a first principles approach to the new communication protocol: the neurological representations of communication, specifically, where the communication happens in less than 1 second per stimulus. First, we break down and elaborate on this neurological representation of decision-making. Next, we proffer use of our behavioural communication model for generation and optimization of content creatives. To that end, we elaborate methods for rapid, AI-generation content, increasing the efficiency of visual communication on digital media. Within this exploration we include themes of Hyperpersonalization and Search-engine optimization. Thus, we find that strategically produced content exhibits stronger associations to users\u2019 nonconscious needs, wants and goals, which elicits user attention and content-diversity significantly.",
+  "accepted": false,
+  "decision": "Reject",
+  "meta_review": {
+    "primary_reasons": "This paper explores how ads generated with LLMs could lead to higher click-through rate. The strength of the paper includes the problem definition and  the simple approach. The limitations of the paper include 1) lack of technical novelty, 2) limited scalability due to manual prompting, 3) insufficient evaluation. All reviewers are in agreement that the paper needs much more work, and there is no response from the authors.",
+    "recommendation": ""
+  },
+  "paper_id": "eR4W9tnJoZ",
+  "pdf_path": "openreview/ICLR.cc_2024_Conference/eR4W9tnJoZ.pdf",
+  "pdf_url": "https://openreview.net/pdf/a2142f0e389f3cafe0208924302be4a412c96ba6.pdf",
+  "raw_reply_invitations": [
+    "ICLR.cc/2024/Conference/-/Edit",
+    "ICLR.cc/2024/Conference/-/Post_Submission",
+    "ICLR.cc/2024/Conference/-/Submission",
+    "ICLR.cc/2024/Conference/Submission9458/-/Decision",
+    "ICLR.cc/2024/Conference/Submission9458/-/Meta_Review",
+    "ICLR.cc/2024/Conference/Submission9458/-/Official_Review",
+    "ICLR.cc/2024/Conference/Submission9458/-/Revision"
+  ],
+  "reviews": [
+    {
+      "confidence": 2,
+      "contribution": 2,
+      "presentation": 2,
+      "questions": "Please refer to Weaknesses.",
+      "rating": 3,
+      "reviewer": "anon1",
+      "soundness": 2,
+      "strengths": "I have not found any strengths of this paper.",
+      "summary": "The paper proposes a method for rapid, AI-generated content, increasing the efficiency of visual communication on digital media. Within\nthis exploration the authors include themes of Hyperpersonalisation and Search-engine optimation.",
+      "weaknesses": "1. The theme of this paper may not be closely related to the conference, as it is only an engineering specification and lacks theoretical explanation.\n\n2. The presentation of the paper is chaotic, making it difficult to read.\n\n3. The method mentioned in the paper, which utilizes ChatGTP to generate accurate prompts and generates high-quality digital advertisements using this prompts and a large text-to-image model, has been widely applied in the engineering field and therefore lacks innovation."
+    },
+    {
+      "confidence": 5,
+      "contribution": 2,
+      "presentation": 3,
+      "questions": "1. How do you confirm the prompt is reliable and the output of the GenAI is following the rules?\n2. Since it's an online experiment, why not invite more people?",
+      "rating": 1,
+      "reviewer": "anon2",
+      "soundness": 1,
+      "strengths": "1. This paper introduces a communication protocol to explain how the brain has been triggered, the entire process is fluent and reasonable.\n2. The content of the pre-research is sufficient.\n3. The strategy of the prompt is meaningful.",
+      "summary": "This paper mainly investigates whether generative AI can produce content to attract the user and explains the procedure of content generation from the neuroscience perspective.",
+      "weaknesses": "1. This work is too simple, just using the existing GenAI to produce the context and comparing it with the corresponding items.\n2. The prompt is hand-crafted, and cannot be applied flexibly.\n3. The number of samples in the experiment is too small, and the experiments should cover more scenarios."
+    },
+    {
+      "confidence": 4,
+      "contribution": 2,
+      "presentation": 3,
+      "questions": "1. How did you recruit participants, and why most of them are from India? How can the recruitment approach affect the presented results? \n2. How are the two products selected? Are these products popular in India, where most participants are from?\n3. How is this study different from previous efforts studying the use of neuromarketing methods vs. plain advertisements like the ones shown to the participants (plain background with the product in the middle)? Is the novelty of the work the use of ChatGPT to generate the ad creatives?",
+      "rating": 3,
+      "reviewer": "anon3",
+      "soundness": 3,
+      "strengths": "The paper does a good job of motivating and explaining the problem, as well as providing all the necessary details and motivation to understand the necessary background. Also, the paper focuses on an interesting aspect of generative AI and how it can be used to generate ad creatives with the goal of increasing click-through rates that, over the years, have been declining. Overall, I think that this work has the potential to inform various interested stakeholders, including advertisers, policymakers, and social media operators. Also, I like the paper\u2019s approach that aims to leverage the power of Generative AI (particularly ChatGPT) to generate content based on principles obtained from the neuroscience field.",
+      "summary": "The paper proposes a framework that leverages Generative AI to create Ad creatives that aim to increase the Click-through rate of advertisements. The framework and ad creative generation leverage four principles: 1) the evolutionary category need, 2) past memories and brand guidelines; 3) the strongest emotional memory, and 4) context with photographic details.",
+      "weaknesses": "My main concerns with the paper are related to the framework\u2019s evaluation. I believe that the evaluation is quite limited and simplistic, given that the sample of the recruited participants is biased (the overwhelming majority being from India) and the evaluation focuses on only two products. I suggest that the authors explain and motivate how they perform the user recruitment procedure and the reason why they selected the two products. Overall, given these limitations, it\u2019s unclear whether the paper\u2019s results are generalizable.\n\nAdditionally, the paper fails to explain how this study is different from previous efforts that aim to understand the use of neuromarketing methods without the use of Generative AI to create the ad creatives. The presented framework can also be applied by people to generate ad creatives, so its unclear if the novelty of this work lies in the formulation/use of the framework or the combination of the framework with Generative AI models like ChatGPT. I suggest to the authors to better contextualize their work and better explain the novelty of this work. \n\nAlso, the paper does not explain how the envisioned framework will be applied in practice. The paper\u2019s evaluation defines a set of prompts that are very specific to the products that are studied and generates creatives that are then subsequently used to compare the user perceptions vs. ad creatives that simply show the product with a white background. Overall, it\u2019s unclear on whether the envisioned framework can be applied in practice without great input and effort from experts that will guide the generation of the ad creatives. \n\nIn addition, there is a disconnection between the motivation of the work and the framework/evaluation. The framework does not account for user personalization, which is an important aspect when considering the ad ecosystem. So I am wondering how the paper is planning to incorporate user personalization in this framework and how Generative AI models can assist in this, especially when considering the privacy concerns that may arise from sharing user-specific data with companies that offer LLM solutions (e.g., OpenAI).\n\nTo summarize, I believe that this work is interesting and important, however, at this stage, I believe that the paper is not ready for publication. In addition to the above concerns, I would like to make the following suggestions to the authors (mainly minor issues):\n1. There are a couple of references listed as Anonymous, when they are not Anonymous so I suggest fixing these issues.\n2. Consider not using pie charts for the evaluation results, given that it is one of the worst visualization methods."
+    },
+    {
+      "confidence": 3,
+      "contribution": 1,
+      "presentation": 2,
+      "questions": "1. Have you explored the possibility of automating the prompt generation process for various products?\n\n2. Could you provide insights into any supplementary experiments conducted to further validate the effectiveness of the prompt strategy outlined in your paper?",
+      "rating": 3,
+      "reviewer": "anon4",
+      "soundness": 1,
+      "strengths": "Thanks for your interests in ICLR! Overall, this is an interesting paper on a topic which is of interest to ICLR Conference. It offers valuable insights into the application of neuroscientifically designed content to enhance ad click-through rates. The paper astutely recognizes the promise of leveraging Generative AI for this purpose. Building upon this foundation, the author thoughtfully presents four distinct prompt strategies and supports them with well-structured experiments, thus substantiating the validity of their approach.",
+      "summary": "This paper leverages the content generated by generative AI to enhance the critical last moments of decision-making. Grounded in the understanding that long-duration decisions are the cumulative result of numerous micro-decisions, the author dissects the final seconds of an e-commerce purchase into multiple stimuli. Subsequently, the author introduces a four-point prompt strategy, informed by the outcomes of this analysis. After that, to validate the efficacy of this prompt strategy, the author conducted a series of experiments.",
+      "weaknesses": "While the author presents a comprehensive theoretical framework and provides clear and detailed insights into the prompt strategies, there is room for improvement in the experimental validation of the proposed techniques. As outlined in the paper, the experiments are limited to a single product tested on a sample of 236 participants. Given the potential applicability of this technique to a wide range of products, the scope of experimentation appears somewhat narrow. Expanding the experiment set to encompass a more diverse array of products would strengthen the paper's claims.\n\nAdditionally, the manual design of prompts by the author may not be a scalable solution when considering the need for ad design across a vast array of products. Further exploration of automated or semi-automated prompt generation methods could enhance the paper's practicality and applicability in real-world scenarios."
+    }
+  ],
+  "title": "Visuo-emotional perception and Human Cognition to engineer content-generation using Generative AI",
+  "venue": "ICLR.cc/2024/Conference"
+}

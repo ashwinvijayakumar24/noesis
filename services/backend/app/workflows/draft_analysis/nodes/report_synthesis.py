@@ -12,6 +12,19 @@ import datetime
 logger = get_logger(__name__)
 
 
+def _build_ref_suggestions(state: DraftAnalysisState) -> list:
+    """Compute claim→own-ref suggestions at synthesis time (both inputs available)."""
+    try:
+        from app.services.draft_reference_extraction import suggest_refs_for_weak_claims
+        return suggest_refs_for_weak_claims(
+            state.get("claims_with_citations") or [],
+            state.get("resolved_references") or [],
+        )
+    except Exception as exc:
+        logger.warning("[ReportSynthesis] ref suggestions skipped: %s", exc)
+        return []
+
+
 def synthesize_report_node(state: DraftAnalysisState) -> DraftAnalysisState:
     """
     Synthesize all analysis results into a final comprehensive report.
@@ -41,6 +54,13 @@ def synthesize_report_node(state: DraftAnalysisState) -> DraftAnalysisState:
         feedback = state.get("reviewer_feedback", [])
         overall_assessment = state.get("overall_assessment", "")
         priority_actions = state.get("priority_actions", [])
+
+        # Build passage lookup: document_id → first 300 chars of matched corpus content
+        lit_by_id: Dict[str, str] = {}
+        for lr in (state.get("literature_search_results") or []):
+            doc_id = lr.get("document_id") or lr.get("id", "")
+            if doc_id and doc_id not in lit_by_id:
+                lit_by_id[doc_id] = (lr.get("content") or "")[:300]
 
         # Build comprehensive report
         synthesis_report: Dict[str, Any] = {
@@ -128,7 +148,35 @@ def synthesize_report_node(state: DraftAnalysisState) -> DraftAnalysisState:
                 "errors_encountered": len(state.get("errors", [])),
                 "warnings_encountered": len(state.get("warnings", [])),
                 "completion_timestamp": datetime.datetime.utcnow().isoformat()
-            }
+            },
+
+            # Grounded citations: per-claim corpus passages that back each citation
+            "grounded_citations": [
+                {
+                    "claim_text": (((cwc.get("claim") or cwc).get("claim_text")) or "")[:200],
+                    "anchor": (cwc.get("claim") or cwc).get("section_location", ""),
+                    "source_title": cit.get("document_title", ""),
+                    "matched_passage": lit_by_id.get(cit.get("document_id", ""), ""),
+                    "relevance": cit.get("relevance", ""),
+                    "reasoning": cit.get("reasoning", ""),
+                }
+                for cwc in claims_with_citations
+                for cit in (cwc.get("citations") or [])
+                if cit.get("document_id")
+            ],
+
+            # External (missed) papers surfaced by citation_judge, passed through as-is
+            "external_sources": state.get("external_sources") or [],
+
+            # Meta-reviewer blocking priorities — what the area chair says must be fixed
+            "meta_priorities": (state.get("meta_review") or {}).get("must_address") or [],
+
+            # Plan 02 — draft's own reference list
+            "unused_references": state.get("unused_references") or [],
+            "claim_to_own_reference_suggestions": _build_ref_suggestions(state),
+
+            # Plan 04 — citation misrepresentation verdicts
+            "citation_verdicts": state.get("citation_verdicts") or [],
         }
 
         logger.info(

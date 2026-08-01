@@ -1,0 +1,6 @@
+# 17 MB of embeddings and pair confirmations, regenerated from the two projects'
+# existing match caches at ~$0 (embeddings) or re-paid (confirmations). The
+# study's conclusions live in hand_labels.json, pair_labels.json, sweep.json and
+# ceiling.jsonl, all of which are committed.
+cache/
+__pycache__/

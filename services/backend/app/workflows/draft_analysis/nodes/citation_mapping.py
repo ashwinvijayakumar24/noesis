@@ -46,6 +46,10 @@ Also identify any gaps:
 - What perspectives are not covered?
 - What baselines or comparisons are absent?
 
+Any anchor_text or text_snippet field MUST be an exact, contiguous, copy-paste
+substring of the manuscript (<=200 chars). Do NOT paraphrase, summarize, stitch
+with ellipses, or fix typos in the anchor — copy verbatim.
+
 Return ONLY a valid JSON object:
 {
   "overall_quality": "strong" | "moderate" | "weak" | "none",
@@ -179,14 +183,13 @@ def _format_paper_chip(p: dict, source_label: str) -> dict:
     }
 
 
-async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
+async def _discover_papers_for_claim(claim_text: str, project_id: str, manuscript_profile: dict | None = None) -> list:
     """
     B2: Discover papers from project library and Semantic Scholar for a weak/unsupported claim.
 
     Flow:
-    1. Check shared_papers global DB (semantic search — no external API call)
-    2. Fall back to suggest_papers_for_gaps() (library + Semantic Scholar)
-    3. Store any new external results back into shared_papers for future reuse
+    1. Search project library + approved external scholarly APIs
+    2. Return per-run suggestions without writing them to a global cache
 
     Args:
         claim_text: The claim text to search for
@@ -196,44 +199,29 @@ async def _discover_papers_for_claim(claim_text: str, project_id: str) -> list:
         List of suggested_citation dicts with display, source, title, authors, year
     """
     try:
-        # 1. Check shared_papers global cache first
-        from app.services.shared_paper_cache import find_similar_papers, store_paper
-        cached = await find_similar_papers(claim_text, limit=3, similarity_threshold=0.55)
-        if cached:
-            logger.info(f"[Citation Mapping] Using shared_papers cache ({len(cached)} hits) for claim")
-            return [
-                {**_format_paper_chip(p, "Global library"), "source": "global_library"}
-                for p in cached
-            ]
-
-        # 2. External fallback via project library + Semantic Scholar
         from app.services.coverage_analysis import suggest_papers_for_gaps
         mock_gap = {"description": claim_text, "suggested_papers": []}
         enriched = await suggest_papers_for_gaps([mock_gap], project_id, max_suggestions_per_gap=3)
         papers = enriched[0].get("suggested_papers", []) if enriched else []
 
+        # Apply the same distinctive-topic gate used elsewhere so claim-level discovery
+        # can't inject off-domain sources (e.g. a "phenol wastewater treatment" review for
+        # a sodium-ion battery claim) that the post-hoc contamination judge would later
+        # flag and force a needs_retry. Gate at the source so the run can pass cleanly.
+        from app.services.draft_external_source_discovery import _passes_domain_gate
+
         result = []
         for p in papers[:3]:
+            paper_text = " ".join(str(p.get(k) or "") for k in ("title", "abstract", "document_title"))
+            score = float(p.get("similarity") or p.get("relevance_score") or 0.0)
+            if manuscript_profile and not _passes_domain_gate(claim_text, paper_text, score, manuscript_profile):
+                continue
             source = "library" if p.get("document_id") else "semantic_scholar"
             source_label = "In your library" if source == "library" else "Semantic Scholar"
             chip = _format_paper_chip(p, source_label)
             chip["source"] = source
             chip["document_id"] = p.get("document_id")
             result.append(chip)
-
-        # 3. Store external (non-library) results in shared_papers (fire-and-forget)
-        for p in papers:
-            if not p.get("document_id") and (p.get("title") or p.get("doi") or p.get("arxiv_id")):
-                asyncio.create_task(store_paper({
-                    "title": p.get("title", ""),
-                    "authors": p.get("authors", []),
-                    "year": p.get("year"),
-                    "abstract": p.get("abstract", ""),
-                    "arxiv_id": p.get("arxiv_id"),
-                    "doi": p.get("doi"),
-                    "pdf_url": p.get("url") or p.get("open_access_url"),
-                    "source": p.get("source", "semantic_scholar"),
-                }))
 
         return result
 
@@ -325,10 +313,12 @@ async def citation_mapping_node(state: DraftAnalysisState) -> DraftAnalysisState
                 )
 
                 try:
+                    _profile = state.get("manuscript_profile")
                     disc_tasks = [
                         _discover_papers_for_claim(
                             cwc['claim']['claim_text'],
-                            project_id
+                            project_id,
+                            _profile,
                         )
                         for cwc in top_candidates
                     ]

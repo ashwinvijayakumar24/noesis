@@ -52,12 +52,14 @@ class FakeTable:
         self._limit = None
         self._order = None
         self._single = False
+        self._select = "*"
 
     def _rows(self):
         return self.supabase.tables.setdefault(self.name, [])
 
-    def select(self, *_args, **_kwargs):
+    def select(self, *args, **_kwargs):
         self.action = "select"
+        self._select = args[0] if args else "*"
         return self
 
     def insert(self, payload):
@@ -109,6 +111,7 @@ class FakeTable:
         rows = self._filtered_rows()
 
         if self.action == "select":
+            rows = self._project_rows(rows)
             if self._single:
                 return FakeResponse(rows[0] if rows else None, count=len(rows))
             return FakeResponse(rows, count=len(rows))
@@ -142,6 +145,21 @@ class FakeTable:
             return FakeResponse(deleted, count=len(deleted))
 
         return FakeResponse([])
+
+    def _project_rows(self, rows):
+        if not self._select or self._select == "*":
+            return rows
+        columns = [
+            column.strip()
+            for column in str(self._select).split(",")
+            if column.strip() and column.strip() != "*"
+        ]
+        if not columns:
+            return rows
+        return [
+            {column: row.get(column) for column in columns if column in row}
+            for row in rows
+        ]
 
 
 class FakeSupabase:
@@ -190,11 +208,15 @@ class TestDraftAnalysisRouteV2:
                         "status": "analyzed",
                         "paper_type": "conference_paper",
                         "citation_style": "ieee",
+                        "active_analysis_run_id": "run-1",
                     }
                 ],
                 "draft_analysis": [
                     {
+                        "id": "analysis-1",
                         "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
                         "analysis": {
                             "editing_feedback": {
                                 "grammar_issues": [{"text": "teh", "issue": "typo", "suggestion": "the", "section": "Intro"}],
@@ -212,6 +234,7 @@ class TestDraftAnalysisRouteV2:
                         },
                     }
                 ],
+                "draft_revision_tasks": [],
                 "draft_comparisons": [
                     {
                         "id": "cmp-1",
@@ -246,22 +269,103 @@ class TestDraftAnalysisRouteV2:
         assert payload["revision_metadata"]["feedback_carryover_count"] == 1
 
     @pytest.mark.unit
+    def test_get_draft_analysis_exposes_sanitized_reviewer_panel_without_debug(self):
+        route = _load_module(["app", "api", "routes", "drafts.py"], "drafts_route_v2_debug_test")
+        fake_supabase = FakeSupabase(
+            {
+                "drafts": [
+                    {
+                        "id": "draft-1",
+                        "user_id": "user-1",
+                        "title": "Draft",
+                        "status": "analyzed",
+                        "active_analysis_run_id": "run-1",
+                    }
+                ],
+                "draft_analysis": [
+                    {
+                        "id": "analysis-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                        "analysis": {},
+                        "analysis_metadata": {"readiness_score": 69, "verdict": "Major Revisions"},
+                    }
+                ],
+                "draft_revision_tasks": [
+                    {
+                        "id": "task-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                        "status": "new",
+                        "problem": "Tighten the argument.",
+                    }
+                ],
+                "reviewer_panel_outputs": [
+                    {
+                        "id": "panel-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                        "reviewer_id": "reviewer_1",
+                    }
+                ],
+                "meta_reviews": [
+                    {
+                        "id": "meta-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                        "overall_recommendation": "major_revision",
+                    }
+                ],
+            }
+        )
+
+        with patch.object(route, "supabase", fake_supabase):
+            normal = route.get_draft_analysis("draft-1", "user-1")
+            debug = route.get_draft_analysis("draft-1", "user-1", debug=True)
+
+        assert normal["active_analysis_run_id"] == "run-1"
+        assert normal["revision_tasks"][0]["id"] == "task-1"
+        assert normal["reviewer_panel"][0]["reviewer_id"] == "reviewer_1"
+        assert "citation_judge" not in normal
+        assert debug["reviewer_panel"][0]["id"] == "panel-1"
+        assert "reviewer_judge" in debug
+
+    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_get_all_feedback_adds_persona_defaults_and_carryover_metadata(self):
         route = _load_module(["app", "api", "routes", "drafts.py"], "drafts_route_v2_test")
         fake_supabase = FakeSupabase(
             {
-                "drafts": [{"id": "draft-1", "user_id": "user-1"}],
+                "drafts": [{"id": "draft-1", "user_id": "user-1", "active_analysis_run_id": "run-1"}],
                 "draft_claims": [
-                    {"id": "claim-1", "draft_id": "draft-1", "requires_citation": True, "importance_score": 0.9}
+                    {
+                        "id": "claim-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                        "requires_citation": True,
+                        "importance_score": 0.9,
+                    }
                 ],
                 "coverage_gaps": [
-                    {"id": "gap-1", "draft_id": "draft-1", "priority": "high"}
+                    {
+                        "id": "gap-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                        "priority": "high",
+                    }
                 ],
                 "reviewer_feedback": [
                     {
                         "id": "fb-2",
                         "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
                         "feedback_type": "argumentation",
                         "severity": "major",
                         "feedback_text": "Clarify baseline comparison",
@@ -269,7 +373,10 @@ class TestDraftAnalysisRouteV2:
                 ],
                 "draft_analysis": [
                     {
+                        "id": "analysis-1",
                         "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
                         "analysis_metadata": {
                             "readiness_score": 65,
                             "verdict": "partially_ready",
@@ -277,6 +384,7 @@ class TestDraftAnalysisRouteV2:
                         }
                     }
                 ],
+                "draft_revision_tasks": [],
                 "draft_comparisons": [
                     {
                         "id": "cmp-1",
@@ -302,7 +410,7 @@ class TestDraftAnalysisRouteV2:
         )
 
         with patch.object(route, "supabase", fake_supabase):
-            payload = await route.get_all_feedback("draft-1", True, "new", "user-1")
+            payload = await route.get_all_feedback("draft-1", True, "new", "user-1", debug=True)
 
         assert payload["feedback"][0]["reviewer_persona"] == "reviewer_2"
         assert payload["feedback"][0]["carryover_from_previous_version"] is True
@@ -313,7 +421,11 @@ class TestDraftAnalysisRouteV2:
     @pytest.mark.asyncio
     async def test_upload_draft_stores_paper_type_and_citation_style(self):
         route = _load_module(["app", "api", "routes", "drafts.py"], "drafts_route_v2_test")
-        fake_supabase = FakeSupabase({"drafts": []})
+        # upload_draft now verifies the caller owns project_id before writing,
+        # so the fixture has to record that ownership.
+        fake_supabase = FakeSupabase(
+            {"drafts": [], "projects": [{"id": "project-1", "user_id": "user-1"}]}
+        )
         upload_file = UploadFile(
             file=io.BytesIO(b"short academic draft content " * 20),
             filename="draft.txt",
@@ -346,9 +458,16 @@ class TestDraftAnalysisRouteV2:
         route = _load_module(["app", "api", "routes", "drafts.py"], "drafts_route_v2_test")
         fake_supabase = FakeSupabase(
             {
-                "drafts": [{"id": "draft-1", "user_id": "user-1", "project_id": "project-1"}],
+                "drafts": [{"id": "draft-1", "user_id": "user-1", "project_id": "project-1", "active_analysis_run_id": "run-1"}],
                 "coverage_gaps": [
-                    {"id": "gap-1", "draft_id": "draft-1", "description": "federated learning privacy accounting", "suggested_papers": []}
+                    {
+                        "id": "gap-1",
+                        "draft_id": "draft-1",
+                        "analysis_run_id": "run-1",
+                        "is_published": True,
+                        "description": "federated learning privacy accounting",
+                        "suggested_papers": [],
+                    }
                 ],
                 "paper_recommendations": [],
             }
@@ -365,27 +484,6 @@ class TestDraftAnalysisRouteV2:
 
 
 class TestReviewerAndStage1Services:
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_generate_reviewer1_feedback_parses_strengths(self):
-        service = _load_module(["app", "services", "reviewer1_feedback.py"], "reviewer1_feedback_v2_test")
-        fake_client = MagicMock()
-        fake_client.chat.completions.create.return_value = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content='{"strengths":[{"aspect":"Novel contribution","section_reference":"Introduction","detail":"Introduces a new benchmark","significance":"high"}]}'
-                    )
-                )
-            ]
-        )
-
-        with patch.object(service, "get_openai_client", return_value=fake_client):
-            payload = await service.generate_reviewer1_feedback("draft-1", "Draft text", {"sections": []})
-
-        assert payload[0]["reviewer_persona"] == "reviewer_1"
-        assert payload[0]["feedback_type"] == "strength"
-
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_run_stage1_editing_returns_stable_payload(self):

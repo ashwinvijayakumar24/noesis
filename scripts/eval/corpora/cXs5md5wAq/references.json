@@ -1,0 +1,254 @@
+{
+  "corpus": "cXs5md5wAq",
+  "source_pdf": "cXs5md5wAq.pdf",
+  "source_sha256": "d8fff3387a0283242bb6a1a70f818d840bfc0d5bc8159f9ca446c1c5a9293ca6",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:55.237712Z",
+  "references_attempted": 27,
+  "references_resolved": 9,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W2481949923",
+      "title": "High-order species interactions shape ecosystem diversity",
+      "doi": "10.1038/ncomms12285",
+      "status": "resolved",
+      "filename": "bairey_2016_high_order_species_interactions_shape_ecosystem_diversity.pdf",
+      "oa_url": "https://www.nature.com/articles/ncomms12285.pdf",
+      "raw": "Eyal Bairey, Eric D Kelsic, and Roy Kishony. High-order species interactions shape ecosystem diversity. Nature communications, 7(1):12285, 2016."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2804854320",
+      "title": "Keystone taxa as drivers of microbiome structure and functioning",
+      "doi": "10.1038/s41579-018-0024-1",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Samiran Banerjee, Klaus Schlaeppi, and Marcel G. A. van der Heijden. Keystone taxa as drivers of microbiome structure and functioning. Nature Reviews Microbiology, 16:567–576, 2018. doi: 10. 1038/s41579-018-0024-1. URL https://doi.org/10.1038/s41579-018-0024-1."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4283221456",
+      "title": "Recurrent neural networks enable design of multifunctional synthetic human gut microbiome dynamics",
+      "doi": "10.7554/elife.73870",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.7554/elife.73870",
+      "raw": "Mayank Baranwal, Ryan L Clark, Jaron Thompson, Zeyu Sun, Alfred O Hero, and Ophelia S Venturelli. Recurrent neural networks enable design of multifunctional synthetic human gut microbiome dynamics. Elife, 11:e73870, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2409622550",
+      "title": "Universality of human microbial dynamics",
+      "doi": "10.1038/nature18301",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "http://nrs.harvard.edu/urn-3:HUL.InstRepos:27364348",
+      "raw": "Amir Bashan, Travis E Gibson, Jonathan Friedman, Vincent J Carey, Scott T Weiss, Elizabeth L Hohmann, and Yang-Yu Liu. Universality of human microbial dynamics. Nature, 534(7606): 259–262, 2016. Peter W Battaglia, Jessica B Hamrick, Victor Bapst, Alvaro Sanchez-Gonzalez, Vinicius Zambaldi,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2805516822",
+      "title": "Relational inductive biases, deep learning, and graph networks",
+      "doi": "10.4230/lipics.cp.2025.27",
+      "status": "resolved",
+      "filename": "w_2018_relational_inductive_biases_deep_learning_and_graph_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1806.01261",
+      "raw": "Mateusz Malinowski, Andrea Tacchetti, David Raposo, Adam Santoro, Ryan Faulkner, et al. Relational inductive biases, deep learning, and graph networks. arXiv preprint arXiv:1806.01261, 2018."
+    },
+    {
+      "openalex_id": null,
+      "title": "How attentive are graph attention networks? In International Conference on Learning Representations, 2022",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Shaked Brody, Uri Alon, and Eran Yahav. How attentive are graph attention networks? In International Conference on Learning Representations, 2022. URL https://openreview.net/ forum?id=F72ximsx7C1."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2907048060",
+      "title": "Microbial regulation of organismal energy homeostasis",
+      "doi": "10.1038/s42255-018-0017-4",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "http://hdl.handle.net/2078.1/212417",
+      "raw": "Patrice D. Cani, Matthias Van Hul, Charlotte Lefort, Clara Depommier, Marialetizia Rastelli, and Amandine Everard. Microbial regulation of organismal energy homeostasis. Nature Metabolism, 1 (1):34–46, January 1 2019. ISSN 2522-5812. doi: 10.1038/s42255-018-0017-4. URL https: //doi.org/10.1038/s42255-018-0017-4."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4384926541",
+      "title": "Emergent coexistence in multispecies microbial communities",
+      "doi": "10.1126/science.adg0727",
+      "status": "resolved",
+      "filename": "chang_2023_emergent_coexistence_in_multispecies_microbial_communities.pdf",
+      "oa_url": "https://repository.tudelft.nl/file/File_b7195029-36b1-4e55-bbe8-2ef56dd079d8",
+      "raw": "Chang-Yu Chang, Djordje Baji´c, Jean C. C. Vila, Sylvie Estrela, and Alvaro Sanchez. Emergent coexistence in multispecies microbial communities. Science, 381(6655):343–348, 2023. doi: 10.1126/science.adg0727."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2163605009",
+      "title": "ImageNet classification with deep convolutional neural networks",
+      "doi": "10.1145/3065386",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "http://dl.acm.org/ft_gateway.cfm?id=3065386&type=pdf",
+      "raw": "Ming Chen, Zhewei Wei, Zengfeng Huang, Bolin Ding, and Yaliang Li. Simple and deep graph convolutional networks. In Hal Daumé III and Aarti Singh (eds.), Proceedings of the 37th International Conference on Machine Learning, volume 119 of Proceedings of Machine Learning Research, pp. 1725–1735. PMLR, 13–18 Jul 2020. URL https://proceedings.mlr. press/v119/chen20v.html. Ryan L Clark, Bryce M Connors, David M Stevenson, Susan E Hromada, Joshua J Hamilton, Daniel Amador-Noguez, and Ophelia S Venturelli. Design of synthetic human gut microbiome assembly and butyrate production. Nature communications, 12(1):3254, 2021. Charles S Cockell, Rosa Santomartino, Kai Finster, Annemiek C Waajen, Lorna J Eades, Ralf Moeller,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3104993528",
+      "title": "Space station biomining experiment demonstrates rare earth element extraction in microgravity and Mars gravity",
+      "doi": "10.1038/s41467-020-19276-w",
+      "status": "resolved",
+      "filename": "cockell_2020_space_station_biomining_experiment_demonstrates_rare_earth_element_.pdf",
+      "oa_url": "https://www.nature.com/articles/s41467-020-19276-w.pdf",
+      "raw": "Petra Rettberg, Felix M Fuchs, Rob Van Houdt, Natalie Leys, et al. Space station biomining experiment demonstrates rare earth element extraction in microgravity and mars gravity. Nature communications, 11(1):5523, 2020. George Cybenko. Approximation by superpositions of a sigmoidal function. Mathematics of control, signals and systems, 2(4):303–314, 1989. Matthias Fey and Jan Eric Lenssen. Fast graph representation learning with pytorch geometric, 2019. URL https://pytorch-geometric.readthedocs.io. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2952570005",
+      "title": "Community structure follows simple assembly rules in microbial microcosms",
+      "doi": "10.1038/s41559-017-0109",
+      "status": "resolved",
+      "filename": "friedman_2017_community_structure_follows_simple_assembly_rules_in_microbial_mic.pdf",
+      "oa_url": "https://www.nature.com/articles/s41559-017-0109.pdf",
+      "raw": "Jonathan Friedman, Logan M Higgins, and Jeff Gore. Community structure follows simple assembly rules in microbial microcosms. Nature ecology & evolution, 1(5):0109, 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2606780347",
+      "title": "Neural Message Passing for Quantum Chemistry",
+      "doi": "10.48550/arxiv.1704.01212",
+      "status": "resolved",
+      "filename": "gilmer_2017_neural_message_passing_for_quantum_chemistry.pdf",
+      "oa_url": "https://arxiv.org/pdf/1704.01212",
+      "raw": "Justin Gilmer, Samuel S. Schoenholz, Patrick F. Riley, Oriol Vinyals, and George E. Dahl. Neural message passing for quantum chemistry. In Proceedings of the 34th International Conference on Machine Learning, volume 70 of Proceedings of Machine Learning Research, pp. 1263–1272. PMLR, 06–11 Aug 2017. URL https://proceedings.mlr.press/v70/gilmer17a. html. Joshua E Goldford, Nanxi Lu, Djordje Baji´c, Sylvie Estrela, Mikhail Tikhonov, Alicia Sanchez-"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2765970410",
+      "title": "Emergent simplicity in microbial community assembly",
+      "doi": "10.1126/science.aat1168",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Gorostiaga, Daniel Segrè, Pankaj Mehta, and Alvaro Sanchez. Emergent simplicity in microbial community assembly. Science, 361(6401):469–474, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2883674512",
+      "title": "Microbial communities as dynamical systems",
+      "doi": "10.1016/j.mib.2018.07.004",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://ars.els-cdn.com/content/image/1-s2.0-S1369527418300092-fx1_lrg.jpg",
+      "raw": "Didier Gonze, Katharine Z Coyte, Leo Lahti, and Karoline Faust. Microbial communities as dynamical systems. Current opinion in microbiology, 44:41–49, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2624431344",
+      "title": "Inductive Representation Learning on Large Graphs",
+      "doi": "10.48550/arxiv.1706.02216",
+      "status": "resolved",
+      "filename": "hamilton_2017_inductive_representation_learning_on_large_graphs.pdf",
+      "oa_url": "https://arxiv.org/pdf/1706.02216",
+      "raw": "Will Hamilton, Zhitao Ying, and Jure Leskovec. Inductive representation learning on large graphs. Advances in neural information processing systems, 30, 2017. Diederik Kingma and Jimmy Ba. Adam: A method for stochastic optimization. In International Conference on Learning Representations (ICLR), San Diega, CA, USA, 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2995627237",
+      "title": "Contrastive Learning of Structured World Models",
+      "doi": null,
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://dare.uva.nl/personal/pure/en/publications/contrastive-learning-of-structured-world-models(cf3d5070-cced-4a26-8d1b-cd4b8c6beee7).html",
+      "raw": "Thomas Kipf, Elise van der Pol, and Max Welling. Contrastive learning of structured world models. In International Conference on Learning Representations, 2020. URL https://openreview. net/forum?id=H1gax6VtDB."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2519887557",
+      "title": "Semi-Supervised Classification with Graph Convolutional Networks",
+      "doi": "10.48550/arxiv.1609.02907",
+      "status": "resolved",
+      "filename": "kipf_2016_semi_supervised_classification_with_graph_convolutional_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1609.02907",
+      "raw": "Thomas N. Kipf and Max Welling. Semi-supervised classification with graph convolutional networks. In International Conference on Learning Representations, 2017. URL https://openreview. net/forum?id=SJU4ayYgl. Tony J Lam, Moses Stamboulian, Wontack Han, and Yuzhen Ye. Model-based and phylogenetically adjusted quantification of metabolic interaction between microbial species. PLoS computational biology, 16(10):e1007951, 2020. Alfred J Lotka. Analytical note on certain rhythmic relations in organic systems. Proceedings of the National Academy of Sciences, 6(7):410–415, 1920."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2949418748",
+      "title": "Fast automated reconstruction of genome-scale metabolic models for microbial species and communities",
+      "doi": "10.1093/nar/gky537",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1093/nar/gky537",
+      "raw": "Daniel Machado, Sergej Andrejev, Melanie Tramontano, and Kiran Raosaheb Patil. Fast automated reconstruction of genome-scale metabolic models for microbial species and communities. Nucleic acids research, 46(15):7542–7553, 2018. Merwin Mammen Mathew, Kanchan Khatana, Vaidehi Vats, Raunak Dhanker, Ram Kumar, Hans-"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4210414650",
+      "title": "Biological Approaches Integrating Algae and Bacteria for the Degradation of Wastewater Contaminants—A Review",
+      "doi": "10.3389/fmicb.2021.801051",
+      "status": "resolved",
+      "filename": "mathew_2022_biological_approaches_integrating_algae_and_bacteria_for_the_degrada.pdf",
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fmicb.2021.801051/pdf",
+      "raw": "Uwe Dahms, and Jiang-Shiou Hwang. Biological approaches integrating algae and bacteria for the degradation of wastewater contaminants—a review. Frontiers in Microbiology, 12:801051, 2022."
+    },
+    {
+      "openalex_id": null,
+      "title": "Predicting microbiome compositions from species assemblages through deep learning. imeta 1: e3, 2022",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Sebastian Michel-Mata, Xu-Wen Wang, Yang-Yu Liu, and Marco Tulio Angulo. Predicting microbiome compositions from species assemblages through deep learning. imeta 1: e3, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2133579817",
+      "title": "KAAS: an automatic genome annotation and pathway reconstruction server",
+      "doi": "10.1093/nar/gkm321",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://academic.oup.com/nar/article-pdf/35/suppl_2/W182/9584760/gkm321.pdf",
+      "raw": "Yuki Moriya, Masumi Itoh, Shujiro Okuda, Akiyasu C Yoshizawa, and Minoru Kanehisa. Kaas: an automatic genome annotation and pathway reconstruction server. Nucleic acids research, 35 (suppl_2):W182–W185, 2007."
+    },
+    {
+      "openalex_id": null,
+      "title": "Microbial interactions in theory and practice: when are measurements compatible with models? Current Opinion in Microbiology, 75:102354, 2023",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Aurore Picot, Shota Shibasaki, Oliver J Meacock, and Sara Mitri. Microbial interactions in theory and practice: when are measurements compatible with models? Current Opinion in Microbiology, 75:102354, 2023. Eric W Sayers, Evan E Bolton, J Rodney Brister, Kathi Canese, Jessica Chan, Donald C Comeau,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2096525273",
+      "title": "Database resources of the National Center for Biotechnology Information: update",
+      "doi": "10.1093/nar/gkh073",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/308807",
+      "raw": "Ryan Connor, Kathryn Funk, Chris Kelly, Sunghwan Kim, et al. Database resources of the national center for biotechnology information. Nucleic acids research, 50(D1):D20, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2116341502",
+      "title": "The Graph Neural Network Model",
+      "doi": "10.1109/tnn.2008.2005605",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://figshare.com/articles/journal_contribution/The_graph_neural_network_model/27757629",
+      "raw": "Franco Scarselli, Marco Gori, Ah Chung Tsoi, Markus Hagenbuchner, and Gabriele Monfardini. The graph neural network model. IEEE Transactions on Neural Networks, 20(1):61–80, 2009. doi: 10.1109/TNN.2008.2005605. 11 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2470052926",
+      "title": "NCBI prokaryotic genome annotation pipeline",
+      "doi": "10.1093/nar/gkw569",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://academic.oup.com/nar/article-pdf/44/14/6614/7629591/gkw569.pdf",
+      "raw": "Tatiana Tatusova, Michael DiCuccio, Azat Badretdin, Vyacheslav Chetvernin, Eric P Nawrocki, Leonid Zaslavsky, Alexandre Lomsadze, Kim D Pruitt, Mark Borodovsky, and James Ostell. Ncbi prokaryotic genome annotation pipeline. Nucleic acids research, 44(14):6614–6624, 2016. Naomi Iris van den Berg, Daniel Machado, Sophia Santos, Isabel Rocha, Jeremy Chacón, William"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4280615884",
+      "title": "Ecological modelling approaches for predicting emergent properties in microbial communities",
+      "doi": "10.1038/s41559-022-01746-7",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://hdl.handle.net/1822/84436",
+      "raw": "Harcombe, Sara Mitri, and Kiran R Patil. Ecological modelling approaches for predicting emergent properties in microbial communities. Nature ecology & evolution, 6(7):855–865, 2022. Petar Veliˇckovi´c, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Liò, and Yoshua Bengio. Graph attention networks. In International Conference on Learning Representations, 2018. URL https://openreview.net/forum?id=rJXMpikCZ. Vito Volterra. Fluctuations in the abundance of a species considered mathematically. Nature, 118 (2972):558–560, 1926. David A Yarmosh, Juan G Lopera, Nikhita P Puthuveetil, Patrick Ford Combs, Amy L Reese,"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4225275481",
+      "title": "Comparative Analysis and Data Provenance for 1,113 Bacterial Genome Assemblies",
+      "doi": "10.1128/msphere.00077-22",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://doi.org/10.1128/msphere.00077-22",
+      "raw": "Corina Tabron, Amanda E Pierola, James Duncan, Samuel R Greenfield, Robert Marlow, et al. Comparative analysis and data provenance for 1,113 bacterial genome assemblies. Msphere, 7(3): e00077–22, 2022. 12 Under review as a conference paper at ICLR 2024"
+    }
+  ]
+}

@@ -302,7 +302,7 @@ export default function Projects() {
                 >
                   <EllipsisVerticalIcon className="h-4 w-4" />
                 </Menu.Button>
-                <Menu.Items className="absolute right-0 mt-2 w-48 rounded-lg border border-border-default bg-bg-elevated py-1 shadow-lg">
+                <Menu.Items anchor="bottom end" className="z-50 mt-2 w-48 rounded-lg border border-border-default bg-bg-elevated py-1 shadow-lg">
                   <Menu.Item>
                     {({ active }) => (
                       <button

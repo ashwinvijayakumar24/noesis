@@ -23,6 +23,35 @@ class StrictOutputModel(BaseModel):
 # Stage 1 — mechanical editing (stage1_editing.py)
 # ---------------------------------------------------------------------------
 
+class AbsenceVerdict(StrictOutputModel):
+    """One verdict for a single absence-claiming revision task (Prong B LLM verifier)."""
+    index: int
+    verdict: Literal["addressed", "partial", "absent"]
+    evidence: str = ""
+
+
+class AbsenceVerification(StrictOutputModel):
+    """Batched LLM entailment output for false-absence detection."""
+    items: list[AbsenceVerdict]
+
+
+class AnchorSpan(StrictOutputModel):
+    """One repaired anchor: the exact verbatim manuscript span for a task, or 'GLOBAL'."""
+    index: int
+    verbatim_span: str
+
+
+class AnchorRepair(StrictOutputModel):
+    """Batched LLM anchor-repair output (verbatim-anchor real fix)."""
+    items: list[AnchorSpan]
+
+
+class TaskClusters(StrictOutputModel):
+    """Batched LLM semantic-dedup output: each inner list is a cluster of task indices
+    that address the SAME underlying flaw and should consolidate into one revision."""
+    clusters: list[list[int]]
+
+
 class GrammarIssue(StrictOutputModel):
     text: str
     issue: str
@@ -92,8 +121,14 @@ class ManuscriptProfileOutput(StrictOutputModel):
         "empirical_study",
         "methods_paper",
         "theory_framework",
+        "theoretical_article",
+        "methods_article",
+        "legal_policy_analysis",
+        "pedagogical_conceptual",
+        "conceptual_article",
         "case_study",
         "review_article",
+        "literature_review",
         "unknown",
     ] = "unknown"
     study_design: str = ""
@@ -112,7 +147,11 @@ class DiagnosticFinding(StrictOutputModel):
         "framework_validation",
         "causal_inference",
         "literature_positioning",
+        "materials_literature_positioning",
+        "materials_degradation",
+        "materials_evidence",
         "reproducibility",
+        "clarity",
     ]
     severity: Literal["critical", "major", "minor"]
     section_reference: str = ""
@@ -182,18 +221,6 @@ class CitationMappingOutput(StrictOutputModel):
 # Gap detection node
 # ---------------------------------------------------------------------------
 
-class GapItem(StrictOutputModel):
-    gap_type: str
-    description: str
-    severity: Literal["critical", "important", "minor"] = "minor"
-    affected_claims: list[str] = Field(default_factory=list)
-    suggested_papers: list[str] = Field(default_factory=list)
-
-
-class GapDetectionOutput(StrictOutputModel):
-    gaps: list[GapItem] = Field(default_factory=list)
-    summary: str = ""
-
 
 # ---------------------------------------------------------------------------
 # Reviewer feedback node
@@ -209,12 +236,6 @@ class FeedbackItem(StrictOutputModel):
     specific_issue: str = ""
     suggested_improvements: list[str] = Field(default_factory=list)
     cited_papers: list[str] = Field(default_factory=list)
-
-
-class ReviewerFeedbackOutput(StrictOutputModel):
-    feedback_items: list[FeedbackItem] = Field(default_factory=list)
-    overall_assessment: str = ""
-    priority_actions: list[str] = Field(default_factory=list)
 
 
 class StructuralCheckItem(StrictOutputModel):
@@ -235,17 +256,6 @@ class StructuralCheckItem(StrictOutputModel):
 
 class StructuralChecksOutput(StrictOutputModel):
     checks: list[StructuralCheckItem] = Field(default_factory=list)
-
-
-class Reviewer1StrengthItem(StrictOutputModel):
-    aspect: str
-    section_reference: str = "Overall"
-    detail: str
-    significance: Literal["high", "medium", "low"] = "medium"
-
-
-class Reviewer1StrengthsOutput(StrictOutputModel):
-    strengths: list[Reviewer1StrengthItem] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +288,10 @@ class ReviewerIssue(StrictOutputModel):
     why_it_matters: str
     suggested_action: str
     confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    audit_grounded: bool = Field(
+        default=False,
+        description="True for deterministic domain-trigger audit findings (already grounded-entailment verified; exempt from re-verification).",
+    )
 
 
 class ReviewerOutput(StrictOutputModel):
@@ -297,6 +311,23 @@ class ReviewerOutput(StrictOutputModel):
     rating: int = Field(ge=1, le=10, description="ICLR scale: 1-2=strong reject, 3-4=weak reject, 5=borderline, 6-7=weak accept, 8-9=strong accept, 10=award")
     confidence: int = Field(ge=1, le=5, description="1=not my area, 5=expert in this exact area")
     recommendation: Literal["accept", "minor_revision", "major_revision", "reject"] = "major_revision"
+
+
+class TriggerVerdict(StrictOutputModel):
+    """Present/absent verdict for one profile-derived domain audit trigger.
+
+    Decouples trigger detection from the broad methodology reviewer (which drops
+    triggers under attention load) — a narrow, single-purpose checklist call is
+    far more consistent run-to-run.
+    """
+    trigger_label: str = Field(description="Short label identifying the trigger, e.g. 'protein-level validation'")
+    verdict: Literal["present", "absent", "not_applicable"]
+    evidence_quote: str = Field(default="", description="Verbatim quote from the manuscript supporting the verdict (required when present)")
+    rationale: str = Field(default="", description="One sentence on why absent/applicable")
+
+
+class TriggerAuditOutput(StrictOutputModel):
+    verdicts: list[TriggerVerdict] = Field(default_factory=list)
 
 
 class MetaReviewOutput(StrictOutputModel):
@@ -329,6 +360,21 @@ class ExternalSourceVerdict(StrictOutputModel):
     reason: str
 
 
+class SingleCitationVerdict(StrictOutputModel):
+    pair_index: int = Field(description="0-based index matching the input pair list")
+    verdict: Literal["supports", "partial", "unrelated", "contradicts", "overclaim", "unverifiable"]
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    evidence_quote: str = Field(
+        default="",
+        description="Verbatim quote from the SOURCE ABSTRACT proving the verdict. REQUIRED for contradicts/overclaim/unrelated. Empty only for 'supports' or 'unverifiable'.",
+    )
+    reasoning: str = Field(default="", description="Brief explanation of the verdict (1-2 sentences)")
+
+
+class CitationVerificationBatch(StrictOutputModel):
+    verdicts: list[SingleCitationVerdict] = Field(default_factory=list)
+
+
 class CitationJudgeOutput(StrictOutputModel):
     citation_verdicts: list[SuggestedCitationVerdict] = Field(default_factory=list)
     external_source_verdicts: list[ExternalSourceVerdict] = Field(default_factory=list)
@@ -355,3 +401,18 @@ class ReviewerJudgeOutput(StrictOutputModel):
         default_factory=list,
         description="reviewer_ids whose output should be regenerated with a stricter specificity prompt",
     )
+
+
+class AnalysisQualityJudgeOutput(StrictOutputModel):
+    quality_pass: bool
+    domain_alignment_score: float = Field(ge=0.0, le=1.0)
+    manuscript_specificity_score: float = Field(ge=0.0, le=1.0)
+    wrong_domain_flags: list[str] = Field(default_factory=list)
+    retry_recommended: bool = False
+    reroute_required: bool = False
+    suggested_route: str = ""
+    invalid_review_standards: list[str] = Field(default_factory=list)
+    source_contamination_flags: list[str] = Field(default_factory=list)
+    publish_allowed: bool = True
+    failure_reason: str = ""
+    judge_rationale: str = ""

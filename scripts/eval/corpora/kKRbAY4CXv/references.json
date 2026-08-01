@@ -1,0 +1,209 @@
+{
+  "corpus": "kKRbAY4CXv",
+  "source_pdf": "kKRbAY4CXv.pdf",
+  "source_sha256": "9aa2ff29011659db26bfda017794989707c64efd43a28c84618450c5d1fa9d57",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:55.929482Z",
+  "references_attempted": 22,
+  "references_resolved": 8,
+  "references": [
+    {
+      "openalex_id": "https://openalex.org/W2041001120",
+      "title": "A microscopic theory for antiphase boundary motion and its application to antiphase domain coarsening",
+      "doi": "10.1016/0001-6160(79)90196-2",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Samuel M Allen and John W Cahn. A microscopic theory for antiphase boundary motion and its application to antiphase domain coarsening. Acta metallurgica, 27(6):1085–1095, 1979. Andrew R Barron. Universal approximation bounds for superpositions of a sigmoidal function. IEEE Transactions on Information theory, 39(3):930–945, 1993. Carl M Bender, Steven Orszag, and Steven A Orszag. Advanced mathematical methods for scientists and engineers I: Asymptotic methods and perturbation theory, volume 1. Springer Science &"
+    },
+    {
+      "openalex_id": null,
+      "title": "Business Media, 1999. Jens Berg and Kaj Nystr¨om. A unified deep artificial neural network approach to partial differential equations in complex geome",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Business Media, 1999. Jens Berg and Kaj Nystr¨om. A unified deep artificial neural network approach to partial differential equations in complex geometries. Neurocomputing, 317:28–41, 2018. George Cybenko. Approximation by superpositions of a sigmoidal function. Mathematics of control, signals and systems, 2(4):303–314, 1989. MWMG Dissanayake and Nhan Phan-Thien. Neural-network-based approximations for solving partial differential equations. communications in Numerical Methods in Engineering, 10(3):195– 201, 1994."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3137000502",
+      "title": "Convergence Rate Analysis for Deep Ritz Method",
+      "doi": "10.4208/cicp.oa-2021-0195",
+      "status": "resolved",
+      "filename": "duan_2022_convergence_rate_analysis_for_deep_ritz_method.pdf",
+      "oa_url": "https://arxiv.org/pdf/2103.13330",
+      "raw": "Chenguang Duan, Yuling Jiao, Yanming Lai, Dingwei Li, Xiliang Lu, and Jerry Zhijian Yang. Convergence rate analysis for deep ritz method. Communications in Computational Physics, 31(4): 1020–1048, 2022. ISSN 1991-7120. Weinan E, Chao Ma, and Lei Wu. The barron space and the flow-induced function spaces for neural network models. Constructive Approximation, 55:369–406, 2019. Charles M Elliott and AM Stuart. The global dynamics of discrete semilinear parabolic equations. SIAM journal on numerical analysis, 30(6):1622–1663, 1993."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3007711942",
+      "title": "Convergence Rates of the Allen--Cahn Equation to Mean Curvature Flow: A Short Proof Based on Relative Entropies",
+      "doi": "10.1137/20m1322182",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://epubs.siam.org/doi/pdf/10.1137/20M1322182",
+      "raw": "Julian Fischer, Tim Laux, and Theresa M Simon. Convergence rates of the allen–cahn equation to mean curvature flow: A short proof based on relative entropies. SIAM Journal on Mathematical Analysis, 52(6):6222–6233, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2803629276",
+      "title": "Solving high-dimensional partial differential equations using deep learning",
+      "doi": "10.1073/pnas.1718942115",
+      "status": "resolved",
+      "filename": "han_2018_solving_high_dimensional_partial_differential_equations_using_deep_lear.pdf",
+      "oa_url": "https://arxiv.org/pdf/1707.02568",
+      "raw": "Jiequn Han, Arnulf Jentzen, and Weinan E. Solving high-dimensional partial differential equations using deep learning. Proceedings of the National Academy of Sciences, 115(34):8505–8510, 2018."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4220704858",
+      "title": "A Rate of Convergence of Physics Informed Neural Networks for the Linear Second Order Elliptic PDEs",
+      "doi": "10.4208/cicp.oa-2021-0186",
+      "status": "resolved",
+      "filename": "jiao_2022_a_rate_of_convergence_of_physics_informed_neural_networks_for_the_line.pdf",
+      "oa_url": "https://arxiv.org/pdf/2109.01780",
+      "raw": "Yuling Jiao, Yanming Lai, Dingwei Li, Xiliang Lu, Fengru Wang, Yang Wang, and Jerry Zhijian Yang. A rate of convergence of physics informed neural networks for the linear second order elliptic pdes. Communications in Computational Physics, 31(4):1272–1295, 2022. ISSN 1991- 7120. Oliver Dimon Kellogg. Foundations of potential theory, volume 31. Courier Corporation, 1953."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4383815414",
+      "title": "DOSnet as a non-black-box PDE solver: When deep learning meets operator splitting",
+      "doi": "10.1016/j.jcp.2023.112343",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Yuan Lan, Zhen Li, Jie Sun, and Yang Xiang. Dosnet as a non-black-box pde solver: When deep learning meets operator splitting. Journal of Computational Physics, 491:112343, 2023."
+    },
+    {
+      "openalex_id": null,
+      "title": "Zongyi Li, Nikola Borislavov Kovachki, Kamyar Azizzadenesheli, Burigede liu, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Fourier neural",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Zongyi Li, Nikola Borislavov Kovachki, Kamyar Azizzadenesheli, Burigede liu, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Fourier neural operator for parametric partial differential equations. In International Conference on Learning Representations, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4225139371",
+      "title": "BI-GreenNet: Learning Green's functions by boundary integral network",
+      "doi": "10.48550/arxiv.2204.13247",
+      "status": "resolved",
+      "filename": "lin_2022_bi_greennet_learning_greens_functions_by_boundary_integral_network.pdf",
+      "oa_url": "https://arxiv.org/pdf/2204.13247",
+      "raw": "Guochang Lin, Fukai Chen, Pipi Hu, Xiang Chen, Junqing Chen, Jun Wang, and Zuoqiang Shi. Bi-greennet: learning green’s functions by boundary integral network. Communications in Mathematics and Statistics, 11(1):103–129, 2023a."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4320519852",
+      "title": "BINet: Learn to Solve Partial Differential Equations with Boundary Integral Networks",
+      "doi": "10.4208/csiam-am.so-2022-0014",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://global-sci.org/intro/article_detail/auth/21415.html",
+      "raw": "Guochang Lin, Pipi Hu, Fukai Chen, Xiang Chen, Junqing Chen, Jun Wang, and Zuoqiang Shi. Binet: Learn to solve partial differential equations with boundary integral networks. CSIAM Transactions on Applied Mathematics, 4(2):275–305, 2023b. ISSN 2708-0579."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2979786244",
+      "title": "Learning nonlinear operators via DeepONet based on the universal approximation theorem of operators",
+      "doi": "10.1038/s42256-021-00302-5",
+      "status": "resolved",
+      "filename": "lu_2021_learning_nonlinear_operators_via_deeponet_based_on_the_universal_approxi.pdf",
+      "oa_url": "https://arxiv.org/pdf/1910.03193",
+      "raw": "Lu Lu, Pengzhan Jin, Guofei Pang, Zhongqiang Zhang, and George Em Karniadakis. Learning nonlinear operators via deeponet based on the universal approximation theorem of operators. Nature machine intelligence, 3(3):218–229, 2021. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3206130257",
+      "title": "Machine Learning For Elliptic PDEs: Fast Rate Generalization Bound, Neural Scaling Law and Minimax Optimality",
+      "doi": "10.48550/arxiv.2110.06897",
+      "status": "resolved",
+      "filename": "lu_2021_machine_learning_for_elliptic_pdes_fast_rate_generalization_bound_neural.pdf",
+      "oa_url": "https://arxiv.org/pdf/2110.06897",
+      "raw": "Yiping Lu, Haoxuan Chen, Jianfeng Lu, Lexing Ying, and Jose Blanchet. Machine learning for elliptic PDEs: Fast rate generalization bound, neural scaling law and minimax optimality. In International Conference on Learning Representations, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4226402869",
+      "title": "MIM: A deep mixed residual method for solving high-order partial differential equations",
+      "doi": "10.1016/j.jcp.2021.110930",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Liyao Lyu, Zhen Zhang, Minxin Chen, and Jingrun Chen. Mim: A deep mixed residual method for solving high-order partial differential equations. Journal of Computational Physics, 452:110930, 2022. R Omer, E Bashier, and Arbab I Arbab. Numerical solutions of a system of odes based on lie-trotter and strang operator-splitting methods. Universal Journal of Computational Mathematics, 5(2): 20–24, 2017."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2899283552",
+      "title": "Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations",
+      "doi": "10.1016/j.jcp.2018.10.045",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://www.osti.gov/biblio/1595805",
+      "raw": "Maziar Raissi, Paris Perdikaris, and George E Karniadakis. Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. Journal of Computational physics, 378:686–707, 2019. Abdullah Shah and Li Yuan. Numerical solution of a phase field model for incompressible two-phase flows based on artificial compressibility. Computers & Fluids, 42(1):54–61, 2011."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2964580220",
+      "title": "A New Class of Efficient and Robust Energy Stable Schemes for Gradient Flows",
+      "doi": "10.1137/17m1150153",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://epubs.siam.org/doi/pdf/10.1137/17M1150153",
+      "raw": "Jie Shen, Jie Xu, and Jiang Yang. A new class of efficient and robust energy stable schemes for gradient flows. SIAM Review, 61(3):474–506, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3177662876",
+      "title": "Deep Network Approximation: Achieving Arbitrary Accuracy with Fixed Number of Neurons",
+      "doi": "10.48550/arxiv.2107.02397",
+      "status": "resolved",
+      "filename": "shen_2021_deep_network_approximation_achieving_arbitrary_accuracy_with_fixed_num.pdf",
+      "oa_url": "https://arxiv.org/pdf/2107.02397",
+      "raw": "Zuowei Shen, Haizhao Yang, and Shijun Zhang. Deep network approximation: Achieving arbitrary accuracy with fixed number of neurons. The Journal of Machine Learning Research, 23(1): 12653–12712, 2022. Justin Sirignano and Konstantinos Spiliopoulos. Dgm: A deep learning algorithm for solving partial differential equations. Journal of computational physics, 375:1339–1364, 2018."
+    },
+    {
+      "openalex_id": null,
+      "title": "Green’s function of the screened poisson’s equation on the sphere, 2019",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Ramy Tanios, Samah El Mohtar, Omar Knio, and Issam Lakkis. Green’s function of the screened poisson’s equation on the sphere, 2019. Jiang Yang and Quanhui Zhu. A local deep learning method for solving high order partial differential equations. Numerical Mathematics-Theory Methods and Applications, 2021. Xiaofeng Yang. Linear, first and second-order, unconditionally energy stable numerical schemes for the phase field model of homopolymer blends. Journal of Computational Physics, 327:294–316, 2016. Yesim Yazici. Operator splitting methods for differential equations. Izmir Institute of Technology, 2010. Bing Yu et al. The deep ritz method: a deep learning-based numerical algorithm for solving variational problems. Communications in Mathematics and Statistics, 6(1):1–12, 2018."
+    },
+    {
+      "openalex_id": null,
+      "title": "Weak adversarial networks for highdimensional partial differential equations",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Yaohua Zang, Gang Bao, Xiaojing Ye, and Haomin Zhou. Weak adversarial networks for highdimensional partial differential equations. Journal of Computational Physics, 411:109409, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4281252990",
+      "title": "Neural Network Architecture Beyond Width and Depth",
+      "doi": "10.48550/arxiv.2205.09459",
+      "status": "resolved",
+      "filename": "shen_2022_neural_network_architecture_beyond_width_and_depth.pdf",
+      "oa_url": "https://arxiv.org/pdf/2205.09459",
+      "raw": "Shijun Zhang, Zuowei Shen, and Haizhao Yang. Neural network architecture beyond width and depth. In Alice H. Oh, Alekh Agarwal, Danielle Belgrave, and Kyunghyun Cho (eds.), Advances in Neural Information Processing Systems, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2550726378",
+      "title": "Numerical approximations for a phase field dendritic crystal growth model based on the invariant energy quadratization approach",
+      "doi": "10.1002/nme.5372",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jia Zhao, Qi Wang, and Xiaofeng Yang. Numerical approximations for a phase field dendritic crystal growth model based on the invariant energy quadratization approach. International Journal for Numerical Methods in Engineering, 110(3):279–300, 2017. 11 Under review as a conference paper at ICLR 2024 A BINET METHOD AND BI-GREENNET METHOD In this part, we will present two novel methods that offer important contributions to our approaches in solving time-dependent PDEs. The first method is designed for solving PDEs on general domains, while the second one is specifically developed for finding Green’s functions. These two methods serve as essential building blocks and provide valuable insights into the development of our approach. A.1 BOUNDARY INTEGRAL NETWORK We introduce a method of solving PDEs combining boundary integral equations and neural networks by Lin et al. (2023b) briefly. Let Ω⊂Rd be a bounded domain, we consider the PDE: Lu(x) = 0, (16) L can be arbitrary operator, as long as its fundamental solution (in Rd) can be obtained (in fact, the fundamental solution only depends on the operator and the fundamental solutions of most common operators are already known). The PDE is defined in Ωor ΩC := Rd\\¯Ωand we consider the Dirichlet type of boundary condition u|∂Ω= g. Other types of boundary conditions can be easily handled in BINet with a small modification of the loss function. The following theorem (Kellogg, 1953) in potential theory is the basis of BINet method. Theorem 1. For any continuous function h defined on ∂Ω, the single layer potential is defined as S[h](x) := − Z ∂Ω G0(x, y)h(y)dsy, (17) and the double layer potential is defined as D[h](x) := − Z ∂Ω ∂G0(x, y) ∂ny h(y)dsy, (18) with ny denotes out normal of ∂Ωat y, G0(x, y) is the fundamental solution of equation 16. Then, both single layer potential and double layer potential satisfy equation 16. And for all x0 ∈∂Ω, we have lim x→x0 S[h](x) = S[h](x0), (19) lim x→x0± D[h](x) = D[h](x0) ∓1 2h(x0). (20) where x →x− 0 and x →x+ 0 mean converging in Ωand ΩC respectively. From theorem 1, we can find that S[h] or D[h] satisfies PDE 16 for all continuous function h defined on ∂Ω, so we just need to find the most appropriate ‘h’ to let the single or double potential satisfies the boundary condition. Thus, we can use a neural network N(y, θ) to estimate function h with the learning parameter θ, and use the following loss function for training: L(θ) =    ||S[N(:, θ)](x) −g(x)||2 ∂Ω, single layer potential ||( 1 2I + D)[N(:, θ)](x) −g(x)||2 ∂Ω, double layer potential(Interior) ||(−1 2I + D)[N(:, θ)](x) −g(x)||2 ∂Ω, double layer potential(Exterior) (21) where I is the identity operator, ‘Interior’ means the PDE is defined on a bounded domain while ‘Exterior’ means the PDE is defined on the complement of a bounded domain. The BINet method offers several advantages. Firstly, it leverages the mathematical characteristics of the equation’s solution. Secondly, it can address higher-dimensional problems and handle both internal (Ω) and external (ΩC) regional issues, while preserving the unsmoothness of the solution on the boundary. Thirdly, it avoids errors and instability resulting from high-order differentiation of neural networks. Fourthly, it requires fewer sampling points and is easy to train, as only sample points on the boundary are needed. Finally, it can be used to solve for the Green function, which is challenging to obtain for general domains. 12 Under review as a conference paper at ICLR 2024 A.2 BOUNDARY INTEGRAL-GREEN NETWORK The Green’s function is a crucial tool in the analysis and solution of PDEs. However, obtaining an analytical solution of the Green’s function for a general operator and domain is nearly impossible due to its dependence on both the operator and the shape of the domain. Furthermore, the variables involved in the Green’s function are often high-dimensional, making it difficult for traditional numerical methods to provide effective solutions. Despite these challenges, the development of methods for obtaining the Green’s function for various operators and domains has remained an active research area, as it can provide valuable insights into the behavior of solutions to PDEs and facilitate the development of numerical methods for solving these equations. In this subsection, we propose a method, boundary integral-Green network by Lin et al. (2023a) for computing the Green’s function based on the BINet approach. Let Ω⊂Rd be a bounded domain, we consider the PDE: \u001aLu(x) = f(x) in Ω, u(x) = g(x) on ∂Ω, (22) where L is a differential operator. To find the Green’s function G(x, y) of this equation, we firstly define H(x, y) = G(x, y) −G0(x, y), where G0 is the fundamental solution of the operator L (in space Rd). Note that the definition of Green’s function and its difference from the fundamental solution can be found in Appendix B of this paper. Consider that G(x, y) vanishes when x goes to ∂Ω, we only care about the value of H(x, y) for (x, y) ∈Ω\\∂Ω× Ω. Then we can get the function for H as following: \u001aLyH(x, y) = 0, ∀x ∈Ω\\∂Ω, y ∈Ω, H(x, y) = −G0(x, y), ∀x ∈Ω\\∂Ω, y ∈∂Ω. (23) One observation is that for each x ∈Ω\\∂Ω, H(x, ·) is a function with one variable in Ω⊂Rd, then the BINet method can be using to find it. Therefore we can use the form of single or double potential to approximate the solution H. That is, H(x, y) ≈S[h](x, y) := − Z ∂Ω G0(y, z)h(x, z)dsz, (24) or H(x, y) ≈D[h](x, y) := − Z ∂Ω ∂G0(y, z) ∂nz h(x, z)dsz (25) can be used to approximate the solution of equation 23. In this case, if we use a neural network N(x, y; θ) to estimate function h(x, y)(x ∈Ω\\∂Ω, y ∈∂Ω), the loss function can be set as L(θ) =        N P i=1 |S[N(:, θ)](xi, yi) + G0(xi, yi)|2, single layer potential N P i=1 |D[N(:, θ)](xi, yi) + 1 2N(xi, yi; θ) + G0(xi, yi)|2, double layer potential (26) where {xi, yi}N j=1 are N points randomly sampled in Ω\\∂Ω× ∂Ω. After finding the most ‘appropriate’ function h through training, we can get the solution H and therefore the Green’s function G by G = H + G0. We are now able to find the Green’s function of an operator in a general domain as long as the fundamental solution of the operator is known. This is not only an excellent achievement, but also provides some algorithmic support for our later work on solving time-evolving PDEs. B FUNDAMENTAL SOLUTION AND GREEN’S FUNCTION In this part, we make some supplementary introductions to the fundamental solution and Green’s function. Let Ω⊂Rd be a bounded domain, ΩC := Rd\\¯Ωand Ω∗:= Ωor ΩC. L is a differential operator. Definition 1. A function δ(x) is called a d-dimensional δ-function if δ(x) ≃ \u001a0, x ̸= ⃗0, ∞, x = ⃗0, and which is also constrained to satisfy the identity R Rd δ(x)dx = 1. For all function f that is continuous at a ∈Rd we have R Rd f(x)δ(x −a)dx = f(a). 13 Under review as a conference paper at ICLR 2024 Definition 2. A function G0(x, y) is called the fundamental solution corresponding to equations Lu(x) = 0 if G0(x, y) is symmetric about x and y and G0(x, y) satisfy LyG0(x, y) = δ(x −y), where (x, y) ∈Rd × Rd and Ly is the differential operator L which acts on component y. Definition 3. A function G(x, y) is called the Green’s function corresponding to problem \u001aLu(x) = f(x) in Ω∗, u(x) = g(x) on ∂Ω∗, if G(x, y) is a 2d-dimensional function satisfying \u001aLyG(x, y) = δ(x −y), ∀x, y ∈Ω∗, G(x, y) = 0, ∀x ∈Ω∗, y ∈∂Ω∗. . In addition, if the type of boundary condition in the problem is changed, the boundary conditions that Green’s function needed to satisfy must also be changed to the corresponding zero boundary condition. By the definition of fundamental solution and Green’s function, the differences between them is clear and easy to understand. Fundamental solution is only depend on the operator while Green’s function is depend both on the operator and the boundary condition. C OPERATOR SPLITTING Some knowledge about the operator splitting of ODEs will be given here. And it can be extended to operator splitting of PDEs. We focus our attention on the case of two linear operators. Let us consider the Cauchy problem : ∂U(t) ∂t = AU(t) + BU(t), t ∈[0, T], U(0) = U0, whereby, the initial function U0 is given and A and B are supposed to be linear operators in the Banach-space X with A and B : X →X. Splitting methods assume that the mathematical problem can be split into two or more terms (Omer et al., 2017). We denote by U(t) = e(A+B)tU0 is the solution (Yazici, 2010) at the time t of the differential equation. One issue in computing the solution U(t) is that it may not be feasible or extremely challenging to accurately evaluate the exponential mapping. Consequently, numerical methods are frequently used to approximate the flow map EXP. Firstly, we describe the first order operator splitting method, which is called Lie-Trotter splitting. Lie-Trotter splitting is introduced as a method, which solves two subproblems sequentially on subintervals [tn, tn+1], where n = 0, 1, ..., N −1, t0 = 0 and tN = T. Assume that tn+1 −tn = τ for all n.The Lie-Trotter’s scheme is that U n+1 = eAτeBτU n or U n+1 = eBτeAτU n, where n = 0, 1, ..., N −1, U 0 := U0. And the splitting error is computed by SELie−T rotter = I + τ(A + B) + 1 2τ 2(A + B)2 −(I + τB + 1 2τ 2B2)(I + τA + 1 2τ 2A2) + O(τ 3) = 1 2τ 2(AB −BA) + O(τ 3) = O(τ 2), where I is the identical operator. This implies that the Lie-Trotter splitting is a second order approach for the local truncation error, then we call it as the first order splitting method for the global error. The Strang’s scheme is regarded as a second order splitting. Take the same notation as before, the Strang’s scheme is that U n+1 = eB τ 2 eAτeB τ 2 U n or U n+1 = eA τ 2 eBτeA τ 2 U n. And the splitting 14 Under review as a conference paper at ICLR 2024 error is computed by SEStrang = I + τ(A + B) + 1 2τ 2(A + B)2 −(I + τ 2B + 1 8τ 2B2)(I + τA + 1 2τ 2A2)(I + τ 2B + 1 8τ 2B2) + O(τ 3) = O(τ 3), where I is the identical operator. This implies that the Strang splitting is a third order approach for the local truncation error, then we call it as the second order splitting method for the global error. D ADDITIONAL NUMERICAL EXPERIMENTS The Allen-Cahn equation is a type of nonlinear equation that is often used to test the accuracy and stability of numerical methods. In other words, for a traditional numerical method, we hope that it has the property of stability. However, our NEKM method does not have such concerns because it does not discretize in space. D.1 ALLEN-CAHN EQUATION IN THE RECTANGLE DOMAIN In this subsection, we consider an Allen-Cahn equation in the rectangle domain as following:      ut = 0.1∆u + 10(u −u3), x ∈Ω= [−1 2, 1 2]2and t ∈[0, 0.1] u(x, 0) = tanh( |x|−0.3 0.1 √ 2 ) =: f, x ∈Ω u(x, t) = 1 =: g, x ∈∂Ωand t > 0 (27) This equation has the form of equation 1 with ˜L = 0.1∆+ϕ and we can decompose it as ˜L = L+ϕ with L = 0.1∆and ϕ = 10(u −u3). Now, we can use NEKM of case 2 to solve it. Meanwhile, we use PINNs to solve this equation and compared the solutions obtained by these two DNN-based methods with the exact solution to obtain the magnitude of the errors. It is worth mentioning that we used the forward Euler method with a very dense mesh and time and spatial step sizes that satisfied the stability condition to solve this equation, and the solution obtained from this is taken as the exact solution."
+    },
+    {
+      "openalex_id": null,
+      "title": "In NEKM, we choose τ = 0.01. To solve equation 12, we use NEKM of case 1. And we need to get vn+1,2 (the result of ‘KF’ block) by BINet method. For th",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "In NEKM, we choose τ = 0.01. To solve equation 12, we use NEKM of case 1. And we need to get vn+1,2 (the result of ‘KF’ block) by BINet method. For this, we use the fully connected neural network with 6 hidden layers and 150 neurons per layer with tanh activation functions. For computing the loss function, we choose equidistant 3200 sample points on ∂Ω. To get vn+1,1 (the result of ‘GF’ block) in this special case, we can use the two-dimensional fast Fourier transformation. Then we can solve equation 12 by NEKM with case 1. Remaining work is to find the solution of equation 11 and equation 13. If we can do this, the solution of this Allen-Cahn equation can be obtained. These two equations can be reduced to the following form: dy dt = 1 ϵ (y −y3), t ∈[tn, tn+1], y(tn) = yn, (28) which we want to find the value of function y at t = tn+1. We can achieve our goal in following ways. From equation 28 we can find that Z yn+1 yn dy y −y3 = Z tn+1 tn dt ϵ , (29) where yn+1 := y(tn+1). Note that 1 y−y3 = 1 y − 1 2(y+1) − 1 2(y−1) is unintegrable on an interval which contains −1, 0 or 1, we can conclude that yn and yn+1 must be both located in one of the four intervals: (−∞, −1), (−1, 0), (0, 1), (1, ∞). Equation 29 implies that ln( |y2| |y2 −1|) yn+1 yn = 2(tn+1 −tn) ϵ . (30) 15 Under review as a conference paper at ICLR 2024 Thus we can find the value of yn+1 by equation 30 that yn+1 = yn q (yn)2 + (1 −(yn)2)e−2(tn+1−tn) ϵ . (31) Now we obtain the exact solution of equation 28, therefore the equation 11 and 13 can be solved. Thus we can find the numerical solution of equation 27 by NEKM since equation 11-13 are solvable. Some results are shown in figure 8. (a) predict solution. (b) exact solution. Figure 8: Solution for the Allen-Cahn equation at time t = 0.1. These figures compare the solution given by NEKM and the exact solution at time t = 0.1. Also, we solve the Allen-Cahn equation using PINNs. We use the fully connected neural network with 6 hidden layers and 100 neurons per layer with tanh activation functions. For computing the loss function, we choose equidistant 400 sample points for the initial condition, equidistant 1000 sample points for the boundary condition and random 1800 samples for the PDE. To compute the error, we uniformly set up 51∗51 sampling points in domain [−1 2, 1 2]2 and calculate the function values of the predict solution by NEKM and the exact solution on these points at time t = 0.01, 0.02, 0.03, 0.04, 0.05, respectively. The result is given by table 2 as following. Table 2: L2 Errors given by NEKM and PINNs NEKM PINNs NEKM PINNs (absolute) (absolute) (relative) (relative) t = 0.01 3.8034E −3 1.2634E −2 5.2215E −3 1.7345E −2 t = 0.02 5.3697E −3 1.2648E −2 7.3395E −3 1.7289E −2 t = 0.03 6.3527E −3 1.1874E −2 8.6544E −3 1.6176E −2 t = 0.04 7.1423E −3 1.0653E −2 9.5653E −3 1.4470E −2 t = 0.05 7.5646E −3 9.1909E −3 1.0245E −2 1.2448E −2 And we compute the errors of numerical solutions on Ω×[0, 0.1]. The absolute L2 errors of NEKM and PINNs are 0.00717583 and 0.00870301, respectively. And the relative L2 errors of NEKM and PINNs are 0.00973051 and 0.0118014, respectively. The results show that for this example, our method is slightly better than PINNs method. Moreover, our method performs significantly better than PINNs in the interval near the initial time. In fact, our method can solve PDEs with high accuracy in more general domain, while PINNs cannot achieve this (we will provide an example later). In fact, the above example can be regarded as simulating the evolution of a circular interface with certain rules given by the initial conditions to some extent (in fact, when ϵ tends to 0, the solution 16 Under review as a conference paper at ICLR 2024 of the Allen-Cahn equation tends to the characteristic function whose interface evolves by motion by mean curvature flow (Fischer et al., 2020)). Below, we modify the initial conditions in order to simulate the evolution of a petal-shaped interface. Consider this Allen-Cahn equation:      ut = 0.1∆u + 10(u −u3), x ∈Ω= [−1 2, 1 2]2and t ∈[0, 0.1] u(x, 0) = tanh( 4|x|−0.3 cos(6 arctan( y x ))−1.2 0.1 √ 2 ), x ∈Ω u(x, t) = 1, x ∈∂Ωand t > 0 (32) We select τ = 0.01 and solve the problem exactly as we did in the previous example, and some of the results are shown below (figure 9, figure 10). It can be seen from the results that the petal-shaped interface gradually evolves into a circular interface, which is consistent with the fact that the mean curvature flow changes. (a) u0 (b) u2 (c) u4 Figure 9: Predict solution for the Allen-Cahn equation. These figures show the predict solution of Allen-Cahn equation given by NEKM at time t = 0, t = 0.02, t = 0.04 (a) u6 (b) u8 (c) u10 Figure 10: Predict solution for the Allen-Cahn equation. These figures show the predict solution of Allen-Cahn equation given by NEKM at time t = 0.06, t = 0.08, t = 0.1 D.2 ALLEN-CAHN EQUATION IN THE DISK DOMAIN In this subsection, we solve the Allen-Cahn equation on a disk domain using NEKM method and show that PINNs did not perform well in this example, while our method still had good performance. We consider an Allen-Cahn equation in a disk domain as following:      ut = 0.5∆u + 2(u −u3), x ∈Ω= 0.2B2and t ∈[0, 0.1] u(x, 0) = tanh(100 |x|−1.5 cos(6 arctan( y x )−6 0.5 √ 2 ), x ∈Ω u(x, t) = 1, x ∈∂Ωand t > 0 (33) where B2 is the 2-dimensional ball in R2."
+    },
+    {
+      "openalex_id": null,
+      "title": "In NEKM, we choose τ = 0.1. To solve equation 12, we use NEKM of case 1. And we need to get vn+1,2 (the result of ‘KF’ block) by BINet method. For thi",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "In NEKM, we choose τ = 0.1. To solve equation 12, we use NEKM of case 1. And we need to get vn+1,2 (the result of ‘KF’ block) by BINet method. For this, we use the fully connected 17 Under review as a conference paper at ICLR 2024 (a) u0 (b) u1 (c) u2 Figure 11: Predict solution for the Allen-Cahn equation. These figures show the predict solution of Allen-Cahn equation given by NEKM at time t = 0, t = 0.1, t = 0.2 Figure 12: Value of loss functions. This figure shows the value of loss function with number of iterations under different methods or learning rate of Adam optimizer. neural network with 6 hidden layers and 150 neurons per layer with tanh activation functions. For computing the loss function, we choose equidistant 1600 sample points on ∂Ω. To get Green’s function G by BI-GreenNet, we use the fully connected neural network with 6 hidden layers and 150 neurons per layer with tanh activation functions. For computing the loss function, we choose equidistant 200 sample points {yi}200 i=1 on ∂Ω. For every 500 epochs, 100 new x are randomly generated. Then {xi}100 i=1 and {yi}200 i=1 form a set of sample points {(xi, yi)}20000 i=1 . After gaining G, vn+1,1 (the result of ‘GF’ block) can be obtained by equation 6. And equation 11 and 13 can be solved analytically (with details in Appendix D). Thus we can obtain the numerical solution by NEKM. Some of the results are shown below (figure 11). We find the fact that PINNs did not perform well in this example. Specifically, we use the fully connected neural network with 6 hidden layers and 100 neurons per layer with tanh activation functions (in fact, we tried other sizes of networks, and it didn’t get any better). For computing the loss function, we choose equidistant nearly 300 sample points for the initial condition, equidistant 4000 sample points for the boundary condition and random 20000 samples for the PDE (in fact, we tried other sizes of sample sets, and it didn’t get any better). But we find that the loss function can not converge to zero or a small positive number, as shown in Figure 12. 18 Under review as a conference paper at ICLR 2024 Therefore the solution given by PINNs can not be considered a good numerical solution for equation 33. Some possible reasons for this are that in the disk domain, geometric characteristics such as curvature and normal vector may affect the solution of the equation, and PINNs method can not capture these information well. At the same time, other optimizers may bring better solutions to PINNs method. However, our method is not subject to these limitations, and the loss function can also converge well for the domain of general shape. E A REVIEW OF PINNS As we have compared our method with PINNs several times in Appendix D, we briefly introduce the general framework of PINNs in this section. Consider the PDE    ∂u ∂t = N[u], (x, t) ∈Ω× [0, T], u(x, 0) = f(x), x ∈Ω, u(x, t) = g(x, t), (x, t) ∈∂Ω× [0, T], where N is an operator combined with differential and other operations and T is a positive number. The main idea of the PINNs method by Raissi et al. (2019) is to use a neural network u(x, t; θ) to approximate the solution u, where θ represents the trainable parameters in the neural network. Then we can use the automatic differentiation tool to calculate the derivative of u(x, t; θ) and get the value of ∂u ∂t and N[u] at arbitrary (x, t). Thus we can define the loss function as L(θ) = || ∂u(·;θ) ∂t −N[u(·; θ)]||2 Ω×[0,T ]+β1||u(·; θ)−f(·)||2 Ω×{0}+β2||u(·; θ)−g(·; θ)||2 ∂Ω×[0,T ]. Here β1 and β2 are two hyper-parameters. By minimizing the loss function L, PINNs will get the approximation solution of the PDE. In addition, the computation of these L2 norms is accomplished through random sampling over relevant domains. F FUNDAMENTAL SOLUTION OF SOME OPERATORS The fundamental solution for operator I −τ∆is G0(x, x′) = 1 2πτ K0(|x −x′| √τ ), (34) where Kγ(x) is the modified Bessel function of the second kind of order γ. Note that the fundamental solution can be obtained by the fundamental solution of screened Poisson equation easily. The fundamental solution for operator ∆s −kI(k > 0) with ∆s be the Laplacian on sphere is (Tanios et al., 2019) G0,k((θ, φ), (θ′, φ′)) = −1 4π ∞ X l=0 2l + 1 l(l + 1) + k Pl(cos(γ)), (35) where cos(γ) = cos θ cos θ′ + sin θ sin θ′ cos(φ −φ′) and Pl(x) is the Legendre polynomial of degree l. To estimate the value of this fundamental solution, we can choose l′ ∈R+ such that l′(l′ + 1) >> k and approximate G0,k according to (Tanios et al., 2019): G0,k((θ, φ), (θ′, φ′)) ≈− 1 4πk −1 4π l′−1 X l=1 [ 2l + 1 l(l + 1) + k −2l + 1 l(l + 1)]Pl(cos(γ)) + 1 4π log(e 2(1 −cos(γ))). (36) Thus the fundamental solution which we desired for operator I −τ∆s is G0 = −1 τ G0, 1 τ . This fundamental solution is essentially the Green’s function over the entire spherical space. 19"
+    }
+  ]
+}

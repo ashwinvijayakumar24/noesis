@@ -1,138 +1,98 @@
-import { DocumentTextIcon, BeakerIcon, LightBulbIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline'
+import {
+  ArrowRightIcon,
+  BookOpenIcon,
+  CheckCircleIcon,
+  DocumentArrowUpIcon,
+  DocumentMagnifyingGlassIcon,
+  Squares2X2Icon,
+} from '@heroicons/react/24/outline'
 
 interface EmptyStateGuideProps {
   onUploadClick: () => void
+  onImportClick?: () => void
 }
 
-export default function EmptyStateGuide({ onUploadClick }: EmptyStateGuideProps) {
-  const benefits = [
+export default function EmptyStateGuide({ onUploadClick, onImportClick }: EmptyStateGuideProps) {
+  const outcomes = [
     {
-      icon: <DocumentTextIcon className="h-6 w-6 text-accent-primary" />,
-      title: 'Get citation suggestions',
-      description: 'AI-powered suggestions for supporting your draft claims'
+      icon: <DocumentMagnifyingGlassIcon className="h-4 w-4" />,
+      title: 'Citation checks',
+      description: 'Match draft claims to papers in this project.'
     },
     {
-      icon: <LightBulbIcon className="h-6 w-6 text-accent-primary" />,
-      title: 'Check draft coverage',
-      description: 'Use uploaded sources to find weak or unsupported areas in your manuscript'
+      icon: <Squares2X2Icon className="h-4 w-4" />,
+      title: 'Coverage gaps',
+      description: 'Find unsupported sections before review.'
     },
     {
-      icon: <BeakerIcon className="h-6 w-6 text-accent-primary" />,
-      title: 'Find relevant methodologies',
-      description: 'Extract methods, datasets, and evaluation metrics'
+      icon: <CheckCircleIcon className="h-4 w-4" />,
+      title: 'Method signals',
+      description: 'Surface methods, datasets, and evaluation patterns.'
     }
   ]
 
   return (
-    <div className="max-w-4xl mx-auto py-12">
-      {/* Main Card */}
-      <div className="bg-surface rounded-xl border-2 border-dashed border-border-default p-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-accent-primary/10 rounded-full mb-4">
-            <DocumentArrowUpIcon className="h-8 w-8 text-accent-primary" />
+    <div className="mx-auto max-w-3xl py-10">
+      <div className="overflow-hidden rounded-xl border border-border-default bg-bg-surface shadow-sm">
+        <div className="border-b border-border-default bg-bg-elevated/35 px-5 py-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent-primary" />
+            Literature setup
           </div>
-          <h2 className="text-3xl font-sans font-bold text-text-primary mb-3">
-            Get Started
-          </h2>
-          <p className="text-lg text-text-secondary max-w-2xl mx-auto">
-            Upload research papers to build the source library for draft review
-          </p>
         </div>
 
-        {/* Step Indicator */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <div className="flex items-center justify-center w-8 h-8 bg-accent-primary text-white rounded-full font-semibold text-sm">
-              1
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-xl">
+              <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg border border-accent-primary/25 bg-accent-subtle text-accent-primary">
+                <BookOpenIcon className="h-5 w-5" />
+              </div>
+              <h2 className="text-2xl font-sans font-semibold tracking-normal text-text-primary">
+                Add literature to start
+              </h2>
+              <p className="mt-3 max-w-lg text-sm leading-6 text-text-secondary">
+                Upload PDFs or import a BibTeX file so Noesis can ground draft feedback in this project's sources.
+              </p>
             </div>
-            <span className="text-text-secondary font-medium">Upload Research Papers</span>
-          </div>
-        </div>
 
-        {/* Benefits Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {benefits.map((benefit, index) => (
-            <div
-              key={index}
-              className="bg-bg-base border border-border-default rounded-lg p-6 hover:border-accent-primary/30 transition-colors"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5">
-                  {benefit.icon}
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
+              <button
+                onClick={onUploadClick}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent-primary px-4 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover active:translate-y-px"
+              >
+                <DocumentArrowUpIcon className="h-4 w-4" />
+                Upload PDF
+              </button>
+              {onImportClick && (
+                <button
+                  onClick={onImportClick}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border-default bg-bg-elevated px-4 text-sm font-semibold text-text-secondary transition-all duration-150 hover:bg-bg-hover hover:text-text-primary active:translate-y-px"
+                >
+                  <BookOpenIcon className="h-4 w-4" />
+                  Import .bib
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-3 border-t border-border-default pt-5 md:grid-cols-3">
+            {outcomes.map(outcome => (
+              <div key={outcome.title} className="flex gap-3">
+                <div className="mt-0.5 text-accent-primary">
+                  {outcome.icon}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-text-primary mb-2">
-                    {benefit.title}
-                  </h3>
-                  <p className="text-sm text-text-secondary leading-relaxed">
-                    {benefit.description}
-                  </p>
+                  <h3 className="text-sm font-semibold text-text-primary">{outcome.title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-text-tertiary">{outcome.description}</p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Why Start with Papers */}
-        <div className="bg-surface-hover border border-border-default rounded-lg p-6 mb-8">
-          <h4 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
-            <svg className="h-5 w-5 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Why start with papers?
-          </h4>
-          <ul className="space-y-2 text-sm text-text-secondary">
-            <li className="flex items-start gap-2">
-              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Citation suggestions require papers in your library</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Draft-grounded feedback improves with multiple relevant papers</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Coverage gap detection compares against your literature</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* CTA Button */}
-        <div className="text-center">
-          <button
-            onClick={onUploadClick}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-accent-primary text-white font-semibold rounded-lg hover:bg-accent-hover transition-colors shadow-lg hover:shadow-xl"
-          >
-            <DocumentArrowUpIcon className="h-5 w-5" />
-            Upload Your First Paper
-          </button>
-          <p className="mt-4 text-sm text-text-muted">
-            PDF files only, max 50MB
-          </p>
-        </div>
-
-        {/* Recommended Flow */}
-        <div className="mt-8 pt-8 border-t border-border-default">
-          <p className="text-xs text-text-muted text-center mb-4">
-            Recommended workflow
-          </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-text-tertiary">
-            <span className="px-3 py-1 bg-surface-hover rounded-full font-medium">Upload Papers</span>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="px-3 py-1 bg-surface-hover rounded-full font-medium">Generate Insights</span>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="px-3 py-1 bg-surface-hover rounded-full font-medium">Upload Draft</span>
+          <div className="mt-6 flex flex-wrap items-center gap-2 text-xs font-medium text-text-muted">
+            <span>Recommended</span>
+            <ArrowRightIcon className="h-3.5 w-3.5" />
+            <span className="text-text-secondary">add 5-10 relevant papers before uploading a draft</span>
           </div>
         </div>
       </div>

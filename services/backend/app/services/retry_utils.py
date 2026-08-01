@@ -7,11 +7,10 @@ Uses tenacity for exponential backoff and retry logic.
 from __future__ import annotations
 
 import asyncio
-import functools
 import logging
 from copy import deepcopy
 from types import SimpleNamespace
-from typing import Callable, Any, TypeVar
+from typing import Callable, Any
 
 from tenacity import (
     retry,
@@ -23,14 +22,33 @@ from tenacity import (
 from openai import RateLimitError, APIError, APIConnectionError
 from pydantic import ValidationError
 
-logger = logging.getLogger(__name__)
+from contextlib import contextmanager
 
-F = TypeVar("F", bound=Callable[..., Any])
+from app.core.llm_budget import check_llm_allowed, record_response_usage
+from app.core.tracing import SpanKind, get_tracer, llm_call_attributes
+
+logger = logging.getLogger(__name__)
 
 # Shared semaphore caps concurrent OpenAI calls across the entire process.
 # Prevents thundering-herd on bulk analysis jobs (Celery worker concurrency=4,
 # each analysis spawns ~5 parallel LLM calls → cap at 20 total in-flight).
 openai_semaphore = asyncio.Semaphore(20)
+
+
+def _sanitize_structured_completion_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize kwargs for structured chat completions.
+
+    The current GPT-5.2 structured-output endpoint rejects explicit
+    `temperature=0` and only accepts the default temperature. Most draft-analysis
+    nodes route through this helper, so strip that unsupported no-op at the
+    boundary instead of duplicating model-specific conditionals in every node.
+    """
+    sanitized = dict(kwargs)
+    model = str(sanitized.get("model") or "")
+    if model.startswith("gpt-5.2") and sanitized.get("temperature") == 0:
+        sanitized.pop("temperature", None)
+    return sanitized
 
 
 # Retry decorator for OpenAI API calls
@@ -40,43 +58,6 @@ retry_openai = retry(
     retry=retry_if_exception_type((RateLimitError, APIError, APIConnectionError)),
     before_sleep=before_sleep_log(logger, logging.WARNING)
 )
-
-
-def retry_on_validation_error(max_retries: int = 2) -> Callable[[F], F]:
-    """
-    Decorator for async LLM node functions that re-prompts on Pydantic ValidationError.
-
-    Structured outputs (client.beta.chat.completions.parse) can still raise
-    ValidationError if the model returns a structurally valid JSON that violates
-    field constraints (e.g. rating=11 on a 1-10 field). This retries up to
-    max_retries additional times before propagating the exception.
-
-    Usage:
-        @retry_on_validation_error(max_retries=2)
-        async def my_node(state): ...
-    """
-    def decorator(func: F) -> F:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            last_exc: Exception | None = None
-            for attempt in range(1 + max_retries):
-                try:
-                    return await func(*args, **kwargs)
-                except ValidationError as exc:
-                    last_exc = exc
-                    logger.warning(
-                        "[retry_on_validation_error] %s attempt %d/%d failed: %s",
-                        func.__name__, attempt + 1, 1 + max_retries, exc,
-                    )
-            raise last_exc  # type: ignore[misc]
-        return wrapper  # type: ignore[return-value]
-    return decorator
-
-
-async def with_openai_semaphore(coro: Any) -> Any:
-    """Await a coroutine while holding the shared OpenAI semaphore."""
-    async with openai_semaphore:
-        return await coro
 
 
 def _messages_with_validation_error(messages: list[dict[str, Any]], exc: ValidationError) -> list[dict[str, Any]]:
@@ -120,6 +101,7 @@ async def parse_chat_completion_with_retries(
     *,
     messages: list[dict[str, Any]],
     max_validation_retries: int = 2,
+    usage_label: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -129,8 +111,17 @@ async def parse_chat_completion_with_retries(
     - global OpenAI semaphore
     - transient OpenAI API retries
     - validation retries that append the schema error to the prompt
+    - LLM spend guardrails (kill switch / replay-only / ceiling) + usage recording
     """
+    # Guard messaging wants *a* name; usage attribution needs to know whether a
+    # label was genuinely supplied. Keep them separate: collapsing None into the
+    # model name here would hide "no label given" from llm_budget, which resolves
+    # label -> ambient llm_label() contextvar -> model name.
+    guard_label = usage_label or str(kwargs.get("model") or "unknown")
+    check_llm_allowed(guard_label)
+
     current_messages = deepcopy(messages)
+    sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
     last_exc: ValidationError | None = None
 
     @retry_openai
@@ -138,12 +129,18 @@ async def parse_chat_completion_with_retries(
         async with openai_semaphore:
             return await client.beta.chat.completions.parse(
                 messages=active_messages,
-                **kwargs,
+                **sanitized_kwargs,
             )
 
     for attempt in range(max_validation_retries + 1):
         try:
-            return _normalize_parsed_chat_completion(await _parse_once(current_messages))
+            with _llm_call_span(kwargs.get("model"), attempt) as span:
+                raw_response = await _parse_once(current_messages)
+                event = record_response_usage(
+                    raw_response, model=kwargs.get("model"), label=usage_label
+                )
+                _annotate_llm_span(span, kwargs.get("model"), event)
+            return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc
             logger.warning(
@@ -164,6 +161,7 @@ def parse_chat_completion_with_retries_sync(
     *,
     messages: list[dict[str, Any]],
     max_validation_retries: int = 2,
+    usage_label: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -172,19 +170,33 @@ def parse_chat_completion_with_retries_sync(
     This is used by legacy sync LangGraph nodes and sync services. Async nodes
     should use parse_chat_completion_with_retries().
     """
+    # Guard messaging wants *a* name; usage attribution needs to know whether a
+    # label was genuinely supplied. Keep them separate: collapsing None into the
+    # model name here would hide "no label given" from llm_budget, which resolves
+    # label -> ambient llm_label() contextvar -> model name.
+    guard_label = usage_label or str(kwargs.get("model") or "unknown")
+    check_llm_allowed(guard_label)
+
     current_messages = deepcopy(messages)
+    sanitized_kwargs = _sanitize_structured_completion_kwargs(kwargs)
     last_exc: ValidationError | None = None
 
     @retry_openai
     def _parse_once(active_messages: list[dict[str, Any]]) -> Any:
         return client.beta.chat.completions.parse(
             messages=active_messages,
-            **kwargs,
+            **sanitized_kwargs,
         )
 
     for attempt in range(max_validation_retries + 1):
         try:
-            return _normalize_parsed_chat_completion(_parse_once(current_messages))
+            with _llm_call_span(kwargs.get("model"), attempt) as span:
+                raw_response = _parse_once(current_messages)
+                event = record_response_usage(
+                    raw_response, model=kwargs.get("model"), label=usage_label
+                )
+                _annotate_llm_span(span, kwargs.get("model"), event)
+            return _normalize_parsed_chat_completion(raw_response)
         except ValidationError as exc:
             last_exc = exc
             logger.warning(
@@ -218,81 +230,53 @@ retry_http = retry(
 )
 
 
-def with_retry(
-    func: Callable,
-    *args,
-    max_attempts: int = 3,
-    **kwargs
-) -> Any:
+# ---------------------------------------------------------------------------
+# LLM call spans
+# ---------------------------------------------------------------------------
+#
+# Every LLM call in the pipeline funnels through the two wrappers below, so this
+# is the one place an `llm_call` span can be emitted for all of them. Without it
+# the trace analyser has node spans but no token or cost data underneath them,
+# and every `$/run` figure reads $0.00 -- the span kind and the attribute helper
+# both existed, but nothing was emitting them.
+#
+# The span is opened INSIDE the validation-retry loop, so a call that is retried
+# emits one span per attempt with `noesis.llm.attempt` set. Retry latency and
+# retry cost are then separable, which they are not if the whole loop shares one
+# span.
+
+
+@contextmanager
+def _llm_call_span(model: Any, attempt: int):
+    """An `llm_call` span. Never lets a tracing failure break the call."""
+    attrs = {"noesis.llm.attempt": attempt}
+    if model:
+        attrs["gen_ai.request.model"] = str(model)
+    with get_tracer().start_span(
+        "openai.chat", kind=SpanKind.LLM_CALL, attributes=attrs
+    ) as span:
+        yield span
+
+
+def _annotate_llm_span(span: Any, model: Any, event: Any) -> None:
+    """Copy the usage llm_budget just recorded onto the span.
+
+    Reuses the same numbers rather than re-extracting them, so the trace and the
+    budget accumulator can never disagree. A missing usage object leaves the
+    attributes absent rather than zero -- absent and zero are different facts,
+    and the analyser counts unpriced spans to mark a run incomplete.
     """
-    Generic retry wrapper for any function
-
-    Args:
-        func: Function to retry
-        *args: Positional arguments for function
-        max_attempts: Maximum number of retry attempts
-        **kwargs: Keyword arguments for function
-
-    Returns:
-        Function result
-
-    Example:
-        result = with_retry(some_api_call, arg1, arg2, max_attempts=5)
-    """
-    @retry(
-        stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        before_sleep=before_sleep_log(logger, logging.WARNING)
-    )
-    def _execute():
-        return func(*args, **kwargs)
-
-    return _execute()
-
-
-def safe_execute(
-    func: Callable,
-    *args,
-    fallback_value: Any = None,
-    log_errors: bool = True,
-    **kwargs
-) -> Any:
-    """
-    Execute function with error handling and fallback
-
-    Args:
-        func: Function to execute
-        *args: Positional arguments
-        fallback_value: Value to return if function fails
-        log_errors: Whether to log errors
-        **kwargs: Keyword arguments
-
-    Returns:
-        Function result or fallback value
-
-    Example:
-        result = safe_execute(risky_function, arg1, fallback_value=[])
-    """
+    if event is None:
+        return
     try:
-        return func(*args, **kwargs)
-    except Exception as e:
-        if log_errors:
-            logger.error(f"Error executing {func.__name__}: {str(e)}")
-        return fallback_value
-
-
-# Error logging decorator
-def log_errors(func: Callable) -> Callable:
-    """
-    Decorator to log errors without failing
-
-    Useful for non-critical operations like analytics tracking
-    """
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            logger.error(f"Error in {func.__name__}: {str(e)}")
-            return None
-
-    return wrapper
+        span.set_attributes(
+            llm_call_attributes(
+                model=str(model) if model else None,
+                prompt_tokens=getattr(event, "prompt_tokens", None),
+                completion_tokens=getattr(event, "completion_tokens", None),
+                cached_tokens=getattr(event, "cached_tokens", None),
+                estimated_usd=getattr(event, "estimated_usd", None),
+            )
+        )
+    except Exception:  # tracing must never break a real call
+        logger.debug("[retry_utils] could not annotate llm_call span", exc_info=True)

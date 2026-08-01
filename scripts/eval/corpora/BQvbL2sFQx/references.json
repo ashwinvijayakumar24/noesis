@@ -1,0 +1,236 @@
+{
+  "corpus": "BQvbL2sFQx",
+  "source_pdf": "BQvbL2sFQx.pdf",
+  "source_sha256": "1078b6b463b8a5131f3b41fd284a1eb45b6ab8e23dc41f7b188fcd15ecadc6b7",
+  "extractor_version": "pdf-refs-1",
+  "generated_at": "2026-07-30T21:28:54.754029Z",
+  "references_attempted": 25,
+  "references_resolved": 12,
+  "references": [
+    {
+      "openalex_id": null,
+      "title": "Why do deep convolutional networks generalize so poorly to small image transformations? Journal of Machine Learning Research, 20(184):1–25, 2019",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Aharon Azulay and Yair Weiss. Why do deep convolutional networks generalize so poorly to small image transformations? Journal of Machine Learning Research, 20(184):1–25, 2019. Gregory W Benton, Marc Finzi, Pavel Izmailov, and Andrew Gordon Wilson. Learning invariances in neural networks from training data. In Advances in neural information processing systems, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2162931300",
+      "title": "A Theoretical Analysis of Feature Pooling in Visual Recognition",
+      "doi": "10.48550/arXiv.2011.14214",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Y-Lan Boureau, Jean Ponce, and Yann LeCun. A theoretical analysis of feature pooling in visual recognition. In Proceedings of the 27th international conference on machine learning (ICML-10), pp. 111–118, 2010. Anadi Chaman and Ivan Dokmani´c. Truly shift-invariant convolutional neural networks. arXiv preprint arXiv:2011.14214, 2020. 9 Under review as a conference paper at ICLR 2024 Anadi Chaman and Ivan Dokmani´c. Truly shift-equivariant convolutional neural networks with adaptive polyphase upsampling. arXiv preprint arXiv:2105.04040, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4292664320",
+      "title": "High Speed Simulation and Freeform Optimization of Nanophotonic Devices with Physics-Augmented Deep Learning",
+      "doi": "10.1021/acsphotonics.2c00876",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mingkun Chen, Robert Lupoiu, Chenkai Mao, Der-Han Huang, Jiaqi Jiang, Philippe Lalanne, and Jonathan A Fan. High speed simulation and freeform optimization of nanophotonic devices with physics-augmented deep learning. ACS Photonics, 9(9):3110–3123, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2461725797",
+      "title": "RIFD-CNN: Rotation-Invariant and Fisher Discriminative Convolutional Neural Networks for Object Detection",
+      "doi": "10.1109/cvpr.2016.315",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Gong Cheng, Peicheng Zhou, and Junwei Han. Rifd-cnn: Rotation-invariant and fisher discriminative convolutional neural networks for object detection. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 2884–2893, 2016. Taco Cohen and Max Welling. Group equivariant convolutional networks. In International conference on machine learning, pp. 2990–2999. PMLR, 2016."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2108598243",
+      "title": "ImageNet: A large-scale hierarchical image database",
+      "doi": "10.1109/cvpr.2009.5206848",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical image database. In 2009 IEEE conference on computer vision and pattern recognition, pp. 248–255. Ieee, 2009."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2259303769",
+      "title": "Exploiting Cyclic Symmetry in Convolutional Neural Networks",
+      "doi": "10.48550/arxiv.1602.02660",
+      "status": "resolved",
+      "filename": "dieleman_2016_exploiting_cyclic_symmetry_in_convolutional_neural_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1602.02660",
+      "raw": "Sander Dieleman, Jeffrey De Fauw, and Koray Kavukcuoglu. Exploiting cyclic symmetry in convolutional neural networks. In International conference on machine learning, pp. 1889–1898. PMLR, 2016."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2945033152",
+      "title": "Exploring the Landscape of Spatial Robustness",
+      "doi": "10.48550/arxiv.1712.02779",
+      "status": "resolved",
+      "filename": "engstrom_2017_exploring_the_landscape_of_spatial_robustness.pdf",
+      "oa_url": "https://arxiv.org/pdf/1712.02779",
+      "raw": "Logan Engstrom, Brandon Tran, Dimitris Tsipras, Ludwig Schmidt, and Aleksander Madry. Exploring the landscape of spatial robustness. In International Conference on Machine Learning, pp. 1802–1811. PMLR, 2019. Joan Bruna Estrach, Arthur Szlam, and Yann LeCun. Signal recovery from pooling representations. In International conference on machine learning, pp. 307–315. PMLR, 2014."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2037227137",
+      "title": "The Pascal Visual Object Classes Challenge: A Retrospective",
+      "doi": "10.1007/s11263-014-0733-5",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://www.research.ed.ac.uk/en/publications/bb32678e-cd9b-4bc2-96dd-558806cda288",
+      "raw": "Mark Everingham, SM Ali Eslami, Luc Van Gool, Christopher KI Williams, John Winn, and Andrew Zisserman. The pascal visual object classes challenge: A retrospective. International journal of computer vision, 111:98–136, 2015."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4284896032",
+      "title": "Generalization to translation shifts: a study in architectures and augmentations",
+      "doi": "10.48550/arxiv.2207.02349",
+      "status": "resolved",
+      "filename": "gunasekar_2022_generalization_to_translation_shifts_a_study_in_architectures_and.pdf",
+      "oa_url": "https://arxiv.org/pdf/2207.02349",
+      "raw": "Ian Goodfellow, Yoshua Bengio, Aaron Courville, and Yoshua Bengio. Deep learning, volume 1. MIT press Cambridge, 2016. Suriya Gunasekar. Generalization to translation shifts: a study in architectures and augmentations. arXiv preprint arXiv:2207.02349, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2194775991",
+      "title": "Deep Residual Learning for Image Recognition",
+      "doi": "10.1109/cvpr.2016.90",
+      "status": "download_failed",
+      "filename": null,
+      "oa_url": "https://repositorio.unal.edu.co/handle/unal/81443",
+      "raw": "Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 770–778, 2016."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2963446712",
+      "title": "Densely Connected Convolutional Networks",
+      "doi": "10.1109/cvpr.2017.243",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Gao Huang, Zhuang Liu, Laurens Van Der Maaten, and Kilian Q Weinberger. Densely connected convolutional networks. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 4700–4708, 2017."
+    },
+    {
+      "openalex_id": null,
+      "title": "Learning multiple layers of features from tiny images. 2009",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Alex Krizhevsky, Geoffrey Hinton, et al. Learning multiple layers of features from tiny images. 2009."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2220894487",
+      "title": "Generalizing Pooling Functions in Convolutional Neural Networks: Mixed, Gated, and Tree",
+      "doi": "10.48550/arxiv.1509.08985",
+      "status": "resolved",
+      "filename": "lee_2015_generalizing_pooling_functions_in_convolutional_neural_networks_mixed_g.pdf",
+      "oa_url": "https://arxiv.org/pdf/1509.08985",
+      "raw": "Chen-Yu Lee, Patrick W Gallagher, and Zhuowen Tu. Generalizing pooling functions in convolutional neural networks: Mixed, gated, and tree. In Artificial intelligence and statistics, pp. 464–472. PMLR, 2016."
+    },
+    {
+      "openalex_id": "https://openalex.org/W4312443924",
+      "title": "A ConvNet for the 2020s",
+      "doi": "10.1109/cvpr52688.2022.01167",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Zhuang Liu, Hanzi Mao, Chao-Yuan Wu, Christoph Feichtenhofer, Trevor Darrell, and Saining Xie. A convnet for the 2020s. In Proceedings of the IEEE/CVF Conference on Computer Vision and"
+    },
+    {
+      "openalex_id": null,
+      "title": "Pattern Recognition, pp. 11976–11986, 2022. Marco Manfredi and Yu Wang. Shift equivariance in object detection. In European Conference on",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Pattern Recognition, pp. 11976–11986, 2022. Marco Manfredi and Yu Wang. Shift equivariance in object detection. In European Conference on"
+    },
+    {
+      "openalex_id": null,
+      "title": "Computer Vision, pp. 32–45. Springer, 2020",
+      "doi": null,
+      "status": "no_openalex_match",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Computer Vision, pp. 32–45. Springer, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2887520328",
+      "title": "Scale equivariance in CNNs with vector fields",
+      "doi": "10.48550/arxiv.1807.11783",
+      "status": "resolved",
+      "filename": "marcos_2018_scale_equivariance_in_cnns_with_vector_fields.pdf",
+      "oa_url": "https://arxiv.org/pdf/1807.11783",
+      "raw": "Diego Marcos, Benjamin Kellenberger, Sylvain Lobry, and Devis Tuia. Scale equivariance in cnns with vector fields. arXiv preprint arXiv:1807.11783, 2018. 10 Under review as a conference paper at ICLR 2024"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4306822349",
+      "title": "Learnable Polyphase Sampling for Shift Invariant and Equivariant Convolutional Networks",
+      "doi": "10.48550/arxiv.2210.08001",
+      "status": "resolved",
+      "filename": "rojas_gómez_2022_learnable_polyphase_sampling_for_shift_invariant_and_equivarian.pdf",
+      "oa_url": "https://arxiv.org/pdf/2210.08001",
+      "raw": "Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, et al. Pytorch: An imperative style, highperformance deep learning library. Advances in neural information processing systems, 32, 2019. Renan A Rojas-Gomez, Teck-Yian Lim, Alexander G Schwing, Minh N Do, and Raymond A Yeh. Learnable polyphase sampling for shift invariant and equivariant convolutional networks. arXiv preprint arXiv:2210.08001, 2022."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3004988234",
+      "title": "Attentive Group Equivariant Convolutional Networks",
+      "doi": "10.48550/arxiv.2002.03830",
+      "status": "resolved",
+      "filename": "romero_2020_attentive_group_equivariant_convolutional_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/2002.03830",
+      "raw": "David Romero, Erik Bekkers, Jakub Tomczak, and Mark Hoogendoorn. Attentive group equivariant convolutional networks. In International Conference on Machine Learning, pp. 8188–8199. PMLR, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2963163009",
+      "title": "MobileNetV2: Inverted Residuals and Linear Bottlenecks",
+      "doi": "10.1109/cvpr.2018.00474",
+      "status": "no_oa_pdf",
+      "filename": null,
+      "oa_url": null,
+      "raw": "Mark Sandler, Andrew Howard, Menglong Zhu, Andrey Zhmoginov, and Liang-Chieh Chen. Mobilenetv2: Inverted residuals and linear bottlenecks. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 4510–4520, 2018. Eero P Simoncelli, William T Freeman, Edward H Adelson, and David J Heeger. Shiftable multiscale transforms. IEEE transactions on Information Theory, 38(2):587–607, 1992."
+    },
+    {
+      "openalex_id": "https://openalex.org/W2982238751",
+      "title": "Scale-Equivariant Steerable Networks",
+      "doi": "10.48550/arxiv.1910.11093",
+      "status": "resolved",
+      "filename": "sosnovik_2019_scale_equivariant_steerable_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1910.11093",
+      "raw": "Ivan Sosnovik, Michał Szmaja, and Arnold Smeulders. Scale-equivariant steerable networks. arXiv preprint arXiv:1910.11093, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3119356360",
+      "title": "Refining activation downsampling with SoftPool",
+      "doi": "10.1109/iccv48922.2021.01019",
+      "status": "resolved",
+      "filename": "stergiou_2021_refining_activation_downsampling_with_softpool.pdf",
+      "oa_url": "https://arxiv.org/pdf/2101.00440",
+      "raw": "Alexandros Stergiou, Ronald Poppe, and Grigorios Kalliatakis. Refining activation downsampling with softpool. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 10357–10366, 2021. VainF. Deeplabv3plus-pytorch. https://github.com/VainF/ DeepLabV3Plus-Pytorch, 2020."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3001808426",
+      "title": "PDE-Based Group Equivariant Convolutional Neural Networks",
+      "doi": "10.1007/s10851-022-01114-x",
+      "status": "resolved",
+      "filename": "smets_2022_pde_based_group_equivariant_convolutional_neural_networks.pdf",
+      "oa_url": "https://link.springer.com/content/pdf/10.1007/s10851-022-01114-x.pdf",
+      "raw": "Jin Xu, Hyunjik Kim, Thomas Rainforth, and Yee Teh. Group equivariant subsampling. Advances in Neural Information Processing Systems, 34:5934–5946, 2021."
+    },
+    {
+      "openalex_id": "https://openalex.org/W1800922288",
+      "title": "Scale-Invariant Convolutional Neural Networks",
+      "doi": "10.48550/arxiv.1411.6369",
+      "status": "resolved",
+      "filename": "xu_2014_scale_invariant_convolutional_neural_networks.pdf",
+      "oa_url": "https://arxiv.org/pdf/1411.6369",
+      "raw": "Yichong Xu, Tianjun Xiao, Jiaxing Zhang, Kuiyuan Yang, and Zheng Zhang. Scale-invariant convolutional neural networks. arXiv preprint arXiv:1411.6369, 2014. Richard Zhang. Making convolutional networks shift-invariant again. In International Conference on Machine Learning, pp. 7324–7334. PMLR, 2019."
+    },
+    {
+      "openalex_id": "https://openalex.org/W3080628076",
+      "title": "Delving Deeper into Anti-aliasing in ConvNets",
+      "doi": "10.48550/arxiv.2008.09604",
+      "status": "resolved",
+      "filename": "zou_2020_delving_deeper_into_anti_aliasing_in_convnets.pdf",
+      "oa_url": "https://arxiv.org/pdf/2008.09604",
+      "raw": "Xueyan Zou, Fanyi Xiao, Zhiding Yu, and Yong Jae Lee. Delving deeper into anti-aliasing in convnets. arXiv preprint arXiv:2008.09604, 2020. 11"
+    }
+  ]
+}

@@ -286,6 +286,22 @@ class TestReviewerPanelNode:
         assert "empirical" in ctx
         assert "3500" in ctx
 
+    @pytest.mark.unit
+    def test_methodology_reviewer_includes_transferable_model_audit(self):
+        from app.workflows.draft_analysis.nodes.reviewer_panel import REVIEWER_PROMPTS, build_reviewer_context
+        state = {
+            "draft_id": "d1", "project_id": "p1", "user_id": "u1",
+            "draft_content": "Methods. We train a model on simulated data.",
+            "paper_type": "empirical",
+            "structure": {"sections": [{"type": "methods"}], "word_count": 1200},
+            "manuscript_profile": {},
+        }
+
+        assert "chosen modeling formalism" in REVIEWER_PROMPTS["methodology"]
+        ctx = build_reviewer_context(state, "methodology")
+        assert "TRANSFERABLE MODEL/METHOD AUDIT" in ctx
+        assert "target variables" in ctx
+
 
 # ── Meta-Reviewer Node ────────────────────────────────────────────────────────
 
@@ -545,16 +561,17 @@ class TestCitationJudgeNode:
         }
         result = asyncio.run(citation_judge_node(state))
 
-        # Failure must be non-fatal, but unverified suggestions fail closed.
+        # Failure must be non-fatal; suggested_citations fail-closed, external_sources fail-open.
         assert "Failed" in result["current_step"]
         assert "error" in result["citation_judge_output"]
         assert result["citation_judge_output"]["overall_citation_quality"] == "low"
         assert result["citation_judge_output"]["fail_closed"] is True
-        assert result["external_sources"] == []
+        # external_sources are pre-filtered upstream, so kept on judge failure
+        assert result["external_sources"] == [{"title": "External B"}]
         assert result["claims_with_citations"][0]["suggested_citations"] == []
 
     def test_citation_judge_drops_items_when_no_verdicts_returned(self):
-        """If judge omits verdicts, default is fail-closed for display quality."""
+        """suggested_citations fail-closed on empty verdicts; external_sources fail-open."""
         from app.workflows.draft_analysis.nodes.citation_judge import _apply_verdicts
         from app.workflows.draft_analysis.schemas import CitationJudgeOutput
 
@@ -570,7 +587,8 @@ class TestCitationJudgeNode:
         }
         filtered_cwc, filtered_ext = _apply_verdicts(state, empty_output, [], [])
         assert filtered_cwc[0]["suggested_citations"] == []
-        assert filtered_ext == []
+        # external_sources: fail-open (pre-filtered upstream, only drop on explicit reject)
+        assert filtered_ext == [{"title": "External Y"}]
 
 
 # ── Reviewer Judge Node ───────────────────────────────────────────────────────

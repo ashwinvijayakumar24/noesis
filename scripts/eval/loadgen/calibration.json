@@ -1,0 +1,36 @@
+{
+  "source": "loadgen real-LLM calibration run 97d40110c264, 2026-07-31, paper 10eQ4Cfh8p, 3 graph runs, no corpus",
+  "runs": 3,
+  "nodes": {
+    "extract_claims": {
+      "mean": 12.277,
+      "cv": 0.1775,
+      "n": 3
+    },
+    "structural_checks": {
+      "mean": 10.832,
+      "cv": 0.1395,
+      "n": 3
+    },
+    "editor_pass_node": {
+      "mean": 8.74,
+      "cv": 0.146,
+      "n": 3
+    },
+    "reviewer_panel_node": {
+      "mean": 17.051,
+      "cv": 0.0371,
+      "n": 9
+    },
+    "reviewer_judge_node": {
+      "mean": 3.042,
+      "cv": 0.1989,
+      "n": 3
+    },
+    "meta_reviewer_node": {
+      "mean": 11.719,
+      "cv": 0.0292,
+      "n": 3
+    }
+  }
+}

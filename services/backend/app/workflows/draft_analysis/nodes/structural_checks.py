@@ -16,6 +16,31 @@ from app.core.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+def _is_parser_artifact_check(check: dict, state: DraftAnalysisState) -> bool:
+    text = " ".join(
+        str(check.get(key) or "")
+        for key in ("check_type", "specific_issue", "feedback_text", "section_reference")
+    ).lower()
+    structure = state.get("structure") or {}
+    parser_quality = state.get("parser_quality") or {}
+    flags = set(parser_quality.get("parser_quality_flags") or [])
+
+    if "abstract" in text and structure.get("has_abstract"):
+        return True
+    if "method" in text and structure.get("has_methods") and re_search(text, r"\b(missing|absent|truncated|abbreviated)\b"):
+        return True
+    if re_search(text, r"\b(repeated headings?|spacing inconsistenc|cd34\s*\+|gfp\s*\+|mcherry\s*\+)\b"):
+        return bool(flags or structure.get("document_metadata", {}).get("grobid_extracted"))
+    if "limitations" in text and ("dedicated" in text or "clearly labeled" in text):
+        return True
+    return False
+
+
+def re_search(text: str, pattern: str) -> bool:
+    import re
+    return bool(re.search(pattern, text, flags=re.IGNORECASE))
+
+
 async def structural_checks_node(state: DraftAnalysisState) -> DraftAnalysisState:
     """
     Run structural checks on the draft and produce structural feedback items.
@@ -48,6 +73,8 @@ async def structural_checks_node(state: DraftAnalysisState) -> DraftAnalysisStat
         # Convert raw checks to Feedback-compatible dicts
         structural_items = []
         for check in checks:
+            if _is_parser_artifact_check(check, state):
+                continue
             structural_items.append({
                 "feedback_type": "structural",
                 "feedback_text": check.get("feedback_text", ""),

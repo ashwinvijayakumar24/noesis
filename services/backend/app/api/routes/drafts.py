@@ -15,6 +15,7 @@ from app.services.draft_processing import ingest_draft, validate_file_format
 from app.services.draft_export import export_draft_analysis_as_pdf
 from app.services.draft_errors import DraftProcessingError
 from app.services.draft_anchor_qa import locate_text_snippet
+from app.services.draft_analysis_runs import active_run_filter, assert_active_run_rows
 from app.core.security_middleware import SecureAuthValidator, limiter
 from app.core.privacy import safe_exception
 from typing import Any, Optional
@@ -42,6 +43,8 @@ VALID_PAPER_TYPES = {
     "preprint",
 }
 VALID_CITATION_STYLES = {
+    "auto",
+    "acs",
     "apa",
     "mla",
     "chicago",
@@ -53,6 +56,15 @@ VALID_CITATION_STYLES = {
 
 def _normalize_reviewer_persona(value: Optional[str]) -> str:
     return value if value in {"reviewer_1", "reviewer_2"} else "reviewer_2"
+
+
+def _active_analysis_run_id(draft: dict[str, Any]) -> str | None:
+    return draft.get("active_analysis_run_id")
+
+
+def _query_bool(value: Any, default: bool = False) -> bool:
+    """Normalize FastAPI Query defaults for direct unit-test calls."""
+    return value if isinstance(value, bool) else default
 
 
 def _get_revision_metadata(draft_id: str) -> dict[str, Any]:
@@ -110,7 +122,7 @@ def _get_revision_metadata(draft_id: str) -> dict[str, Any]:
     return metadata
 
 
-def _fetch_revision_tasks(draft_id: str, status: str | None = None) -> list[dict[str, Any]] | None:
+def _fetch_revision_tasks(draft_id: str, status: str | None = None, active_run_id: str | None = None) -> list[dict[str, Any]] | None:
     """
     Return durable canonical revision tasks when migration 023 is present.
 
@@ -119,12 +131,23 @@ def _fetch_revision_tasks(draft_id: str, status: str | None = None) -> list[dict
     the migration.
     """
     try:
-        query = supabase.table("draft_revision_tasks").select("*").eq("draft_id", draft_id)
+        query = active_run_filter(
+            supabase.table("draft_revision_tasks").select("*").eq("draft_id", draft_id),
+            active_run_id,
+        )
         if status:
             status_filter = f"status.eq.{status},status.is.null" if status == "new" else f"status.eq.{status}"
             query = query.or_(status_filter)
         result = query.execute()
-        return result.data or []
+        rows = result.data or []
+        assert_active_run_rows(
+            table="draft_revision_tasks",
+            draft_id=draft_id,
+            active_run_id=active_run_id,
+            rows=rows,
+            require_active_run=bool(active_run_id),
+        )
+        return rows
     except Exception as exc:
         logger.warning(f"Durable revision task query unavailable for draft {draft_id}: {exc}")
         return None
@@ -149,7 +172,7 @@ def _apply_feedback_carryover_metadata(feedback: list[dict[str, Any]], revision_
 
 def _validate_upload_context(paper_type: str, citation_style: str) -> tuple[str, str]:
     normalized_paper_type = (paper_type or "journal_article").strip().lower()
-    normalized_citation_style = (citation_style or "apa").strip().lower()
+    normalized_citation_style = (citation_style or "auto").strip().lower()
 
     if normalized_paper_type not in VALID_PAPER_TYPES:
         raise HTTPException(
@@ -167,13 +190,21 @@ def _validate_upload_context(paper_type: str, citation_style: str) -> tuple[str,
 
 
 def _load_draft_anchor_context(draft_id: str) -> tuple[str, list[dict[str, Any]]]:
-    analysis_response = (
-        supabase.table("draft_analysis")
-        .select("structure")
-        .eq("draft_id", draft_id)
+    draft_res = (
+        supabase.table("drafts")
+        .select("active_analysis_run_id")
+        .eq("id", draft_id)
         .limit(1)
         .execute()
     )
+    active_run_id = _active_analysis_run_id(draft_res.data[0]) if draft_res.data else None
+    analysis_response = active_run_filter(
+        supabase.table("draft_analysis")
+        .select("structure")
+        .eq("draft_id", draft_id)
+        .limit(1),
+        active_run_id,
+    ).execute()
     if not analysis_response.data:
         return "", []
 
@@ -377,6 +408,87 @@ def get_current_user(authorization: str = Header(None)):
         )
 
 
+# The single client-visible refusal for a project the caller may not use.
+# 404 rather than 403, deliberately: 403 confirms the project exists, which
+# turns every refusal into a probe for valid project ids. 404 keeps "not yours"
+# and "no such project" indistinguishable, and it is already the convention
+# elsewhere in this file (list_project_drafts answers a foreign project the
+# same way), so no client learns a new status code from this change.
+PROJECT_ACCESS_DENIAL = "Project not found"
+
+
+def _project_owner_id(project_id: str) -> Optional[str]:
+    """Look up the recorded owner of a project. The lookup, not a claim.
+
+    Returns ``None`` for an unknown project, a project with no recorded owner,
+    and a failed lookup -- all three deny, because none of them established
+    that the caller owns anything.
+    """
+    if not project_id:
+        return None
+    try:
+        result = supabase.table("projects")\
+            .select("user_id")\
+            .eq("id", project_id)\
+            .limit(1)\
+            .execute()
+    except Exception as e:
+        logger.warning("project ownership lookup failed for %s: %s", project_id, safe_exception(e))
+        return None
+
+    rows = getattr(result, "data", None) or []
+    if not rows:
+        return None
+    return rows[0].get("user_id") or None
+
+
+def authorize_project_write(actor_id: Optional[str], project_id: str) -> tuple[bool, str]:
+    """Decide whether ``actor_id`` may file a draft into ``project_id``.
+
+    The project id arrives in a request body or form field, which makes it a
+    *claim*: "put this in project P" is not evidence that P is the caller's.
+    So ownership is looked up. Deny is the default -- unknown actor, unknown
+    project, ownerless project and a failed lookup all fall through to a deny,
+    and the single allow is reached only by passing every check.
+
+    Returns ``(allowed, reason)``. The reason is for the log and never names
+    the owner; the client sees :data:`PROJECT_ACCESS_DENIAL`, which is one
+    string for every cause.
+    """
+    if not actor_id:
+        allowed, reason = False, "unknown actor: no authenticated subject on the request"
+    elif not project_id:
+        allowed, reason = False, "unknown resource: no project id on the request"
+    else:
+        owner_id = _project_owner_id(project_id)
+        if owner_id is None:
+            allowed, reason = False, "unknown resource: no such project, or no recorded owner"
+        elif owner_id != actor_id:
+            allowed, reason = False, (
+                "actor is not the recorded owner; ownership is looked up, "
+                "not taken from the request"
+            )
+        else:
+            allowed, reason = True, "actor is the recorded owner"
+
+    logger.info(
+        "project-write authz verdict=%s action=draft.create actor=%s resource=%s :: %s",
+        "allow" if allowed else "deny",
+        actor_id,
+        project_id,
+        reason,
+    )
+    return allowed, reason
+
+
+def assert_project_writable(actor_id: Optional[str], project_id: str) -> None:
+    """Authorize or raise. Used at the call site of the write, so there is no
+    path where a caller forgets to check the boolean and inserts anyway."""
+    allowed, _reason = authorize_project_write(actor_id, project_id)
+    if not allowed:
+        raise HTTPException(status_code=404, detail=PROJECT_ACCESS_DENIAL)
+
+
 class ExtensionAnalyzeRequest(BaseModel):
     content: str
     title: Optional[str] = "Overleaf Document"
@@ -400,6 +512,11 @@ async def analyze_draft_from_extension(
 
     if not content or len(content) < 50:
         raise HTTPException(status_code=400, detail="Document content too short")
+
+    # A project_id in the body is the caller's claim, not proof. Check it
+    # before anything is written; an unowned project must not receive a draft.
+    if project_id:
+        assert_project_writable(user_id, project_id)
 
     # If no project_id provided, use or create a default project
     if not project_id:
@@ -435,7 +552,7 @@ async def analyze_draft_from_extension(
         "file_url": file_url,
         "file_type": "txt",
         "paper_type": "journal_article",
-        "citation_style": "apa",
+        "citation_style": "auto",
         "status": "processing",
         "created_at": datetime.datetime.utcnow().isoformat(),
         "updated_at": datetime.datetime.utcnow().isoformat(),
@@ -458,7 +575,7 @@ async def upload_draft(
     project_id: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
     paper_type: str = Form(default="journal_article"),
-    citation_style: str = Form(default="apa"),
+    citation_style: str = Form(default="auto"),
     user_id: str = Depends(get_current_user)
 ):
     """
@@ -488,6 +605,12 @@ async def upload_draft(
 
     try:
         paper_type, citation_style = _validate_upload_context(paper_type, citation_style)
+
+        # The project_id form field is the caller's claim. Check it before the
+        # file is read or written to storage, so a refused upload leaves
+        # nothing behind.
+        if project_id:
+            assert_project_writable(user_id, project_id)
 
         # Read file content
         file_content = await file.read()
@@ -573,9 +696,13 @@ async def upload_draft(
         # Determine version number (increment if draft with same title exists)
         version = 1
         if project_id and title:
-            # Check for existing drafts with same title in project
+            # Check for existing drafts with same title in project. Scoped to
+            # the caller: without the user_id filter this reads other users'
+            # rows, so a guessed project id plus a guessed title answers
+            # "does this draft exist, and how many versions has it had".
             existing_drafts = supabase.table("drafts").select("version")\
                 .eq("project_id", project_id)\
+                .eq("user_id", user_id)\
                 .eq("title", title or file.filename)\
                 .order("version", desc=True)\
                 .limit(1)\
@@ -970,56 +1097,22 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
                 print(f"[DRAFT-ANALYZE-BG-LG] Detail: {safe_exception(ingest_error)}")
             raise
 
-        # Get the extracted content
-        # The ingest_draft function should have stored the full_text in draft_chunks or metadata
-        # For now, let's re-extract the text directly
-        print(f"[DRAFT-ANALYZE-BG-LG] ========== STEP 2: EXTRACTING TEXT FOR LANGGRAPH ==========")
-
-        # Extract storage path from file_url
-        storage_path = None
-        if file_url and "/drafts/" in file_url:
-            path_parts = file_url.split("/drafts/")
-            if len(path_parts) >= 2:
-                storage_path = path_parts[1]
-
-        if not storage_path:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ ERROR: Could not extract storage path from file_url")
-            raise ValueError("Could not extract storage path from file_url")
-
-        # Download file bytes
-        print(f"[DRAFT-ANALYZE-BG-LG] Downloading file from storage...")
-        try:
-            file_bytes = supabase.storage.from_("drafts").download(storage_path)
-            if not file_bytes:
-                raise ValueError("Downloaded file is empty")
-            print(f"[DRAFT-ANALYZE-BG-LG] ✓ Downloaded {len(file_bytes)} bytes")
-        except Exception as download_error:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ DOWNLOAD FAILED: {type(download_error).__name__}")
-            raise ValueError("Failed to download draft file")
-
-        # Extract text based on file type
-        file_type = draft.get("file_type", "").lower()
-        print(f"[DRAFT-ANALYZE-BG-LG] Extracting text from {file_type} file...")
-        try:
-            if file_type == "pdf" or storage_path.endswith(".pdf"):
-                from app.services.rag_ingest import extract_text_from_pdf_fallback
-                draft_content = extract_text_from_pdf_fallback(file_bytes)
-            elif file_type in ["docx", "doc"] or storage_path.endswith((".docx", ".doc")):
-                import docx
-                import io
-                doc = docx.Document(io.BytesIO(file_bytes))
-                draft_content = "\n\n".join([paragraph.text for paragraph in doc.paragraphs])
-            elif file_type == "txt" or storage_path.endswith(".txt"):
-                draft_content = file_bytes.decode("utf-8")
-            else:
-                raise ValueError(f"Unsupported file type: {file_type}")
-
-            print(f"[DRAFT-ANALYZE-BG-LG] ✓ Extracted {len(draft_content)} characters of text")
-        except Exception as extract_error:
-            print(f"[DRAFT-ANALYZE-BG-LG] ✗ TEXT EXTRACTION FAILED: {type(extract_error).__name__}")
-            if _DEV:
-                print(f"[DRAFT-ANALYZE-BG-LG] Detail: {safe_exception(extract_error)}")
-            raise
+        # Use the parser output from ingest_draft. Re-extracting PDFs here with
+        # PyMuPDF loses GROBID's layout-aware structure and causes 2-column artifacts.
+        print(f"[DRAFT-ANALYZE-BG-LG] ========== STEP 2: USING INGESTED PARSER OUTPUT ==========")
+        draft_content = ingest_result.get("full_text") or ""
+        if not draft_content.strip():
+            raise ValueError("Ingest did not return extracted draft text")
+        initial_structure = ingest_result.get("structure") or {}
+        parser_quality = ingest_result.get("parser_quality") or {}
+        parse_artifact = ingest_result.get("parse_artifact") or {
+            "id": ingest_result.get("parse_artifact_id"),
+            "parser_quality": parser_quality,
+        }
+        print(
+            f"[DRAFT-ANALYZE-BG-LG] ✓ Using parser output "
+            f"chars={len(draft_content)} sections={len(initial_structure.get('sections', []))}"
+        )
 
         # Run the LangGraph workflow
         print(f"[DRAFT-ANALYZE-BG-LG] ========== STEP 3: RUNNING LANGGRAPH WORKFLOW ==========")
@@ -1029,7 +1122,10 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
                     draft_id=draft_id,
                     project_id=project_id,
                     user_id=user_id,
-                    draft_content=draft_content
+                    draft_content=draft_content,
+                    initial_structure=initial_structure,
+                    parse_artifact=parse_artifact,
+                    parser_quality=parser_quality,
                 )
             )
             print(f"[DRAFT-ANALYZE-BG-LG] ✓ LangGraph workflow completed successfully!")
@@ -1068,10 +1164,20 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
             # operation. In the future, we could track each sub-operation separately.
             try:
                 # Get analysis metadata to extract token usage if available
-                analysis_response = supabase.table("draft_analysis")\
-                    .select("analysis_metadata")\
-                    .eq("draft_id", draft_id)\
+                active_run_res = (
+                    supabase.table("drafts")
+                    .select("active_analysis_run_id")
+                    .eq("id", draft_id)
+                    .limit(1)
                     .execute()
+                )
+                active_run_id = _active_analysis_run_id(active_run_res.data[0]) if active_run_res.data else None
+                analysis_response = active_run_filter(
+                    supabase.table("draft_analysis")
+                    .select("analysis_metadata")
+                    .eq("draft_id", draft_id),
+                    active_run_id,
+                ).execute()
 
                 if analysis_response.data:
                     metadata = analysis_response.data[0].get("analysis_metadata", {})
@@ -1107,6 +1213,7 @@ def _run_draft_analysis_task(draft_id: str, project_id: str):
         # Status lifecycle is owned by the Celery task (draft_analysis.py).
         # It sets 'failed' only after all retries are exhausted, so we just log here.
         print(f"[DRAFT-ANALYZE-BG-LG] Re-raising to Celery retry handler (status managed there)")
+        raise
 
 
 @router.post("/{draft_id}/analyze")
@@ -1160,9 +1267,15 @@ async def analyze_draft(draft_id: str, user_id: str = Depends(get_current_user))
         draft = draft_response.data[0]
         print(f"[DRAFT-ANALYZE] Found draft record")
 
-        # Check if already analyzed
-        analysis_response = supabase.table("draft_analysis").select("*").eq("draft_id", draft_id).execute()
-        if analysis_response.data:
+        # Check if already analyzed. A draft_analysis row can exist after ingest
+        # even when the LangGraph analysis failed; only block reruns for drafts
+        # whose lifecycle status is actually analyzed.
+        active_run_id = _active_analysis_run_id(draft)
+        analysis_response = active_run_filter(
+            supabase.table("draft_analysis").select("*").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
+        if active_run_id and analysis_response.data and draft.get("status") == "analyzed":
             return {
                 "message": "Draft already analyzed",
                 "draft_id": draft_id,
@@ -1217,6 +1330,7 @@ def get_draft_analysis(
     Returns the analysis if available, or status if still processing.
     """
     print(f"[DRAFT-GET-ANALYSIS] Fetching analysis for draft_id={draft_id}")
+    debug = _query_bool(debug)
 
     try:
         # Fetch draft
@@ -1227,43 +1341,77 @@ def get_draft_analysis(
 
         draft = draft_response.data[0]
         status = draft.get("status", "uploaded")
+        active_run_id = _active_analysis_run_id(draft)
 
         # Fetch analysis if it exists
-        analysis_response = supabase.table("draft_analysis").select("*").eq("draft_id", draft_id).execute()
+        analysis_query = supabase.table("draft_analysis").select("*").eq("draft_id", draft_id)
+        analysis_response = active_run_filter(analysis_query, active_run_id).execute()
+
+        if status == "analyzed" and not active_run_id:
+            return {
+                "status": "reanalyze_required",
+                "draft_id": draft_id,
+                "draft_title": draft.get("title"),
+                "message": "This draft was analyzed before atomic analysis runs were enabled. Re-run analysis to view results."
+            }
 
         if status in ("analyzed", "failed") and analysis_response.data:
             analysis_data = analysis_response.data[0]
+            assert_active_run_rows(
+                table="draft_analysis",
+                draft_id=draft_id,
+                active_run_id=active_run_id,
+                rows=[analysis_data],
+                require_active_run=status == "analyzed",
+            )
             analysis_metadata = analysis_data.get("analysis_metadata") or {}
             analysis_payload = analysis_data.get("analysis") or {}
-            # Fetch reviewer panel outputs (Phase 3)
-            try:
-                panel_res = supabase.table("reviewer_panel_outputs").select("*").eq("draft_id", draft_id).execute()
-                reviewer_panel = panel_res.data or []
-            except Exception:
-                reviewer_panel = []
+            reviewer_panel = []
+            if debug:
+                try:
+                    panel_query = supabase.table("reviewer_panel_outputs").select("*").eq("draft_id", draft_id)
+                    panel_res = active_run_filter(panel_query, active_run_id).execute()
+                    reviewer_panel = panel_res.data or []
+                    assert_active_run_rows(
+                        table="reviewer_panel_outputs",
+                        draft_id=draft_id,
+                        active_run_id=active_run_id,
+                        rows=reviewer_panel,
+                        require_active_run=status == "analyzed",
+                    )
+                except Exception:
+                    reviewer_panel = []
 
             # Fetch meta review (Phase 3)
             try:
-                meta_res = supabase.table("meta_reviews").select("*").eq("draft_id", draft_id).limit(1).execute()
+                meta_query = supabase.table("meta_reviews").select("*").eq("draft_id", draft_id).limit(1)
+                meta_res = active_run_filter(meta_query, active_run_id).execute()
                 meta_review = meta_res.data[0] if meta_res.data else None
+                if meta_review:
+                    assert_active_run_rows(
+                        table="meta_reviews",
+                        draft_id=draft_id,
+                        active_run_id=active_run_id,
+                        rows=[meta_review],
+                        require_active_run=status == "analyzed",
+                    )
             except Exception:
                 meta_review = None
 
             revision_metadata = _get_revision_metadata(draft_id)
-            durable_revision_tasks = _fetch_revision_tasks(draft_id)
-            revision_tasks = (
-                durable_revision_tasks
-                if durable_revision_tasks is not None
-                else analysis_metadata.get("revision_tasks", [])
-            )
+            durable_revision_tasks = _fetch_revision_tasks(draft_id, active_run_id=active_run_id)
+            if active_run_id and durable_revision_tasks is None:
+                raise HTTPException(status_code=503, detail="Draft analysis tasks are temporarily unavailable")
+            revision_tasks = durable_revision_tasks if durable_revision_tasks is not None else []
 
             response = {
                 "status": status,
                 "draft_id": draft_id,
+                "active_analysis_run_id": active_run_id,
                 "draft_title": draft.get("title"),
                 "editing_feedback": analysis_payload.get("editing_feedback"),
                 "paper_type": draft.get("paper_type", "journal_article"),
-                "citation_style": draft.get("citation_style", "apa"),
+                "citation_style": draft.get("citation_style", "auto"),
                 "priority_actions": analysis_metadata.get("priority_actions", []),
                 # Enriched output fields
                 "readiness_score": analysis_metadata.get("readiness_score"),
@@ -1272,7 +1420,6 @@ def get_draft_analysis(
                 "action_items": analysis_metadata.get("action_items", []),
                 # Phase 3 peer review panel
                 "editor_decision": analysis_metadata.get("editor_decision"),
-                "reviewer_panel": reviewer_panel,
                 "meta_review": meta_review,
                 "manuscript_profile": analysis_metadata.get("manuscript_profile"),
                 "revision_tasks": revision_tasks,
@@ -1281,6 +1428,7 @@ def get_draft_analysis(
             if debug:
                 response.update({
                     "analysis": analysis_data,
+                    "reviewer_panel": reviewer_panel,
                     "citation_judge": analysis_metadata.get("citation_judge"),
                     "reviewer_judge": analysis_metadata.get("reviewer_judge"),
                     "diagnostic_findings": analysis_metadata.get("diagnostic_findings", []),
@@ -1326,12 +1474,14 @@ def get_draft_claims(draft_id: str, user_id: str = Depends(get_current_user)):
     print(f"[DRAFT-CLAIMS] Fetching claims for draft_id={draft_id}, user_id={user_id}")
 
     # Verify draft belongs to user
-    draft_response = supabase.table("drafts").select("id").eq("id", draft_id).eq("user_id", user_id).execute()
+    draft_response = supabase.table("drafts").select("id, active_analysis_run_id").eq("id", draft_id).eq("user_id", user_id).execute()
     if not draft_response.data:
         raise HTTPException(status_code=404, detail="Draft not found")
+    active_run_id = _active_analysis_run_id(draft_response.data[0])
 
     # Fetch claims
-    claims_response = supabase.table("draft_claims").select("*").eq("draft_id", draft_id).execute()
+    claims_query = supabase.table("draft_claims").select("*").eq("draft_id", draft_id)
+    claims_response = active_run_filter(claims_query, active_run_id).execute()
     print(f"[DRAFT-CLAIMS] Found {len(claims_response.data) if claims_response.data else 0} claims")
     claims = claims_response.data or []
 
@@ -1351,12 +1501,14 @@ def get_draft_coverage_gaps(draft_id: str, user_id: str = Depends(get_current_us
     Gap analysis is performed in a later task (Task 7: Coverage Gap Detection).
     """
     # Verify draft belongs to user
-    draft_response = supabase.table("drafts").select("id").eq("id", draft_id).eq("user_id", user_id).execute()
+    draft_response = supabase.table("drafts").select("id, active_analysis_run_id").eq("id", draft_id).eq("user_id", user_id).execute()
     if not draft_response.data:
         raise HTTPException(status_code=404, detail="Draft not found")
+    active_run_id = _active_analysis_run_id(draft_response.data[0])
 
     # Fetch coverage gaps
-    gaps_response = supabase.table("coverage_gaps").select("*").eq("draft_id", draft_id).execute()
+    gaps_query = supabase.table("coverage_gaps").select("*").eq("draft_id", draft_id)
+    gaps_response = active_run_filter(gaps_query, active_run_id).execute()
     gaps = _filter_feedback_diagnostics(gaps_response.data or [], "description")
 
     return {
@@ -1375,12 +1527,14 @@ def get_draft_feedback(draft_id: str, user_id: str = Depends(get_current_user)):
     Feedback generation is performed in a later task (Task 9: Reviewer Feedback Engine).
     """
     # Verify draft belongs to user
-    draft_response = supabase.table("drafts").select("id").eq("id", draft_id).eq("user_id", user_id).execute()
+    draft_response = supabase.table("drafts").select("id, active_analysis_run_id").eq("id", draft_id).eq("user_id", user_id).execute()
     if not draft_response.data:
         raise HTTPException(status_code=404, detail="Draft not found")
+    active_run_id = _active_analysis_run_id(draft_response.data[0])
 
     # Fetch reviewer feedback
-    feedback_response = supabase.table("reviewer_feedback").select("*").eq("draft_id", draft_id).execute()
+    feedback_query = supabase.table("reviewer_feedback").select("*").eq("draft_id", draft_id)
+    feedback_response = active_run_filter(feedback_query, active_run_id).execute()
     feedback = _filter_feedback_diagnostics(feedback_response.data or [], "feedback_text")
 
     return {
@@ -1402,38 +1556,40 @@ async def export_draft_analysis_pdf(
         PDF file containing claims, coverage gaps, reviewer feedback, and citation suggestions
     """
     try:
-        # Verify draft ownership
+        # Verify draft ownership. limit(1) (not single()) so a missing draft
+        # returns 404 instead of a 500 (single() raises on zero rows).
         draft = supabase.table("drafts")\
             .select("*")\
             .eq("id", draft_id)\
             .eq("user_id", user_id)\
-            .single()\
+            .limit(1)\
             .execute()
 
         if not draft.data:
             raise HTTPException(status_code=404, detail="Draft not found")
+        active_run_id = _active_analysis_run_id(draft.data[0])
 
         # Fetch all analysis data from multiple tables
-        claims = supabase.table("draft_claims")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        claims = active_run_filter(
+            supabase.table("draft_claims").select("*").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
-        gaps = supabase.table("coverage_gaps")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        gaps = active_run_filter(
+            supabase.table("coverage_gaps").select("*").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
-        feedback = supabase.table("reviewer_feedback")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        feedback = active_run_filter(
+            supabase.table("reviewer_feedback").select("*").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
         # Fetch citation suggestions with joined citation data
-        citation_suggestions = supabase.table("citation_suggestions")\
-            .select("*, citations(*)")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        citation_suggestions = active_run_filter(
+            supabase.table("citation_suggestions").select("*, citations(*)").eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
         # Combine all analysis data
         analysis_data = {
@@ -1444,7 +1600,7 @@ async def export_draft_analysis_pdf(
         }
 
         # Generate PDF
-        draft_title = draft.data.get("title", "Untitled")
+        draft_title = draft.data[0].get("title", "Untitled")
         pdf_bytes = export_draft_analysis_as_pdf(draft_id, draft_title, analysis_data)
 
         # Sanitize filename (remove special characters)
@@ -1505,13 +1661,14 @@ async def get_feedback_by_section(
     try:
         # Verify draft ownership
         draft_response = supabase.table("drafts")\
-            .select("id")\
+            .select("id, active_analysis_run_id")\
             .eq("id", draft_id)\
             .eq("user_id", user_id)\
             .execute()
 
         if not draft_response.data:
             raise HTTPException(status_code=404, detail="Draft not found")
+        active_run_id = _active_analysis_run_id(draft_response.data[0])
 
         # Validate section_type
         valid_sections = ['abstract', 'introduction', 'literature_review', 'methodology', 'results', 'discussion', 'conclusion', 'references']
@@ -1534,32 +1691,38 @@ async def get_feedback_by_section(
         status_filter = f"status.eq.{status},status.is.null" if status == "new" else f"status.eq.{status}"
 
         # Fetch claims for this section + status
-        claims_response = supabase.table("draft_claims")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .eq("section_type", section_type)\
-            .or_(status_filter)\
-            .eq("hidden", False)\
-            .order("importance_score", desc=True)\
-            .execute()
+        claims_response = active_run_filter(
+            supabase.table("draft_claims")
+            .select("*")
+            .eq("draft_id", draft_id)
+            .eq("section_type", section_type)
+            .or_(status_filter)
+            .eq("hidden", False)
+            .order("importance_score", desc=True),
+            active_run_id,
+        ).execute()
 
         # Fetch coverage gaps for this section + status
-        gaps_response = supabase.table("coverage_gaps")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .eq("section_type", section_type)\
-            .or_(status_filter)\
-            .order("priority", desc=False)\
-            .execute()
+        gaps_response = active_run_filter(
+            supabase.table("coverage_gaps")
+            .select("*")
+            .eq("draft_id", draft_id)
+            .eq("section_type", section_type)
+            .or_(status_filter)
+            .order("priority", desc=False),
+            active_run_id,
+        ).execute()
 
         # Fetch reviewer feedback for this section + status
-        feedback_response = supabase.table("reviewer_feedback")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .eq("section_type", section_type)\
-            .or_(status_filter)\
-            .order("priority", desc=False)\
-            .execute()
+        feedback_response = active_run_filter(
+            supabase.table("reviewer_feedback")
+            .select("*")
+            .eq("draft_id", draft_id)
+            .eq("section_type", section_type)
+            .or_(status_filter)
+            .order("priority", desc=False),
+            active_run_id,
+        ).execute()
 
         claims = claims_response.data or []
         gaps = _filter_feedback_diagnostics(gaps_response.data or [], "description")
@@ -1601,15 +1764,19 @@ async def get_all_feedback(
     - Gaps: all included (gaps are inherently actionable)
     """
     try:
+        actionable_only = _query_bool(actionable_only, default=True)
+        debug = _query_bool(debug)
+
         # Verify draft ownership
         draft_response = supabase.table("drafts")\
-            .select("id")\
+            .select("id, active_analysis_run_id")\
             .eq("id", draft_id)\
             .eq("user_id", user_id)\
             .execute()
 
         if not draft_response.data:
             raise HTTPException(status_code=404, detail="Draft not found")
+        active_run_id = _active_analysis_run_id(draft_response.data[0])
 
         # Validate status
         valid_statuses = ['new', 'saved', 'dismissed']
@@ -1623,34 +1790,61 @@ async def get_all_feedback(
         status_filter = f"status.eq.{status},status.is.null" if status == "new" else f"status.eq.{status}"
 
         # Fetch all claims, gaps, feedback in parallel-ish queries
-        claims_response = supabase.table("draft_claims")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .or_(status_filter)\
-            .eq("hidden", False)\
-            .order("importance_score", desc=True)\
-            .execute()
+        claims_response = active_run_filter(
+            supabase.table("draft_claims")
+            .select("*")
+            .eq("draft_id", draft_id)
+            .or_(status_filter)
+            .eq("hidden", False)
+            .order("importance_score", desc=True),
+            active_run_id,
+        ).execute()
 
-        gaps_response = supabase.table("coverage_gaps")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .or_(status_filter)\
-            .order("priority", desc=False)\
-            .execute()
+        gaps_response = active_run_filter(
+            supabase.table("coverage_gaps")
+            .select("*")
+            .eq("draft_id", draft_id)
+            .or_(status_filter)
+            .order("priority", desc=False),
+            active_run_id,
+        ).execute()
 
-        feedback_response = supabase.table("reviewer_feedback")\
-            .select("*")\
-            .eq("draft_id", draft_id)\
-            .or_(status_filter)\
-            .order("priority", desc=False)\
-            .execute()
+        feedback_response = active_run_filter(
+            supabase.table("reviewer_feedback")
+            .select("*")
+            .eq("draft_id", draft_id)
+            .or_(status_filter)
+            .order("priority", desc=False),
+            active_run_id,
+        ).execute()
 
         claims = claims_response.data or []
         gaps = _filter_feedback_diagnostics(gaps_response.data or [], "description")
         feedback = _filter_feedback_diagnostics(feedback_response.data or [], "feedback_text")
+        assert_active_run_rows(
+            table="draft_claims",
+            draft_id=draft_id,
+            active_run_id=active_run_id,
+            rows=claims,
+            require_active_run=bool(active_run_id),
+        )
+        assert_active_run_rows(
+            table="coverage_gaps",
+            draft_id=draft_id,
+            active_run_id=active_run_id,
+            rows=gaps,
+            require_active_run=bool(active_run_id),
+        )
+        assert_active_run_rows(
+            table="reviewer_feedback",
+            draft_id=draft_id,
+            active_run_id=active_run_id,
+            rows=feedback,
+            require_active_run=bool(active_run_id),
+        )
         for item in feedback:
             item["reviewer_persona"] = _normalize_reviewer_persona(item.get("reviewer_persona"))
-        durable_revision_tasks_all = _fetch_revision_tasks(draft_id)
+        durable_revision_tasks_all = _fetch_revision_tasks(draft_id, active_run_id=active_run_id)
         durable_revision_tasks = None
         canonical_tasks_available = bool(durable_revision_tasks_all)
         if durable_revision_tasks_all is not None:
@@ -1690,10 +1884,12 @@ async def get_all_feedback(
         critical_feedback = len([f for f in feedback if f.get("severity") in ("critical", "major")])
 
         # Fetch readiness_score and verdict from draft_analysis
-        analysis_response = supabase.table("draft_analysis")\
-            .select("analysis_metadata")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        analysis_response = active_run_filter(
+            supabase.table("draft_analysis")
+            .select("analysis_metadata")
+            .eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
         readiness_score = None
         verdict = None
@@ -1702,22 +1898,29 @@ async def get_all_feedback(
         diagnostic_findings = []
         revision_tasks = []
         if analysis_response.data:
+            assert_active_run_rows(
+                table="draft_analysis",
+                draft_id=draft_id,
+                active_run_id=active_run_id,
+                rows=analysis_response.data,
+                require_active_run=bool(active_run_id),
+            )
             metadata = analysis_response.data[0].get("analysis_metadata") or {}
             readiness_score = metadata.get("readiness_score")
             verdict = metadata.get("verdict")
             score_breakdown = metadata.get("score_breakdown", {})
             manuscript_profile = metadata.get("manuscript_profile")
             diagnostic_findings = metadata.get("diagnostic_findings", [])
-            revision_tasks = (
-                durable_revision_tasks
-                if durable_revision_tasks is not None
-                else metadata.get("revision_tasks", [])
-            )
+            if active_run_id and durable_revision_tasks is None:
+                raise HTTPException(status_code=503, detail="Draft revision tasks are temporarily unavailable")
+            revision_tasks = durable_revision_tasks if durable_revision_tasks is not None else []
 
         if durable_revision_tasks is None and status != "new":
             revision_tasks = []
 
         response = {
+            "draft_id": draft_id,
+            "active_analysis_run_id": active_run_id,
             "claims": claims,
             "gaps": gaps,
             "feedback": feedback,
@@ -1758,7 +1961,7 @@ async def find_papers_for_gap(
     """Search for relevant external papers for a specific coverage gap."""
     draft_res = (
         supabase.table("drafts")
-        .select("id, user_id, project_id")
+        .select("id, user_id, project_id, active_analysis_run_id")
         .eq("id", draft_id)
         .eq("user_id", user_id)
         .single()
@@ -1766,15 +1969,15 @@ async def find_papers_for_gap(
     )
     if not draft_res.data:
         raise HTTPException(status_code=404, detail="Draft not found")
+    active_run_id = _active_analysis_run_id(draft_res.data)
 
-    gap_res = (
+    gap_query = (
         supabase.table("coverage_gaps")
         .select("id, description, draft_id, suggested_papers")
         .eq("id", gap_id)
         .eq("draft_id", draft_id)
-        .single()
-        .execute()
     )
+    gap_res = active_run_filter(gap_query, active_run_id).single().execute()
     if not gap_res.data:
         raise HTTPException(status_code=404, detail="Gap not found")
 
@@ -1826,12 +2029,17 @@ async def find_papers_for_gap(
 
         annotated_papers.append({**paper, "recommendation_id": recommendation_id})
 
-    supabase.table("coverage_gaps").update(
+    update_query = supabase.table("coverage_gaps").update(
         {
             "suggested_papers": annotated_papers,
             "updated_at": datetime.datetime.utcnow().isoformat(),
         }
-    ).eq("id", gap_id).eq("draft_id", draft_id).execute()
+    ).eq("id", gap_id).eq("draft_id", draft_id)
+    if active_run_id:
+        update_query = update_query.eq("analysis_run_id", active_run_id).eq("is_published", True)
+    else:
+        update_query = update_query.eq("is_published", True)
+    update_query.execute()
 
     return {"gap_id": gap_id, "query": query, "papers": annotated_papers, "count": len(annotated_papers)}
 
@@ -1868,13 +2076,14 @@ async def update_feedback_status(
     try:
         # Verify draft ownership
         draft_response = supabase.table("drafts")\
-            .select("id")\
+            .select("id, active_analysis_run_id")\
             .eq("id", draft_id)\
             .eq("user_id", user_id)\
             .execute()
 
         if not draft_response.data:
             raise HTTPException(status_code=404, detail="Draft not found")
+        active_run_id = _active_analysis_run_id(draft_response.data[0])
 
         # Validate feedback_type
         valid_types = ['claim', 'gap', 'feedback', 'task']
@@ -1902,11 +2111,15 @@ async def update_feedback_status(
         table_name = table_mapping[feedback_type]
 
         # Update status
-        update_response = supabase.table(table_name)\
+        update_query = supabase.table(table_name)\
             .update({"status": status, "updated_at": datetime.datetime.utcnow().isoformat()})\
             .eq("id", feedback_id)\
-            .eq("draft_id", draft_id)\
-            .execute()
+            .eq("draft_id", draft_id)
+        if active_run_id:
+            update_query = update_query.eq("analysis_run_id", active_run_id).eq("is_published", True)
+        else:
+            update_query = update_query.eq("is_published", True)
+        update_response = update_query.execute()
 
         if not update_response.data:
             raise HTTPException(
@@ -1965,32 +2178,39 @@ async def get_section_summary(
     try:
         # Verify draft ownership (1 query)
         draft_response = supabase.table("drafts")\
-            .select("id")\
+            .select("id, active_analysis_run_id")\
             .eq("id", draft_id)\
             .eq("user_id", user_id)\
             .execute()
 
         if not draft_response.data:
             raise HTTPException(status_code=404, detail="Draft not found")
+        active_run_id = _active_analysis_run_id(draft_response.data[0])
 
         # Fetch all rows in 3 bulk queries instead of 72 individual queries
-        claims_res = supabase.table("draft_claims")\
-            .select("section_type, status")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        claims_res = active_run_filter(
+            supabase.table("draft_claims")
+            .select("section_type, status")
+            .eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
-        gaps_res = supabase.table("coverage_gaps")\
-            .select("section_type, status")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        gaps_res = active_run_filter(
+            supabase.table("coverage_gaps")
+            .select("section_type, status")
+            .eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
         # A2: Fetch feedback_type to exclude strengths from actionable badge count
-        feedback_res = supabase.table("reviewer_feedback")\
-            .select("section_type, status, feedback_type")\
-            .eq("draft_id", draft_id)\
-            .execute()
+        feedback_res = active_run_filter(
+            supabase.table("reviewer_feedback")
+            .select("section_type, status, feedback_type")
+            .eq("draft_id", draft_id),
+            active_run_id,
+        ).execute()
 
-        task_rows = _fetch_revision_tasks(draft_id) or []
+        task_rows = _fetch_revision_tasks(draft_id, active_run_id=active_run_id) or []
 
         # Aggregate in Python
         from collections import defaultdict
@@ -2166,24 +2386,125 @@ async def react_to_feedback(
     return {"success": True, "action": body.action, "feedback_id": feedback_id}
 
 
+# WebSocket close codes for the analysis stream.
+#   4001 -- unauthenticated: the token is missing, expired or rejected. The
+#           client should re-authenticate and reconnect.
+#   4003 -- authenticated but NOT authorized for this draft. Reconnecting with a
+#           fresh token will not help; the client must stop.
+# They are distinguishable on the wire because the deny happens *after*
+# ``accept()``: a close sent before the handshake completes is delivered as a
+# plain HTTP rejection with no application close code, so the two cases would
+# otherwise be indistinguishable to the browser. The 4001 path is left exactly
+# as it was, so "no code at all" reads as unauthenticated and 4003 as
+# unauthorized.
+WS_UNAUTHENTICATED = 4001
+WS_UNAUTHORIZED = 4003
+
+# The single client-visible denial. Every deny says this and nothing more: it
+# never names the owner, and it is identical whether the draft belongs to
+# someone else or does not exist, so a denial cannot be used to probe which
+# draft ids are real. The distinguishing detail lives only in the server log.
+DRAFT_STREAM_DENIAL = "not authorized for this draft"
+
+
+def _draft_owner_id(draft_id: str) -> Optional[str]:
+    """Look up the recorded owner of a draft. The lookup, not a claim.
+
+    Returns ``None`` for an unknown draft, a draft with no recorded owner, and
+    a failed lookup. All three deny -- a lookup that could not establish
+    ownership has not established ownership.
+    """
+    if not draft_id:
+        return None
+    try:
+        result = supabase.table("drafts")\
+            .select("user_id")\
+            .eq("id", draft_id)\
+            .limit(1)\
+            .execute()
+    except Exception as e:
+        logger.warning("draft ownership lookup failed for %s: %s", draft_id, safe_exception(e))
+        return None
+
+    rows = getattr(result, "data", None) or []
+    if not rows:
+        return None
+    return rows[0].get("user_id") or None
+
+
+def authorize_draft_stream(actor_id: Optional[str], draft_id: str) -> tuple[bool, str]:
+    """Decide whether ``actor_id`` may stream ``draft_id``, and say why.
+
+    Ownership is *looked up*, never taken from the request: a caller that
+    presents a token proves only that it is someone, not that it is the owner
+    of the draft it named. Deny is the default -- unknown actor, unknown draft
+    and ownerless draft all fall through to a deny, and the single allow is
+    reached only by passing every check, so a new failure mode fails closed.
+
+    Returns ``(allowed, reason)``. The reason is for the log; it never names
+    the owner, because telling an unauthorized caller who owns the draft
+    answers a question they had no right to ask. What goes to the client is
+    :data:`DRAFT_STREAM_DENIAL`, which is the same string for every deny.
+    """
+    if not actor_id:
+        allowed, reason = False, "unknown actor: no authenticated subject on the connection"
+    elif not draft_id:
+        allowed, reason = False, "unknown resource: no draft id on the connection"
+    else:
+        owner_id = _draft_owner_id(draft_id)
+        if owner_id is None:
+            allowed, reason = False, "unknown resource: no such draft, or no recorded owner"
+        elif owner_id != actor_id:
+            allowed, reason = False, (
+                "actor is not the recorded owner; ownership is looked up, "
+                "not taken from the request"
+            )
+        else:
+            allowed, reason = True, "actor is the recorded owner"
+
+    logger.info(
+        "draft-stream authz verdict=%s action=analysis.stream actor=%s resource=%s :: %s",
+        "allow" if allowed else "deny",
+        actor_id,
+        draft_id,
+        reason,
+    )
+    return allowed, reason
+
+
 @router.websocket("/{draft_id}/analysis-stream")
 async def draft_analysis_stream(
     draft_id: str,
     websocket: WebSocket,
     token: str = Query(...),
 ):
-    """Stream draft analysis progress via WebSocket."""
-    # Validate token via Supabase
+    """Stream draft analysis progress via WebSocket.
+
+    Two gates, and they are not the same gate. The token proves the caller is
+    *someone* (4001 on failure); the ownership lookup proves the caller is
+    someone entitled to *this draft* (4003 on failure). Without the second one
+    any logged-in user could stream any draft id they could name.
+    """
+    # Gate 1 -- authentication. Validate token via Supabase.
     try:
         user_response = supabase.auth.get_user(token)
         if not user_response.user:
-            await websocket.close(code=4001)
+            await websocket.close(code=WS_UNAUTHENTICATED)
             return
     except Exception:
-        await websocket.close(code=4001)
+        await websocket.close(code=WS_UNAUTHENTICATED)
         return
 
+    actor_id = getattr(user_response.user, "id", None)
+
+    # Gate 2 -- authorization. Accept first so the close code reaches the
+    # client, then deny before a single progress event is read or sent.
     await websocket.accept()
+
+    allowed, _reason = authorize_draft_stream(actor_id, draft_id)
+    if not allowed:
+        await websocket.close(code=WS_UNAUTHORIZED, reason=DRAFT_STREAM_DENIAL)
+        return
 
     r = aioredis.from_url(REDIS_URL)
 

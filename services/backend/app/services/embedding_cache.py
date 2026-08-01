@@ -109,60 +109,6 @@ def cache_embedding(
         pass
 
 
-def clear_embedding_cache():
-    """
-    Clear all cached embeddings
-
-    Use with caution - mainly for debugging
-    """
-    if not redis_client:
-        return
-
-    try:
-        # Find all embedding keys
-        keys = redis_client.keys("embedding:*")
-
-        if keys:
-            redis_client.delete(*keys)
-
-        return len(keys)
-
-    except Exception as e:
-        return 0
-
-
-def get_cache_stats() -> dict:
-    """
-    Get cache statistics
-
-    Returns:
-        Dictionary with cache stats
-    """
-    if not redis_client:
-        return {
-            "available": False,
-            "total_keys": 0,
-            "memory_used": 0
-        }
-
-    try:
-        info = redis_client.info("memory")
-        embedding_keys = len(redis_client.keys("embedding:*"))
-
-        return {
-            "available": True,
-            "total_embedding_keys": embedding_keys,
-            "memory_used_mb": round(info.get("used_memory", 0) / (1024 * 1024), 2),
-            "ttl_days": EMBEDDING_CACHE_TTL / (60 * 60 * 24)
-        }
-
-    except Exception as e:
-        return {
-            "available": False,
-            "error": str(e)
-        }
-
-
 # Decorator to automatically cache embeddings
 def cache_embeddings(func):
     """

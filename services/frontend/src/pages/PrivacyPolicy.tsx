@@ -253,8 +253,8 @@ export default function PrivacyPolicy() {
             <Section icon={ShieldCheckIcon} title="Contact and Updates">
               <p>
                 For privacy questions, deletion requests, or security concerns, contact{' '}
-                <a className="text-accent-primary transition-colors hover:text-accent-hover" href="mailto:avijayakumar41@gatech.edu">
-                  avijayakumar41@gatech.edu
+                <a className="text-accent-primary transition-colors hover:text-accent-hover" href="mailto:ashwin@noesis.is">
+                  ashwin@noesis.is
                 </a>
                 .
               </p>
