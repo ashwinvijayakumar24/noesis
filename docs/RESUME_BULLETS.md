@@ -42,10 +42,19 @@ option was cheap partly because it asserted quotes that were not in the paper.
 
 **3.** Diagnosed why orchestration underperformed rather than accepting the
 number: **29 of 30 workers exhausted their step budget mid-read**, funded at a
-median 5 steps against a median 9-page scope. Raising the pool moved producers
-**1/30 → 11/30 and findings 5 → 77** with the prompt byte-identical, and
-fabrication statistically unchanged (Fisher p = 1.0) — so the yield came from
-funding, not from pressure.
+median 5 steps against a median 9-page scope. Fixed it in two stages — raising
+the pool moved producers **1/30 → 11/30** with the prompt byte-identical, then
+making allocation **size-aware** (budget follows a scope's page count, not just
+its priority) took budget exhaustion **0.6222 → 0.1154** and halved cost per
+verified finding **$0.0145 → $0.0079** (n=9 orchestrations/arm).
+
+**3b.** Established the underlying scheduling result on two independent
+populations: **fund fewer workers adequately rather than all workers partially.**
+Adequately-funded workers produce findings at **0.8182 vs 0.4211** (n=60, Fisher
+**p = 0.0033**) and **0.7619 vs 0.2759** (n=71, **p = 0.000076**). Made the cost
+of that trade explicit — 19 concerns dropped as unaffordable and booked as
+uncovered — rather than leaving it as the silent version it replaced, where
+underfunded workers consumed a synthesis slot and returned nothing.
 
 **4.** Showed the agent's findings were **anti-correlated with where human
 reviewers found problems**: 88% of 170 mapped human review units fell on the

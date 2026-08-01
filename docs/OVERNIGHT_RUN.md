@@ -236,6 +236,62 @@ something a free check finds in four seconds."* Fixed, and a delivery check now
 runs before anything is bought. Pre-fix records stay in the append-only sink
 under their own corpus hash and must not be differenced against the fixed ones.
 
+### ✅ P3 — size-aware allocation, and a transferable scheduling result · `b7bbfe9` · $2.3925 of $4.00
+
+Behind `SIZE_AWARE_STEP_ALLOCATION`, **default off**, so H2H2's in-flight
+measurement was untouched.
+
+**Unit: pages at the reader's own page size.** `section_pages` is computed with
+the *identical* expression `get_section` uses for `total_pages`, so the planner's
+number is literally the count of `get_section` calls a worker will make — no
+conversion for the orchestrator to guess. A conformance test asserts agreement
+against `get_section` itself, not against the formula.
+
+**Requirement `max(3, ceil(pages / 2) + 2)`** — one step to orient, one to write,
+that writing step being exactly the one `STEP_BUDGET` was removing. Parallel read
+width assumed at the pessimistic end of the observed 1–4, because the error is
+asymmetric: over-funding wastes spare steps, under-funding by one costs the
+entire output.
+
+| n=9 orchestrations/arm | flag off | flag on |
+|---|---:|---:|
+| workers | 45 | 26 |
+| `budget_exhausted` | **0.6222** | **0.1154** |
+| producers | 0.378 | **0.885** |
+| findings / worker | 2.333 | **6.308** |
+| $ / finding | 0.0128 | **0.0064** |
+| **$ / verified finding** | 0.0145 | **0.0079** |
+
+**The generalisable finding — fund fewer workers adequately, not all workers
+partially**, measured on two independent populations:
+
+| population | adequate produce | under-funded produce | Fisher p |
+|---|---|---|---|
+| W1's pool-40+60 records (n=60) | 0.8182 | 0.4211 | **0.0033** |
+| this run, both arms (n=71) | 0.7619 | 0.2759 | **0.000076** |
+
+- **The cost is booked, not netted out:** 19 concerns dropped as unaffordable
+  across 9 orchestrations, recorded as `CONCERN_DROPPED_UNAFFORDABLE` and
+  surfaced in `uncovered_concerns`. That trade was already being made silently by
+  workers that consumed a synthesis slot and returned nothing.
+- **Fabrication moved the wrong way and is reported that way:** 0.1143 (n=105) →
+  0.1801 (n=161), Fisher **p = 0.167** against the matched contemporaneous
+  control — not distinguishable, but the point estimate worsened. Most of the gap
+  isolates to one LaTeX-heavy manuscript sitting at ~0.3 in *both* arms;
+  excluding it, 0.0385 → 0.1000, p = 0.144.
+- **Worker count stayed non-degenerate and got wider:** `4,5,6` off versus
+  `4,3,1,4,4,2,4,3,1` on. Two N=1 runs occurred, both on a 38-page scope needing
+  21 steps — they produced findings and did not exhaust, but a one-worker run has
+  no isolation claim, and on the longest manuscript **the pool, not the
+  allocator, is now the binding constraint**. Visible in the event log rather
+  than hidden in five silent workers, and explicitly not fixed.
+- Residual: the 3 workers still exhausting were funded **at or above**
+  requirement, so `ceil(pages/2)+2` is not sufficient for everyone — just for
+  23/26 instead of 17/45.
+- The label-leak guard was checked explicitly, not assumed:
+  `section_pages` derives from `section.text` alone and
+  `test_profile_is_computable_from_the_manuscript_alone` still passes.
+
 ### 🔧 Lead — the sixth identity collision, closed
 
 P1 found that `e2e_latency.py`'s `config_hash` did not cover
