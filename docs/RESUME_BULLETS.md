@@ -123,8 +123,8 @@ avoid is a plausible sentence with nothing behind it.
 |---|---|
 | "Improved retrieval by 3.2%" | True and useless without the +13.3 s/query it costs, which makes it unshippable |
 | "Multi-agent system outperforms single-agent" | It loses. 2.56× per finding, 1.69× per verified finding |
-| "Built context compaction for long-horizon agents" | It never fires at 16k/32k/64k/uncapped; only at 8k (0.333, n=12) |
-| "Loop detection prevents runaway agents" | Observed firing **zero** times in 240 real runs. It exists and is unit-tested; it has never bound in production conditions |
+| "Built context compaction for long-horizon agents" | Fires at 8k (0.333, n=12) and, under a genuine long-horizon workload, at 16k (0.333, n=6, 4 events). It does **not** fire at 16k+ on the ordinary Phase A task — peak prompt is 10,092 tokens against a 13,600 trigger, so that zero is a **workload bound, not a broken path**. Claimable only with the workload named |
+| "Loop detection prevents runaway agents" | **One of three channels has ever bound.** `loop_no_result` fires 1.0000 (n=6) under an empty retriever — and is **fixture-only**, since `NoesisSearch` has `similarity_threshold=0.0` and structurally cannot return empty. `loop_repeated_call` and `loop_oscillation` have never bound in **270 runs**; max identical streak is **1** against a threshold of 3, including 30 runs built to induce looping. `gpt-5.2` under failure varies its calls and dies on the step budget instead |
 | "Prompt-injection defenses reduced attack success" | No defense produced a measurable ASR reduction. ASR 0.0645 → 0.0645 (n=31) |
 | "The approval gate stops real attacks" | Proven only under forced compliance. Under a real model, no attack in the set ever proposed a write — the payloads demand sentences, not actions |
 | "recall@10 improved from 0.2195 to 0.2270" | Different corpora. The control moved to 0.2200 when 6 documents were re-ingested; 0.2195 belongs to an index that no longer exists |

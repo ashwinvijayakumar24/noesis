@@ -55,3 +55,48 @@ Completed before tonight: Phase A, Phase B, Phase B.5, the retrieval track
 (reranking, contentless, chunk ceiling), user-visible latency, durable resume,
 and three production fixes (`663e0f6` reranker no-op, `0ee82d5` fixture label
 leak, checkpointer manuscript leak).
+
+### ✅ P5 — loop detection resolved · `13d4406` · $1.6412 of $4.00
+
+**Conclusion: keep the code, downgrade the claim. No threshold changed.**
+
+Mined all 240 published runs, free, by replaying the loop's own bookkeeping:
+
+| channel | threshold | observed max | n=240 |
+|---|---:|---:|---|
+| repeated identical call | 3 | **1** | streak 1 in 240/240 |
+| consecutive empty | 3 | 2 | 0→237, 1→2, 2→1 |
+| oscillation | 3 cycles | 2 | 1 cycle→239, 2→1 |
+
+**No run ever issued the same call signature twice in a row.** There is no
+distribution for a threshold to move into. The one 2-cycle oscillation was in an
+injected-fault arm, not the healthy path.
+
+Then built five conditions to *induce* looping — 30 real `gpt-5.2` runs,
+changing the task or what a tool returns, never a threshold, never a scripted
+model. `empty_search` fired `loop_no_result` **6/6 (1.0000)**. The other four
+fired nothing. **Combined n=270, max identical streak still 1.** Under failure
+`gpt-5.2` *varies* — different section, different phrasing — and dies on the
+step budget.
+
+- **`loop_no_result` is real but fixture-only.** `NoesisSearch` has
+  `similarity_threshold=0.0`, so an empty result set is structurally unreachable
+  in production and the channel cannot fire there.
+- **No threshold change**, with both directions reported: repeat 3→2 gains
+  nothing (max streak is 1); oscillation 3→2 costs a 0.0042 false-positive rate
+  on healthy runs and gains nothing. *"A change with no effect in either
+  direction would be justified by wanting the feature to do something, not by
+  evidence."*
+- **Compaction's zero is explained, not bare.** Peak prompt across 240 runs is
+  **10,092 tokens** against a 13,600 trigger — a workload bound. Under a real
+  long-horizon workload (section-by-section, 24 steps, 16k ceiling) compaction
+  binds **2 of 6 runs, 4 events**. One 24-step run still never compacted (peak
+  8,405), kept as the counterexample: step count proxies context growth, it does
+  not substitute for it.
+- A measurement bias in the analyser was found and corrected: detection runs
+  *before* execution, so a bound run's deciding call never reaches the trace.
+  Pinned by a test that drives the real loop and asserts the analysis says
+  "fired" exactly when the loop said `LOOP_DETECTED`.
+
+`RESUME_BULLETS.md`'s claim table updated: the blanket "never fires" was itself
+an overclaim.
