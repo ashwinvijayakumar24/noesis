@@ -10,16 +10,53 @@ broken `main`, production contacted, or a budget breach beyond tolerance).
 
 ---
 
+## ✅ RUN COMPLETE
+
+All seven queued agents landed. No fatal condition was hit. **≈$39.45 of $50 spent, 21% unspent.**
+
+| | harness | Noesis backend |
+|---|---|---|
+| tests | **546 passed**, 30 skipped · **576** with `NOESIS_PATH` | **1,096 passed** |
+| standalone verified | ✅ green with `NOESIS_PATH` unset | — |
+| pre-existing failures | 0 | 2, **count unchanged** |
+| uncommitted | 0 | only the user's own pre-session edits |
+
+**The night's headline: the acceptance test ran, the agent lost as a single
+actor, and orchestrated it did not.** Recall 0.0063 → 0.0362 against the DAG's
+0.0496 — statistically indistinguishable (p ≈ 0.59) at 2.53× lower cost per
+verified finding.
+
+**Six of seven agents weakened or overturned a claim that was already written
+down.** That is the run's actual output. Nothing here was published because it
+sounded good; several things were unpublished because they did not survive being
+measured twice.
+
+### Still open, deliberately
+
+- **Public flip** of `reviewer-agent` — needs the user. Scan clean; one
+  production project ref remains in history (identifier, not credential, already
+  in the deployed client bundle). `gitleaks` was not installed for a
+  belt-and-braces run.
+- **Merge to `master`** — `dev/harness-and-retrieval` is ahead by ~20 commits
+  including three production fixes. The cofounder works off `master`.
+- **Size-aware allocation vs the DAG** — not run, with reason: exhaustion does
+  not bind on the Noesis adapter (36/36 workers complete), so a third comparison
+  would have measured noise.
+- **The embedding model** — `FIRSTSTAGE.md` established it as the only remaining
+  retrieval lever. A modelling project, not a config change.
+
+---
+
 ## Queue
 
 | # | agent | scope | budget | status |
 |---|---|---|---|---|
-| 1 | **H2H** | agent vs Noesis DAG on shared labels — the project's own acceptance test, never run | $8.00 | 🔄 running |
-| 2 | **P1** | PDF parsed twice per upload — 68.66 s p50, 39.2% of the user-visible path | $3.00 | 🔄 running |
-| 3 | **P2** | `injection_v2` with write-shaped payloads — makes the gate's real-model factor measurable | $4.00 | 🔄 running |
-| 4 | **P4** | first-stage recall — 86.5% of misses were never in the candidate pool | $4.00 | 🔄 running |
-| 5 | **P5** | loop detection: exercise it under real pressure, or retire the claim | $4.00 | 🔄 running |
-| 6 | **P3** | size-aware step allocation — 19/30 workers still starve | $3.00 | ⏸ held |
+| 1 | **H2H** | agent vs Noesis DAG — the acceptance test | $8.00 | ✅ $2.21 |
+| 2 | **P1** | PDF parsed twice per upload | $3.00 | ✅ $2.00 |
+| 3 | **P2** | injection_v2, write-shaped payloads | $4.00 | ✅ $3.55 |
+| 4 | **P4** | first-stage recall | $4.00 | ✅ $1.15 |
+| 5 | **P5** | loop detection: exercise or retire | $4.00 | ✅ $1.64 |
+| 6 | **P3** | size-aware step allocation | $3.00 | ✅ $2.39 |
 
 **P3 is held deliberately.** It changes `OrchestratorConfig`, which H2H is
 measuring right now. Landing it mid-flight would silently change the system
