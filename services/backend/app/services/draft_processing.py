@@ -52,10 +52,39 @@ from app.services.draft_errors import (
     wrap_extraction_error
 )
 import datetime
+import os
 import re
 import asyncio
 
 logger = get_logger(__name__)
+
+#: The one question ``validate_file_format`` asks of the extracted text.
+MIN_EXTRACTABLE_CHARS = 50
+
+#: Off by default -- the default is the behaviour measured at
+#: ``scripts/eval/E2E_LATENCY.md`` (user-visible p50 212.82 s, n=7), in which the
+#: PDF is parsed twice per upload: once inside ``validate_file_format`` and again
+#: inside ``ingest_draft``. The first parse costs 52.38 s p50 and its result is
+#: used for exactly one thing -- ``len(full_text) < MIN_EXTRACTABLE_CHARS`` --
+#: and then discarded. Set DRAFT_VALIDATION_CHEAP_PARSE=1 to answer that one
+#: question with a local PyMuPDF read instead of the full GROBID/Docling
+#: document pipeline. PDFs only; DOCX and TXT extraction is already local and
+#: is left exactly as it was. See scripts/eval/E2E_DOUBLEPARSE.md for what the
+#: cheap gate does and does not reject.
+DRAFT_VALIDATION_CHEAP_PARSE_ENV = "DRAFT_VALIDATION_CHEAP_PARSE"
+
+
+def cheap_validation_enabled() -> bool:
+    """Whether the next ``validate_file_format`` uses the cheap PDF probe.
+
+    Read per call rather than captured at import so the flag can be flipped in a
+    running process (and so a test does not have to reload the module) -- the
+    same shape as ``rag_retrieval.keyword_search_rpc_name``.
+    """
+    return (os.getenv(DRAFT_VALIDATION_CHEAP_PARSE_ENV) or "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
 
 # ============================================
 # Text Extraction Functions
@@ -179,6 +208,54 @@ def extract_text_from_pdf_fallback(file_bytes: bytes) -> str:
     except Exception as e:
         logger.error("PDF extraction failed: %s", safe_exception(e))
         raise PDFExtractionError("PDF extraction failed")
+
+
+def probe_pdf_text(file_bytes: bytes, min_chars: int = MIN_EXTRACTABLE_CHARS) -> str:
+    """Cheap answer to "is this a readable PDF with text in it".
+
+    Same reader and same failure mode as ``extract_text_from_pdf_fallback`` --
+    PyMuPDF, locally, no GROBID and no Docling -- but it stops as soon as it has
+    seen ``min_chars`` of non-whitespace text, so a readable manuscript costs one
+    or two pages instead of the whole document pipeline.
+
+    Returns the text read so far, which the caller compares against its own
+    threshold. Only the two error cases raise, and they raise the same errors the
+    full parse raises for the same input:
+
+    - ``PDFExtractionError`` if PyMuPDF cannot open the bytes at all
+    - nothing for an openable PDF with no text: the empty string is returned and
+      the caller's ``< MIN_EXTRACTABLE_CHARS`` branch rejects it, as before
+
+    This is a strictly cheaper gate, not the same gate. It cannot see whether
+    GROBID will parse the document, only whether there is text to parse. See
+    scripts/eval/E2E_DOUBLEPARSE.md.
+    """
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+    except Exception as e:
+        logger.error("PDF probe failed to open document: %s", safe_exception(e))
+        raise PDFExtractionError("PDF extraction failed")
+
+    try:
+        chunks: List[str] = []
+        seen = 0
+        for page in doc:
+            page_text = page.get_text()
+            chunks.append(page_text)
+            seen += len(page_text.strip())
+            if seen >= min_chars:
+                break
+        text = "".join(chunks)
+        logger.info(
+            "PDF probe read %s characters from %s of %s pages",
+            len(text), len(chunks), doc.page_count,
+        )
+        return text
+    except Exception as e:
+        logger.error("PDF probe failed: %s", safe_exception(e))
+        raise PDFExtractionError("PDF extraction failed")
+    finally:
+        doc.close()
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
@@ -737,10 +814,15 @@ async def validate_file_format(file_bytes: bytes, file_type: str) -> Dict[str, A
     # Add text extraction check if basic validation passes
     if validation_result["valid"]:
         try:
-            extracted_data = await extract_text(file_bytes, file_type)
-            sample_text = extracted_data["full_text"]
+            if file_type.lower() == "pdf" and cheap_validation_enabled():
+                # The full parse's result was used for the length check below and
+                # then discarded; ingest_draft parses again from scratch.
+                sample_text = probe_pdf_text(file_bytes)
+            else:
+                extracted_data = await extract_text(file_bytes, file_type)
+                sample_text = extracted_data["full_text"]
 
-            if len(sample_text.strip()) < 50:
+            if len(sample_text.strip()) < MIN_EXTRACTABLE_CHARS:
                 error = FileEmptyError(file_type)
                 validation_result["valid"] = False
                 validation_result["errors"].append(error.to_dict())
