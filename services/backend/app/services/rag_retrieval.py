@@ -628,6 +628,24 @@ def hybrid_search(
     return scored_results[:limit]
 
 
+#: Outcome counters for the LLM reranker. Exists because the failure this
+#: module shipped was not "the reranker is wrong" but "the reranker is
+#: invisible": it returned the unranked list on every call and nothing anywhere
+#: recorded that it had. A counter is the cheapest thing that makes the
+#: difference between "ran and changed nothing" and "never ran" observable.
+_RERANK_STATS: Dict[str, int] = {"reranked": 0, "failed": 0, "empty_response": 0}
+
+
+def rerank_stats() -> Dict[str, int]:
+    """Snapshot of reranker outcomes since process start.
+
+    Read by the eval harness so a rerank arm can assert the reranker actually
+    ran. An arm whose ``failed`` equals its query count is measuring a fallback
+    path, not a reranker, and must not be reported as a reranking result.
+    """
+    return dict(_RERANK_STATS)
+
+
 def rerank_results(
     chunks: List[Dict[str, Any]],
     query: str,
@@ -672,11 +690,36 @@ Example: {{"indices": [3, 7, 1, 15, 9]}}
         response = client.chat.completions.create(
             model="gpt-5-mini",
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=100,
+            # gpt-5-mini is a REASONING model: reasoning tokens are drawn from
+            # max_completion_tokens before a single visible character is emitted.
+            # This was 100, and measurement showed reasoning consuming all 100 --
+            # finish_reason "length", content "", json.loads raising, and the
+            # except below silently returning the unranked list. Every call, on
+            # every path, since the model was switched. Same family as the
+            # max_tokens -> max_completion_tokens migration: the model changed,
+            # the token-budget semantics changed with it, the number did not.
+            max_completion_tokens=2000,
+            # The prompt asks for JSON and nothing enforced it. Constraining the
+            # response format removes the most likely remaining parse failure.
+            response_format={"type": "json_object"},
             **get_completion_params()
         )
 
-        result = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content or ""
+        if not content.strip():
+            # Distinct from a parse failure and worth its own line: an empty
+            # body means the budget was exhausted, not that the model answered
+            # badly, and the two have different fixes.
+            _RERANK_STATS["empty_response"] += 1
+            logger.warning(
+                "rerank_results: empty response (finish_reason=%s, completion_tokens=%s) "
+                "-- returning unranked order",
+                response.choices[0].finish_reason,
+                getattr(response.usage, "completion_tokens", None),
+            )
+            return chunks[:top_k]
+
+        result = json.loads(content)
         indices = result.get("indices", list(range(top_k)))
 
         # Reorder chunks based on indices
@@ -692,10 +735,25 @@ Example: {{"indices": [3, 7, 1, 15, 9]}}
                     reranked.append(chunk)
                     break
 
+        _RERANK_STATS["reranked"] += 1
         return reranked
 
     except Exception as e:
-        # Fallback: return original order
+        # Fallback: return original order.
+        #
+        # The fallback itself is right -- a reranker that takes down retrieval is
+        # worse than one that declines to reorder. What was wrong is that it was
+        # SILENT and UNCOUNTED, so a reranker that failed on 100% of calls was
+        # indistinguishable from one that ran and changed nothing. An eval arm
+        # measured exactly that: recall@10, NDCG@10 and MRR bit-identical to the
+        # unranked control to 17 significant figures, at n=338 and again at
+        # n=100, which no working reranker can produce.
+        _RERANK_STATS["failed"] += 1
+        logger.warning(
+            "rerank_results: %s -- returning unranked order (%s)",
+            type(e).__name__,
+            e,
+        )
         return chunks[:top_k]
 
 
