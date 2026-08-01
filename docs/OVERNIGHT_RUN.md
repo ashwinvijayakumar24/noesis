@@ -100,3 +100,74 @@ step budget.
 
 `RESUME_BULLETS.md`'s claim table updated: the blanket "never fires" was itself
 an overclaim.
+
+### ✅ P1 — the double parse, and a baseline that was environmental · `ddf90b5` · $1.9953 of $3.00
+
+Fixed behind `DRAFT_VALIDATION_CHEAP_PARSE`, **default off**. `upload_request`
+p50 **4.33 s → 0.05 s (−98.8%)**, parse calls 2 → 1 every run, n=4/arm,
+interleaved A/B/A/B.
+
+**The task's premise did not survive.** Same fixture, same config hash, same
+parser, today: baseline **117.87 s** and parse #1 **4.28 s**, against 212.82 s
+and 52.38 s when the baseline was taken. Cause: Docling was resident and
+OOM-killing GROBID during those sessions. **Parsing on this host is bimodal by
+an order of magnitude — 39.2% of the path then, 7.4% now.** The honest
+restatement is a rule, not a number: *the change removes exactly one parse; its
+value is the cost of one parse, measured at both 4.3 s and 52.4 s on this
+machine.*
+
+- **No user-visible delta is claimed.** p50 says −6.49 s, mean says +1.10 s, and
+  the *untouched* graph stage moved +7.37 s between arms. Not resolvable.
+- **My framing was wrong and was corrected.** I called cache-and-reuse the safer
+  option; it is not, because `validate_file_format` runs in FastAPI and
+  `ingest_draft` in Celery. Threading an artifact across that boundary needs new
+  cross-process state — **and would have measured as a win in this harness and
+  not in production**, since the harness calls the task body inline.
+- **Equivalence proven by byte-level hash**, not by inspection: all 8 drafts
+  across both arms produce one distinct parse-artifact fingerprint.
+- **What was given up, stated:** validation now asks "is this an openable PDF
+  with ≥50 chars" rather than "will GROBID parse this". 24 inputs, 23
+  agreements, 1 disagreement — exactly the case the code predicts, pinned by a
+  test.
+
+### ✅ P4 — first-stage recall was the wrong lane · `429c602` · $1.15388 of $4.00
+
+**Refutes a conclusion this project had already published**, including in
+`WAVE_LOG.md` and `RESUME_BULLETS.md`. Both corrected.
+
+Of the 6,011 "never pooled" misses: **98.5% were pooled for some *other*
+query**; 0.33% never ingested; 1.18% dark to every query. `chunk_oversample`
+counts **chunks** while the relevance unit is **documents** — 50 chunks collapse
+to a median 20 distinct documents against a median 25 relevant, so for **230 of
+338 queries the pool is smaller than the ground truth by construction**.
+
+**Removing the depth limit entirely moves recall@10 +0.0027** (0.2200 → 0.2227)
+and `retrieval_failure` 6,011 → 20, with the failures simply relabelling as
+`ranking`. **A perfect reranker over the shipped pool tops out at 0.2982 and
+dense already reaches 73.8% of it.** The reranking lane is closed.
+
+Not levers, each measured: depth (**0.0000** from 120 chunks to the whole
+corpus), chunk granularity (**+0.0013** over 17,844 re-embedded sub-chunks,
+nothing written to the shared DB, digest verified both ends), query expansion
+(absent from this path, not suppressed), embedding split (both sides are
+`3-large` @1536, verified against the live index).
+
+**The largest term is the label design:** 69.4% of cited documents rank top-10
+for *some* claim in their manuscript (median rank 4) versus 18.9% per-claim
+(median rank 53). Attainable fraction is flat at 43–52% from k=1 to k=50 and
+relevant/irrelevant separation is **under 1σ** — the signature of a weak scoring
+function. **The remaining lever is the embedding model: a modelling project, not
+a config change.**
+
+Also found: `match_document_chunks` pins `hnsw.ef_search = 80` inside its own
+body so callers cannot sweep it, and **0.0010 of the published 0.2200 → 0.2227
+is ANN approximation rather than depth**.
+
+### 🔧 Lead — the sixth identity collision, closed
+
+P1 found that `e2e_latency.py`'s `config_hash` did not cover
+`DRAFT_VALIDATION_CHEAP_PARSE`: both arms hashed to `670fccc87731` while
+differing 98.8% in `upload_request` p50. Fixed — a `_MEASURED_FLAGS` tuple now
+feeds the hash, verified separating (`b4e905dbf974` vs `11486242f717`), with a
+regression test that iterates the tuple so new flags are covered without a new
+test being written.

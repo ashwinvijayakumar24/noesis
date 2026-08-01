@@ -86,10 +86,14 @@ times per run.
 
 **9.** Built a retrieval evaluation harness over **338 queries and 8,554
 relevance judgments** that reports every metric against its construction ceiling,
-and used it to show that **cross-encoder reranking buys +3.2% recall@10 for
-+13.3 s per query** — then that the delta was the wrong thing to chase, because
-**86.5% of all misses were documents never in the candidate pool**: the headroom
-is first-stage recall, not ranking.
+and used it to close the tuning lane rather than extend it: cross-encoder
+reranking buys **+3.2% recall@10 for +13.3 s per query**, and a *perfect*
+reranker over the same pool would top out at **0.2982** — dense already reaches
+**73.8% of that**. Traced the residual to the benchmark's own construction
+(**69.4% of cited documents rank top-10 for some claim in their manuscript,
+median rank 4, versus 18.9% per-claim at median rank 53**) and to a
+relevant/irrelevant score separation **under 1σ**, concluding that the remaining
+lever is the embedding model, not any retrieval parameter.
 
 **10.** Found by arithmetic that a **shipped LLM reranker had never reranked
 anything** — its arm reproduced the unranked control to **17 significant figures**

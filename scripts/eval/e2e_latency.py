@@ -998,6 +998,21 @@ def summarize(records: list[RunRecord]) -> dict:
     return out
 
 
+#: Environment flags that change the behaviour of the measured path. Anything
+#: added here participates in the config hash, so two arms run under different
+#: flags can never be differenced by accident.
+#:
+#: Add a flag here the same commit you add the flag. The failure mode is silent:
+#: nothing errors, the runs simply become indistinguishable in the record, and
+#: the discovery happens later when someone tries to explain a delta.
+_MEASURED_FLAGS = (
+    "DRAFT_VALIDATION_CHEAP_PARSE",
+    "CHUNK_CEILING_GEOMETRY",
+    "KEYWORD_SEARCH_V2",
+    "PDF_PARSER",
+)
+
+
 def config_hash(cfg: dict) -> str:
     blob = json.dumps(cfg, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode()).hexdigest()[:12]
@@ -1012,6 +1027,21 @@ def build_config(args, fixture: Path) -> dict:
         "fixture": fixture.name,
         "fixture_bytes": fixture.stat().st_size,
         "pdf_parser": args.parser,
+        # Feature flags that change what the measured path DOES. Read from the
+        # environment at build time, exactly as the production code reads them,
+        # so an arm cannot be run under a flag the record does not mention.
+        #
+        # Added after DRAFT_VALIDATION_CHEAP_PARSE shipped and both of its arms
+        # hashed to 670fccc87731 -- identical config hashes for a run that
+        # parses the PDF twice and a run that parses it once, differing 98.8% in
+        # upload_request p50. This is the sixth time in this project that two
+        # materially different things shared one identity; the pattern is always
+        # the same, an identity recorded at coarser granularity than the thing
+        # it identifies.
+        "flags": {
+            name: os.environ.get(name, "")
+            for name in sorted(_MEASURED_FLAGS)
+        },
         "llm": "real",
         "supabase": "local",
         "skip_external_source_discovery": True,

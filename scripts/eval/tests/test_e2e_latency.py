@@ -270,3 +270,51 @@ class TestRecordedRuns:
         for record in self._records():
             assert "spend" in record
             assert record["spend"]["estimated_usd"] is not None
+
+
+def test_feature_flags_participate_in_the_config_hash():
+    """Two arms that behave differently must not share an identity.
+
+    Regression test for the sixth instance of this project's recurring failure:
+    DRAFT_VALIDATION_CHEAP_PARSE shipped, and both of its arms hashed to
+    670fccc87731 -- one parsing the PDF twice, one once, differing 98.8% in
+    upload_request p50, indistinguishable in the record.
+
+    Asserted over every flag in _MEASURED_FLAGS rather than the one that caused
+    it, so a flag added to that tuple is covered without anyone writing a new
+    test, and a flag added to the *code* but not the tuple still slips through --
+    which is why the tuple's docstring says to add it in the same commit.
+    """
+    import os
+
+    from scripts.eval.e2e_latency import _MEASURED_FLAGS, build_config, config_hash
+
+    class _Args:
+        parser = "grobid"
+
+    fixture = Path(__file__).resolve().parents[1] / "openreview" / "ICLR.cc_2024_Conference"
+    pdfs = sorted(fixture.glob("*.pdf"))
+    if not pdfs:
+        import pytest
+
+        pytest.skip("no fixture PDFs on this machine")
+
+    saved = {name: os.environ.get(name) for name in _MEASURED_FLAGS}
+    try:
+        for name in _MEASURED_FLAGS:
+            os.environ.pop(name, None)
+        baseline = config_hash(build_config(_Args(), pdfs[0]))
+
+        for name in _MEASURED_FLAGS:
+            os.environ[name] = "a-value-that-changes-behaviour"
+            assert config_hash(build_config(_Args(), pdfs[0])) != baseline, (
+                f"{name} does not reach the config hash; two arms run under "
+                f"different values of it would be indistinguishable in the record"
+            )
+            os.environ.pop(name, None)
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value

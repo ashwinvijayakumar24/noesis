@@ -169,12 +169,34 @@ Snapshot `230c6ea9d9b7e8fd`, **n = 338**, ceiling **0.5199**, `plan: index`, con
 
 **+0.0070 recall@10 (+3.2%) for +13.3 s per query — 481× the first stage.** Real rather than noise (the pipeline is deterministic; run-to-run variance measured at 0.0000). Free and local, so the cost is entirely latency.
 
-🔑 **The finding that matters is the failure attribution, not the delta.** `retrieval_failure` is **unchanged at 6,011 — 86.5% of all misses are documents that were never in the candidate pool at all.** `ranking_failure` moved 933 → 880. recall@20 is flat. **The headroom is first-stage recall, not ranking**; a reranker can only reorder what retrieval already found. That is the argument for widening the pool rather than tuning rankers, and it is invisible in any single-number report.
+🔑 **The finding that matters is the failure attribution, not the delta.** `retrieval_failure` is **unchanged at 6,011 — 86.5% of all misses are documents that were never in the candidate pool.** `ranking_failure` moved 933 → 880. recall@20 is flat.
+
+> ↻ **Corrected 2026-08-01 by `scripts/eval/retrieval/FIRSTSTAGE.md`.** This section originally concluded *"the headroom is first-stage recall, not ranking"* and recommended widening the pool. **That conclusion did not survive measurement.** The arithmetic reproduces exactly from an independent driver; the interpretation was wrong. See the next section — the 6,011 is an artefact of the depth limit, and widening the pool buys +0.0027.
 
 - Per-claim-type, each against its own ceiling: theoretical +0.0107 (n=115), methodological +0.0134 (n=27), empirical +0.0039 (n=196).
 - **Depth sweep is n=12 and labelled unquotable for quality.** Two things there do not depend on `n`: the query plan flips from `index` to `seqscan` between ×5 and ×12, and rerank latency is linear at ~2.6 ms/candidate (13.6 s → 128.1 s). MRR rises monotonically to 0.7936 while recall falls — the cross-encoder optimises topical relevance, and these labels measure *"what the author cited"*.
 - **Limit on the headline:** chunks are median 6,025 chars against the model's 512-token window, so the cross-encoder sees roughly the first third of each chunk. Apple M4, MPS fp16, 3.77 pairs/s; CPU is 2.3× slower (p50 31,060 ms, n=3). Model revision pinned in the config hash.
 - **An HNSW graph rebuilt over identical content shifts recall@10 by 0.0005.** The exact-search arm (`seqscan`) reproduced its published 0.2227 bit for bit, so the content is intact and only the graph moved. A fourth distinct way this corpus's identity has proven finer-grained than its contents.
+
+### 🔴 First-stage recall was the wrong lane — `scripts/eval/retrieval/FIRSTSTAGE.md`
+
+The 6,011 "never in the pool" misses were traced. **98.5% of them were pooled for some *other* query.** Only 0.33% were never ingested and 1.18% were dark to every query.
+
+The mechanism: `chunk_oversample` counts **chunks** while the relevance unit is **documents**. Fifty chunks collapse to a **median 20 distinct documents** against a **median 25 relevant** per query, so for **230 of 338 queries the pool is smaller than the ground truth by construction**.
+
+| arm | recall@10 | `retrieval_failure` | `ranking_failure` |
+|---|---|---|---|
+| shipped (×5, 50-chunk pool) | 0.2200 | 6,011 | 933 |
+| **exact, whole corpus, no depth limit** | **0.2227** | **20** | 6,922 |
+
+**Eliminating the pool limit entirely moves recall@10 by +0.0027.** The 6,011 was an artefact of the depth limit, not a coverage fact — and the failure simply moves from `retrieval` to `ranking`.
+
+- **A perfect reranker over the shipped pool tops out at recall@10 = 0.2982; dense already reaches 73.8% of it.** The cross-encoder captured 0.0070 of a maximum 0.0782. **The reranking lane is closed.**
+- **Depth is not a lever:** 0.0000 movement from 120 chunks to the whole corpus — 8× the pool documents, zero change.
+- **Chunk granularity is not a lever:** 5,948 → 17,844 sub-chunks, re-embedded and scored in memory, **+0.0013**. Nothing was written to the shared DB; digest verified before and after.
+- **The largest single term is the benchmark's own construction.** **69.4% of cited documents (229/330) rank top-10 for *some* claim in their manuscript, median rank 4** — against 18.9% per-claim at median rank 53. The label design asks every claim to retrieve the whole bibliography.
+- **Attainable fraction is flat at 43–52% from k=1 to k=50**, and relevant/irrelevant score separation is **0.0593 mean against ~0.07 sd — under 1σ**. That is the signature of a weak scoring function, not a missing pool. **The remaining lever is the embedding model: a modelling project, not a config change.**
+- Also found: `match_document_chunks` pins `SET LOCAL hnsw.ef_search = 80` **inside its own body**, so a caller cannot sweep it — and **0.0010 of the published 0.2200 → 0.2227 is ANN approximation, not depth** (exact ×5 reads 0.2210).
 
 ### 🔴 The shipped LLM reranker had never reranked anything — fixed in `663e0f6`
 
