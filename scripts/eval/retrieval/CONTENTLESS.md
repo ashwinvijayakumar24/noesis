@@ -177,6 +177,16 @@ Zero LLM calls: all 338 query embeddings were already in
 `cache/retrieval_query_embeddings/text-embedding-3-large.json`, and the run was made under
 `NOESIS_LLM_KILL_SWITCH=1`, so a cache miss would have raised rather than quietly bought a vector.
 
+The eval database was shared with a concurrent agent on this branch during measurement, so the
+corpus was checked directly against the index rather than assumed: `document_chunks` held
+**5,948 chunks across 344 documents under project `e7a1c0b0-…-000000000001`, and no other
+project**, matching `BASELINE_15.md` exactly. A corpus that had grown or shrunk mid-run would have
+made every row below incomparable to the published baseline, and nothing in the harness would have
+said so.
+
+> **Run 1 of 2.** Only the dense ×5 rows below are reproducible; the keyword and RRF rows moved on
+> a second identical invocation. §3e prints both runs and the deltas. Read those rows as one draw.
+
 ### 3a. Unfiltered — n = 338, 8,554 judgments
 
 | arm | R@10 | ceiling | % attainable | NDCG@10 | MRR |
@@ -249,6 +259,44 @@ has a *lower* ceiling than the full set (its queries come from manuscripts with 
 lists), so its raw recall understates how it is doing relative to what is attainable. Reusing
 0.5199 for it would have reported 26% of attainable instead of 30%.
 
+### 3e. Reproducibility — measured, and only one arm passes
+
+Both runs below are the same command on the same corpus (verified at 5,948 chunks / 344 docs
+between them), the same cached query embeddings, and the same query set. Unfiltered subset:
+
+| arm | run 1 R@10 | run 2 R@10 | Δ | `BASELINE_15.md` |
+|---|---|---|---|---|
+| **dense ×5** | **0.2186** | **0.2186** | **0.0000** | 0.2195 |
+| dense ×12 | 0.2217 | 0.2228 | +0.0011 | 0.2227 |
+| keyword v1 | 0.0024 | 0.0022 | −0.0002 | 0.0022 |
+| keyword v2 | 0.1441 | 0.1447 | +0.0006 | 0.1447 |
+| RRF k=60 | 0.2027 | 0.2046 | +0.0019 | 0.2042 |
+
+**Only the headline arm reproduces.** dense ×5 is identical to four decimal places across both runs
+on **all five subsets and all three metrics** — 0.2186 / 0.2260 / 0.1911 / 0.2718 / 0.1377, NDCG and
+MRR included. Every other arm moves between runs, and RRF moves by **0.0019, which is 26% of the
+entire +0.0074 filtering effect this document reports.**
+
+Two consequences, both of which constrain what may be quoted:
+
+- **The filtering comparison is safe**, because it rests on dense ×5 and the +0.0074 effect is 4×
+  the largest drift observed anywhere. The servable-vs-contentless gap it rests on (0.1341) is 70×
+  that drift.
+- **The keyword and RRF rows in §3a–3d must be read as one draw, not as a measurement.** They come
+  from run 1. Run 2's keyword and dense ×12 figures land on `BASELINE_15.md`'s published values
+  almost exactly (0.0022, 0.1447, 0.2228 vs 0.2227) while run 1's do not, which is consistent with
+  run 1 having been perturbed by a concurrent agent's load on the shared eval database — but that
+  is a hypothesis, not a measurement, and **picking whichever run agrees with the baseline would be
+  exactly the selection this document exists to avoid.** Both are printed above; neither is
+  preferred.
+
+Why dense is stable and the rest are not is not established here. The plausible mechanism is tie
+handling: `ts_rank(..., 1|32)` values in this corpus sit in a band of 0.0038–0.0071, so the keyword
+leg produces many ties whose row order Postgres need not preserve, and RRF consumes that order
+directly. Cosine similarity ties far less often. **That is a hypothesis, not a finding**, and it is
+worth a dedicated experiment — a nondeterministic keyword leg silently invalidates every hybrid
+number this repo has published or will publish.
+
 ---
 
 ## 4. What this does and does not license
@@ -265,10 +313,16 @@ lists), so its raw recall understates how it is doing relative to what is attain
   attainable, so 'no retriever can serve them' is false."*
 - *"The lexical classifier agrees with a single human labeller 73.3% of the time out of sample
   (precision 0.571, recall 0.444, n=60)."*
+- *"Dense (oversample ×5) is bit-stable across repeated runs — identical R@10, NDCG@10 and MRR on
+  all five subsets, n=2 runs — while RRF(dense, keyword v2) moves 0.0019 in R@10 between two
+  identical invocations."*
 
 **Not claimable.**
 
 - Any filtered number without its `n` and its own recomputed ceiling.
+- Any keyword or hybrid figure above to four decimal places. They are single draws from a
+  distribution whose spread (up to 0.0019 for RRF) has been measured but not characterised; n = 2
+  runs.
 - Any comparison against snapshots `019bee4a06eb2d39` or `425df789a844f1f3`. Three snapshots exist;
   only `230c6ea9d9b7e8fd` is current, and they are not comparable at all.
 - That filtering makes retrieval better for anyone. It does not. It changes the denominator.
@@ -302,12 +356,20 @@ lists), so its raw recall understates how it is doing relative to what is attain
   credit for topical proximity without ever resolving the claim. The label design, not the
   retriever, is what makes 0.1377 possible on queries a human says name nothing. **Any label design
   that scored per-claim rather than per-manuscript would report a much larger gap.**
-- **Unfiltered figures differ slightly from `BASELINE_15.md`** (dense ×5: 0.2186 here vs 0.2195
-  there; NDCG@10 0.5145 vs 0.5191; MRR 0.7312 vs 0.7328). Same label snapshot, same ceiling
-  (0.5199 to four places), same 338 queries, same 8,554 judgments — the difference is ANN
-  nondeterminism at retrieval depth 50 on the pgvector HNSW index between the two runs, not a
-  change in the ruler. Within-run reproducibility is what the comparison rests on, and both columns
-  of every table above come from a single retrieval pass.
+- **Dense ×5 does not match `BASELINE_15.md` and the cause is not isolated.** It reads 0.2186 here
+  in **both** runs (NDCG@10 0.5145, MRR 0.7312) against that document's 0.2195 / 0.5191 / 0.7328,
+  on the same label snapshot, the same 338 queries, the same 8,554 judgments and the same ceiling
+  to four places (0.5199). A 0.0009 gap on an arm that is otherwise bit-stable is not ANN
+  nondeterminism, so something differs between this driver and `run_retrieval_eval.py`'s path that
+  I did not find. It is 0.4% relative and does not move any conclusion here, but it is **an open
+  discrepancy, not a rounding difference**, and the lead should reconcile it before the filtered
+  arms are written into `results/retrieval_eval.jsonl`.
+- **Only dense ×5 reproduces across runs; the keyword and hybrid arms do not** (§3e). RRF moves
+  0.0019 between two identical invocations. Every hybrid number in this repo inherits that.
+- **The classifier partition is fully deterministic** and asserted as such
+  (`test_classification_is_deterministic_across_calls`, `test_published_population_reproduces`), so
+  every subset boundary above reproduces exactly. Where a number moves, it is the retriever moving,
+  never the filter.
 - **One labeller, 120 of 338 labelled.** The classifier-free tables in §3d rest on n = 89 and
   n = 31 and are the least statistically comfortable numbers in this document.
 - **The classifier's largest error source is a hand-curated lexicon.** With 15 topics and 338
