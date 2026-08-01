@@ -59,6 +59,38 @@ buys almost nothing.
 the 6,011, which is a first-stage recall problem: deeper retrieval, better
 chunking, or a better embedding.
 
+> ↻ **Corrected 2026-08-01 — the last sentence above is wrong, and the correction
+> is more useful than the claim was.** See `FIRSTSTAGE.md`, which measured all
+> three of its proposed remedies.
+>
+> **Everything above this box reproduces exactly** from an independent driver.
+> The 6,011 is real. What was wrong is calling it *a first-stage recall problem*.
+>
+> - **98.5% of the 6,011 were pooled for some *other* query.** Only 0.33% were
+>   never ingested and 1.18% were dark to every query. The documents are found;
+>   they are found for the wrong claim.
+> - **The mechanism is a unit mismatch, not missing coverage.**
+>   `chunk_oversample` counts **chunks** while the relevance unit is
+>   **documents**: 50 chunks collapse to a median 20 distinct documents against a
+>   median 25 relevant, so for 230 of 338 queries the pool is smaller than the
+>   ground truth by construction.
+> - **Deeper retrieval: measured, +0.0027.** Scoring every query against all
+>   5,948 chunks with no depth limit takes `retrieval_failure` 6,011 → 20 and
+>   recall@10 0.2200 → 0.2227. The failures relabel as `ranking`; they do not go
+>   away. Depth alone, plan forced, moves **0.0000** from 120 chunks to the whole
+>   corpus.
+> - **Better chunking: measured, +0.0013.** 5,948 → 17,844 sub-chunks,
+>   re-embedded and scored in memory.
+> - **A perfect reranker over this pool tops out at recall@10 = 0.2982, and
+>   dense already reaches 73.8% of it.** The cross-encoder took 0.0070 of a
+>   maximum 0.0782.
+>
+> So of the three remedies this document proposed, two are measured near-zero
+> and the third — **a better embedding** — is the only one left. Relevant and
+> irrelevant scores separate by 0.0593 against a ~0.07 sd, **under 1σ**, and the
+> attainable fraction is flat at 43–52% from k=1 to k=50: a weak scoring
+> function, not a missing pool. That is a modelling project, not a config change.
+
 ### By claim type
 
 `queries.py` carries `claim_type` from the pipeline's own claim extractor, so
