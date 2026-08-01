@@ -17,6 +17,7 @@ from app.core.logging_config import get_logger
 from app.core.openai_client import get_async_openai_client, get_completion_params
 from app.core.supabase_client import supabase
 from app.services.retry_utils import parse_chat_completion_with_retries
+from app.workflows.draft_analysis.model_routing import model_for
 
 logger = get_logger(__name__)
 
@@ -214,7 +215,7 @@ Based on these specialist reviews and the canonical diagnostics, produce your ar
     try:
         response = await parse_chat_completion_with_retries(
             _get_client(),
-            model="gpt-5.2-chat-latest",
+            model=model_for("meta_reviewer", "gpt-5.2-chat-latest"),
             messages=[
                 {"role": "system", "content": META_REVIEWER_PROMPT},
                 {"role": "user", "content": context},

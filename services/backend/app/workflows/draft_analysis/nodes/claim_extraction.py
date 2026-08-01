@@ -17,6 +17,7 @@ from app.core.openai_client import get_openai_client, get_completion_params
 from app.services.retry_utils import parse_chat_completion_with_retries_sync
 import uuid
 import re
+from app.workflows.draft_analysis.model_routing import model_for
 
 logger = get_logger(__name__)
 
@@ -289,7 +290,7 @@ def extract_claims_node(state: DraftAnalysisState) -> DraftAnalysisState:
         # Note: Removing temperature to use model defaults
         response = parse_chat_completion_with_retries_sync(
             _get_client(),
-            model="gpt-5.2-chat-latest",
+            model=model_for("extract_claims", "gpt-5.2-chat-latest"),
             messages=[
                 {"role": "system", "content": CLAIM_EXTRACTION_PROMPT},
                 {"role": "user", "content": f"Extract claims from this draft:\n\n{draft_content}"}

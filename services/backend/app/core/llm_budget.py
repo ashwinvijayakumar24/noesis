@@ -84,6 +84,16 @@ MODEL_PRICING_USD_PER_1M: dict[str, ModelPrice] = {
     # https://developers.openai.com/api/docs/models/gpt-5-mini -- retrieved 2026-07-30
     # input $0.25 / cached input $0.025 / output $2.00 per 1M tokens
     "gpt-5-mini": ModelPrice(0.25, 2.00, 0.025),
+    # https://developers.openai.com/api/docs/models/gpt-5-nano -- retrieved 2026-08-01
+    # input $0.05 / cached input $0.005 / output $0.40 per 1M tokens
+    # Added for the cascade sweep (scripts/eval/cascade_arms.py). Without an
+    # entry these calls price as None: they contribute $0 to _total_usd, so
+    # NOESIS_LLM_MAX_SPEND_USD cannot see them and every cost figure quoting
+    # them is silently zero rather than visibly unknown.
+    "gpt-5-nano": ModelPrice(0.05, 0.40, 0.005),
+    # https://developers.openai.com/api/docs/models/gpt-5.1 -- retrieved 2026-08-01
+    # input $1.25 / cached input $0.125 / output $10.00 per 1M tokens
+    "gpt-5.1": ModelPrice(1.25, 10.00, 0.125),
     # https://developers.openai.com/api/docs/models/text-embedding-3-large -- retrieved 2026-07-30
     # $0.13 per 1M tokens; no output tokens exist, no cached rate published
     "text-embedding-3-large": ModelPrice(0.13, 0.0, None),

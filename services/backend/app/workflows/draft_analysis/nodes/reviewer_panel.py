@@ -29,6 +29,7 @@ from app.core.openai_client import get_async_openai_client, get_completion_param
 from app.core.supabase_client import supabase
 from app.services.progress_publisher import publish_progress
 from app.services.retry_utils import parse_chat_completion_with_retries
+from app.workflows.draft_analysis.model_routing import model_for
 
 logger = get_logger(__name__)
 client = None
@@ -1152,7 +1153,7 @@ async def audit_domain_triggers(
     try:
         response = await parse_chat_completion_with_retries(
             _get_client(),
-            model="gpt-5.2-chat-latest",
+            model=model_for("reviewer_panel", "gpt-5.2-chat-latest"),
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -1266,7 +1267,7 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
         response = await asyncio.wait_for(
             parse_chat_completion_with_retries(
                 _get_client(),
-                model="gpt-5.2-chat-latest",
+                model=model_for("reviewer_panel", "gpt-5.2-chat-latest"),
                 messages=messages,
                 max_completion_tokens=2500,
                 temperature=0,
