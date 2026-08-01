@@ -220,6 +220,31 @@ scores badly.
 | **$ / verified finding** | **$0.0062** (n=41) | **$0.0114** (n=82) | **1.84×** |
 | wall clock / manuscript | 12.74 s (n=12) | 74.08 s (n=6) | 5.81× |
 
+> ↻ **Corrected 2026-08-01 — the recall rows above were computed at an
+> uncalibrated prefilter and understate both arms by roughly 2×.** The table is
+> unaltered; those runs are real and their config hash pins them to
+> `COS_THRESHOLD = 0.55`.
+>
+> That threshold has since been calibrated on **n = 266** hand-labelled pairs
+> (`scripts/eval/ceiling/CALIBRATION.md`): its prefilter recall is **0.202**
+> [0.081, 0.424] against **0.842** [0.625, 0.945] at the adopted **0.44**. Four
+> in five true matches never reached the confirmation judge. Re-baselined at
+> 0.44 on the ceiling corpus: DAG **61 ± 7 / 212**, agent **24 ± 3 / 212**,
+> union **77 ± 8 / 212**; against the **76** defect-addressable units, DAG
+> **29 ± 3 (38.2%)**, agent **12 ± 2 (15.8%)**, union **37 ± 4 (48.7%)**.
+> **The pipeline did not change. Only the measurement did.**
+>
+> Two things this does *not* do. It does not overturn the ordering — the DAG
+> still matches ~2.5× the agent's units. And it does not license subtracting
+> these numbers from the ones above: those are severity-weighted recalls on the
+> head-to-head corpus, these are unit counts on the ceiling corpus. Different
+> config hashes, never differenced.
+>
+> The last bullet in this section — "0.0815 means 92% of weighted human concerns
+> are missed" — should now read: against all 212 units the union reaches
+> **36.3%**, and against the 76 addressable ones **48.7%**. Both denominators
+> travel together; 27 of the 212 are segmentation fragments no system can match.
+
 - **The DAG won degraded.** It ran with an empty corpus, so `search_literature`
   and `detect_gaps` returned nothing.
 - **The per-run mean difference is not significant** (Welch t=1.98, df=5.4,
@@ -344,6 +369,15 @@ partially**, measured on two independent populations:
 | $ / finding | $0.0045 | **$0.0041** (n=237) | $0.0094 |
 | **$ / verified finding** | $0.0062 | **$0.0045** (n=217) | $0.0114 |
 | unverified-quote rate | 0.2679 | **0.0805** (n=236) | 0.0000 *by construction* |
+
+> ↻ **Corrected 2026-08-01 — same correction as H2H above: every recall row here
+> is at the uncalibrated `COS_THRESHOLD = 0.55`.** Calibrated to **0.44** on
+> n = 266 pairs, the ceiling-corpus re-baseline gives DAG **61 ± 7 / 212** and
+> agent **24 ± 3 / 212** (union **77 ± 8**), and against the **76** addressable
+> units DAG **29 ± 3 (38.2%)** and agent **12 ± 2 (15.8%)**. **The pipeline did
+> not change; only the measurement did.** The orchestrated arm was not re-run at
+> 0.44 — its findings are not in the ceiling corpus — so its row stays a
+> 0.55-era figure and must not be compared against the corrected ones.
 
 **The 7.87× recall gap becomes 1.37×, and at these `n` the orchestrated agent
 and the DAG are not distinguishable** — Welch t = 0.57, df = 7.3, **p ≈ 0.59**.

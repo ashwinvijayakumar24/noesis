@@ -321,6 +321,34 @@ rather than beside it. At 0.44 all three are confirmed.
 **These are estimates, clearly labelled. Re-baselining is the next agent's job**
 — nothing here re-ran the scorer, and `ceiling.jsonl` was not written to.
 
+> ↻ **Re-baselined 2026-08-01. The estimates held; all three came in slightly
+> high of them, and the reason is worth more than the numbers.**
+>
+> | | 0.55 | 0.45 (measured) | 0.44 **estimated** | 0.44 **measured** |
+> |---|---:|---:|---:|---:|
+> | DAG | 31 | 56 / 57 | ≈ 57 | **61 ± 7** |
+> | agent | 12 | 23 | ≈ 23 | **24 ± 3** |
+> | union | 41 | 72 / 73 | ≈ 73 ± 7 | **77 ± 8** |
+>
+> Union 77 is inside the ±7 band this section published; DAG 61 is inside a ±10%
+> band on ≈57; agent 24 is one off ≈23. **Nothing landed outside.**
+>
+> **Where the method under-predicted, and it was not the recall curve.** The
+> candidate-volume estimate in §3 is exact at 0.45 — it predicted 1064 pairs and
+> the real corpus has 1064 — but at 0.44 it predicted 1170 against an actual
+> **1219**, 4.2% low. The stratified estimate slightly understates how much
+> volume the 0.44–0.45 slice actually admits on this corpus. Those 155 extra
+> pairs yielded **+4 DAG units and +1 agent unit** over the 0.45 rerun, i.e.
+> about **1 unit per 31 extra candidates** — a better yield than "the extra 106
+> are mostly false positives the confirmer rejects" implies, and the direction
+> that argues for 0.43 rather than against it.
+>
+> Run provenance: 1219 candidate pairs, 1079 confirm-cache hits, **140 live
+> verdicts** on the baselining run ($0.1648). An immediate second run at the same
+> threshold was **100% cache-served — 1219/1219, 0 live verdicts, $0.0000 — and
+> reproduced 61 / 24 / 77 exactly** under the same config hash
+> `06723c2f759c246a`. `ceiling.jsonl` holds both rows.
+
 CEIL measured, on the same 201-finding corpus:
 
 | | 0.55 (deployed) | 0.45 (CEIL, measured) | 0.44 (estimated) |
@@ -450,10 +478,14 @@ of §3 with no embeddings, no cache, and no model.
 
 ## 9. What this does not say
 
-- It does not change `match.py`. `COS_THRESHOLD` is still 0.55. The
-  recommendation is made with evidence and left for its owner, as CEIL's was.
-- It does not re-baseline anything. §5 is arithmetic on CEIL's measurements, not
-  a scoring run.
+- ~~It does not change `match.py`. `COS_THRESHOLD` is still 0.55.~~ ↻ **Adopted
+  2026-08-01.** `match.py` now carries `CALIBRATED_COS_THRESHOLD = 0.44` as its
+  default and `LEGACY_COS_THRESHOLD = 0.55` alongside it, overridable with
+  `NOESIS_MATCH_COS_THRESHOLD`. The 0.55 lineage is expressible and every
+  pre-existing row stays interpretable.
+- ~~It does not re-baseline anything. §5 is arithmetic on CEIL's measurements,
+  not a scoring run.~~ ↻ **Re-baselined 2026-08-01**, see the box in §5. The
+  arithmetic held.
 - It does not fix the denominator defect (`CEILING.md` §2): 27 of the 212 units
   are fragments no system can match, and every recall figure that divides by 212
   is wrong in a way no threshold fixes.

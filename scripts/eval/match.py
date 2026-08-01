@@ -67,6 +67,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -96,9 +97,28 @@ PROMPT_VERSION = "match_v1"
 EMBED_MODEL = "text-embedding-3-small"
 CONFIRM_MODEL = "gpt-5.2"
 
-# Initial value chosen before hand-label calibration. Phase-2 calibration target:
-# 30 labeled pairs with agreement >=0.85; update this comment with precision/recall.
-COS_THRESHOLD = 0.55
+#: The uncalibrated value this matcher shipped with, kept named rather than
+#: deleted: every row written before 2026-08-01 -- ``ceiling.jsonl``,
+#: ``headtohead*.jsonl``, every count in ``HEADTOHEAD.md`` and ``BENCHMARKS.md``
+#: -- was produced under it, and a reader needs to be able to say
+#: ``COS_THRESHOLD = LEGACY_COS_THRESHOLD`` and reproduce them.
+LEGACY_COS_THRESHOLD = 0.55
+
+#: Calibrated on **n = 266** hand-labelled pairs (146 from ``CEILING.md`` §3,
+#: 120 dense labels across 0.42-0.48). Recall **0.842** [0.625, 0.945],
+#: precision 0.213 [0.141, 0.309]; the plateau is 0.43-0.47 and every threshold
+#: in it has a recall point estimate inside 0.44's interval. The deployed 0.55
+#: scored recall 0.202 [0.081, 0.424] -- worse than 0.44 on recall by a factor
+#: of four and worse than 0.60 on precision. Derivation, intervals, the
+#: cost asymmetry that breaks the 0.44/0.45 tie, and the judge-variance term the
+#: intervals do *not* cover: ``scripts/eval/ceiling/CALIBRATION.md``.
+CALIBRATED_COS_THRESHOLD = 0.44
+
+#: Override with ``NOESIS_MATCH_COS_THRESHOLD`` (e.g. ``=0.55`` to reproduce a
+#: pre-calibration row). Read once at import; callers that need to vary it
+#: within a process assign to ``match.COS_THRESHOLD`` directly, as the ceiling
+#: and head-to-head scorers already do.
+COS_THRESHOLD = float(os.environ.get("NOESIS_MATCH_COS_THRESHOLD", CALIBRATED_COS_THRESHOLD))
 CONFIRM_BATCH_SIZE = 20
 
 Embedder = Callable[[list[str]], list[list[float]]]

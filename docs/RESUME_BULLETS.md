@@ -32,6 +32,34 @@ versus 21**. Orchestrated, it reaches **0.0362/run and 19 of 212 units**: the
 ($0.0045 vs $0.0114). The architecture does not lose — the single-actor
 configuration did.
 
+> ↻ **Corrected 2026-08-01 — every unit count in 1b was measured at an
+> uncalibrated matcher threshold.** The bullet is left as written; the runs
+> behind it are real and pinned to `COS_THRESHOLD = 0.55`. What changed is the
+> instrument: calibrating that threshold on **n = 266** hand-labelled pairs
+> moved it to **0.44**, and re-baselining gives the DAG **61 ± 7 of 212** and
+> the single agent **24 ± 3**, against 31 and 12 at 0.55. **The pipeline did not
+> change.** The ordering, the ratio, and the `p ≈ 0.59` conclusion all survive;
+> the *levels* roughly double. The 0.55-era and 0.44-era rows sit under
+> different config hashes and are never differenced.
+
+**1b-i. The headline sentence, and the only one that should be used from now on:**
+
+> **Of 212 units, 76 are addressable. At a calibrated threshold the DAG matches
+> 29 ± 3 and the agent 12 ± 2, i.e. 38% and 16% of the addressable subset — up
+> from 18% and 8% under an uncalibrated threshold that was never validated. The
+> pipeline did not change.**
+
+Against **all 212** the same run reads DAG **61 ± 7 (28.8%)**, agent
+**24 ± 3 (11.3%)**, union **77 ± 8 (36.3%)**; against the **76** the union is
+**37 ± 4 (48.7%)**. Both denominators are quoted every time — 27 of the 212 are
+segmentation fragments no system can match, so publishing only one is
+denominator shopping. The bands are `ceil(10%)` of the count and come from the
+confirmation judge's disagreement **with itself** (κ(judge, judge) = 0.75–0.85
+against κ(judge, hand) = 0.647; four judgements of the same 80 pairs gave
+10/13/13/10 positives). **No unit count from this pipeline is quotable to the
+integer.** `scripts/eval/ceiling/CALIBRATION.md`, `CEILING.md`,
+`ceiling.jsonl` config hash `06723c2f759c246a`.
+
 **1c.** Bounded the confounds instead of asserting them: paid to re-run the
 matcher at a relaxed threshold to test whether finding length explained the gap
 (ordering unchanged in both comparisons); measured that per-worker scoping
@@ -160,13 +188,21 @@ run so a mid-run change raises instead of being recorded.
 Kept here deliberately, because the failure mode this whole effort was built to
 avoid is a plausible sentence with nothing behind it.
 
+↻ *2026-08-01: every `of 212` unit count in this table (2, 19, 21) is a 0.55-era
+figure on the head-to-head corpus. The orchestrated arm has **not** been
+re-baselined at 0.44 — its findings are not in the ceiling corpus — so those
+three numbers stay as published and must not be compared against the 61/24/77
+above. The rows' arguments are unaffected: all three are within-table
+comparisons at one threshold.*
+
 | tempting | why it is false |
 |---|---|
 | "Improved retrieval by 3.2%" | True and useless without the +13.3 s/query it costs, which makes it unshippable |
 | "Multi-agent beats single-agent" | On **cost per finding it loses** (2.56×). On **recall against the DAG it is the only configuration that competes** — 19 of 212 units vs the single agent's 2. Name which axis or the claim is unfalsifiable |
 | "The agent beats the existing pipeline" | It **matches** on recall — indistinguishable at p≈0.59, and still **19 units vs 21** in absolute count. It beats it on cost (2.53× per verified finding). "Matches on quality at 40% of the cost" is the defensible sentence; "beats" is not |
 | "Benchmarked against a production pipeline" | The DAG ran **degraded** — empty corpus, so its literature and gap nodes returned nothing. Always say so |
-| "Built an agent that reviews papers" | Both systems miss **94% of weighted human concerns**. This measured how far a critique agent is from useful, not that it is useful |
+| "Built an agent that reviews papers" | Both systems miss **94% of weighted human concerns**. This measured how far a critique agent is from useful, not that it is useful. ↻ *Corrected 2026-08-01: the 94% was measured at an uncalibrated threshold. Calibrated, the union misses **63.7% of all 212** and **51.3% of the 76 addressable**. The claim is still "not useful yet", but "94%" is no longer the number* |
+| "Recall doubled" (of the calibration) | **Nothing was improved.** `COS_THRESHOLD` 0.55 → 0.44 is a measurement fix: the prefilter was showing the confirmation judge **one true match in five** (recall 0.202 [0.081, 0.424], n=266). The findings, the prompts, and the DAG are byte-identical. Any bullet that presents this as a product gain is false |
 | "Runtime-decided worker count with full concern coverage" | **4–6 of 8 triaged concerns are never dispatched** in the orchestrated arm. Coverage is partial by construction and the shortfall is recorded, not hidden |
 | "Built context compaction for long-horizon agents" | Fires at 8k (0.333, n=12) and, under a genuine long-horizon workload, at 16k (0.333, n=6, 4 events). It does **not** fire at 16k+ on the ordinary Phase A task — peak prompt is 10,092 tokens against a 13,600 trigger, so that zero is a **workload bound, not a broken path**. Claimable only with the workload named |
 | "Loop detection prevents runaway agents" | **One of three channels has ever bound.** `loop_no_result` fires 1.0000 (n=6) under an empty retriever — and is **fixture-only**, since `NoesisSearch` has `similarity_threshold=0.0` and structurally cannot return empty. `loop_repeated_call` and `loop_oscillation` have never bound in **270 runs**; max identical streak is **1** against a threshold of 3, including 30 runs built to induce looping. `gpt-5.2` under failure varies its calls and dies on the step budget instead |

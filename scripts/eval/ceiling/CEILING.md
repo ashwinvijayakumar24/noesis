@@ -284,6 +284,28 @@ says, in the same direction the denominator defect inflates it.
 > counted — and the current true recall against the addressable subset is
 > **46.1%** pooled, **35.5%** for the DAG alone.
 
+> ↻ **Updated 2026-08-01 — the operating point adopted was 0.44, not this file's
+> 0.45, and the sentence moves with it.** Nothing above is retracted; 0.45 was
+> re-measured at n=266 and survived (`CALIBRATION.md`). At 0.44, on this same
+> corpus and these same labels (`ceiling.jsonl` config hash `06723c2f759c246a`,
+> fully cache-reproduced):
+>
+> > Of 212 units, **76** are addressable. At a calibrated threshold the DAG
+> > matches **29 ± 3** and the agent **12 ± 2**, i.e. **38%** and **16%** of the
+> > addressable subset — up from **18%** and **8%** under an uncalibrated
+> > threshold that was never validated. **The pipeline did not change.**
+>
+> Against all 212: DAG **61 ± 7 (28.8%)**, agent **24 ± 3 (11.3%)**, union
+> **77 ± 8 (36.3%)**; the union reaches **37 ± 4 (48.7%)** of the 76. The bands
+> are `ceil(10%)` of the count and come from judge run-to-run variance, not
+> sampling error — §3's ±1 caveat was an underestimate, and `CALIBRATION.md` §6
+> replaces it with κ(judge, judge) = 0.75–0.85.
+>
+> The union at 48.7% of the addressable subset puts §6's "realistic target,
+> 50–60% of the 76-unit subset" within about two units of already being met by
+> the two systems pooled — which says more about how weak that target was than
+> about the systems. The DAG alone, at 38.2%, is the number that matters.
+
 ---
 
 ## 6. Is 50–75% reachable? Directly.
@@ -368,5 +390,9 @@ NOESIS_LLM_MAX_SPEND_USD=6.00 python3 -m scripts.eval.ceiling.score_ceiling --th
   and `kKRbAY4CXv::anon1` alone contributes 10 of the 34 `request_not_defect`
   units and all 3 `generic_non_defect` ones. One unusual reviewer is a
   meaningful fraction of a 212-unit corpus.
-- `COS_THRESHOLD` was **not** changed. `match.py` is untouched. The
-  recommendation is made with evidence and left for its owner.
+- ~~`COS_THRESHOLD` was **not** changed. `match.py` is untouched.~~ ↻ **Changed
+  2026-08-01, to 0.44 rather than this file's 0.45** — the tie was broken by
+  `CALIBRATION.md`, which re-ran the sweep at n=266 and confirmed §3's curve
+  (0.45 recall moved 0.822 → 0.819). `match.py` now exposes
+  `CALIBRATED_COS_THRESHOLD = 0.44`, `LEGACY_COS_THRESHOLD = 0.55`, and a
+  `NOESIS_MATCH_COS_THRESHOLD` override.

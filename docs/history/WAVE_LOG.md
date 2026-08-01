@@ -12,6 +12,21 @@ Read this instead of every wave. **Every number carries its `n` and its source d
 2. **An index-forced ANN latency is not what the planner does**, and an eval-corpus retrieval number is not a production retrieval number.
 3. **Retrieval numbers from different label snapshots are not comparable at all.** There are **three** (`019bee4a06eb2d39` · `425df789a844f1f3` · `230c6ea9d9b7e8fd`). Directions reproduce; absolutes do not.
 4. **Every cost figure produced before the matcher fix is a lower bound** by a margin that cannot be recovered — the matcher's caches store no usage data.
+5. **Every recall figure in this file dated before 2026-08-01 was computed at an uncalibrated matcher threshold** (`COS_THRESHOLD = 0.55`, whose measured prefilter recall is **0.202** [0.081, 0.424], n=266). The calibrated value is **0.44**. Old rows stay, carry their threshold in their config hash, and **are never differenced** against new ones. See the block immediately below.
+
+### 🟢 The matcher threshold, calibrated and adopted — `scripts/eval/ceiling/CALIBRATION.md` (2026-08-01)
+
+`match.py` shipped with `COS_THRESHOLD = 0.55` and a comment specifying a calibration study that was never run. It has now been run at **n = 266** hand-labelled pairs (146 + 120 dense across the 0.42–0.48 decision band), and **0.55 is indefensible from either direction**: recall **0.202** [0.081, 0.424] against 0.44's **0.842** [0.625, 0.945], and precision 0.291 against 0.60's 0.441. The adopted value is **0.44**, on a plateau 0.43–0.47; it is `CALIBRATED_COS_THRESHOLD` in `match.py` and is overridable with `NOESIS_MATCH_COS_THRESHOLD`.
+
+Re-baselined on the ceiling corpus (201 findings, 212 units, 3 manuscripts, `ceiling.jsonl` config hash `06723c2f759c246a`, 1219 candidate pairs, **100% cache-served on the confirming re-run**, 0 live verdicts, $0.0000):
+
+| | 0.55 (uncalibrated) | **0.44 (calibrated)** | of the **76** addressable, 0.55 → **0.44** |
+|---|---:|---:|---|
+| DAG | 31 / 212 | **61 ± 7 / 212** | 14 (18.4%) → **29 ± 3 (38.2%)** |
+| agent | 12 / 212 | **24 ± 3 / 212** | 6 (7.9%) → **12 ± 2 (15.8%)** |
+| union | 41 / 212 | **77 ± 8 / 212** | 19 (25.0%) → **37 ± 4 (48.7%)** |
+
+**The pipeline did not change. Only the measurement did.** Bands are `ceil(10%)` of the count and come from judge run-to-run variance, not sampling error: four judgements of the same 80 pairs gave 10/13/13/10 positives, κ(judge, judge) = 0.75–0.85 against κ(judge, hand) = 0.647. **No unit count downstream of the confirmer should be quoted to the integer.** Both denominators are published together deliberately — `212` includes 27 segmentation fragments no system can match (`CEILING.md` §2) and 76 is the defect-addressable subset; quoting only one of them is denominator shopping.
 
 ### 🟢 User-visible end-to-end latency — `scripts/eval/E2E_LATENCY.md` (2026-08-01)
 
@@ -225,6 +240,12 @@ A separate repo (`reviewer-agent`, 546 tests standalone / 576 against a Noesis c
 | $ per **verified** finding | $0.0062 | **$0.0045** | $0.0114 |
 | unverified-quote rate | 0.2679 | 0.0805 | 0.0000 *by construction* |
 | wall clock / manuscript | 12.74 s | 59.6 s | 74.08 s |
+
+> ↻ **Corrected 2026-08-01 — every recall figure in the table above was computed at the uncalibrated `COS_THRESHOLD = 0.55`.** The table is left exactly as published: those runs happened, and their config hashes pin them to 0.55.
+>
+> What the calibration changes is the *level*, not the ordering. At the calibrated 0.44, on the ceiling corpus, the DAG matches **61 ± 7** of 212 and the agent **24 ± 3** — against 31 and 12 at 0.55. **The pipeline did not change; the prefilter was showing the confirmation judge one true match in five.**
+>
+> **These two sets of numbers are not differenceable.** The table above is severity-weighted per-run recall on the head-to-head's own corpus at snapshot `29237d999a88fa15`; the re-baseline is distinct-unit counts on the ceiling corpus (201 findings pooled over every recorded run). Different corpora, different estimands, different config hashes. Caveat 2 — "both systems miss 94%" — is the one figure that moves materially: against the **76 addressable** units the union now reaches **37 ± 4 (48.7%)**, and against all 212 it reaches **77 ± 8 (36.3%)**.
 
 **Orchestrated, the agent reaches recall indistinguishable from this DAG's** (Welch t=0.57, df=7.3, **p ≈ 0.59**) at **2.53× lower cost per verified finding**. As a single actor it lost by 7.87×.
 

@@ -67,7 +67,8 @@ def embedder(texts):
 
     Hand-built rather than mocked at random so the prefilter outcome is a fact
     about the fixture, not about whichever vectors a stub happened to return:
-    n1.u1 is ~1.0 and clears 0.55, n2.u1 is 0.0 and cannot.
+    n1.u1 is ~1.0 and clears any threshold this matcher has ever been set to
+    (0.44 today, 0.55 historically); n2.u1 is 0.0 and clears neither.
     """
     table = {
         ITEMS[0]["text"]: [1.0, 0.02, 0.0],
@@ -277,3 +278,56 @@ def test_decisions_are_identical_across_two_runs(tmp_path):
     assert strip(first) == strip(second)
     assert [d["verdict_source"] for d in first] == ["live", None]
     assert [d["verdict_source"] for d in second] == ["cache", None]
+
+
+# ---------------------------------------------------------------------------
+# The calibrated operating point (scripts/eval/ceiling/CALIBRATION.md)
+# ---------------------------------------------------------------------------
+
+
+def test_default_threshold_is_the_calibrated_one():
+    """0.44, from n=266 hand-labelled pairs, not the shipped guess.
+
+    Pinned as a value rather than a property because the value is the whole
+    result: 0.55 scored prefilter recall 0.202 [0.081, 0.424] against 0.44's
+    0.842 [0.625, 0.945], and a silent drift back would re-deflate every recall
+    number in the repo without failing anything else.
+    """
+    assert match.CALIBRATED_COS_THRESHOLD == 0.44
+    assert match.COS_THRESHOLD == match.CALIBRATED_COS_THRESHOLD
+
+
+def test_the_legacy_threshold_stays_expressible():
+    """Every row written before 2026-08-01 was produced at 0.55.
+
+    Deleting the constant would make those rows uninterpretable -- the point of
+    keeping it is that ``NOESIS_MATCH_COS_THRESHOLD=0.55`` reproduces them.
+    """
+    assert match.LEGACY_COS_THRESHOLD == 0.55
+    assert match.CALIBRATED_COS_THRESHOLD < match.LEGACY_COS_THRESHOLD
+
+
+def test_threshold_is_configurable_from_the_environment(monkeypatch):
+    monkeypatch.setenv("NOESIS_MATCH_COS_THRESHOLD", "0.55")
+    import importlib
+
+    reloaded = importlib.reload(match)
+    try:
+        assert reloaded.COS_THRESHOLD == reloaded.LEGACY_COS_THRESHOLD
+    finally:
+        monkeypatch.delenv("NOESIS_MATCH_COS_THRESHOLD", raising=False)
+        importlib.reload(match)
+
+
+def test_the_threshold_in_force_is_carried_on_every_decision_row(tmp_path):
+    """A row that does not name its threshold cannot be read back.
+
+    The sink is append-only and a later run at a different threshold appends to
+    the same file, so this is what keeps 0.55-era and 0.44-era rows separable
+    instead of differenceable.
+    """
+    decisions: list = []
+    run(tmp_path, confirmer(True, "same concern"), decisions=decisions)
+    assert decisions
+    for row in decisions:
+        assert row["cos_threshold"] == match.COS_THRESHOLD

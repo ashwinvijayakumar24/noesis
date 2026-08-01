@@ -7,6 +7,36 @@ product real researchers would use.
 **Status:** Phase 0 is running. Everything downstream of it is provisional until
 it reports, and this document says which numbers are load-bearing.
 
+> ↻ **Corrected 2026-08-01 — Phase 0 landed and §1.1 has been executed.**
+> `scripts/eval/match.py:COS_THRESHOLD` moved **0.55 → 0.44**, calibrated on
+> **n = 266** hand-labelled pairs (`scripts/eval/ceiling/CALIBRATION.md`).
+> **Everything above and below this box is still what was believed on the day it
+> was written**; nothing has been deleted.
+>
+> The re-baseline, on the ceiling corpus (201 findings, 212 units, 3
+> manuscripts, `ceiling.jsonl` config hash `06723c2f759c246a`):
+>
+> | of 212 | 0.55 (uncalibrated) | **0.44 (calibrated)** |
+> |---|---:|---:|
+> | DAG units matched | 31 | **61 ± 7** |
+> | agent units matched | 12 | **24 ± 3** |
+> | union | 41 | **77 ± 8** |
+>
+> | of the **76** addressable | 0.55 | **0.44** |
+> |---|---:|---:|
+> | DAG | 14 (18.4%) | **29 ± 3 (38.2%)** |
+> | agent | 6 (7.9%) | **12 ± 2 (15.8%)** |
+> | union | 19 (25.0%) | **37 ± 4 (48.7%)** |
+>
+> **The pipeline did not change. Only the measurement did.** The bands are
+> `ceil(10%)` of each count and come from judge run-to-run variance
+> (`CALIBRATION.md` §6: four judgements of the same 80 pairs gave 10/13/13/10
+> positives; κ(judge, judge) = 0.75–0.85 against κ(judge, hand) = 0.647). No
+> unit count from this pipeline should be quoted to the integer.
+>
+> The old rows stay in `ceiling.jsonl` under their own config hash and **are not
+> differenced** against the new ones.
+
 ---
 
 ## 0. The reframe — "we miss 94%" is three different problems
@@ -24,6 +54,15 @@ populations with completely different fixes, and nobody has separated them:
 a product bug.** `match.py:34-36` contains a comment specifying the calibration
 study — *"30 labeled pairs with agreement >=0.85; update this comment with
 precision/recall"* — **that was never run.** The 0.55 threshold is a typed guess.
+
+> ↻ **Corrected 2026-08-01.** It has now been run, at **n = 266** rather than the
+> 30 the comment asked for. Population B was indeed the largest single term: at
+> the calibrated 0.44 the union goes 41 → **77 ± 8** of 212 and 19 → **37 ± 4**
+> of the 76 addressable, with no pipeline change. The row above quotes
+> `0.0815 → 0.2807`, which is the head-to-head arm's severity-weighted recall at
+> 0.55 → 0.45 on the **head-to-head corpus**; the new figures are unit counts on
+> the **ceiling corpus**. They are different measurements on different corpora
+> and must not be differenced.
 
 **Population C is real and probably big.** Actual label units, verbatim:
 
@@ -76,6 +115,12 @@ Ordered by expected value, and every item is measurable against the Phase-0
 baseline.
 
 ### 1.1 Adopt the calibrated matcher and re-baseline everything
+**✅ Done 2026-08-01** — `COS_THRESHOLD = CALIBRATED_COS_THRESHOLD = 0.44`,
+overridable with `NOESIS_MATCH_COS_THRESHOLD` (set it to `0.55` to reproduce any
+pre-calibration row). Numbers in the box at the head of this file. The
+prediction below held: it was the largest recall change in the plan and it is
+not a product improvement.
+
 Mechanical once Phase 0 lands. Every historical recall figure moves; they are
 append-only and keyed by config hash, so old rows stay and are not differenced
 against new ones. **Expected to be the single largest recall change in this
