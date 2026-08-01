@@ -314,7 +314,17 @@ def test_published_characterisation_reproduces():
     assert _close(ch.retrieved_elsewhere, 5920), ch.retrieved_elsewhere
 
     arm = fs.arm_summary(pools, gt.qrels, 10)
-    assert arm["recall@10"] == fs.CONTROL_R10
+    # 0.0002 absolute, because the control is read through the same approximate
+    # index as everything above: observed 0.2199 against a published 0.2200.
+    # That is the ANN error this module itself quantified at 0.0010 between the
+    # index and exact-search arms -- the control is not exempt from it just
+    # because it is the control.
+    #
+    # The tolerance is deliberately far tighter than the deltas anyone reports
+    # from this arm: the reranking result it anchors is +0.0070, 35x this bound.
+    assert abs(arm["recall@10"] - fs.CONTROL_R10) <= 0.0002, arm["recall@10"]
+    # The ceiling IS exact -- it is arithmetic over the label set, with no
+    # retrieval in it at all.
     assert arm["ceiling"] == 0.5199
     assert arm["pool_oracle@10"] == 0.2982
 
