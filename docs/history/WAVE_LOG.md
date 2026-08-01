@@ -252,7 +252,7 @@ A separate repo (`reviewer-agent`, 546 tests standalone / 576 against a Noesis c
 **Four caveats travel with that, and the last one is about this pipeline:**
 
 1. **The DAG ran degraded** — empty corpus, so `search_literature` and `detect_gaps` returned nothing. It still won on absolute unit count.
-2. **Both systems miss 94% of weighted human concerns.** This measures how far a critique agent is from useful, not that it is useful.
+2. **Both systems miss most of what human reviewers raised.** ↻ *The "94%" this line originally carried was severity-weighted recall at the uncalibrated 0.55 threshold. Calibrated, the union misses **63.7% of all 212 units** and **51.3% of the 76 addressable** — a different estimand on a different corpus, so it does not replace the 94% arithmetically, but 94% overstates the miss.* The conclusion is unchanged: this measures how far a critique agent is from useful, not that it is useful.
 3. The agent's orchestrated arm still matches **fewer units in absolute count** (19 vs 21).
 4. **This DAG's 0.0000 unverified-quote rate is by construction, not virtue** — `strip_unanchored_findings` deletes non-verbatim anchors upstream. The comparable figure is cost *per verified finding*, not the two rates.
 
