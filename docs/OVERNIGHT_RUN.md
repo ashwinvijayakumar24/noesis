@@ -292,6 +292,55 @@ partially**, measured on two independent populations:
   `section_pages` derives from `section.text` alone and
   `test_profile_is_computable_from_the_manuscript_alone` still passes.
 
+### ✅ H2H2 — orchestration closes the gap, and the earlier verdict is overturned · `075666c` · ≈$3.77 of $5.00
+
+| | single agent | **orchestrated** | DAG |
+|---|---:|---:|---:|
+| recall, per-run mean | 0.0063 (n=12) | **0.0362 (n=12)** | 0.0496 (n=6) |
+| pooled at matched r=2 | 0.0000 (n=212) | **0.0578 (n=212)** | 0.0815 (n=212) |
+| **units matched of 212** | 2 | **19** | 21 |
+| $ / finding | $0.0045 | **$0.0041** (n=237) | $0.0094 |
+| **$ / verified finding** | $0.0062 | **$0.0045** (n=217) | $0.0114 |
+| unverified-quote rate | 0.2679 | **0.0805** (n=236) | 0.0000 *by construction* |
+
+**The 7.87× recall gap becomes 1.37×, and at these `n` the orchestrated agent
+and the DAG are not distinguishable** — Welch t = 0.57, df = 7.3, **p ≈ 0.59**.
+Against the single agent the improvement *is* distinguishable (5.72×, p ≈ 0.016,
+flagged as cross-session).
+
+**The sentence H2H would have earned is not supported.** The architecture does
+not lose at every configuration measured. The single-actor configuration lost.
+
+- **The task's own hypothesis was refuted in direction.** It predicted
+  orchestration would close the gap *but cost ~3× more per verified finding*. It
+  closes the gap and costs **2.53× less**.
+- **The DAG arm was not re-run**, and the reason is recorded: the Noesis checkout
+  has moved off the sha the baseline was taken at and carries uncommitted
+  workflow edits, so a fresh arm would not be comparable to the recorded one.
+  Read by hash `84bff044a0e6a8df`, with the label snapshot asserted equal at run
+  time and `noesis_pipeline_version` matching byte-for-byte. Residual booked as
+  a confound (the judge now spans two sessions), not waved away.
+- **Confound method validated before use:** the anchor-reachability calculation
+  reproduces H2H's published 62.2% exactly (n=82) before being trusted for the
+  new figures — per *worker* 16.1%, per *arm* union **59.8%**. Context isolation
+  costs **2.4 points, not a third**.
+- **New confound `O2`, against the agent: 4–6 of 8 triaged concerns per run are
+  never dispatched.** Structural, and recorded rather than netted out.
+- **`N1` no longer bounded at zero:** 3 of 320 tool calls were `lit.search`
+  (0.94%), against 0 of 136 for the single agent.
+- **36/36 workers `complete`, 0 exhausted** — `WORKER_YIELD.md`'s 19/30 residual
+  does not bind here, because the Noesis adapter plans 2–4 workers rather than
+  4–6 and the 40-step pool splits fewer ways.
+- **$1.27 of spend bought nothing:** a `TypeError` in an *optional* prefilter
+  sensitivity destroyed a completed, scored 12-run arm before the sink write.
+  Fixed by ordering — row and detail dump first, diagnostics last, inside a
+  `try`. Disclosed rather than absorbed.
+
+**Not run, with the reason: size-aware allocation (P3) against the DAG.** Its
+benefit is fixing budget exhaustion, and exhaustion does not bind on the Noesis
+adapter (36/36 complete). A third comparison would most likely measure noise, so
+the budget was not spent.
+
 ### 🔧 Lead — the sixth identity collision, closed
 
 P1 found that `e2e_latency.py`'s `config_hash` did not cover
