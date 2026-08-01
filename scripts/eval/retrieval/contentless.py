@@ -93,6 +93,17 @@ DETERMINISM
     Same query set in, same partition out, on any machine. The only stateful
     input is the query set itself, whose fingerprint is reported alongside every
     number this module produces.
+
+    The *retrieval* arms are a different matter, and this module learned it the
+    hard way. Its first published tables were measured against another agent's
+    experimental corpus while that agent was re-chunking the shared eval
+    database in place, and a second run straddled the restore -- so its dense
+    arms described one corpus and its keyword arms another, which looked exactly
+    like retriever non-determinism and was reported as such. It was not. See
+    CONTENTLESS.md §3e for the retraction and the timeline that established it.
+    ``_run_arms`` now fingerprints the index before AND after every pass and
+    refuses to report a run that straddles a change: one sample cannot detect a
+    mid-run swap, only two can, and a row count cannot detect one at all.
 """
 
 from __future__ import annotations
@@ -644,6 +655,17 @@ def _score_subset(run_out_raw, qrels_all, subset_query_ids, corpus_doc_ids, unre
     }
 
 
+class CorpusChangedUnderRun(RuntimeError):
+    """The searched index changed while the arms were being measured.
+
+    Fatal on purpose. This is the failure that produced the first version of
+    CONTENTLESS.md: a concurrent agent re-chunked the shared eval corpus in
+    place, every arm was measured against a 5,924-chunk experimental index, and
+    nothing in the record could tell. Reporting a run that straddles two corpora
+    is worse than reporting none, because the numbers look ordinary.
+    """
+
+
 def _run_arms(query_list, project_id: str | None = None) -> dict:
     """Retrieve once per arm over ALL queries, then score every subset from it.
 
@@ -651,6 +673,14 @@ def _run_arms(query_list, project_id: str | None = None) -> dict:
     the filtered and unfiltered columns cannot differ because of retrieval
     nondeterminism -- only because of which queries are in the denominator. That
     is the whole comparison, and running the retriever twice would confound it.
+
+    THE INDEX IS FINGERPRINTED BEFORE **AND** AFTER, and the two must match.
+    A single check at either end is not enough and the first version of this
+    document is the proof: a concurrent agent re-chunked the corpus in place,
+    and the chunk-count check that was supposed to catch it ran after the corpus
+    had already been restored to the same *count* by re-ingestion. Count is not
+    identity. ``index_digest`` is, and a run that straddles a change now raises
+    instead of publishing.
 
     Zero LLM calls: all 338 query embeddings are already in
     ``cache/retrieval_query_embeddings/``. If one were missing this would raise
@@ -665,9 +695,14 @@ def _run_arms(query_list, project_id: str | None = None) -> dict:
         production_embed_fn,
     )
     from scripts.eval.retrieval import queries as queries_mod
-    from scripts.eval.retrieval.run_retrieval_eval import _remap, db_doc_id_map
+    from scripts.eval.retrieval.run_retrieval_eval import (
+        _remap,
+        db_doc_id_map,
+        index_fingerprint,
+    )
 
     pid = project_id or EVAL_PROJECT_ID
+    index_before = index_fingerprint("dense", pid)
     label_set, _ = labels_mod.load_or_build(labels_mod.CORPORA_DIR, use_cache=True)
     qrels_all = label_set.qrels(queries_mod.queries_by_topic(query_list))
     id_map = db_doc_id_map(label_set)
@@ -690,7 +725,11 @@ def _run_arms(query_list, project_id: str | None = None) -> dict:
         "hand_contentless": {q.query_id for q in hand_contentless},
     }
 
-    out: dict = {"subsets": {k: len(v) for k, v in subsets.items()}, "arms": {}}
+    out: dict = {
+        "index": index_before,
+        "subsets": {k: len(v) for k, v in subsets.items()},
+        "arms": {},
+    }
     for spec in ARMS:
         if spec["retriever"] == "dense":
             retriever = DenseRetriever(project_id=pid, embed_fn=embed_fn)
@@ -714,12 +753,30 @@ def _run_arms(query_list, project_id: str | None = None) -> dict:
                 for name, ids in subsets.items()
             },
         }
+
+    index_after = index_fingerprint("dense", pid)
+    if index_after.get("index_digest") != index_before.get("index_digest"):
+        raise CorpusChangedUnderRun(
+            "The searched index changed while these arms were being measured:\n"
+            f"  before: {index_before}\n"
+            f"  after : {index_after}\n"
+            "Every number in this run straddles two corpora and none of it is "
+            "quotable. Re-run when the corpus is quiescent. Note that chunk "
+            "COUNT is not identity -- a re-ingestion can restore the count and "
+            "change every chunk id, which is exactly how the first version of "
+            "CONTENTLESS.md was contaminated."
+        )
+    out["index_verified_after"] = index_after
     return out
 
 
 def _print_arms(report: dict) -> None:
     order = ("unfiltered", "classifier_servable", "classifier_contentless",
              "hand_servable", "hand_contentless")
+    idx = report.get("index", {})
+    print("\n  -- index searched (verified unchanged before AND after) ---------")
+    print(f"  index_state  : {idx.get('index_state')}")
+    print(f"  index_digest : {idx.get('index_digest')}")
     for name in order:
         print("\n" + "=" * 92)
         print(f"  SUBSET: {name}   (n queries in subset: {report['subsets'][name]})")

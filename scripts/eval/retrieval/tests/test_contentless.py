@@ -313,3 +313,48 @@ def test_hand_label_partition_matches_the_published_counts(real_queries):
 def test_frozen_config_is_what_the_agreement_was_measured_at():
     assert C.TOPIC_VOCAB_FRACTION == 0.20
     assert C.MIN_REFERENTS == 4
+
+
+# ---------------------------------------------------------------------------
+# Corpus-identity guard
+# ---------------------------------------------------------------------------
+
+
+def test_arms_driver_refuses_a_run_that_straddles_a_corpus_change(monkeypatch):
+    """The guard that the first version of this document needed and lacked.
+
+    A concurrent agent re-chunked the shared eval corpus in place; every arm was
+    measured against the wrong index; and the chunk-count check meant to catch it
+    ran after a re-ingestion had restored the same count with different chunk
+    ids. Count is not identity. This asserts the driver now fails loudly on a
+    digest change rather than publishing a run that spans two corpora.
+    """
+    from scripts.eval.retrieval import run_retrieval_eval as rre
+
+    digests = iter([
+        {"index_state": "5948c/344d", "index_digest": "aaaaaaaaaaaaaaaa"},
+        {"index_state": "5948c/344d", "index_digest": "bbbbbbbbbbbbbbbb"},
+    ])
+    monkeypatch.setattr(rre, "index_fingerprint", lambda *a, **k: next(digests))
+
+    # Fail before any DB work: the second fingerprint is what matters, and the
+    # retrieval in between is irrelevant to what is being asserted.
+    monkeypatch.setattr(C, "ARMS", ())
+
+    with pytest.raises(C.CorpusChangedUnderRun) as exc:
+        C._run_arms([])
+    assert "aaaaaaaaaaaaaaaa" in str(exc.value)
+    assert "bbbbbbbbbbbbbbbb" in str(exc.value)
+    assert "COUNT is not identity" in str(exc.value)
+
+
+def test_corpus_guard_passes_when_the_digest_is_stable(monkeypatch):
+    from scripts.eval.retrieval import run_retrieval_eval as rre
+
+    stable = {"index_state": "5948c/344d", "index_digest": "8d3edbe3f3b28cdb"}
+    monkeypatch.setattr(rre, "index_fingerprint", lambda *a, **k: dict(stable))
+    monkeypatch.setattr(C, "ARMS", ())
+
+    out = C._run_arms([])
+    assert out["index"]["index_digest"] == "8d3edbe3f3b28cdb"
+    assert out["index_verified_after"]["index_digest"] == "8d3edbe3f3b28cdb"
