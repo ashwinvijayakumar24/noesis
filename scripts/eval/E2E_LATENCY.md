@@ -58,6 +58,18 @@ graph flips `drafts.status` to `analyzed` as its last act, so the task's
 bookkeeping tail runs *after* the page could already paint and is excluded from
 the headline while still being measured and reported.
 
+Two things a reader will want immediately, both with their own sections below:
+
+- 🔴 **The PDF is parsed twice and the first result is discarded.** Parsing is
+  39.2% of the mean path; parsing once instead of twice is *estimated* to
+  remove 15–25% of the user-visible p50. See
+  [The PDF is parsed twice](#-the-pdf-is-parsed-twice-and-the-first-result-is-thrown-away).
+- ⚠️ **The `graph` stage reads 112.51 s p50 here against the recorded
+  graph-level 63.75 s. This is not a regression measurement** — the two were
+  taken with different inputs, different persistence settings and on different
+  days. See
+  [Relationship to the existing 63.75 s graph number](#relationship-to-the-existing-6375-s-graph-number).
+
 ---
 
 ## Per-stage
@@ -91,27 +103,98 @@ Supabase — every read, every write, both storage transfers — is 3.7%.
 
 ---
 
-## 🔴 The PDF is parsed twice, and nothing uses the first result
+## 🔴 The PDF is parsed twice, and the first result is thrown away
 
-`upload_draft` calls `validate_file_format`, which calls `extract_text` to
-check that the file yields text. `ingest_draft` then calls `extract_text`
-again on the same bytes. Both calls were instrumented, and in all 7 runs they
-returned **byte-identical output** — same character count, same section count,
-same reference count.
+**This is the largest actionable finding in the measurement.** PDF parsing is
+**39.2% of the mean user-visible path**, and roughly half of that is the same
+work done a second time.
 
-| | mean | share of mean user-visible total |
-|---|---|---|
-| parse #1, discarded except for a `len(text) > 50` check | 48.67 s | **22.7%** |
-| parse #2, the one whose output is used | 35.36 s | 16.5% |
+### It is the same call, not a cheap check and a full parse
 
-The first parse exists to answer one question — can text be extracted — and its
-answer is thrown away. On these seven runs, **caching the first parse and
-reusing it in `ingest_draft` would remove a mean of 48.7 s from a mean 214.5 s
-path, a 22.7% reduction, with no change to any output.** That is a larger
-reduction than any parallelisation result this project has measured.
+Two call sites, same function, same arguments, no lightweight variant:
 
-This is a finding, not a fix. `draft_processing.py` and `routes/drafts.py` are
-not this harness's files and were not modified.
+`services/backend/app/services/draft_processing.py:740`, inside
+`validate_file_format`, reached from `routes/drafts.py:546` during
+`POST /drafts/upload`:
+
+```python
+    if validation_result["valid"]:
+        try:
+            extracted_data = await extract_text(file_bytes, file_type)
+            sample_text = extracted_data["full_text"]
+
+            if len(sample_text.strip()) < 50:
+```
+
+`services/backend/app/services/draft_processing.py:507`, inside `ingest_draft`,
+reached from `routes/drafts.py:_run_draft_analysis_task` — the Celery worker
+body:
+
+```python
+        # 3. Extract text based on file type (structured data for PDFs via GROBID)
+        logger.info(f"[INGEST] Step 4: Extracting text from {file_type} file...")
+        extracted_data = await extract_text(file_bytes, file_type)
+        full_text = extracted_data["full_text"]
+```
+
+Same `extract_text(file_bytes, file_type)`. `extract_text` dispatches straight
+to `extract_text_from_pdf`, which runs the full Docling-or-GROBID document
+pipeline; there is no header-only or first-page path anywhere in it. The
+harness instrumented the function itself, so both invocations were timed
+independently, and **in all 7 runs the two returned identical output** — same
+character count (32,999 or 41,010 depending on which parser served the run),
+same section count, same reference count. The first result is used for exactly
+one thing, `len(sample_text.strip()) < 50`, and is then discarded; `ingest_draft`
+re-downloads the file from Storage and re-parses it from scratch.
+
+### What it costs
+
+| | n | p50 | mean | share of mean user-visible |
+|---|---|---|---|---|
+| parse #1 — in `upload_request`, result discarded | 7 | 52.38 s | 48.67 s | 22.7% |
+| parse #2 — in `ingest`, result used | 7 | 33.17 s | 35.36 s | 16.5% |
+| both together, per run | 7 | 68.66 s | 84.03 s | 39.2% |
+
+A note on the two stage totals: `upload_request` p50 + `ingest` p50 is 101.95 s,
+but those stages also contain the Storage write, the Storage download, the
+structure build, the anchor map, the parse-artifact write, the Stage-1 editing
+LLM call and two DB writes. **The parsing alone is 68.66 s p50**, and that is
+the number the double-parse finding is about.
+
+### Estimated effect of parsing once — an ESTIMATE, not a measurement
+
+**No single-parse run was ever executed.** What follows is arithmetic on the
+seven measured runs: subtract one parse's measured wall time from that same
+run's measured total, then re-derive p50 and mean over the seven results. It
+is a counterfactual and it is labelled as one everywhere it appears.
+
+| scenario | p50 | mean | saving vs measured p50 |
+|---|---|---|---|
+| **measured, as the code stands** | **212.82 s** | 214.53 s | — |
+| *estimate:* validation's parse cached and reused by `ingest_draft` | 179.81 s | 179.18 s | **−33.01 s, −15.5%** |
+| *estimate:* validation stops parsing at all (cheap check), `ingest_draft` unchanged | 160.41 s | 165.86 s | **−52.41 s, −24.6%** |
+
+The two rows differ because the two parses did not cost the same on this host:
+the second parse often ran against a GROBID that was already warm from the
+first. The honest reading is a **range: parsing once instead of twice removes
+an estimated 15–25% of the user-visible p50**, and the true figure depends on
+which of the two parses survives.
+
+Three things the estimate assumes, all of which could move it:
+
+1. that removing a parse removes exactly its measured wall time (safe here —
+   the stages are sequential and the parse is synchronous inside them);
+2. that the surviving parse costs what it cost when it ran second, which on a
+   host where GROBID's cost varied 5.61–120.33 s is not guaranteed;
+3. that nothing downstream depends on the parse happening twice. Nothing in the
+   read of these two functions suggests it does, but that was not tested.
+
+Even at the bottom of the range this is larger than any parallelisation result
+this project has measured.
+
+**This was not fixed.** `draft_processing.py` and `routes/drafts.py` belong to
+other agents and were not modified. It is reported, with its call sites, for
+whoever owns them.
 
 ---
 
@@ -253,16 +336,44 @@ That warning is now quantified, and it was right:
 Two separate statements, and they should not be conflated:
 
 - **The old number was 30% of the user-visible time.** 64.67 s against 214.53 s
-  mean. The excluded remainder was indeed larger than what was included.
-- **The `graph` stage itself measures ~75% higher here than in `loadgen`**
-  (113.07 vs 64.67 s mean). This document does **not** claim to know why. The
-  candidates, none of them isolated: publish writes are enabled here and
-  suppressed there (but Supabase HTTP inside the graph stage is only 5.08 s
-  mean, so this cannot be most of it); this path makes 13 LLM calls per
-  complete run against the 8 per graph run recorded there; the manuscript text
-  differs (32,999 chars from GROBID here vs the 31,363-char cached fixture);
-  and the two were measured on different days against a shared API. **A
-  like-for-like A/B was not run and is not claimed.**
+  mean. The excluded remainder was indeed larger than what was included, exactly
+  as that document warned.
+- **The `graph` stage here reads 113.07 s mean against its 64.67 s** — ~75%
+  higher. Read on before drawing the obvious conclusion.
+
+### ⚠️ 112.51 s vs 63.75 s is NOT a regression measurement
+
+Nothing in this project got 75% slower, and no such claim is made here. These
+are **two different measurements of two differently-configured things, taken on
+different days, with different inputs, at different `n`**. Differencing them is
+the same mistake as differencing two retrieval label snapshots, and the same
+rule applies: they are not comparable, and no delta between them should be
+quoted.
+
+Every difference that is known:
+
+| | `loadgen` (63.75 s p50, n=3) | here (112.51 s p50, n=7) |
+|---|---|---|
+| what is invoked | `run_draft_analysis_workflow` | `analyze_draft_with_langgraph` — the **publish path**, which wraps the graph |
+| persistence | `stage_only=True` — every node's persistence path is gated off | **off**: real publish gate, real writes, 37 Supabase calls per run |
+| input | cached `extract_structure.json` fixture, 31,363 chars, parsed elsewhere at some earlier time | freshly GROBID-parsed text from the same paper's PDF, **32,999 chars** |
+| LLM calls | 8.0 per graph run | 13 per **complete run** (this harness counts per run, not per stage) |
+| when | 2026-07-31, one session | 2026-07-31 / 2026-08-01, two sessions |
+| `n` | 3 | 7 |
+
+### How much of the 48.4 s gap can be accounted for
+
+| | size | status |
+|---|---|---|
+| Supabase writes the other measurement suppressed | 5.08 s mean (37 calls) | **measured** — so persistence is at most ~10% of the gap |
+| extra LLM calls on the publish path | ≤ 5 calls | **not attributable** — this harness counts LLM calls per run, not per stage. At least one of the 13 is Stage-1 editing inside `ingest`, so the graph made ≤ 12 against the other measurement's 8. At the per-node latencies that document records (reviewer ~17.5 s, editor ~8.7 s, judge ~3.0 s), four additional calls would plausibly cover 30–45 s of the gap — **plausible, unverified, and not claimed as the cause.** |
+| 5.2% more manuscript text | unknown | not modelled |
+| different day, shared API | unknown | not modelled |
+
+**Roughly 10% of the gap is measured; the rest is not accounted for.** A
+like-for-like A/B — same fixture, same persistence setting, same session, both
+harnesses — was not run and would be the only thing that settles it. Recorded
+here as an open question, not as a finding.
 
 ### On `53s → 18s`
 
@@ -283,9 +394,25 @@ graph, and again to the graph's share of the whole path.
 |---|---|
 | LLM calls per complete run | **13**, identical across all 7 runs |
 | spend per complete run | mean $0.2021, p50 $0.1996, range $0.1784–$0.2452 |
-| **total actual spend, all sessions incl. the failed Docling run** | **$2.1431** |
-| ceiling | `NOESIS_LLM_MAX_CALLS` 90–100, `NOESIS_LLM_MAX_SPEND_USD` 2.0–2.5 per session; neither tripped |
+| **total actual spend, every session** | **$2.1431** of a **$4.00** track ceiling |
 | unpriced calls | 0 |
+
+Everything charged to this track, from the sink. Nothing is omitted — the
+failed Docling attempt and both discarded warmup runs cost real money and are
+counted:
+
+| session `run_id` | config | runs offered | measured / ok | LLM calls | spend |
+|---|---|---|---|---|---|
+| `cd8bb67ec9fe` | Docling | 1 | 0 — **failed** at the publish step | 13 | $0.2692 |
+| `fbd8d25f7493` | GROBID | 4 (1 warmup) | 3 | 52 | $0.8387 |
+| `1a61c82402e4` | GROBID | 5 (1 warmup) | 4 | 65 | $1.0352 |
+| **total** | | **10** | **7** | **130** | **$2.1431** |
+
+Per-session ceilings were `NOESIS_LLM_MAX_SPEND_USD` 1.00 / 2.50 / 2.00 and
+`NOESIS_LLM_MAX_CALLS` 30 / 90 / 100. **None tripped.** $1.8569 of the $4.00
+track allocation is unspent; no further runs were made, because the spread in
+these numbers is environmental (an emulated parser) rather than sampling, and
+more samples on this host would not narrow it.
 
 Standing project caveat applies unchanged: **every cost figure in this project
 is a lower bound**, because `match.py` bypassed the spend guardrails and its

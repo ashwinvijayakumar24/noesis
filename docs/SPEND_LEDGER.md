@@ -40,5 +40,5 @@ spend — an absence, not a zero.
 | R | R1 contentless | $0.00 | | zero-LLM by construction; asserted in test |
 | R | R2 chunk ceiling | $6.00 | | embeddings only |
 | R | R3 rerank | $2.00 | | local cross-encoder, $0.00 expected |
-| E | E1 end-to-end | $4.00 | | |
+| E | E1 end-to-end | $4.00 | **$2.1431** | 130 calls, 0 unpriced, 3 sessions, 7 measured runs. Includes 2 discarded warmups and one failed Docling attempt ($0.2692) — everything charged, nothing omitted. $1.8569 unspent: the spread is environmental, not sampling. Detail: `scripts/eval/E2E_LATENCY.md` §Cost |
 | H | N11 checkpointer | $6.00 | | prefers fixture replay over live runs |
