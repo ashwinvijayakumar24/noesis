@@ -10,3 +10,11 @@
 # because NDCG has real convention traps (log base, tie handling, whether ideal-DCG
 # comes from the full label set) and a subtle bug silently invalidates every number.
 ranx>=0.3.20
+
+# Cross-encoder reranking arm (scripts/eval/retrieval/rerank.py). Pulls torch and
+# transformers, which is why this is here and not in the backend image: the arm
+# is a measurement, not a shipped feature, and nothing in production loads a
+# 568M-parameter reranker. The weights (BAAI/bge-reranker-v2-m3, ~2.2 GB) are
+# downloaded once to the HuggingFace cache on first use and cost $0.00 to run.
+# Only the rerank arm imports this; every other arm still runs without it.
+sentence-transformers>=3.0
