@@ -8,12 +8,39 @@ Running record of each wave from `EXECUTION_PLAN.md`: what was built, what was v
 
 Read this instead of every wave. **Every number carries its `n` and its source document.** Four rules govern all of them:
 
-1. **A node replay is not an end-to-end user-visible time.** The end-to-end path has never been measured, not once.
+1. **A node replay is not an end-to-end user-visible time.** ↻ *Updated 2026-08-01: the user-visible path has now been measured — **p50 212.82 s, n=7** — and the graph is 112.51 s of it. The rule stands as stated; what changed is that there is finally a number on the other side of it. Every pre-existing figure in this file is still a node or graph figure and none of them is a user-visible time.*
 2. **An index-forced ANN latency is not what the planner does**, and an eval-corpus retrieval number is not a production retrieval number.
 3. **Retrieval numbers from different label snapshots are not comparable at all.** There are **three** (`019bee4a06eb2d39` · `425df789a844f1f3` · `230c6ea9d9b7e8fd`). Directions reproduce; absolutes do not.
 4. **Every cost figure produced before the matcher fix is a lower bound** by a margin that cannot be recovered — the matcher's caches store no usage data.
 
-### End-to-end latency — `scripts/eval/LATENCY.md` (first ever measured)
+### 🟢 User-visible end-to-end latency — `scripts/eval/E2E_LATENCY.md` (2026-08-01)
+
+**This closes the standing "never measured, not once" gap below.** Stopwatch starts when the file reaches the upload route and stops when the analysis JSON is in the user's hand.
+
+**p50 212.82 s**, mean 214.53 s, min/max 126.81 / 352.41 s, **n = 7** complete real-GPT-5.2 runs at config hash `670fccc87731`, 13 LLM calls/run, spend $2.1431 across 130 calls with 0 unpriced.
+
+| stage | n | p50 | CV | |
+|---|---|---|---|---|
+| `upload_request` | 7 | 53.30 s | 78.0% | format validation, **which parses the whole PDF** |
+| `ingest` | 7 | 48.65 s | 69.6% | **the PDF is parsed a second time** |
+| `graph` | 7 | **112.51 s** | 11.8% | 18 nodes, reviewer fan-out, publish writes |
+| `task_tail` · `first_read` | 7 | 0.17 · 0.14 s | — | after the page could already paint |
+
+- **CV on the total is 36.3%**, worse than the 15.0% at n=5 recorded below, because PDF parsing is the noisiest stage on this host. Nothing smaller than ±34% of the mean is resolvable. **No p90/p95/p99 appears in that document and the harness refuses to compute one at this `n`.**
+- 🔴 **The PDF is parsed twice per upload.** Identical call at `draft_processing.py:740` (inside `validate_file_format`, from `routes/drafts.py:546`) and `:507` (inside `ingest_draft`). No header-only path; both timed independently and returned identical output in all 7 runs. The first result is used for one thing — `len(sample_text.strip()) < 50` — then discarded. **Parsing alone is 68.66 s p50 = 39.2% of the mean path.** Estimated p50 if fixed: **179.81 s** (cache and reuse) or **160.41 s** (stop parsing in validation) — an estimate, never measured, assumptions recorded.
+- **112.51 s here is not a regression against the 63.75 s below.** Different things: that one is `stage_only=True` with persistence gated off from a cached fixture at n=3; this is the publish path with real writes on freshly parsed text at n=7. ~10% of the 48.4 s gap is accounted for (5.08 s of Supabase writes); **the rest is bounded, not explained.**
+- Local Supabase, `PDF_PARSER=grobid`. Docling was measured, **failed**, and is reported as failed rather than silently swapped.
+
+### 🟢 Durable checkpointer and resume — `scripts/eval/CHECKPOINT_RESUME.md` (2026-08-01)
+
+Resume was **dead by construction** (no checkpointer, no `thread_id`, payload gutted by `minimize_workflow_checkpoint`, rows deleted on success). It now works and is proved across real process death.
+
+- **SIGKILL 27/27**: parent runs the real 18-node topology in a child, waits for N durable checkpoints, kills it, resumes in a fresh interpreter. 27/27 `returncode == -9`, 27/27 resumed to END, **0 durable-prefix violations**. n = 9 crash depths × 3 repeats. In-process exception recovery does not count and was not substituted.
+- **Savings, n = 160 measured node replays**: **$0.1605 of $0.1832 (87.6%)** and 70,425 of 77,847 tokens resuming after the reviewer panel; uniform mean over all 18 durable-prefix lengths **$0.0566 (30.9%)**. Value is all in the tail — the fan-out alone is 52% of run cost and 10 of 18 nodes cost $0. Spend $1.4658.
+- 🔴 **A manuscript-privacy leak found and fixed.** `route_to_reviewer_panel` dispatches `Send(..., {**state, ...})` once per persona and LangGraph persists those as pending writes; the scrubber only understood `dict`, so **the full manuscript was written to disk three times per run**. Caught by a raw-BYTEA assertion, not by inspection.
+- **Honest limit:** LangGraph does not await `aput` inline, so "resume from the last completed node" is really "from the last **durable** one". At 0 s node duration, 1 of 3 crashes left zero checkpoints.
+
+### End-to-end latency — `scripts/eval/LATENCY.md` (graph only)
 
 **Graph p50 63.75 s**, mean 64.67 s, 8 LLM calls/run, n=3 real GPT-5.2 runs, closed loop c=1, spend $0.412157. Sum of node time is 64.32 s of a 64.67 s wall — **the graph is 99.5% LLM wait**. Slowest node `reviewer_panel_node` at 17.5 s. Stub reproduces real within **2.9%**.
 
@@ -98,9 +125,42 @@ The HNSW crossover moved **~35 → 103** as the corpus grew **2.80×** (2,124 �
 
 **333 / 544 references resolved = 61.2%** across 15 of 15 topics; buckets sum exactly (333 + 78 + 81 + 52), zero `pending`, PDFs on disk equal `resolved` in all 15 directories. Measured build cost $0.3520. **The denominator is understated:** 60 of 544 parsed entries (11%) are merged blocks containing two or more distinct works, so the true bibliography is larger than 544 and the true rate is **lower** than 61.2%. Never quote it as *"we resolve 61% of the references in these papers."* For the retrieval label snapshot the rate is **unknown** — 11 of 26 corpora have no `references.json` sidecar, and it is reported as unknown rather than substituted.
 
+### 🔴 The concurrency incident — a contamination this harness could not detect (2026-08-01)
+
+Two agents ran at once. One re-chunked the shared eval corpus in place; the other measured a control arm against it. **Both records carried the same `labels_fingerprint`, the same `queries_fingerprint` and the same `config_hash`** — because `LabelSet.fingerprint()` hashes document ids, and document ids are `uuid5` over *file content*, which re-chunking does not change. A 5,924-chunk index and a 5,948-chunk index were indistinguishable in the record.
+
+Three things came out of it, and the third is the one worth remembering:
+
+1. **A published result was wrong.** A "retriever non-determinism" finding of 0.0019 on RRF was the boundary between two corpora inside a single 25-minute run whose arms are measured in fixed order. Retracted with its evidence. The retriever is in fact bit-reproducible: **75 of 75 metric cells identical across two runs on a fixed corpus, n=2.**
+2. **The baseline moved and cannot move back.** Restoring the corpus by re-ingesting 6 documents minted new chunk ids and fresh embeddings. Content-equivalent is **not** measurement-equivalent: original **0.21946**, restored **0.22001**. The current control is 0.22001; `BASELINE_15.md`'s 0.2195 belongs to a corpus that no longer exists.
+3. **A row count is not a corpus identity.** The verification that failed to catch this checked 5,948 chunks / 344 documents — and was correct at every instant. The restore returned the count while replacing 324 chunk ids.
+
+Fixed at the source, in two layers: `index_fingerprint()` folds chunk count, document count and a digest of chunk ids into `config`, so a corpus change forces a new `config_hash` (`e69bff7`); and `assert_corpus_stable()` compares fingerprints taken at **both ends** of a run and raises rather than recording, because one sample cannot see a mid-run swap (`a81c27b`).
+
+### 🟢 Contentless queries — `scripts/eval/retrieval/CONTENTLESS.md`
+
+The standing caveat below said filtering "would raise every arm and improve nothing" because the query set contains claims "no retriever can serve". **The second half of that is wrong.**
+
+| subset | n | R@10 | ceiling | % attainable |
+|---|---|---|---|---|
+| unfiltered | 338 | 0.2200 | 0.5199 | 42% |
+| classifier-servable | 267 | 0.2273 | 0.5231 | 43% |
+| **hand-servable** | 89 | 0.2733 | 0.5604 | 49% |
+| **hand-contentless** | 31 | **0.1388** | 0.4549 | **31%** |
+
+Contentless queries reach **31% of their own ceiling** — they are not unservable. A query inherits its manuscript's whole reference list, so a sentence naming nothing still earns credit for topical proximity. Population **21.0% (n=338)** by classifier, **25.8% (n=120)** by hand. Filtering effect **+3.3%**, and it improves no user's experience — it changes the denominator. Classifier agreement is published as weak on a held-out split (**0.733 / 0.571 / 0.444, n=60**), which is why the hand-labelled rows are the ones that carry the argument. Zero LLM calls, asserted.
+
+### 🟢 The 50-chunk cost ceiling exceeded itself — `scripts/eval/retrieval/CHUNK_CEILING.md`
+
+`MAX_CHUNKS_PER_DOCUMENT = 50` fires on **6 / 344 documents (1.7%)** and on **6 of those 6 (100%)** the post-adjustment estimate **exceeds** 50 — 52, 53, 54, 55, 55, 55, max overshoot **+5 (10% over)**. The error is one-sided: under-utilisation did **not** reproduce and is reported as a null rather than manufactured. Two defects compound: floor division rounds below what the constraint requires, and the size is solved against the *original* overlap while a larger ratio-preserved overlap is then returned, invalidating the solve.
+
+Fixed behind `CHUNK_CEILING_GEOMETRY=legacy|exact`, **default `legacy`**, so it is a measured arm and not a silent swap. Both arms inside one snapshot: recall@10 **0.2195 → 0.2186** (5,948 → 5,924 chunks), −0.4% relative, **not claimable as a regression** — 6 of 344 documents changed and no variance estimate under corpus perturbation exists. Spend $0.2906.
+
+> **Methodological trap worth keeping:** `token_count` in `ingest_manifest.jsonl` sums over *emitted* chunks and therefore double-counts every overlap region — 17% high on one document. Characterising off the manifest inflates the affected population from 6 to 16.
+
 ### Still unmeasured
 
-End-to-end / user-visible latency (never, not once) · `53s → 18s` and `66%` (no sequential baseline exists) · "no quality loss" (and **any** quality delta — unresolvable at present n) · "lifted quality on evals" · user counts · whether 0.75 is the right gate threshold · production retrieval quality · the section-aware chunking arm · ANN latency at the current corpus size · RRF as a first-stage pool feeding a reranker · whether non-gold items are findings or hallucinations (unmeasurable under this label design).
+`53s → 18s` and `66%` (no sequential baseline exists) · "no quality loss" (and **any** quality delta — unresolvable at present n) · "lifted quality on evals" · user counts · whether 0.75 is the right gate threshold · production retrieval quality · the section-aware chunking arm · ANN latency at the current corpus size · RRF as a first-stage pool feeding a reranker · whether non-gold items are findings or hallucinations (unmeasurable under this label design).
 
 > The full claim-by-claim mapping, with each figure's source document and the corrections it forced, is `LEARNING_AUDIT_ADDENDUM.md` §3.
 
