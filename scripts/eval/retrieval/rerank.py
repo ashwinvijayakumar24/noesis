@@ -376,9 +376,21 @@ class LLMReranker:
     fp16 = False
     device = "openai-api"
 
-    def __init__(self, model: str = LLM_RERANK_MODEL, top_k: int = 10) -> None:
+    #: A completion budget that clears the reasoning tokens, plus JSON mode.
+    #: Used by the "as it should run" arm. 100 tokens is not a small budget for
+    #: ten integers -- it is a budget that a reasoning model consumes entirely
+    #: before emitting any output at all, which is a different failure.
+    FIXED_MAX_COMPLETION_TOKENS = 2000
+
+    def __init__(self, model: str = LLM_RERANK_MODEL, top_k: int = 10,
+                 fixed: bool = False) -> None:
         self.model_name = model
         self.top_k = top_k
+        #: False reproduces the shipped call exactly. True raises the completion
+        #: budget and asks for JSON mode -- the same reranker, actually running,
+        #: so "the LLM reranker does not help" and "the LLM reranker never ran"
+        #: can be told apart by measurement rather than by argument.
+        self.fixed = fixed
         self.calls = 0
         self.parse_failures = 0
         self.noop_fallbacks = 0
@@ -404,7 +416,7 @@ class LLMReranker:
         # whole candidate set, not of one (query, chunk) pair, so caching it
         # per pair -- as the cross-encoder cache does -- would be wrong. Arms
         # using this reranker run with cache=None.
-        return f"{self.model_name}|no-cache|{id(self)}"
+        return f"{self.model_name}|fixed={self.fixed}|no-cache|{id(self)}"
 
     def client(self):
         if self._client is None:
@@ -445,11 +457,17 @@ Example: {{"indices": [3, 7, 1, 15, 9]}}
         try:
             from app.core.openai_client import get_completion_params  # type: ignore
 
+            extra = dict(get_completion_params())
+            if self.fixed:
+                extra["response_format"] = {"type": "json_object"}
             response = self.client().chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
-                max_completion_tokens=LLM_RERANK_MAX_COMPLETION_TOKENS,
-                **get_completion_params(),
+                max_completion_tokens=(
+                    self.FIXED_MAX_COMPLETION_TOKENS if self.fixed
+                    else LLM_RERANK_MAX_COMPLETION_TOKENS
+                ),
+                **extra,
             )
             if self._budget is not None:
                 self._budget.record_response_usage(
@@ -1136,7 +1154,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--mode", default="control",
                     choices=["control", "rerank", "sweep", "latency", "cpu-probe",
-                             "llm-rerank"])
+                             "llm-rerank", "llm-rerank-fixed"])
     ap.add_argument("--oversample", type=int, default=5)
     ap.add_argument("--top-n", type=int, default=None,
                     help="Cap on candidates reaching the cross-encoder (default: all)")
@@ -1192,18 +1210,24 @@ def main(argv: list[str] | None = None) -> int:
                    subsample=args.subsample,
                    notes=f"dense x{args.oversample} -> bge-reranker-v2-m3 -> take 10"))
 
-    elif args.mode == "llm-rerank":
+    elif args.mode in ("llm-rerank", "llm-rerank-fixed"):
         # The one arm that spends money. Cache disabled on purpose: an LLM's
         # ranking is a property of the whole candidate set, so a per-pair cache
         # would serve scores that were never produced for this pool.
-        llm = LLMReranker()
+        fixed = args.mode == "llm-rerank-fixed"
+        llm = LLMReranker(fixed=fixed)
         rec = run_arm(
-            ArmSpec(arm=f"dense_x{args.oversample}_rerank_gpt5mini",
+            ArmSpec(arm=f"dense_x{args.oversample}_rerank_gpt5mini"
+                        + ("_fixed" if fixed else ""),
                     oversample=args.oversample, rerank=True,
                     top_n=LLM_RERANK_WINDOW, subsample=args.subsample,
                     expect_zero_spend=False,
-                    notes="production reranker as shipped: gpt-5-mini, top-20 "
-                          "window, 500-char truncation, take 10"),
+                    extra={"llm_rerank_fixed": fixed},
+                    notes=("gpt-5-mini with a completion budget that clears the "
+                           "reasoning tokens + JSON mode -- the reranker actually "
+                           "running") if fixed else
+                          ("production reranker as shipped: gpt-5-mini, top-20 "
+                           "window, 500-char truncation, take 10")),
             label_set, query_list, llm, None,
             project_id=args.project_id, embed_fn=embed_fn,
             results_path=results_path, dry_run=args.dry_run,

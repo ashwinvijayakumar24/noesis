@@ -77,6 +77,50 @@ trustworthy; it is reported with its `n` rather than promoted to a finding.
 
 ---
 
+## Oversample depth vs. reranking — the confound, separated
+
+The existing record has `dense ×5 (plan: index)` at 0.2195 and `dense ×12 (plan:
+seqscan)` at 0.2227, which tangles three things: pool depth, the planner flipping
+to a sequential scan, and (in any reranked comparison) the reranker itself. This
+sweep holds the reranker fixed and varies only depth, with the plan stamped on
+every record.
+
+**n = 12, its own ceiling 0.6334, cache bypassed so every point carries real
+latency.** This subsample is far too small to publish a quality claim from — a
+single query moves recall@10 by ~0.02 here. It is reported for the *shape* it
+shows and for the latency, both of which are unambiguous, and the numbers carry
+their `n` so nobody mistakes them for the headline.
+
+| depth (candidates) | plan | control R@10 | reranked R@10 | Δ | reranked NDCG@10 | reranked MRR | added latency p50 / p95 |
+|---|---|---|---|---|---|---|---|
+| ×5 (50) | `index` | 0.2083 | 0.2205 | **+0.0122** | 0.4838 | 0.6230 | 13.6 s / 25.6 s |
+| ×12 (120) | `seqscan` | 0.2251 | 0.2143 | −0.0108 | 0.4839 | 0.6649 | 31.8 s / 39.1 s |
+| ×25 (250) | `seqscan` | 0.2251 | 0.2089 | −0.0162 | 0.4909 | 0.7318 | 62.7 s / 81.4 s |
+| ×50 (500) | `seqscan` | 0.2251 | 0.2143 | −0.0108 | 0.4878 | **0.7936** | **128.1 s** / 144.7 s |
+
+Control NDCG@10 is 0.4478 at ×5 and 0.4744 at every deeper point; control MRR is
+0.6042 then 0.6906. Three things fall out, and the first two do not depend on the
+thin `n`:
+
+1. **The plan flips between ×5 and ×12**, exactly as the ANN sweep predicted
+   (crossover ~103 candidates). Any depth comparison that does not record this is
+   attributing a planner decision to a retrieval idea. The dense control is flat
+   at 0.2251 from ×12 onward — a deeper pool does not change which 10 *documents*
+   come out on top, so "deeper is better" was never the depth's doing.
+2. **Latency is linear in candidates and brutal**: 13.6 → 31.8 → 62.7 → 128.1 s,
+   i.e. ~2.6 ms per candidate, unchanged across the sweep. Reranking a 500-
+   candidate pool costs **two minutes per query** on this hardware.
+3. **MRR rises monotonically with depth (0.6230 → 0.7936) while recall@10 goes
+   negative past ×5.** The cross-encoder is increasingly good at putting *one*
+   strongly on-topic document first, and increasingly willing to promote
+   semantically-similar-but-uncited documents into the rest of the top 10. That
+   is what these labels punish: they measure "would we have found what the author
+   *cited*", not "what is relevant", so a reranker optimising for topical
+   relevance is being scored against a different objective. Worth re-running at a
+   real `n` before anyone builds on it.
+
+---
+
 ## Latency — the half of the result that usually goes missing
 
 **Hardware: Apple M4, 10 cores, 16 GB, macOS 24.6.0.** Device: Apple GPU via
@@ -101,9 +145,9 @@ Three caveats on those latency numbers, all of which cut the same way:
   candidates were *all* scored from scratch. The other 230 were served from the
   score cache (see below) and a dictionary lookup is not a reranker; averaging
   those in would have reported a free second stage.
-- **MPS, not CPU.** On CPU the same model measured **4.4 pairs/s on synthetic
-  text and ~2 pairs/s on real chunks**, i.e. roughly half. A CPU-only server
-  would be slower than the table above, not faster.
+- **MPS, not CPU.** Measured on the same 50-candidate pools with `device=cpu`:
+  **p50 31,060 ms, p95 56,096 ms, 1.28 pairs/s (n = 3)** — **2.3× slower** than
+  the MPS figure above. A CPU-only server is slower than this table, not faster.
 - **The p95 of the first stage (651 ms) is 24× its p50.** That is pgvector, not
   the reranker, and it is not explained here.
 
