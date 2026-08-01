@@ -289,10 +289,28 @@ def test_published_characterisation_reproduces():
     assert _close(ch.ranking_failures, 933), ch.ranking_failures
     assert _close(ch.hits, 1610), ch.hits
 
-    # The split that is new here. never_ingested is exact -- it counts documents
-    # with zero chunks, which no approximate search can perturb.
+    # The split that is new here.
+    #
+    # never_ingested is exact: it counts documents with zero chunks, which no
+    # approximate search can perturb.
     assert ch.never_ingested == 20
-    assert _close(ch.never_retrieved, 71, tol=0.05), ch.never_retrieved
+
+    # never_retrieved is the NOISIEST number this module produces, and pinning it
+    # was a mistake. It is an intersection over all 338 queries -- "pooled for no
+    # query at all" -- so a document sitting near the pool boundary flips the
+    # count whenever ANN error moves it in for any single query. Published at 71,
+    # observed at 62 a day later on a digest-identical corpus: 12.7%, against
+    # 0.03% on the retrieval_failures count from the same run.
+    #
+    # So assert the claim the number was used to make, not the number. The
+    # finding was that coverage is NOT the problem: almost every miss was pooled
+    # for some other query, and only a sliver is dark to every query.
+    total_missed = ch.never_ingested + ch.never_retrieved + ch.retrieved_elsewhere
+    assert ch.retrieved_elsewhere / total_missed > 0.98, (
+        "the headline claim -- 98.5% of misses were pooled for some other query "
+        "-- no longer holds"
+    )
+    assert ch.never_retrieved / total_missed < 0.02, ch.never_retrieved
     assert _close(ch.retrieved_elsewhere, 5920), ch.retrieved_elsewhere
 
     arm = fs.arm_summary(pools, gt.qrels, 10)
