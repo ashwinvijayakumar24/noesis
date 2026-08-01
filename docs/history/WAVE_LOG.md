@@ -158,9 +158,43 @@ Fixed behind `CHUNK_CEILING_GEOMETRY=legacy|exact`, **default `legacy`**, so it 
 
 > **Methodological trap worth keeping:** `token_count` in `ingest_manifest.jsonl` sums over *emitted* chunks and therefore double-counts every overlap region — 17% high on one document. Characterising off the manifest inflates the affected population from 6 to 16.
 
+### 🟢 Cross-encoder reranking — `scripts/eval/retrieval/RERANK.md`
+
+Snapshot `230c6ea9d9b7e8fd`, **n = 338**, ceiling **0.5199**, `plan: index`, controls measured before/between/after every arm with identical `index_state` stamps.
+
+| arm | R@10 | % attainable | NDCG@10 | added p50 latency | spend |
+|---|---|---|---|---|---|
+| dense ×5 control | 0.2200 | 42.3% | 0.5196 | — (27.7 ms total) | $0.00 |
+| **+ `bge-reranker-v2-m3`, top-50** | **0.2270** | **43.7%** | **0.5328** | **13,314 ms** | $0.00 |
+
+**+0.0070 recall@10 (+3.2%) for +13.3 s per query — 481× the first stage.** Real rather than noise (the pipeline is deterministic; run-to-run variance measured at 0.0000). Free and local, so the cost is entirely latency.
+
+🔑 **The finding that matters is the failure attribution, not the delta.** `retrieval_failure` is **unchanged at 6,011 — 86.5% of all misses are documents that were never in the candidate pool at all.** `ranking_failure` moved 933 → 880. recall@20 is flat. **The headroom is first-stage recall, not ranking**; a reranker can only reorder what retrieval already found. That is the argument for widening the pool rather than tuning rankers, and it is invisible in any single-number report.
+
+- Per-claim-type, each against its own ceiling: theoretical +0.0107 (n=115), methodological +0.0134 (n=27), empirical +0.0039 (n=196).
+- **Depth sweep is n=12 and labelled unquotable for quality.** Two things there do not depend on `n`: the query plan flips from `index` to `seqscan` between ×5 and ×12, and rerank latency is linear at ~2.6 ms/candidate (13.6 s → 128.1 s). MRR rises monotonically to 0.7936 while recall falls — the cross-encoder optimises topical relevance, and these labels measure *"what the author cited"*.
+- **Limit on the headline:** chunks are median 6,025 chars against the model's 512-token window, so the cross-encoder sees roughly the first third of each chunk. Apple M4, MPS fp16, 3.77 pairs/s; CPU is 2.3× slower (p50 31,060 ms, n=3). Model revision pinned in the config hash.
+- **An HNSW graph rebuilt over identical content shifts recall@10 by 0.0005.** The exact-search arm (`seqscan`) reproduced its published 0.2227 bit for bit, so the content is intact and only the graph moved. A fourth distinct way this corpus's identity has proven finer-grained than its contents.
+
+### 🔴 The shipped LLM reranker had never reranked anything — fixed in `663e0f6`
+
+`rerank_results` called `gpt-5-mini` with `max_completion_tokens=100`. **gpt-5-mini is a reasoning model: reasoning tokens are drawn from that budget before a single visible character is emitted.** Reproduced against the live API:
+
+```
+finish_reason: length      content: ''
+completion_tokens: 100     reasoning_tokens: 100
+json.loads('') -> JSONDecodeError
+```
+
+`json.loads` raised, a bare `except` returned the unranked list, and nothing logged or counted it. **No-op on 338/338 and again on 100/100 calls.** Same family as the `max_tokens → max_completion_tokens` migration and the `temperature` strip: the model changed, its parameter semantics changed with it, the literal did not.
+
+**Found by arithmetic, not by inspection** — the rerank arm reproduced the control to **17 significant figures** on three rank-sensitive metrics (`0.22000627228526437` against `0.22000627228526437`). No working reranker can do that.
+
+Fixed: budget 2000, `response_format={"type": "json_object"}`, verified live (`finish_reason "stop"`, 64 reasoning + 21 output tokens, correct reordering). The fallback stays — a reranker that takes down retrieval is worse than one that declines to reorder — but its invisibility is gone: outcomes counted in `_RERANK_STATS`, empty bodies distinguished from parse failures, both paths logged, and `rerank_stats()` lets an eval arm assert the reranker actually ran. Corrected, it recovers **1 ranking failure of 222 (+0.0003 recall@10)** at $0.00224 and 10.6 s/query — **0.45%** of its failure population against the free local cross-encoder's **5.7%**.
+
 ### Still unmeasured
 
-`53s → 18s` and `66%` (no sequential baseline exists) · "no quality loss" (and **any** quality delta — unresolvable at present n) · "lifted quality on evals" · user counts · whether 0.75 is the right gate threshold · production retrieval quality · the section-aware chunking arm · ANN latency at the current corpus size · RRF as a first-stage pool feeding a reranker · whether non-gold items are findings or hallucinations (unmeasurable under this label design).
+`53s → 18s` and `66%` (no sequential baseline exists) · "no quality loss" (and **any** quality delta — unresolvable at present n) · "lifted quality on evals" · user counts · whether 0.75 is the right gate threshold · production retrieval quality · the section-aware chunking arm · ANN latency at the current corpus size · RRF as a first-stage pool feeding a reranker (still open: reranking was measured on a *dense* first stage, never on an RRF pool) · whether non-gold items are findings or hallucinations (unmeasurable under this label design).
 
 > The full claim-by-claim mapping, with each figure's source document and the corrections it forced, is `LEARNING_AUDIT_ADDENDUM.md` §3.
 

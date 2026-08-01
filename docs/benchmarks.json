@@ -3372,11 +3372,11 @@
         "usd": 0.38760100000000003
       },
       {
-        "n": 25,
+        "n": 185,
         "scope": "raw spans",
         "sink": "results/node_eval_spans.jsonl",
         "unpriced_calls": 1,
-        "usd": 0.16761399999999999
+        "usd": 1.6333838999999999
       }
     ],
     "unpriced_calls": 1
@@ -3468,46 +3468,52 @@
   },
   "ingest": {
     "actions": {
-      "failed": 1,
-      "ingested": 194,
-      "skipped": 344
+      "failed": 4,
+      "ingested": 206,
+      "skipped": 1364
     },
     "chunking_configs": {
-      "basic/pysbd size=0 overlap=0": 1,
-      "basic/pysbd size=1200 overlap=200": 72,
-      "basic/pysbd size=1600 overlap=250": 343,
-      "basic/pysbd size=2000 overlap=300": 116,
-      "basic/pysbd size=2526 overlap=378": 1,
-      "basic/pysbd size=2850 overlap=427": 1,
-      "basic/pysbd size=3374 overlap=506": 1,
-      "basic/pysbd size=3801 overlap=570": 1,
-      "basic/pysbd size=3824 overlap=573": 1,
-      "basic/pysbd size=4441 overlap=666": 2
+      "basic/pysbd size=0 overlap=0": 4,
+      "basic/pysbd size=1200 overlap=200": 213,
+      "basic/pysbd size=1600 overlap=250": 1003,
+      "basic/pysbd size=2000 overlap=300": 329,
+      "basic/pysbd size=2526 overlap=378": 2,
+      "basic/pysbd size=2618 overlap=392": 2,
+      "basic/pysbd size=2850 overlap=427": 2,
+      "basic/pysbd size=2998 overlap=449": 2,
+      "basic/pysbd size=3374 overlap=506": 2,
+      "basic/pysbd size=3611 overlap=541": 2,
+      "basic/pysbd size=3801 overlap=570": 2,
+      "basic/pysbd size=3824 overlap=573": 2,
+      "basic/pysbd size=4113 overlap=616": 2,
+      "basic/pysbd size=4139 overlap=620": 2,
+      "basic/pysbd size=4441 overlap=666": 3,
+      "basic/pysbd size=4863 overlap=729": 2
     },
     "chunks": {
       "max": 55,
-      "mean": 17.565862708719852,
+      "mean": 17.321473951715376,
       "min": 0,
-      "n": 539,
-      "total": 9468
+      "n": 1574,
+      "total": 27264
     },
-    "cost_ceiling_applied": 7,
+    "cost_ceiling_applied": 25,
     "embedding_models": {
-      "text-embedding-3-large@1536": 539
+      "text-embedding-3-large@1536": 1574
     },
-    "errors": 1,
+    "errors": 4,
     "extractors": {
-      "pymupdf": 539
+      "pymupdf": 1574
     },
     "n_distinct_docs": 345,
-    "n_records": 539,
+    "n_records": 1574,
     "source": "cache/ingest_manifest.jsonl",
     "tokens": {
       "max": 243358,
-      "mean": 30611.6827458256,
+      "mean": 30424.919313850063,
       "min": 0,
-      "n": 539,
-      "total": 16499697
+      "n": 1574,
+      "total": 47888823
     }
   },
   "node_eval": {
@@ -4398,22 +4404,160 @@
   },
   "retrieval": {
     "config_hashes": [
+      "1bca0887ce8384b2",
       "1de0972f3689aa87",
+      "25628dc9cad05ae3",
+      "382a0beed1f45445",
       "3a4c75412a422beb",
+      "3b98aef34988e11b",
+      "464430efb82b54ed",
+      "4d1c03faff945031",
       "5d1408923f74702d",
       "60908ecc49536801",
+      "6eb1e010040c0684",
       "6ff41a0411172066",
       "7330ae9c1e22ce33",
       "85aab979d52d4240",
       "8c1df627b4dbdc50",
+      "928eccd2842befbb",
+      "93fd20285ed9088b",
+      "944e9064e01d8de7",
+      "a80bb0fb130e7d01",
       "b0c1956ed3745aaa",
+      "b816fa557706f9df",
       "cf6b3f1b3fc00644",
       "d08ee2a2025646ba",
+      "d609465455a430c2",
       "d93178ec2bd84532",
-      "eb947b6b5ed62153"
+      "e29d5e38686604b0",
+      "eb947b6b5ed62153",
+      "f112ad905a1d55ee",
+      "fd102f95463ca17a"
     ],
     "cross_snapshot_comparison_allowed": false,
     "deltas": [
+      {
+        "config_hash": "5d1408923f74702d",
+        "first_run_id": "5ca19da1d093",
+        "first_timestamp": "2026-07-31T01:29:02.499733+00:00",
+        "last_run_id": "e05d808dffc9",
+        "last_timestamp": "2026-07-31T23:48:33.901378+00:00",
+        "metrics": [
+          {
+            "delta": -0.0008669625173563233,
+            "first": 0.23187436598656458,
+            "last": 0.23100740346920826,
+            "metric": "map",
+            "n_queries": 338
+          },
+          {
+            "delta": -0.0016067335561529283,
+            "first": 0.7328174342342864,
+            "last": 0.7312107006781334,
+            "metric": "mrr",
+            "n_queries": 338
+          },
+          {
+            "delta": -0.0045644136043032635,
+            "first": 0.5190905537027409,
+            "last": 0.5145261400984377,
+            "metric": "ndcg@10",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.00018441012812495106,
+            "first": 0.034080502372738505,
+            "last": 0.034264912500863456,
+            "metric": "recall@1",
+            "n_queries": 338
+          },
+          {
+            "delta": -0.0008348769644856979,
+            "first": 0.21946256307598289,
+            "last": 0.2186276861114972,
+            "metric": "recall@10",
+            "n_queries": 338
+          },
+          {
+            "delta": -0.0009965072728989055,
+            "first": 0.30620582725428286,
+            "last": 0.30520931998138395,
+            "metric": "recall@20",
+            "n_queries": 338
+          },
+          {
+            "delta": -0.00016946675832388292,
+            "first": 0.1364585772183726,
+            "last": 0.1362891104600487,
+            "metric": "recall@5",
+            "n_queries": 338
+          }
+        ],
+        "retriever": "dense",
+        "runs": 3,
+        "snapshot_key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs"
+      },
+      {
+        "config_hash": "6eb1e010040c0684",
+        "first_run_id": "7c5439423119",
+        "first_timestamp": "2026-08-01T00:16:21.391690+00:00",
+        "last_run_id": "8bae392cafd7",
+        "last_timestamp": "2026-08-01T02:55:37.971010+00:00",
+        "metrics": [
+          {
+            "delta": 0.0,
+            "first": 0.23213083316101255,
+            "last": 0.23213083316101255,
+            "metric": "map",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0,
+            "first": 0.7336344951574479,
+            "last": 0.7336344951574479,
+            "metric": "mrr",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0,
+            "first": 0.5196248072937096,
+            "last": 0.5196248072937096,
+            "metric": "ndcg@10",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0,
+            "first": 0.034080502372738505,
+            "last": 0.034080502372738505,
+            "metric": "recall@1",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0,
+            "first": 0.22000627228526437,
+            "last": 0.22000627228526437,
+            "metric": "recall@10",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0,
+            "first": 0.3066485947746781,
+            "last": 0.3066485947746781,
+            "metric": "recall@20",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0,
+            "first": 0.1364585772183726,
+            "last": 0.1364585772183726,
+            "metric": "recall@5",
+            "n_queries": 338
+          }
+        ],
+        "retriever": "dense",
+        "runs": 5,
+        "snapshot_key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs"
+      },
       {
         "config_hash": "7330ae9c1e22ce33",
         "first_run_id": "95200e220255",
@@ -4474,6 +4618,67 @@
         "retriever": "dense",
         "runs": 2,
         "snapshot_key": "labels=019bee4a06eb2d39 queries=1f6c584e8fd6c055 corpus=118docs"
+      },
+      {
+        "config_hash": "93fd20285ed9088b",
+        "first_run_id": "3a5e8995583e",
+        "first_timestamp": "2026-07-31T23:48:47.437231+00:00",
+        "last_run_id": "693079081219",
+        "last_timestamp": "2026-08-01T00:14:04.407172+00:00",
+        "metrics": [
+          {
+            "delta": 0.0011234296918042896,
+            "first": 0.23100740346920826,
+            "last": 0.23213083316101255,
+            "metric": "map",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0024237944793145116,
+            "first": 0.7312107006781334,
+            "last": 0.7336344951574479,
+            "metric": "mrr",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0050986671952719664,
+            "first": 0.5145261400984377,
+            "last": 0.5196248072937096,
+            "metric": "ndcg@10",
+            "n_queries": 338
+          },
+          {
+            "delta": -0.00018441012812495106,
+            "first": 0.034264912500863456,
+            "last": 0.034080502372738505,
+            "metric": "recall@1",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.0013785861737671823,
+            "first": 0.2186276861114972,
+            "last": 0.22000627228526437,
+            "metric": "recall@10",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.001439274793294143,
+            "first": 0.30520931998138395,
+            "last": 0.3066485947746781,
+            "metric": "recall@20",
+            "n_queries": 338
+          },
+          {
+            "delta": 0.00016946675832388292,
+            "first": 0.1362891104600487,
+            "last": 0.1364585772183726,
+            "metric": "recall@5",
+            "n_queries": 338
+          }
+        ],
+        "retriever": "dense",
+        "runs": 2,
+        "snapshot_key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs"
       },
       {
         "config_hash": "cf6b3f1b3fc00644",
@@ -4538,6 +4743,115 @@
       }
     ],
     "headline": [
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 25,
+        "config_hash": "1bca0887ce8384b2",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 106,
+          "retrieval_failure": 96,
+          "total_misses": 202,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.31861228454873863
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.6905864197530865
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.4743500929051858
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.35511122644860976,
+            "value": 0.03613803665054716
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3553732959113925,
+            "value": 0.2250915830998884
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.391153869775325,
+            "value": 0.3176934131517815
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.38230218469056193,
+            "value": 0.14673790412331203
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 3000,
+          "rows_returned": 3000
+        },
+        "retriever": "dense",
+        "run_id": "86650770c0b5",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:15:41.001234+00:00"
+      },
       {
         "ceiling_provenance": "carried on record",
         "chunk_oversample": 5,
@@ -4646,6 +4960,224 @@
         },
         "source": "results/retrieval_eval.jsonl",
         "timestamp": "2026-07-31T01:30:44.797568+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 12,
+        "config_hash": "25628dc9cad05ae3",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 70,
+          "retrieval_failure": 129,
+          "total_misses": 199,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.2913864295194087
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.66489898989899
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.48391287434029423
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.35511122644860976,
+            "value": 0.03613803665054716
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.33827808270189863,
+            "value": 0.2142635646499187
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.42802146796747054,
+            "value": 0.3476371105287211
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.35173830262823114,
+            "value": 0.1350066606847515
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 1440,
+          "rows_returned": 1440
+        },
+        "retriever": "dense_x12+rerank",
+        "run_id": "b5593d03efab",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:15:39.317330+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "382a0beed1f45445",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 1000,
+          "retrieval_failure": 7320,
+          "total_misses": 8320,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": true,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.022014891376435575
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.18603353518107033
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.0692032601798647
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.038857058708222904,
+            "value": 0.0026980205599972393
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.05307088673562209,
+            "value": 0.027590014952735848
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.07291402572025266,
+            "value": 0.055407177184481134
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.04360007677233692,
+            "value": 0.012814850730738831
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 0,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 16900,
+          "rows_returned": 16900
+        },
+        "retriever": "mock",
+        "run_id": "ae02fa3ad001",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T03:24:31.241035+00:00"
       },
       {
         "ceiling_provenance": "carried on record",
@@ -4759,6 +5291,333 @@
       {
         "ceiling_provenance": "carried on record",
         "chunk_oversample": 5,
+        "config_hash": "3b98aef34988e11b",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 22,
+          "retrieval_failure": 182,
+          "total_misses": 204,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.20586070785270028
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.6041666666666666
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.4477503490533486
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.25275161817004704,
+            "value": 0.0257213699838805
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3288070466028168,
+            "value": 0.20826466002296531
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.313213367416835,
+            "value": 0.25439048780617324
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.35516322255496086,
+            "value": 0.13632123745664534
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 600,
+          "rows_returned": 600
+        },
+        "retriever": "dense",
+        "run_id": "6939769ba4f7",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:05:45.808044+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "464430efb82b54ed",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 880,
+          "retrieval_failure": 6011,
+          "total_misses": 6891,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.2348546845766074
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7437520138217409
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.5327850564083506
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4932287018637139,
+            "value": 0.03424708978622302
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4366886693916574,
+            "value": 0.22702177520088732
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4036124589519236,
+            "value": 0.3067040505048095
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.46811854629438104,
+            "value": 0.13758850302894582
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 16900,
+          "rows_returned": 16900
+        },
+        "retriever": "dense_x5+rerank",
+        "run_id": "cc6db8bc0388",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T01:53:57.846269+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "4d1c03faff945031",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 221,
+          "retrieval_failure": 1502,
+          "total_misses": 1723,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.2503401451719503
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.733223374295955
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.5207474886702684
+          },
+          {
+            "ceiling": 0.09158511352164816,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 100,
+            "pct_of_attainable": 0.40493109968334146,
+            "value": 0.037085660732944656
+          },
+          {
+            "ceiling": 0.595573357438704,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 100,
+            "pct_of_attainable": 0.4045117028396351,
+            "value": 0.24091639298344883
+          },
+          {
+            "ceiling": 0.808699505224316,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 100,
+            "pct_of_attainable": 0.392081474717232,
+            "value": 0.31707609461144565
+          },
+          {
+            "ceiling": 0.3529255676082409,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 100,
+            "pct_of_attainable": 0.44802364450631177,
+            "value": 0.15811899903930282
+          }
+        ],
+        "n_queries": 100,
+        "n_queries_scored": 100,
+        "n_relevant_total": 2190,
+        "queries_fingerprint": "d6e06b99fcc2718e",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 5000,
+          "rows_returned": 5000
+        },
+        "retriever": "dense_x5+rerank",
+        "run_id": "b037b9f81695",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=d6e06b99fcc2718e corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "d6e06b99fcc2718e"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T03:18:40.233407+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
         "config_hash": "5d1408923f74702d",
         "corpus": {
           "n_topics": 26,
@@ -4774,13 +5633,13 @@
         },
         "failure_breakdown": {
           "ranking_failure": 936,
-          "retrieval_failure": 6010,
-          "total_misses": 6946,
+          "retrieval_failure": 6028,
+          "total_misses": 6964,
           "unresolved": 0,
           "unresolved_references_excluded_upstream": 211
         },
         "graded": false,
-        "has_misses_payload": false,
+        "has_misses_payload": true,
         "k": 10,
         "labels_fingerprint": "230c6ea9d9b7e8fd",
         "metrics": [
@@ -4790,7 +5649,7 @@
             "metric": "map",
             "n_queries": 338,
             "pct_of_attainable": null,
-            "value": 0.23187436598656458
+            "value": 0.23100740346920826
           },
           {
             "ceiling": null,
@@ -4798,7 +5657,7 @@
             "metric": "mrr",
             "n_queries": 338,
             "pct_of_attainable": null,
-            "value": 0.7328174342342864
+            "value": 0.7312107006781334
           },
           {
             "ceiling": null,
@@ -4806,39 +5665,39 @@
             "metric": "ndcg@10",
             "n_queries": 338,
             "pct_of_attainable": null,
-            "value": 0.5190905537027409
+            "value": 0.5145261400984377
           },
           {
             "ceiling": 0.06943450301415341,
             "ceiling_applicable": true,
             "metric": "recall@1",
             "n_queries": 338,
-            "pct_of_attainable": 0.49082949964791417,
-            "value": 0.034080502372738505
+            "pct_of_attainable": 0.49348538570052064,
+            "value": 0.034264912500863456
           },
           {
             "ceiling": 0.519870999898273,
             "ceiling_applicable": true,
             "metric": "recall@10",
             "n_queries": 338,
-            "pct_of_attainable": 0.42214811581897577,
-            "value": 0.21946256307598289
+            "pct_of_attainable": 0.4205421848002248,
+            "value": 0.2186276861114972
           },
           {
             "ceiling": 0.7598973810204968,
             "ceiling_applicable": true,
             "metric": "recall@20",
             "n_queries": 338,
-            "pct_of_attainable": 0.4029568135148285,
-            "value": 0.30620582725428286
+            "pct_of_attainable": 0.40164544266688496,
+            "value": 0.30520931998138395
           },
           {
             "ceiling": 0.29391807720094454,
             "ceiling_applicable": true,
             "metric": "recall@5",
             "n_queries": 338,
-            "pct_of_attainable": 0.4642741899984574,
-            "value": 0.1364585772183726
+            "pct_of_attainable": 0.4636976117902105,
+            "value": 0.1362891104600487
           }
         ],
         "n_queries": 338,
@@ -4853,7 +5712,7 @@
           "rows_returned": 16900
         },
         "retriever": "dense",
-        "run_id": "5ca19da1d093",
+        "run_id": "e05d808dffc9",
         "snapshot": {
           "corpus_documents": 345,
           "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
@@ -4863,7 +5722,7 @@
           "queries_fingerprint": "1f6c584e8fd6c055"
         },
         "source": "results/retrieval_eval.jsonl",
-        "timestamp": "2026-07-31T01:29:02.499733+00:00"
+        "timestamp": "2026-07-31T23:48:33.901378+00:00"
       },
       {
         "ceiling_provenance": "carried on record",
@@ -4979,6 +5838,115 @@
         },
         "source": "results/retrieval_eval.jsonl",
         "timestamp": "2026-07-31T01:33:17.357791+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "6eb1e010040c0684",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 933,
+          "retrieval_failure": 6011,
+          "total_misses": 6944,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.23213083316101255
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7336344951574479
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.5196248072937096
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.49082949964791417,
+            "value": 0.034080502372738505
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.42319396990467756,
+            "value": 0.22000627228526437
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.40353948103211956,
+            "value": 0.3066485947746781
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4642741899984574,
+            "value": 0.1364585772183726
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 16900,
+          "rows_returned": 16900
+        },
+        "retriever": "dense",
+        "run_id": "8bae392cafd7",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:55:37.971010+00:00"
       },
       {
         "ceiling_provenance": "carried on record",
@@ -5432,6 +6400,442 @@
       {
         "ceiling_provenance": "carried on record",
         "chunk_oversample": 5,
+        "config_hash": "928eccd2842befbb",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 933,
+          "retrieval_failure": 6011,
+          "total_misses": 6944,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.23212944545937947
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7336344951574479
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.5196248072937096
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.49082949964791417,
+            "value": 0.034080502372738505
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.42319396990467756,
+            "value": 0.22000627228526437
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.40353948103211956,
+            "value": 0.3066485947746781
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4642741899984574,
+            "value": 0.1364585772183726
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 16900,
+          "rows_returned": 16900
+        },
+        "retriever": "dense_x5+rerank",
+        "run_id": "f03399250fc4",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:05:24.598069+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "93fd20285ed9088b",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 933,
+          "retrieval_failure": 6011,
+          "total_misses": 6944,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.23213083316101255
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.7336344951574479
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 338,
+            "pct_of_attainable": null,
+            "value": 0.5196248072937096
+          },
+          {
+            "ceiling": 0.06943450301415341,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 338,
+            "pct_of_attainable": 0.49082949964791417,
+            "value": 0.034080502372738505
+          },
+          {
+            "ceiling": 0.519870999898273,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 338,
+            "pct_of_attainable": 0.42319396990467756,
+            "value": 0.22000627228526437
+          },
+          {
+            "ceiling": 0.7598973810204968,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 338,
+            "pct_of_attainable": 0.40353948103211956,
+            "value": 0.3066485947746781
+          },
+          {
+            "ceiling": 0.29391807720094454,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 338,
+            "pct_of_attainable": 0.4642741899984574,
+            "value": 0.1364585772183726
+          }
+        ],
+        "n_queries": 338,
+        "n_queries_scored": 338,
+        "n_relevant_total": 8554,
+        "queries_fingerprint": "1f6c584e8fd6c055",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 16900,
+          "rows_returned": 16900
+        },
+        "retriever": "dense",
+        "run_id": "693079081219",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "1f6c584e8fd6c055"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T00:14:04.407172+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 50,
+        "config_hash": "944e9064e01d8de7",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 140,
+          "retrieval_failure": 62,
+          "total_misses": 202,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.3405359874621599
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.6905864197530865
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.4743500929051858
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.35511122644860976,
+            "value": 0.03613803665054716
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3553732959113925,
+            "value": 0.2250915830998884
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.391153869775325,
+            "value": 0.3176934131517815
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.38230218469056193,
+            "value": 0.14673790412331203
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 6000,
+          "rows_returned": 6000
+        },
+        "retriever": "dense",
+        "run_id": "e057565cda71",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:29:11.865073+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "a80bb0fb130e7d01",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 222,
+          "retrieval_failure": 1502,
+          "total_misses": 1724,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.2467757348868519
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.7268067076292882
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.5131854000832338
+          },
+          {
+            "ceiling": 0.09158511352164816,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 100,
+            "pct_of_attainable": 0.396021671881884,
+            "value": 0.03626968977633525
+          },
+          {
+            "ceiling": 0.595573357438704,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 100,
+            "pct_of_attainable": 0.40402535608017054,
+            "value": 0.24062673781103505
+          },
+          {
+            "ceiling": 0.808699505224316,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 100,
+            "pct_of_attainable": 0.392081474717232,
+            "value": 0.31707609461144565
+          },
+          {
+            "ceiling": 0.3529255676082409,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 100,
+            "pct_of_attainable": 0.4309311254904959,
+            "value": 0.15208661206379134
+          }
+        ],
+        "n_queries": 100,
+        "n_queries_scored": 100,
+        "n_relevant_total": 2190,
+        "queries_fingerprint": "d6e06b99fcc2718e",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 5000,
+          "rows_returned": 5000
+        },
+        "retriever": "dense_x5+rerank",
+        "run_id": "bff771563a22",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=d6e06b99fcc2718e corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "d6e06b99fcc2718e"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T03:00:36.695273+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
         "config_hash": "b0c1956ed3745aaa",
         "corpus": {
           "n_topics": 26,
@@ -5543,6 +6947,115 @@
         },
         "source": "results/retrieval_eval.jsonl",
         "timestamp": "2026-07-31T01:32:14.929481+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "b816fa557706f9df",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 222,
+          "retrieval_failure": 1502,
+          "total_misses": 1724,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.2467757348868519
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.7268067076292882
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 100,
+            "pct_of_attainable": null,
+            "value": 0.5131854000832338
+          },
+          {
+            "ceiling": 0.09158511352164816,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 100,
+            "pct_of_attainable": 0.396021671881884,
+            "value": 0.03626968977633525
+          },
+          {
+            "ceiling": 0.595573357438704,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 100,
+            "pct_of_attainable": 0.40402535608017054,
+            "value": 0.24062673781103505
+          },
+          {
+            "ceiling": 0.808699505224316,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 100,
+            "pct_of_attainable": 0.392081474717232,
+            "value": 0.31707609461144565
+          },
+          {
+            "ceiling": 0.3529255676082409,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 100,
+            "pct_of_attainable": 0.4309311254904959,
+            "value": 0.15208661206379134
+          }
+        ],
+        "n_queries": 100,
+        "n_queries_scored": 100,
+        "n_relevant_total": 2190,
+        "queries_fingerprint": "d6e06b99fcc2718e",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 5000,
+          "rows_returned": 5000
+        },
+        "retriever": "dense",
+        "run_id": "4ee07e6f1181",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=d6e06b99fcc2718e corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "d6e06b99fcc2718e"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:57:12.072437+00:00"
       },
       {
         "ceiling_provenance": "docs/MEASUREMENTS.md § Retrieval baseline (superseded) (labels+queries fingerprint and 118-document corpus all match)",
@@ -5771,6 +7284,115 @@
       },
       {
         "ceiling_provenance": "carried on record",
+        "chunk_oversample": 50,
+        "config_hash": "d609465455a430c2",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 139,
+          "retrieval_failure": 62,
+          "total_misses": 201,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.34141197475346047
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.7936046511627907
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.4877800394816494
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.4660701514118214,
+            "value": 0.04742981623500967
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3383515588877114,
+            "value": 0.21431010408091988
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.39449320934309423,
+            "value": 0.320405609724365
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3283134802970959,
+            "value": 0.12601558119062325
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 6000,
+          "rows_returned": 6000
+        },
+        "retriever": "dense_x50+rerank",
+        "run_id": "99dfb98031a7",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:55:21.891183+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
         "chunk_oversample": 5,
         "config_hash": "d93178ec2bd84532",
         "corpus": {
@@ -5886,6 +7508,115 @@
       },
       {
         "ceiling_provenance": "carried on record",
+        "chunk_oversample": 12,
+        "config_hash": "e29d5e38686604b0",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 73,
+          "retrieval_failure": 129,
+          "total_misses": 202,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.2914946819868041
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.6905864197530865
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.4743500929051858
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.35511122644860976,
+            "value": 0.03613803665054716
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3553732959113925,
+            "value": 0.2250915830998884
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.391153869775325,
+            "value": 0.3176934131517815
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.38230218469056193,
+            "value": 0.14673790412331203
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 1440,
+          "rows_returned": 1440
+        },
+        "retriever": "dense",
+        "run_id": "37faa00ba969",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:08:52.677883+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
         "chunk_oversample": 2,
         "config_hash": "eb947b6b5ed62153",
         "corpus": {
@@ -5992,13 +7723,231 @@
         },
         "source": "results/retrieval_eval.jsonl",
         "timestamp": "2026-07-31T01:29:22.417286+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 5,
+        "config_hash": "f112ad905a1d55ee",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 17,
+          "retrieval_failure": 182,
+          "total_misses": 199,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.2126406539453276
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.623015873015873
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.48378698645197266
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.27488342536541194,
+            "value": 0.027973622236132752
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.34820119392244,
+            "value": 0.2205488112894547
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.313213367416835,
+            "value": 0.25439048780617324
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3363351079026198,
+            "value": 0.12909449852258936
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 600,
+          "rows_returned": 600
+        },
+        "retriever": "dense_x5+rerank",
+        "run_id": "127c46fb1745",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:08:47.339569+00:00"
+      },
+      {
+        "ceiling_provenance": "carried on record",
+        "chunk_oversample": 25,
+        "config_hash": "fd102f95463ca17a",
+        "corpus": {
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "pooled_corpus_size": 345,
+          "references_resolved": 370,
+          "references_unresolved_by_reason": {
+            "download_failed": 52,
+            "no_oa_pdf": 81,
+            "no_openalex_match": 78
+          },
+          "references_unresolved_excluded": 211
+        },
+        "failure_breakdown": {
+          "ranking_failure": 104,
+          "retrieval_failure": 96,
+          "total_misses": 200,
+          "unresolved": 0,
+          "unresolved_references_excluded_upstream": 211
+        },
+        "graded": false,
+        "has_misses_payload": false,
+        "k": 10,
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "metrics": [
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "map",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.32209009022452634
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "mrr",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.7317708333333334
+          },
+          {
+            "ceiling": null,
+            "ceiling_applicable": false,
+            "metric": "ndcg@10",
+            "n_queries": 12,
+            "pct_of_attainable": null,
+            "value": 0.4908693997744657
+          },
+          {
+            "ceiling": 0.10176540182059525,
+            "ceiling_applicable": true,
+            "metric": "recall@1",
+            "n_queries": 12,
+            "pct_of_attainable": 0.44609754491844333,
+            "value": 0.04539729590980642
+          },
+          {
+            "ceiling": 0.6333947589466934,
+            "ceiling_applicable": true,
+            "metric": "recall@10",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3298323519558537,
+            "value": 0.2089140830598989
+          },
+          {
+            "ceiling": 0.8121955007993696,
+            "ceiling_applicable": true,
+            "metric": "recall@20",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3970799307190994,
+            "value": 0.32250653318777794
+          },
+          {
+            "ceiling": 0.3838270091029763,
+            "ceiling_applicable": true,
+            "metric": "recall@5",
+            "n_queries": 12,
+            "pct_of_attainable": 0.3741023436279664,
+            "value": 0.14359058365313623
+          }
+        ],
+        "n_queries": 12,
+        "n_queries_scored": 12,
+        "n_relevant_total": 253,
+        "queries_fingerprint": "c88236dd318de62a",
+        "relevance_unit": "document",
+        "retrieval_health": {
+          "db_id_map_size": 345,
+          "queries_with_empty_run": 0,
+          "rows_joined_to_corpus": 3000,
+          "rows_returned": 3000
+        },
+        "retriever": "dense_x25+rerank",
+        "run_id": "080db800d8cf",
+        "snapshot": {
+          "corpus_documents": 345,
+          "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+          "labels_fingerprint": "230c6ea9d9b7e8fd",
+          "n_topics": 26,
+          "n_topics_with_labels": 23,
+          "queries_fingerprint": "c88236dd318de62a"
+        },
+        "source": "results/retrieval_eval.jsonl",
+        "timestamp": "2026-08-01T02:29:07.417506+00:00"
       }
     ],
     "invalidated": [],
     "n_invalidated": 0,
-    "n_runs": 15,
-    "n_snapshots": 2,
-    "n_valid": 15,
+    "n_runs": 38,
+    "n_snapshots": 4,
+    "n_valid": 38,
     "snapshots": [
       {
         "ceiling_known": true,
@@ -6024,12 +7973,17 @@
         "ceiling_known": true,
         "config_hashes": [
           "1de0972f3689aa87",
+          "382a0beed1f45445",
           "3a4c75412a422beb",
+          "464430efb82b54ed",
           "5d1408923f74702d",
           "60908ecc49536801",
+          "6eb1e010040c0684",
           "6ff41a0411172066",
           "85aab979d52d4240",
           "8c1df627b4dbdc50",
+          "928eccd2842befbb",
+          "93fd20285ed9088b",
           "b0c1956ed3745aaa",
           "d08ee2a2025646ba",
           "d93178ec2bd84532",
@@ -6039,15 +7993,67 @@
         "key": "labels=230c6ea9d9b7e8fd queries=1f6c584e8fd6c055 corpus=345docs",
         "labels_fingerprint": "230c6ea9d9b7e8fd",
         "n_invalidated": 0,
-        "n_runs": 11,
+        "n_runs": 23,
         "n_topics": 26,
         "n_topics_with_labels": 23,
-        "n_valid": 11,
+        "n_valid": 23,
         "queries_fingerprint": "1f6c584e8fd6c055",
         "retrievers": [
           "dense",
+          "dense_x5+rerank",
           "hybrid",
-          "keyword"
+          "keyword",
+          "mock"
+        ]
+      },
+      {
+        "ceiling_known": true,
+        "config_hashes": [
+          "1bca0887ce8384b2",
+          "25628dc9cad05ae3",
+          "3b98aef34988e11b",
+          "944e9064e01d8de7",
+          "d609465455a430c2",
+          "e29d5e38686604b0",
+          "f112ad905a1d55ee",
+          "fd102f95463ca17a"
+        ],
+        "corpus_documents": 345,
+        "key": "labels=230c6ea9d9b7e8fd queries=c88236dd318de62a corpus=345docs",
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "n_invalidated": 0,
+        "n_runs": 8,
+        "n_topics": 26,
+        "n_topics_with_labels": 23,
+        "n_valid": 8,
+        "queries_fingerprint": "c88236dd318de62a",
+        "retrievers": [
+          "dense",
+          "dense_x12+rerank",
+          "dense_x25+rerank",
+          "dense_x5+rerank",
+          "dense_x50+rerank"
+        ]
+      },
+      {
+        "ceiling_known": true,
+        "config_hashes": [
+          "4d1c03faff945031",
+          "a80bb0fb130e7d01",
+          "b816fa557706f9df"
+        ],
+        "corpus_documents": 345,
+        "key": "labels=230c6ea9d9b7e8fd queries=d6e06b99fcc2718e corpus=345docs",
+        "labels_fingerprint": "230c6ea9d9b7e8fd",
+        "n_invalidated": 0,
+        "n_runs": 3,
+        "n_topics": 26,
+        "n_topics_with_labels": 23,
+        "n_valid": 3,
+        "queries_fingerprint": "d6e06b99fcc2718e",
+        "retrievers": [
+          "dense",
+          "dense_x5+rerank"
         ]
       }
     ]
@@ -6055,10 +8061,10 @@
   "schema_version": 2,
   "sources": [
     {
-      "lines": 15,
+      "lines": 38,
       "path": "results/retrieval_eval.jsonl",
       "present": true,
-      "records": 15,
+      "records": 38,
       "skip_reasons": [],
       "skipped_lines": 0
     },
@@ -6071,18 +8077,18 @@
       "skipped_lines": 0
     },
     {
-      "lines": 35,
+      "lines": 259,
       "path": "results/node_eval_spans.jsonl",
       "present": true,
-      "records": 35,
+      "records": 259,
       "skip_reasons": [],
       "skipped_lines": 0
     },
     {
-      "lines": 539,
+      "lines": 1574,
       "path": "cache/ingest_manifest.jsonl",
       "present": true,
-      "records": 539,
+      "records": 1574,
       "skip_reasons": [],
       "skipped_lines": 0
     },
@@ -6122,117 +8128,666 @@
   "spans": {
     "cost": {
       "cost_is_lower_bound": true,
-      "runs": 25,
-      "total_usd": 0.16761399999999999,
+      "runs": 185,
+      "total_usd": 1.6333838999999999,
       "unpriced_spans": 1
     },
     "nodes": [
       {
-        "executions": 6,
-        "node": "editor_pass_node",
+        "executions": 8,
+        "node": "categorize_claims",
         "self_ms": {
-          "max": 8188.1547500088345,
-          "mean": 3543.783050311807,
-          "min": 1.3601049722637981,
-          "n": 6,
-          "p50": 22.219128964934498,
+          "max": 1.890124985948205,
+          "mean": 0.7859737561375368,
+          "min": 0.2219580055680126,
+          "n": 8,
+          "p50": 0.5985409952700138,
           "p90": null,
           "p95": null,
           "p99": null,
           "refused": {
-            "p90": "n=6 < 10",
-            "p95": "n=6 < 20",
-            "p99": "n=6 < 100"
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
           }
         },
-        "traces_seen": 6,
-        "unpriced_spans": 0,
-        "usd": 0.0033905000000000003,
-        "wall_ms": {
-          "max": 9109.0890840278,
-          "mean": 7430.809201333129,
-          "min": 5761.742041999241,
-          "n": 6,
-          "p50": 6994.660415977705,
-          "p90": null,
-          "p95": null,
-          "p99": null,
-          "refused": {
-            "p90": "n=6 < 10",
-            "p95": "n=6 < 20",
-            "p99": "n=6 < 100"
-          }
-        }
-      },
-      {
-        "executions": 12,
-        "node": "reviewer_panel_node",
-        "self_ms": {
-          "max": 25662.057917012135,
-          "mean": 8292.024392042853,
-          "min": 11.121845920570195,
-          "n": 12,
-          "p50": 68.37986022583209,
-          "p90": 19337.496333027957,
-          "p95": null,
-          "p99": null,
-          "refused": {
-            "p95": "n=12 < 20",
-            "p99": "n=12 < 100"
-          }
-        },
-        "traces_seen": 12,
-        "unpriced_spans": 0,
-        "usd": 0.1642235,
-        "wall_ms": {
-          "max": 25662.057917012135,
-          "mean": 19307.15073958466,
-          "min": 16644.22708400525,
-          "n": 12,
-          "p50": 18524.875832983525,
-          "p90": 24126.26887499937,
-          "p95": null,
-          "p99": null,
-          "refused": {
-            "p95": "n=12 < 20",
-            "p99": "n=12 < 100"
-          }
-        }
-      },
-      {
-        "executions": 6,
-        "node": "run_quality_diagnostics",
-        "self_ms": {
-          "max": 119.41283298074268,
-          "mean": 59.86867349323196,
-          "min": 23.733292007818818,
-          "n": 6,
-          "p50": 36.61054198164493,
-          "p90": null,
-          "p95": null,
-          "p99": null,
-          "refused": {
-            "p90": "n=6 < 10",
-            "p95": "n=6 < 20",
-            "p99": "n=6 < 100"
-          }
-        },
-        "traces_seen": 6,
+        "traces_seen": 8,
         "unpriced_spans": 0,
         "usd": null,
         "wall_ms": {
-          "max": 119.41283298074268,
-          "mean": 59.86867349323196,
-          "min": 23.733292007818818,
-          "n": 6,
-          "p50": 36.61054198164493,
+          "max": 1.890124985948205,
+          "mean": 0.7859737561375368,
+          "min": 0.2219580055680126,
+          "n": 8,
+          "p50": 0.5985409952700138,
           "p90": null,
           "p95": null,
           "p99": null,
           "refused": {
-            "p90": "n=6 < 10",
-            "p95": "n=6 < 20",
-            "p99": "n=6 < 100"
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "citation_judge_node",
+        "self_ms": {
+          "max": 5.509207985596731,
+          "mean": 1.488171998062171,
+          "min": 0.1822090125642717,
+          "n": 8,
+          "p50": 0.7189169991761446,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 5.509207985596731,
+          "mean": 1.488171998062171,
+          "min": 0.1822090125642717,
+          "n": 8,
+          "p50": 0.7189169991761446,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "detect_gaps",
+        "self_ms": {
+          "max": 6.79604199831374,
+          "mean": 2.2397606262529735,
+          "min": 0.27454199152998626,
+          "n": 8,
+          "p50": 0.8221250027418137,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 6.79604199831374,
+          "mean": 2.2397606262529735,
+          "min": 0.27454199152998626,
+          "n": 8,
+          "p50": 0.8221250027418137,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "discover_external_sources",
+        "self_ms": {
+          "max": 99.51191698201,
+          "mean": 42.74695825006347,
+          "min": 9.180166001897305,
+          "n": 8,
+          "p50": 36.12458298448473,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 99.51191698201,
+          "mean": 42.74695825006347,
+          "min": 9.180166001897305,
+          "n": 8,
+          "p50": 36.12458298448473,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 14,
+        "node": "editor_pass_node",
+        "self_ms": {
+          "max": 8188.1547500088345,
+          "mean": 1577.7339109710217,
+          "min": 1.3601049722637981,
+          "n": 14,
+          "p50": 101.75612758030184,
+          "p90": 6994.660415977705,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p95": "n=14 < 20",
+            "p99": "n=14 < 100"
+          }
+        },
+        "traces_seen": 14,
+        "unpriced_spans": 0,
+        "usd": 0.013423250000000001,
+        "wall_ms": {
+          "max": 9728.659208019963,
+          "mean": 7546.2232172846725,
+          "min": 5252.84545897739,
+          "n": 14,
+          "p50": 7537.33774999273,
+          "p90": 9109.0890840278,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p95": "n=14 < 20",
+            "p99": "n=14 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "extract_claims",
+        "self_ms": {
+          "max": 1329.6547782083508,
+          "mean": 448.18076501542237,
+          "min": 104.53411631169729,
+          "n": 8,
+          "p50": 284.4465682283044,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": 0.33816124999999997,
+        "wall_ms": {
+          "max": 16093.08904100908,
+          "mean": 12702.929645878612,
+          "min": 11093.20137501345,
+          "n": 8,
+          "p50": 12099.004541989416,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "extract_references",
+        "self_ms": {
+          "max": 161.82383298291825,
+          "mean": 108.01023412204813,
+          "min": 28.863249986898154,
+          "n": 8,
+          "p50": 88.62179101561196,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 161.82383298291825,
+          "mean": 108.01023412204813,
+          "min": 28.863249986898154,
+          "n": 8,
+          "p50": 88.62179101561196,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "extract_structure",
+        "self_ms": {
+          "max": 18.41854100348428,
+          "mean": 4.835531130083837,
+          "min": 0.3031670057680458,
+          "n": 8,
+          "p50": 0.9696250199340284,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 18.41854100348428,
+          "mean": 4.835531130083837,
+          "min": 0.3031670057680458,
+          "n": 8,
+          "p50": 0.9696250199340284,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "map_citations",
+        "self_ms": {
+          "max": 1.8161250045523047,
+          "mean": 0.9045730039360933,
+          "min": 0.2692079870030284,
+          "n": 8,
+          "p50": 0.5699169996660203,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 1.8161250045523047,
+          "mean": 0.9045730039360933,
+          "min": 0.2692079870030284,
+          "n": 8,
+          "p50": 0.5699169996660203,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "meta_reviewer_node",
+        "self_ms": {
+          "max": 52.61837941361591,
+          "mean": 12.587279663421214,
+          "min": 0.8936570375226438,
+          "n": 8,
+          "p50": 3.8349799579009414,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": 0.14670425,
+        "wall_ms": {
+          "max": 14561.014917009743,
+          "mean": 12603.636473999359,
+          "min": 10361.104790994432,
+          "n": 8,
+          "p50": 12959.348292002687,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "profile_manuscript",
+        "self_ms": {
+          "max": 2601.67829200509,
+          "mean": 1086.0957136283105,
+          "min": 136.94604201009497,
+          "n": 8,
+          "p50": 578.9850000001024,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 2601.67829200509,
+          "mean": 1086.0957136283105,
+          "min": 136.94604201009497,
+          "n": 8,
+          "p50": 578.9850000001024,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "reviewer_judge_node",
+        "self_ms": {
+          "max": 60.749467433197424,
+          "mean": 19.75008956651436,
+          "min": 0.9388217586092651,
+          "n": 8,
+          "p50": 4.973114148015156,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": 0.03503955,
+        "wall_ms": {
+          "max": 3723.3256660110783,
+          "mean": 3164.7639583752607,
+          "min": 2446.927000011783,
+          "n": 8,
+          "p50": 3270.2667499834206,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 36,
+        "node": "reviewer_panel_node",
+        "self_ms": {
+          "max": 25662.057917012135,
+          "mean": 2817.155498174543,
+          "min": 11.121845920570195,
+          "n": 36,
+          "p50": 68.37986022583209,
+          "p90": 18524.875832983525,
+          "p95": 19337.496333027957,
+          "p99": null,
+          "refused": {
+            "p99": "n=36 < 100"
+          }
+        },
+        "traces_seen": 36,
+        "unpriced_spans": 0,
+        "usd": 0.9245726000000002,
+        "wall_ms": {
+          "max": 25662.057917012135,
+          "mean": 18679.498392251844,
+          "min": 15173.000874987338,
+          "n": 36,
+          "p50": 18179.057790985098,
+          "p90": 21068.958457995905,
+          "p95": 24126.26887499937,
+          "p99": null,
+          "refused": {
+            "p99": "n=36 < 100"
+          }
+        }
+      },
+      {
+        "executions": 14,
+        "node": "run_quality_diagnostics",
+        "self_ms": {
+          "max": 172.73062499589287,
+          "mean": 79.20539863906535,
+          "min": 23.733292007818818,
+          "n": 14,
+          "p50": 57.17658301000483,
+          "p90": 146.60400000866503,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p95": "n=14 < 20",
+            "p99": "n=14 < 100"
+          }
+        },
+        "traces_seen": 14,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 172.73062499589287,
+          "mean": 79.20539863906535,
+          "min": 23.733292007818818,
+          "n": 14,
+          "p50": 57.17658301000483,
+          "p90": 146.60400000866503,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p95": "n=14 < 20",
+            "p99": "n=14 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "search_literature",
+        "self_ms": {
+          "max": 689.3375829968136,
+          "mean": 474.9860779957089,
+          "min": 279.66245799325407,
+          "n": 8,
+          "p50": 421.3672499754466,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 689.3375829968136,
+          "mean": 474.9860779957089,
+          "min": 279.66245799325407,
+          "n": 8,
+          "p50": 421.3672499754466,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "structural_checks",
+        "self_ms": {
+          "max": 45.75357312569395,
+          "mean": 17.745599903719267,
+          "min": 0.0,
+          "n": 8,
+          "p50": 13.145914359483868,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": 0.175483,
+        "wall_ms": {
+          "max": 27725.09804100264,
+          "mean": 12524.678562254849,
+          "min": 8527.552125015063,
+          "n": 8,
+          "p50": 10525.177208008245,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "synthesize_report",
+        "self_ms": {
+          "max": 12.679459003265947,
+          "mean": 3.568489497411065,
+          "min": 0.295000005280599,
+          "n": 8,
+          "p50": 1.1085829755757004,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 12.679459003265947,
+          "mean": 3.568489497411065,
+          "min": 0.295000005280599,
+          "n": 8,
+          "p50": 1.1085829755757004,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        }
+      },
+      {
+        "executions": 8,
+        "node": "verify_citations",
+        "self_ms": {
+          "max": 13.547792012104765,
+          "mean": 3.473427004792029,
+          "min": 0.5396250053308904,
+          "n": 8,
+          "p50": 1.5382910205516964,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
+          }
+        },
+        "traces_seen": 8,
+        "unpriced_spans": 0,
+        "usd": null,
+        "wall_ms": {
+          "max": 13.547792012104765,
+          "mean": 3.473427004792029,
+          "min": 0.5396250053308904,
+          "n": 8,
+          "p50": 1.5382910205516964,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "refused": {
+            "p90": "n=8 < 10",
+            "p95": "n=8 < 20",
+            "p99": "n=8 < 100"
           }
         }
       }
@@ -6243,24 +8798,24 @@
       "files": [
         "/Applications/Ashwin/Programming/personal projects/startup/noesis/scripts/eval/results/node_eval_spans.jsonl"
       ],
-      "lines_read": 35,
+      "lines_read": 259,
       "malformed_lines": 0,
       "malformed_samples": [],
       "orphan_spans": 1,
-      "spans_parsed": 35
+      "spans_parsed": 259
     },
     "present": true,
     "source": "results/node_eval_spans.jsonl",
     "tokens": {
-      "cache_hit_rate": 0.7932764979744845,
-      "cached_tokens": 52480,
-      "calls": 11,
+      "cache_hit_rate": 0.45050485623617653,
+      "cached_tokens": 281088,
+      "calls": 75,
       "calls_without_usage": 1,
-      "input_tokens": 66156,
-      "output_tokens": 11060,
-      "total_tokens": 77216,
-      "uncached_input_tokens": 13676
+      "input_tokens": 623940,
+      "output_tokens": 76053,
+      "total_tokens": 699993,
+      "uncached_input_tokens": 342852
     },
-    "traces": 25
+    "traces": 185
   }
 }
