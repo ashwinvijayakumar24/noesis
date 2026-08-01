@@ -1,0 +1,1009 @@
+{
+  "schema": "noesis.retrieval.contentless_hand_labels/1",
+  "labeller": "agent R1 (single labeller; no second annotator, so no inter-annotator agreement exists)",
+  "labelled_on": "2026-07-31",
+  "queries_fingerprint": "1f6c584e8fd6c055",
+  "labels_snapshot": "230c6ea9d9b7e8fd",
+  "n_queries_in_set": 338,
+  "sampling": {
+    "method": "random.Random(seed).sample(range(n_queries), 60) over the query set sorted by (topic, query_id)",
+    "development": {
+      "seed": 20260731,
+      "n": 60,
+      "drawn_from": "all 338 query indices"
+    },
+    "held_out": {
+      "seed": 20260801,
+      "n": 60,
+      "drawn_from": "the 278 indices not in the development sample"
+    }
+  },
+  "protocol": [
+    "The development sample was labelled BEFORE any classifier code was written, to avoid anchoring on machine output.",
+    "TOPIC_VOCAB_FRACTION and MIN_REFERENTS were then tuned against the development labels only.",
+    "The held-out sample was labelled AFTER those two constants were frozen, without inspecting predictions.",
+    "Held-out agreement is therefore out-of-sample; development agreement is not. Both are published."
+  ],
+  "criterion": "contentless = after stripping first-person/contribution framing, evaluative and comparative rhetoric, the manuscript's own protagonist artifact names, intra-document deixis, and generic academic prose, the claim names no external entity and no specific domain phenomenon -- only its own topic label. Such a claim cannot discriminate among its manuscript's candidate references, so no retriever can serve it. An inline citation marker always makes a claim servable.",
+  "known_soft_calls": [
+    "Priority claims ('our work is the first to ...') were judged on whether the thing claimed first is described in external vocabulary; #247 servable, #221 contentless. A different labeller could reasonably invert both.",
+    "'the future of retrieval-based tabular DL looks positive' (#272) was labelled SERVABLE: the predicate is empty but the subject is a searchable subfield. A stricter 'no propositional content' definition would call it contentless and would raise the population.",
+    "Bare scoreboard reports differing only in how many external baselines they name (#304 servable, #329 contentless) sit within one referent of each other."
+  ],
+  "counts": {
+    "development": {
+      "n": 60,
+      "contentless": 13
+    },
+    "held_out": {
+      "n": 60,
+      "contentless": 18
+    },
+    "all": {
+      "n": 120,
+      "contentless": 31
+    }
+  },
+  "labels": [
+    {
+      "split": "development",
+      "sample_index": 8,
+      "query_id": "3ef765ed999413c7",
+      "topic": "10eQ4Cfh8p",
+      "contentless": false,
+      "text": "we can clearly see that our model performs better than other PDRs on instances of different sizes, while the computational time is also in the same order of magnitude."
+    },
+    {
+      "split": "development",
+      "sample_index": 12,
+      "query_id": "66926aea1ad0ee8b",
+      "topic": "10eQ4Cfh8p",
+      "contentless": false,
+      "text": "Due to our framework using graph neural networks to extract features from FJSP instance, there is no limit to the scale size of input instances for our model."
+    },
+    {
+      "split": "development",
+      "sample_index": 14,
+      "query_id": "7b0cc3377bfa62b6",
+      "topic": "10eQ4Cfh8p",
+      "contentless": false,
+      "text": "Exact methods can guarantee the optimality of the solution through rigorous mathematical reasoning, but they require a lot of computational time. Therefore, exact methods can only be used to solve small-scale problems."
+    },
+    {
+      "split": "development",
+      "sample_index": 18,
+      "query_id": "aebeae0405075355",
+      "topic": "10eQ4Cfh8p",
+      "contentless": true,
+      "text": "The result indicates that our framework effectively improves the quality of the solution by alternating between these two models."
+    },
+    {
+      "split": "development",
+      "sample_index": 23,
+      "query_id": "fb911697270a7700",
+      "topic": "10eQ4Cfh8p",
+      "contentless": true,
+      "text": "Extensive experimentation demonstrates that our model delivers better performance in shorter time on several public datasets comparing to baseline algorithms."
+    },
+    {
+      "split": "development",
+      "sample_index": 28,
+      "query_id": "a2cc4d731de27320",
+      "topic": "9ceadCJY4B",
+      "contentless": true,
+      "text": "Consequently, we posit that this challenge will persist in the realm of LLMs, even with the advent of newer, more advanced models in the future."
+    },
+    {
+      "split": "development",
+      "sample_index": 31,
+      "query_id": "f9e341813956f588",
+      "topic": "9ceadCJY4B",
+      "contentless": true,
+      "text": "This issue is universal across all LLMs and is currently underemphasized, which underscores the importance of our research."
+    },
+    {
+      "split": "development",
+      "sample_index": 39,
+      "query_id": "dd65fc74902fa28a",
+      "topic": "ApjY32f3Xr",
+      "contentless": false,
+      "text": "First, domain decomposition is beneficial for addressing problems characterized by complex geometries, and PINN-NTK is a strong method for balancing loss weights as experiments show."
+    },
+    {
+      "split": "development",
+      "sample_index": 45,
+      "query_id": "1b8e23e37b9acb4e",
+      "topic": "BQvbL2sFQx",
+      "contentless": false,
+      "text": "Implementing MASS leads to 100% shift equivariance and shift invariance, as well as improved performance metrics with respect to other proposed downsampling techniques."
+    },
+    {
+      "split": "development",
+      "sample_index": 57,
+      "query_id": "cb87bb68b4abb31e",
+      "topic": "BQvbL2sFQx",
+      "contentless": false,
+      "text": "Notice that all these methods commonly ignore classical sampling theory, resulting in variant result to the shifted images."
+    },
+    {
+      "split": "development",
+      "sample_index": 58,
+      "query_id": "ee9898740660d0f3",
+      "topic": "BQvbL2sFQx",
+      "contentless": false,
+      "text": "As results shows, MASS-enabled architectures consistently outperforms all other methods, including baseline and APS."
+    },
+    {
+      "split": "development",
+      "sample_index": 64,
+      "query_id": "45dc4279d1260777",
+      "topic": "H9DYMIpz9c",
+      "contentless": false,
+      "text": "irrespective of the teacher network, FARZI DATA is able to train varied student network architectures (e.g., Transformers, RNNs, MLPs) better than training on the full dataset."
+    },
+    {
+      "split": "development",
+      "sample_index": 69,
+      "query_id": "7bb5939f80d1888a",
+      "topic": "H9DYMIpz9c",
+      "contentless": false,
+      "text": "FARZI DATA takes a step towards addressing the massive costs (e.g., financial, environmental, etc.) associated with training large auto-regressive models ... by (i) implicitly filtering out low-quality sources of information resulting in a terse data summary, and (ii) re-organizing the data in a format that is most pertinent for model training."
+    },
+    {
+      "split": "development",
+      "sample_index": 74,
+      "query_id": "aed39e814f5e4afd",
+      "topic": "H9DYMIpz9c",
+      "contentless": true,
+      "text": "the ability to train higher quality models using less data is counter-intuitive and under-explored"
+    },
+    {
+      "split": "development",
+      "sample_index": 78,
+      "query_id": "e42eeb079834c0de",
+      "topic": "H9DYMIpz9c",
+      "contentless": false,
+      "text": "FARZI DATA is able to train varied student network architectures (e.g., Transformers, RNNs, MLPs) better than training on the full dataset."
+    },
+    {
+      "split": "development",
+      "sample_index": 90,
+      "query_id": "53674e484d47feac",
+      "topic": "cXs5md5wAq",
+      "contentless": false,
+      "text": "Our results suggest that GNNs can generalize predictions of bacterial relative abundances to communities including unseen bacteria."
+    },
+    {
+      "split": "development",
+      "sample_index": 91,
+      "query_id": "5d8c6e86d1b57e74",
+      "topic": "cXs5md5wAq",
+      "contentless": false,
+      "text": "However, these deterministic models fit parameters on time-series data for each bacterium in the system: therefore, they cannot generalize to new bacteria and are limited by experimental data."
+    },
+    {
+      "split": "development",
+      "sample_index": 94,
+      "query_id": "9991eba7f5dab69a",
+      "topic": "cXs5md5wAq",
+      "contentless": false,
+      "text": "Both MPGNN and GraphSAGE provide accurate predictions."
+    },
+    {
+      "split": "development",
+      "sample_index": 114,
+      "query_id": "ea6560c97fa9efca",
+      "topic": "eR4W9tnJoZ",
+      "contentless": true,
+      "text": "In summary, we observe a significant 4% difference between the present product tile and creative generated using the Final Second Framework's prompt strategy."
+    },
+    {
+      "split": "development",
+      "sample_index": 116,
+      "query_id": "15cdbfb6dd381ece",
+      "topic": "eUgS9Ig8JG",
+      "contentless": false,
+      "text": "Since we use MLPs to learn from simplicial-aware features, the computational complexity of the proposed SaNN is of the order of computational complexity of MLPs and constant with respect to the number of simplices."
+    },
+    {
+      "split": "development",
+      "sample_index": 121,
+      "query_id": "7cc01823474ce0b3",
+      "topic": "eUgS9Ig8JG",
+      "contentless": false,
+      "text": "We thereby show through numerical experiments that SaNN models are computationally inexpensive and well-capture the structure of the simplicial complexes."
+    },
+    {
+      "split": "development",
+      "sample_index": 124,
+      "query_id": "a754661078c60d2f",
+      "topic": "eUgS9Ig8JG",
+      "contentless": false,
+      "text": "SaNN implicitly, is strictly more powerful than GAMLPs, SPIN, or SIGN."
+    },
+    {
+      "split": "development",
+      "sample_index": 125,
+      "query_id": "b50b2eaab9300efa",
+      "topic": "eUgS9Ig8JG",
+      "contentless": false,
+      "text": "This also implies that even the node embeddings (i.e., embeddings of 0-simplices) from SaNN are more expressive than the 1-WL test or, equivalently, GNNs."
+    },
+    {
+      "split": "development",
+      "sample_index": 129,
+      "query_id": "3b232be1e58aa0df",
+      "topic": "gYcft1HIaU",
+      "contentless": false,
+      "text": "This indicates that the insufficient medical knowledge mastery of existing LLMs... is not caused by a few models but is a widespread phenomenon of current LLMs."
+    },
+    {
+      "split": "development",
+      "sample_index": 133,
+      "query_id": "78c96ec4d077cd54",
+      "topic": "gYcft1HIaU",
+      "contentless": false,
+      "text": "Medical Large Language Models cannot be widely employed in real clinical tasks unless they master adequate clinical knowledge, exceptional medical comprehension, and strong reasoning capabilities."
+    },
+    {
+      "split": "development",
+      "sample_index": 134,
+      "query_id": "ba86f26258973b4b",
+      "topic": "gYcft1HIaU",
+      "contentless": true,
+      "text": "The annotation by clinical experts ensures the accuracy, professionalism, and completeness of knowledge in MedDisK."
+    },
+    {
+      "split": "development",
+      "sample_index": 136,
+      "query_id": "e748ad66f6d2b5fb",
+      "topic": "gYcft1HIaU",
+      "contentless": false,
+      "text": "The significant improvement attained by the PULSE model can be attributed to its finetuning on approximately 4,000,000 instructions from both the Chinese medical field and the general domain."
+    },
+    {
+      "split": "development",
+      "sample_index": 137,
+      "query_id": "f1305d552049117e",
+      "topic": "gYcft1HIaU",
+      "contentless": false,
+      "text": "These observations demonstrate that existing LLMs have not mastered adequate knowledge for clinical practice."
+    },
+    {
+      "split": "development",
+      "sample_index": 142,
+      "query_id": "74b02785582b82f3",
+      "topic": "jx6njBKH8E",
+      "contentless": false,
+      "text": "Given the recent exponential growth in LM parameters, our attack strategy raises serious concerns, as it tends to be more effective in larger LMs."
+    },
+    {
+      "split": "development",
+      "sample_index": 143,
+      "query_id": "74d8aa36ddd61479",
+      "topic": "jx6njBKH8E",
+      "contentless": false,
+      "text": "This method corresponds with the adversary's objective as texts generated with higher confidence are more likely to be memorized training data (Shokri et al., 2017)."
+    },
+    {
+      "split": "development",
+      "sample_index": 147,
+      "query_id": "d733be93dfed79df",
+      "topic": "jx6njBKH8E",
+      "contentless": false,
+      "text": "Consequently, our methodology enhances the efficacy of TDE attacks in fine-tuned LMs with over 1B parameters, exhibiting a four to eight-fold increase in effectiveness compared to reference LMs."
+    },
+    {
+      "split": "development",
+      "sample_index": 150,
+      "query_id": "770040b2878f1bb6",
+      "topic": "kKRbAY4CXv",
+      "contentless": false,
+      "text": "Some possible reasons for this are that in the disk domain, geometric characteristics such as curvature and normal vector may affect the solution of the equation, and PINNs method can not capture these information well."
+    },
+    {
+      "split": "development",
+      "sample_index": 163,
+      "query_id": "1d258ab0283da367",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "More technically, we observe a quadratic dependence of conformity and diversity, which is statistically significant (p-value < 0.001) and centered around a diversity of 0.5, slightly higher than the average diversity of the reference dataset."
+    },
+    {
+      "split": "development",
+      "sample_index": 164,
+      "query_id": "29f711010d57ea1c",
+      "topic": "miGpIhquyB",
+      "contentless": false,
+      "text": "This leads us to believe that OpenAI's concrete and proprietary instruction-tuning process and dataset must be substantially different from the ones used for LLAMA and FALCON."
+    },
+    {
+      "split": "development",
+      "sample_index": 172,
+      "query_id": "40b7f222f6c5a1b9",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "each of which is chosen such that we can be sure that it is well-represented in the training data of common LLMs"
+    },
+    {
+      "split": "development",
+      "sample_index": 179,
+      "query_id": "5cbd5d79787a340d",
+      "topic": "miGpIhquyB",
+      "contentless": false,
+      "text": "we can, for example, show that popular instruction-tuning techniques strongly decrease the LLM's text generation abilities, with respect to distributional aspects like diversity."
+    },
+    {
+      "split": "development",
+      "sample_index": 181,
+      "query_id": "5f0108358530cf5c",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "our metrics not only describe the generated dataset, but also capture key aspects of the underlying model"
+    },
+    {
+      "split": "development",
+      "sample_index": 194,
+      "query_id": "960456084cf4949a",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "We observe a quadratic relationship between diversity and conformity, but that diversity and faithfulness are inversely correlated."
+    },
+    {
+      "split": "development",
+      "sample_index": 202,
+      "query_id": "cb6f5c36cea0c682",
+      "topic": "miGpIhquyB",
+      "contentless": false,
+      "text": "These models can achieve outstanding performance on many tasks, often without any adaption or only with minimal prompting."
+    },
+    {
+      "split": "development",
+      "sample_index": 214,
+      "query_id": "0ce0373619f27cb0",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "Such insights also made us consider that LLMs do not need to rely heavily on a well-prepared prompt with human annotations (a few chains of thought demonstrations as exemplars in prompts) for each task."
+    },
+    {
+      "split": "development",
+      "sample_index": 215,
+      "query_id": "16850720ced18803",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "This paper verified that a simple prompt can be enhanced by gradually accumulating error analysis on its generated thoughts to address complex tasks."
+    },
+    {
+      "split": "development",
+      "sample_index": 227,
+      "query_id": "61c30de25efeba88",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "While guaranteeing effectiveness, BoT is fast as it builds simplistic thought structures in parallel and converges to a solution after a few iterations."
+    },
+    {
+      "split": "development",
+      "sample_index": 241,
+      "query_id": "bdfe529acab40c8f",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "We argue that the proposed BoT is not an application of LLMs to specific tasks but rather builds upon the insights that LLMs' reasoning ability can be derived directly from the experience gained by analyzing incorrect reasoning chains, without relying on human priors."
+    },
+    {
+      "split": "development",
+      "sample_index": 247,
+      "query_id": "f2c3c743916b3cd8",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "BoT is the pioneering initiative that proposes an automated prompting framework, leveraging the insight that LLMs can acquire effective reasoning skills for problem-solving solely through error analysis and guidance, all without the need for human annotations."
+    },
+    {
+      "split": "development",
+      "sample_index": 249,
+      "query_id": "10d46e6e626a759a",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "our new model successfully competes with GBDT and, in particular, demonstrates that DL models can be superior on non-big data by outperforming GBDT on the recently proposed benchmark with small-to-middle scale tasks (Grinsztajn et al., 2022)."
+    },
+    {
+      "split": "development",
+      "sample_index": 259,
+      "query_id": "3b37a6b73e3f0a9c",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "For tabular data, L2 is usually a better similarity measure than the dot product in the original feature space."
+    },
+    {
+      "split": "development",
+      "sample_index": 261,
+      "query_id": "4274cf46cec43142",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "Additionally, retrieval-augmented models often have useful properties such as better interpretability, robustness and others."
+    },
+    {
+      "split": "development",
+      "sample_index": 264,
+      "query_id": "4acd439afce186e9",
+      "topic": "rhgIgTSSxW",
+      "contentless": true,
+      "text": "Overall, we consider the conducted experiment as a preliminary exploration and leave a systematic study of continual updates for future work."
+    },
+    {
+      "split": "development",
+      "sample_index": 269,
+      "query_id": "5a7664cb664f6f74",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "Despite the attention-like nature of the retrieval module R, contrary to prior work, TabR does not suffer from the quadratic complexity w.r.t. the number of candidates."
+    },
+    {
+      "split": "development",
+      "sample_index": 272,
+      "query_id": "6c7e373824a78c78",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "the future of retrieval-based tabular DL looks positive."
+    },
+    {
+      "split": "development",
+      "sample_index": 276,
+      "query_id": "753b10a95bb100e7",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "By employing the modern DL building blocks and, in particular, the retrieval technique, our new model successfully competes with GBDT and, in particular, demonstrates that DL models can be superior on non-big data by outperforming GBDT on the recently proposed benchmark with small-to-middle scale tasks."
+    },
+    {
+      "split": "development",
+      "sample_index": 287,
+      "query_id": "9e868c6d856a4596",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "TabR makes a significant step forward and outperforms GBDT on average."
+    },
+    {
+      "split": "development",
+      "sample_index": 288,
+      "query_id": "a181f1a4b20f9c31",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "such \"online updates\" may be a viable solution for incorporating new data into an already trained TabR."
+    },
+    {
+      "split": "development",
+      "sample_index": 291,
+      "query_id": "c4338b32a1ada3e5",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "we show that the existing retrieval-based tabular DL models are only marginally better than simple parametric DL models, and that often comes with a cost of using heavy Transformer-like architectures."
+    },
+    {
+      "split": "development",
+      "sample_index": 296,
+      "query_id": "f7cf6b6e048e873d",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "In this work, we have demonstrated that retrieval-based deep learning models have great potential in supervised machine learning problems on tabular data."
+    },
+    {
+      "split": "development",
+      "sample_index": 305,
+      "query_id": "46452158deaadb09",
+      "topic": "rp5vfyp5Np",
+      "contentless": true,
+      "text": "Secondly, we theoretically analyze BATTLE and provide a convergence guarantee under only mild conditions."
+    },
+    {
+      "split": "development",
+      "sample_index": 309,
+      "query_id": "7685d784da57a5a8",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "we propose a universal behavior-oriented adversarial attack method against DRL agents, designed to effectively induce specific behaviors in a victim agent."
+    },
+    {
+      "split": "development",
+      "sample_index": 320,
+      "query_id": "aa8fd442f535d654",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "Thus BATTLE learns a more powerful adversary using importance weights outputted by the optimal weighting function."
+    },
+    {
+      "split": "development",
+      "sample_index": 331,
+      "query_id": "d865b2b689092bc3",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "Our empirical results over several manipulation tasks of Meta-world show the superiority of BATTLE in behavior-oriented adversarial attack settings, outperforming current adversarial attack algorithms."
+    },
+    {
+      "split": "development",
+      "sample_index": 332,
+      "query_id": "daade8e08600fdbc",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "embodied agents are extremely vulnerable to these well-trained adversaries."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 7,
+      "query_id": "2ef3ba00ab142fe0",
+      "topic": "10eQ4Cfh8p",
+      "contentless": false,
+      "text": "More Specially, the methods based on PDR are widely used in production systems in real world due to its easy implementation and less computation time."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 9,
+      "query_id": "51edcdc5d1c5aad3",
+      "topic": "10eQ4Cfh8p",
+      "contentless": true,
+      "text": "From the design of our framework, it can be seen that the generative model and the improved model can run independently."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 17,
+      "query_id": "9e567acff90769ee",
+      "topic": "10eQ4Cfh8p",
+      "contentless": false,
+      "text": "It is worth noting that this training paradigm can be readily adapted to other combinatorial optimization problems, such as the traveling salesman problem and beyond."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 20,
+      "query_id": "b6109ab4bdc5c5d7",
+      "topic": "10eQ4Cfh8p",
+      "contentless": false,
+      "text": "Compared with traditional methods, these reinforcement learning-based methods have shown great potential in terms of computational time and solution quality."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 21,
+      "query_id": "ba71a477d5f177c1",
+      "topic": "10eQ4Cfh8p",
+      "contentless": false,
+      "text": "From the experimental data, it can be seen that our method still surpasses all PDRs methods in terms of solution quality."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 25,
+      "query_id": "872a2c4a060ca47c",
+      "topic": "9ceadCJY4B",
+      "contentless": false,
+      "text": "Through observation and analysis, these LLMs tend to flatter users, resulting in diminished judgement consistency when confronted with disruptions such as negation or misleading input."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 27,
+      "query_id": "95246b32afe9ac3c",
+      "topic": "9ceadCJY4B",
+      "contentless": false,
+      "text": "This intricate analysis denotes a pronounced correlation between judgement consistency, the degree of subject specialization, and the complexity of the questions across the 57 subjects in MMLU."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 42,
+      "query_id": "fd518bfc1b34f3f9",
+      "topic": "ApjY32f3Xr",
+      "contentless": false,
+      "text": "We choose FBPINNs which is the state-of-the-art domain decomposition that applies domain-specific normalization to stabilize training."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 44,
+      "query_id": "17cbdf08c220bf59",
+      "topic": "BQvbL2sFQx",
+      "contentless": false,
+      "text": "In all cases, the APS models significantly drop accuracy."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 55,
+      "query_id": "c4377e97446591d8",
+      "topic": "BQvbL2sFQx",
+      "contentless": false,
+      "text": "Shift-equivariant properties are maintained across layers in CNNs."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 60,
+      "query_id": "1d54be3d7a9e3f31",
+      "topic": "H9DYMIpz9c",
+      "contentless": false,
+      "text": "This is a novel finding in the context of meta-learning and its applications, where previously Adam has been reported to be worse than SGD (Grefenstette et al., 2019)."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 61,
+      "query_id": "1f1f33da97e32beb",
+      "topic": "H9DYMIpz9c",
+      "contentless": true,
+      "text": "we are able to achieve up to 98-120 % of full-data performance for state-of-the-art models using as little as 0 . 1 %of the original dataset size, as well as noting a strong cross-architecture generalization"
+    },
+    {
+      "split": "held_out",
+      "sample_index": 80,
+      "query_id": "fc4f845bc7c7dedd",
+      "topic": "H9DYMIpz9c",
+      "contentless": false,
+      "text": "there does not exist an efficient out-of-the-box solution for measuring the quality of a data point."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 84,
+      "query_id": "03e8524db23e2bfb",
+      "topic": "cXs5md5wAq",
+      "contentless": false,
+      "text": "our results show that genomes are sufficient to learn an accurate model that can generalize predictions beyond observed communities."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 97,
+      "query_id": "a6e5bdf951c657e6",
+      "topic": "cXs5md5wAq",
+      "contentless": false,
+      "text": "To our knowledge, this is the first attempt at predicting microbial community profiles from genomes directly."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 100,
+      "query_id": "c419ec85465e5f83",
+      "topic": "cXs5md5wAq",
+      "contentless": false,
+      "text": "Thus, it can solely rely on positional information, and avoid extracting information from the genome. Consequently, it cannot generalize to unseen bacteria."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 101,
+      "query_id": "e24a0f1cab8d22a4",
+      "topic": "cXs5md5wAq",
+      "contentless": false,
+      "text": "Furthermore, as they only model pairwise interactions, they may fail to recover higher-order/complex interactions."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 107,
+      "query_id": "9a19a505eeb7a27e",
+      "topic": "eR4W9tnJoZ",
+      "contentless": false,
+      "text": "Thus, we find that strategically produced content exhibits stronger associations to users' nonconscious needs, wants and goals, which elicits user attention and content-diversity significantly."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 111,
+      "query_id": "c08af226c2066610",
+      "topic": "eR4W9tnJoZ",
+      "contentless": true,
+      "text": "The Final Second Framework, embodying a harmonious integration of Neuroscience and Artificial Intelligence, evidently stands out as a revolutionary approach, contributing significantly to the empowerment of every decision made by humans."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 120,
+      "query_id": "55e87095b4561156",
+      "topic": "eUgS9Ig8JG",
+      "contentless": false,
+      "text": "the average run-time of the proposed model for a forward pass is almost constant for simplicial complexes of any size"
+    },
+    {
+      "split": "held_out",
+      "sample_index": 127,
+      "query_id": "d68bf6f36d9134c9",
+      "topic": "eUgS9Ig8JG",
+      "contentless": false,
+      "text": "Using the node embeddings alone, SaNN distinguishes a broader class of graphs than those that are distinguishable by GNNs."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 141,
+      "query_id": "3aa19ecb1979cc98",
+      "topic": "jx6njBKH8E",
+      "contentless": false,
+      "text": "Wikipedia is the most vulnerable dataset in TDE attack, which was increased about 7.2 times after fine-tuning."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 144,
+      "query_id": "a09e8c66f0ef1b69",
+      "topic": "jx6njBKH8E",
+      "contentless": false,
+      "text": "The assumptions of this restricted white-box setting are becoming increasingly essential and realistic for two reasons..."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 145,
+      "query_id": "b07e3367e4e6673d",
+      "topic": "jx6njBKH8E",
+      "contentless": false,
+      "text": "The amplification of training data exposure is more pronounced in larger models, remarkably increasing up to 8 times in the OPT-1.3B."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 148,
+      "query_id": "66cea551ab7e4d03",
+      "topic": "kKRbAY4CXv",
+      "contentless": false,
+      "text": "From the above graphs, it can be observed that NEKM combined with convex splitting exhibits good accuracy and also maintains energy stability properties."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 149,
+      "query_id": "70c4e33aa5de66b1",
+      "topic": "kKRbAY4CXv",
+      "contentless": false,
+      "text": "One noteworthy fact is that our method can be extended to PDEs on surfaces, as long as the operators on the surface and their corresponding fundamental solutions exist."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 154,
+      "query_id": "b96d3158837ef60f",
+      "topic": "kKRbAY4CXv",
+      "contentless": false,
+      "text": "It is noteworthy that the inclusion of high-order derivatives in the loss function can significantly compromise the solution accuracy."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 156,
+      "query_id": "d36102c312f69345",
+      "topic": "kKRbAY4CXv",
+      "contentless": false,
+      "text": "The boundary integral representation facilitates the lower regularity assumption on the solutions and serious reduction of network parameters and sampling points, leading to improved training efficiency."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 162,
+      "query_id": "1be3315c0df73a09",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "We choose common data domains that we can safely assume to be in-distribution for all examined models."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 173,
+      "query_id": "46dbd117625424d5",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "More importantly, common data domains allow us to measure the extend to which the LMs have learned a good representation of these data domains during training."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 176,
+      "query_id": "50f5427e9e1b9842",
+      "topic": "miGpIhquyB",
+      "contentless": false,
+      "text": "Surprisingly, we find that the best model INSTRUCTGPT-3-175B is closely followed by much smaller LLAMA-based models, suggesting that a large model size is not necessarily a requirement for good generative abilities in a distributional sense."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 182,
+      "query_id": "6d3a6dc48d979223",
+      "topic": "miGpIhquyB",
+      "contentless": false,
+      "text": "Interestingly, among the top positions we see both vanilla (LLAMA-2-7B, LLAMA-13B) and instruction-tuned models, suggesting that instruction-tuning does not necessarily enhance inherent generative capabilities."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 183,
+      "query_id": "6fe3b78f89954b0a",
+      "topic": "miGpIhquyB",
+      "contentless": false,
+      "text": "popular instruction-tuning techniques strongly decrease the LLM's text generation abilities, with respect to distributional aspects like diversity."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 193,
+      "query_id": "9476b49adfb1fcd2",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "Our findings show that the tradeoffs identified in \u00a74.1 are also true when the dependent variable is model size."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 196,
+      "query_id": "ae9e95730193ddd7",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "This allows us to characterize the generated datasets, individual models and by comparison the properties of different model families and training paradigms."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 200,
+      "query_id": "c5c3bc270a54d58d",
+      "topic": "miGpIhquyB",
+      "contentless": true,
+      "text": "we show that the same tradeoffs hold when the dependent variable is model size."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 216,
+      "query_id": "1a985a53500e826d",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "We argue that spurious feedback will not be amplified over iterations; instead, thanks to the iterative mechanism of BoT, its negative impact on the generated reasoning steps can be mitigated or even entirely rectified in subsequent iterations."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 218,
+      "query_id": "3161b475eb7b05f1",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "BoT without human annotations is 9.7% higher than ToT, which relies on one example showing all possible next steps."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 220,
+      "query_id": "4cf58c6f15a84193",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "We argue that the prompt can be enhanced by continuously collecting the analysis of LLMs on those ineffective thoughts - wrong reasoning steps in a chain of thought."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 221,
+      "query_id": "4e274c6487eb2b91",
+      "topic": "qBL04XXex6",
+      "contentless": true,
+      "text": "Our work is the first to highlight the importance of error analysis in enhancing the prompt toward generating effective reasoning chains."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 230,
+      "query_id": "814faff580840ae9",
+      "topic": "qBL04XXex6",
+      "contentless": true,
+      "text": "BoT introduces two novel modifications to make it better suited for the boosting framework."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 232,
+      "query_id": "863e36f43fc64106",
+      "topic": "qBL04XXex6",
+      "contentless": false,
+      "text": "Our extensive experiments demonstrated that BoT is capable of achieving state-of-the-art on multiple benchmark datasets while outperforming the alternative leading approach in Game of 24."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 235,
+      "query_id": "9dfeaf69c28e1727",
+      "topic": "qBL04XXex6",
+      "contentless": true,
+      "text": "Due to starting from a simple prompt, BoT is scalable across various tasks."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 248,
+      "query_id": "0e47d779363f755a",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "Compared to purely parametric (i.e. retrieval-free) models, the retrieval-based ones can achieve higher performance and also exhibit several practically important properties, such as the ability for incremental learning and better robustness (Das et al., 2021;Jia et al., 2021)."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 260,
+      "query_id": "3dfb3d90b10f95c1",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "DL models can be superior on non-big data by outperforming GBDT on the recently proposed benchmark with \u2264 50K objects."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 262,
+      "query_id": "4536cfc9691bf338",
+      "topic": "rhgIgTSSxW",
+      "contentless": true,
+      "text": "In addition to the higher performance, TabR is simple and significantly more efficient compared to prior retrieval-based tabular DL models."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 270,
+      "query_id": "64a4d2b9f592a09b",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "TabR achieves a notable milestone for tabular DL by outperforming GBDT on the recently proposed benchmark with middle-scale tasks (Grinsztajn et al., 2022)."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 275,
+      "query_id": "71d17241286f130f",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "TabR achieves a notable milestone for tabular DL by outperforming GBDT on the recently proposed benchmark with middle-scale tasks (Grinsztajn et al., 2022), which was originally used to illustrate the superiority of decision-tree-based models over DL models."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 286,
+      "query_id": "97f386ce547cf402",
+      "topic": "rhgIgTSSxW",
+      "contentless": false,
+      "text": "Additionally, this approach can be used to scale TabR to large datasets by training the model on a subset of data and retrieving from the full data."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 295,
+      "query_id": "e54e7fc4992ea01c",
+      "topic": "rhgIgTSSxW",
+      "contentless": true,
+      "text": "As a result, TabR substantially outperforms the existing retrieval-based DL models while being significantly more efficient."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 297,
+      "query_id": "fcbf8fd2d40a3417",
+      "topic": "rhgIgTSSxW",
+      "contentless": true,
+      "text": "Deep learning (DL) models for tabular data problems ... are currently receiving increasingly more attention from researchers."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 304,
+      "query_id": "3cbf8c0951d0925a",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "The result shows that the weighting function gives higher weights to better trajectories for improving the adversarial policy performance."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 306,
+      "query_id": "4908df6b28b1ca25",
+      "topic": "rp5vfyp5Np",
+      "contentless": true,
+      "text": "Furthermore, we also demonstrate that BATTLE can improve the robustness of agents under strong attacks by training with adversary."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 307,
+      "query_id": "4d8e6259a7a5d13f",
+      "topic": "rp5vfyp5Np",
+      "contentless": true,
+      "text": "These empirical results show that key ingredients of BATTLE are fruitfully wed and contribute to the BATTLE's success."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 313,
+      "query_id": "8cd4600e975f3dcf",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "The target of RSA-MDP is to solve the optimal adversary \u03c0*\u03b1, which enables the victim to achieve the maximum cumulative reward (i.e., from R) over all states."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 316,
+      "query_id": "9eee86a0c5ee4458",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "our method is the first to conduct a behavior-oriented adversarial attack against DRL agents through PbRL."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 329,
+      "query_id": "c70d3f2b806f53e4",
+      "topic": "rp5vfyp5Np",
+      "contentless": true,
+      "text": "The experimental results demonstrate that the performance of all methods improves with an increase in the attack budget."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 335,
+      "query_id": "f2b5568bd7fe5921",
+      "topic": "rp5vfyp5Np",
+      "contentless": true,
+      "text": "Firstly, BATTLE-ATLA significantly enhances the robustness of agents, and secondly, BATTLE can conduct stronger attacks on robust agents."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 336,
+      "query_id": "f5716c0f5e8eec88",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "To the best of our knowledge, our method is the first to conduct a behavior-oriented adversarial attack against DRL agents through PbRL."
+    },
+    {
+      "split": "held_out",
+      "sample_index": 337,
+      "query_id": "fdbd42e0bd3c3a39",
+      "topic": "rp5vfyp5Np",
+      "contentless": false,
+      "text": "Thirdly, we test in multiple scenarios and experiments on Meta-world that demonstrate BATTLE outperforms the baselines by a large margin."
+    }
+  ]
+}

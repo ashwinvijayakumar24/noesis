@@ -118,6 +118,36 @@ def split_sentences(content: str) -> List[str]:
 # Cost control: Maximum chunks allowed per document
 MAX_CHUNKS_PER_DOCUMENT = 50
 
+# Which geometry `apply_cost_ceiling` uses to pick the enlarged chunk size.
+#
+#   legacy (DEFAULT) -- the shipped formula. It overshoots: measured on the eval
+#     corpus it exceeds its own ceiling on 16 of 16 documents where it fires
+#     (n=344 unique documents), by up to 6 estimated chunks.
+#   exact            -- solves the same problem with the overlap it will actually
+#     use, so the produced count is <= max_chunks.
+#
+# The default stays `legacy` on purpose. Every retrieval number in
+# docs/BENCHMARKS.md, and the 5,948 chunks currently in the eval database, were
+# produced by it; silently swapping the geometry would change the corpus under
+# measurements that have already been taken and make the old ones unreproducible.
+# It is an arm, selected per run, not a bug awaiting deletion.
+CEILING_GEOMETRY_ENV = "CHUNK_CEILING_GEOMETRY"
+_CEILING_GEOMETRY_DEFAULT = "legacy"
+
+
+def _ceiling_geometry() -> str:
+    """Read the arm from the environment, defaulting to the shipped behaviour."""
+    mode = os.getenv(CEILING_GEOMETRY_ENV, "").strip().lower() or _CEILING_GEOMETRY_DEFAULT
+    if mode not in ("legacy", "exact"):
+        logger.warning(
+            "Unknown %s=%r; falling back to %s",
+            CEILING_GEOMETRY_ENV,
+            mode,
+            _CEILING_GEOMETRY_DEFAULT,
+        )
+        return _CEILING_GEOMETRY_DEFAULT
+    return mode
+
 # Adaptive chunking tiers based on page count
 CHUNKING_TIERS = {
     "SHORT": {
@@ -271,9 +301,12 @@ def apply_cost_ceiling(
         - adjusted_overlap: The overlap to use (proportionally adjusted)
         - was_adjusted: True if adjustments were made
 
+    Which geometry is used is selected by CHUNK_CEILING_GEOMETRY (see
+    CEILING_GEOMETRY_ENV); the default `legacy` arm does NOT hold the limit.
+
     Examples:
-        >>> apply_cost_ceiling(100000, 1200, 200, 50)
-        (2000, 333, True)  # Adjusted to fit within 50 chunks
+        >>> apply_cost_ceiling(100000, 1200, 200, 50)   # legacy arm
+        (2196, 366, True)  # re-estimates to 55 chunks -- OVER the limit of 50
 
         >>> apply_cost_ceiling(5000, 1200, 200, 50)
         (1200, 200, False)  # No adjustment needed
@@ -289,17 +322,47 @@ def apply_cost_ceiling(
         f"Adjusting chunk_size to fit within limit."
     )
 
-    # Calculate minimum chunk_size needed to fit within max_chunks
-    # Formula: total_tokens = chunk_size + (max_chunks - 1) * (chunk_size - overlap)
-    # Solving for chunk_size: chunk_size = (total_tokens + (max_chunks - 1) * overlap) / max_chunks
+    # The overlap ratio is preserved across the adjustment, so the overlap this
+    # function RETURNS is not the overlap it was passed -- it grows with the
+    # enlarged chunk size. Both arms below agree on that; they differ only in
+    # whether the chunk size is solved against the old overlap or the new one.
+    overlap_ratio = overlap / chunk_size
 
-    adjusted_chunk_size = (total_tokens + (max_chunks - 1) * overlap) // max_chunks
+    if _ceiling_geometry() == "exact":
+        # Solve the constraint the estimator actually enforces, with the overlap
+        # that will actually be used. calculate_estimated_chunks fits within
+        # max_chunks iff
+        #     total_tokens <= max_chunks * c - (max_chunks - 1) * o
+        # and here o = floor(c * overlap_ratio), so substituting the unfloored
+        # o = c * overlap_ratio (which is >= the floored one, hence conservative)
+        # and solving for c gives
+        #     c >= total_tokens / (max_chunks - (max_chunks - 1) * overlap_ratio)
+        # The denominator is > 1 for any overlap_ratio < 1, which every tier and
+        # every adjusted pair satisfies, so it never degenerates.
+        #
+        # Ceiling division, not floor: floor lands one token short of the
+        # requirement whenever the division is inexact, and one token short is a
+        # whole extra chunk. That, plus solving against the pre-adjustment
+        # overlap, is the entire legacy overshoot.
+        denominator = max_chunks - (max_chunks - 1) * overlap_ratio
+        adjusted_chunk_size = -int(-total_tokens // denominator)
+    else:
+        # LEGACY ARM -- kept verbatim as a measured comparison point.
+        # Two defects, both of which push the produced count OVER max_chunks:
+        #   1. floor division rounds the chunk size DOWN, i.e. below the size the
+        #      constraint requires;
+        #   2. it solves using `overlap`, then returns a LARGER overlap derived
+        #      from the enlarged chunk size, which invalidates the solve -- more
+        #      overlap means less new material per chunk means more chunks.
+        # Defect 2 dominates and grows with the document: the solved size is
+        # ~total_tokens/max_chunks while the requirement is
+        # ~total_tokens/(max_chunks - (max_chunks-1)*ratio).
+        adjusted_chunk_size = (total_tokens + (max_chunks - 1) * overlap) // max_chunks
 
-    # Ensure minimum chunk size of 500 tokens
+    # Ensure minimum chunk size of 500 tokens. Raising the size can only reduce
+    # the chunk count, so this cannot break the exact arm's guarantee.
     adjusted_chunk_size = max(adjusted_chunk_size, 500)
 
-    # Adjust overlap proportionally to maintain similar overlap ratio
-    overlap_ratio = overlap / chunk_size
     adjusted_overlap = int(adjusted_chunk_size * overlap_ratio)
 
     # Ensure overlap doesn't exceed chunk_size
