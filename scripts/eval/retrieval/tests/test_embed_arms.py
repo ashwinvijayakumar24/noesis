@@ -441,8 +441,16 @@ def test_published_arms_reproduce_and_the_separation_does_not_move():
     assert record["document_chunks_digest_before"] == "8d3edbe3f3b28cdb"
     assert record["document_chunks_digest_after"] == "8d3edbe3f3b28cdb"
 
-    assert control["metrics"]["recall@10"] == pytest.approx(0.2199, abs=0.0002)
-    assert arm["metrics"]["recall@10"] == pytest.approx(0.2229, abs=0.0002)
+    # ANN rows carry a wider band than the exact rows below, and the asymmetry is
+    # the point: HNSW at ef_search=80 is an approximate search, exact is not.
+    # Within a session the pipeline is bit-reproducible (75 of 75 metric cells
+    # identical across two runs). ACROSS sessions the same corpus -- chunk-id
+    # digest unchanged, asserted above -- has read 0.2200, 0.2199 and 0.2197.
+    # 0.0005 covers that spread and is still 14x tighter than the +0.0070
+    # reranking delta these numbers are used to judge. The exact rows keep
+    # abs=2e-4 because nothing about them is approximate.
+    assert control["metrics"]["recall@10"] == pytest.approx(0.2199, abs=0.0005)
+    assert arm["metrics"]["recall@10"] == pytest.approx(0.2229, abs=0.0005)
     assert control["exact_whole_corpus"]["metrics"]["recall@10"] == pytest.approx(0.2227, abs=2e-4)
     assert arm["exact_whole_corpus"]["metrics"]["recall@10"] == pytest.approx(0.2247, abs=2e-4)
 
