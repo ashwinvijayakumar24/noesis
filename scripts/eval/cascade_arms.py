@@ -122,6 +122,9 @@ SCORABLE_NODES = frozenset({"reviewer_panel_node", "structural_checks", "meta_re
 
 CONTROL = "control"
 
+#: Arms are written ``model`` or ``model@effort`` (e.g. ``gpt-5-mini@low``).
+ARM_SEPARATOR = "@"
+
 #: Bumped to 2 when the ``meta_reviewer`` and ``extract_claims`` findings
 #: extractors were corrected: version 1 read key names that those nodes never
 #: write, so every v1 arm for those two nodes reported zero findings and zero
@@ -151,6 +154,65 @@ def banded(count: int) -> dict[str, Any]:
 # Identity
 # ---------------------------------------------------------------------------
 
+def parse_arm(arm: str) -> tuple[str, str | None]:
+    """``"gpt-5-mini@low"`` -> ``("gpt-5-mini", "low")``; ``"control"`` -> ``("control", None)``."""
+    if ARM_SEPARATOR not in arm:
+        return arm, None
+    model, _, effort = arm.partition(ARM_SEPARATOR)
+    return model, (effort.strip() or None)
+
+
+@contextlib.contextmanager
+def reasoning_effort_injection(model: str | None, effort: str | None):
+    """Add ``reasoning_effort`` to calls made on ``model``, for the sweep only.
+
+    Deliberately patched at the SDK boundary rather than threaded through the
+    nodes. ``reasoning_effort`` is an *experimental lever*, not a routing
+    decision: injecting it here means the second re-run needed zero further
+    production edits, and there is no half-wired parameter left in the call
+    sites if the experiment says don't ship it.
+
+    Scoped to the arm's model by name so the control is untouched even if some
+    other model is reached inside the same node. That matters here:
+    ``gpt-5.2-chat-latest`` *rejects* ``reasoning_effort`` outright (400,
+    verified 2026-08-01), so a blanket injection would break the control rather
+    than measure it.
+
+    ``max_completion_tokens`` is NOT changed. Control and arm run the same cap,
+    the same prompt and the same node; the only difference is that the arm is
+    told not to spend that shared budget on reasoning. That keeps the cost
+    comparison like-for-like.
+    """
+    if not model or not effort:
+        yield None
+        return
+
+    from openai.resources.chat.completions import completions as _c
+
+    orig_sync = _c.Completions.parse
+    orig_async = _c.AsyncCompletions.parse
+
+    def _augment(kwargs: dict) -> dict:
+        if str(kwargs.get("model")) == model:
+            kwargs = dict(kwargs)
+            kwargs["reasoning_effort"] = effort
+        return kwargs
+
+    def sync_parse(self, *args, **kwargs):
+        return orig_sync(self, *args, **_augment(kwargs))
+
+    async def async_parse(self, *args, **kwargs):
+        return await orig_async(self, *args, **_augment(kwargs))
+
+    _c.Completions.parse = sync_parse
+    _c.AsyncCompletions.parse = async_parse
+    try:
+        yield effort
+    finally:
+        _c.Completions.parse = orig_sync
+        _c.AsyncCompletions.parse = orig_async
+
+
 def arm_config(
     node: str,
     model: str,
@@ -159,6 +221,7 @@ def arm_config(
     repeats: int,
     threshold: float,
     personas: tuple[str, ...] | None = None,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
     """The full identity of one arm, including the per-node model assignment.
 
@@ -178,6 +241,10 @@ def arm_config(
         "node": node,
         "swept_site": NODE_SITES[node],
         "arm_model": model,
+        # Part of the identity: the same model at a different reasoning effort
+        # is a different arm, and conflating the two would misattribute the
+        # entire second re-run to the first.
+        "reasoning_effort": reasoning_effort,
         # The load-bearing field: identity includes what every node ran.
         "model_assignment": dict(sorted(assignment.items())),
         "papers": list(papers),
@@ -514,6 +581,7 @@ def run_arm(
     state_dir: Path = DEFAULT_STATE_DIR,
     personas: tuple[str, ...] = PERSONAS,
     replay: Callable[..., dict[str, Any]] | None = None,
+    reasoning_effort: str | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
     """Replay ``node`` across the papers on one model. Returns (records, findings, calls).
 
@@ -533,45 +601,46 @@ def run_arm(
     variants = personas if node == "reviewer_panel_node" else (None,)
     site = NODE_SITES[node]
 
-    with routed(site, None if model == CONTROL else model):
-        with structural_probe(calls):
-            for rep in range(repeats):
-                for paper in papers:
-                    for variant in variants:
-                        captured: dict[str, Any] = {}
+    with routed(site, None if model == CONTROL else model), \
+            structural_probe(calls), \
+            reasoning_effort_injection(None if model == CONTROL else model, reasoning_effort):
+        for rep in range(repeats):
+            for paper in papers:
+                for variant in variants:
+                    captured: dict[str, Any] = {}
 
-                        def _wrapped(state, _f=node_func, _c=captured):
-                            result = _f(state)
-                            if hasattr(result, "__await__"):
-                                async def _await(r=result, c=_c):
-                                    value = await r
-                                    c["result"] = value
-                                    return value
-                                return _await()
-                            _c["result"] = result
-                            return result
+                    def _wrapped(state, _f=node_func, _c=captured):
+                        result = _f(state)
+                        if hasattr(result, "__await__"):
+                            async def _await(r=result, c=_c):
+                                value = await r
+                                c["result"] = value
+                                return value
+                            return _await()
+                        _c["result"] = result
+                        return result
 
-                        record = replay(
-                            node,
-                            paper,
-                            _wrapped,
-                            reviewer_type=variant,
-                            state_dir=state_dir,
-                            with_metric=False,
-                            repeat_index=rep,
-                        )
-                        record["arm"] = model
-                        record["persona"] = variant
+                    record = replay(
+                        node,
+                        paper,
+                        _wrapped,
+                        reviewer_type=variant,
+                        state_dir=state_dir,
+                        with_metric=False,
+                        repeat_index=rep,
+                    )
+                    record["arm"] = model
+                    record["persona"] = variant
 
-                        node_findings: list[dict[str, Any]] = []
-                        if record.get("status") == "ok" and isinstance(captured.get("result"), dict):
-                            fixture = node_eval.state_path(node, paper, state_dir, variant)
-                            base = json.loads(fixture.read_text()) if fixture.exists() else {}
-                            merged = node_eval._merge_state(base, captured["result"])
-                            node_findings = findings_from_state(node, merged)
-                        record["n_findings"] = len(node_findings)
-                        findings_by_paper[paper].extend(node_findings)
-                        records.append(record)
+                    node_findings: list[dict[str, Any]] = []
+                    if record.get("status") == "ok" and isinstance(captured.get("result"), dict):
+                        fixture = node_eval.state_path(node, paper, state_dir, variant)
+                        base = json.loads(fixture.read_text()) if fixture.exists() else {}
+                        merged = node_eval._merge_state(base, captured["result"])
+                        node_findings = findings_from_state(node, merged)
+                    record["n_findings"] = len(node_findings)
+                    findings_by_paper[paper].extend(node_findings)
+                    records.append(record)
 
     return records, dict(findings_by_paper), calls
 
@@ -618,7 +687,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--node", action="append", required=True, choices=sorted(NODE_SITES),
                    help="Node to sweep. Repeatable.")
     p.add_argument("--arm", action="append", required=True,
-                   help=f"Model per arm. '{CONTROL}' leaves the node on its production model. Repeatable.")
+                   help=f"Model per arm, optionally 'model{ARM_SEPARATOR}effort' (e.g. "
+                        f"gpt-5-mini{ARM_SEPARATOR}low). '{CONTROL}' leaves the node on its "
+                        "production model. Repeatable.")
     p.add_argument("--paper", action="append", default=None,
                    help=f"Paper id. Defaults to the {len(GOLD_PAPERS)} gold-labelled papers.")
     p.add_argument("--repeats", type=int, default=1)
@@ -647,8 +718,10 @@ def main(argv: list[str] | None = None) -> int:
     total = sum(len(papers) * args.repeats * n_variants(n) for n, _ in plan)
     print(f"plan: {len(plan)} arms, {total} replays, papers={list(papers)}, repeats={args.repeats}")
     for node, arm in plan:
-        cfg = arm_config(node, arm, papers=papers, repeats=args.repeats, threshold=args.threshold,
-                         personas=PERSONAS if node == "reviewer_panel_node" else None)
+        model, effort = parse_arm(arm)
+        cfg = arm_config(node, model, papers=papers, repeats=args.repeats, threshold=args.threshold,
+                         personas=PERSONAS if node == "reviewer_panel_node" else None,
+                         reasoning_effort=effort)
         print(f"  {node:22s} {arm:20s} hash={config_hash(cfg)}")
     if args.dry_run:
         return 0
@@ -658,8 +731,10 @@ def main(argv: list[str] | None = None) -> int:
     arm_records: list[dict[str, Any]] = []
     for node, arm in plan:
         print(f"\n=== {node} / {arm} ===", flush=True)
+        model, effort = parse_arm(arm)
         records, findings, calls = run_arm(
-            node, arm, papers=papers, repeats=args.repeats, state_dir=args.state_dir
+            node, model, papers=papers, repeats=args.repeats, state_dir=args.state_dir,
+            reasoning_effort=effort,
         )
         structure = summarize_structure(calls, node)
         usage = summarize_usage(records, len(records))
@@ -681,8 +756,9 @@ def main(argv: list[str] | None = None) -> int:
                 score_error = f"{type(exc).__name__}: {exc}"[:500]
                 print(f"  scoring FAILED: {score_error}", flush=True)
 
-        cfg = arm_config(node, arm, papers=papers, repeats=args.repeats, threshold=args.threshold,
-                         personas=PERSONAS if node == "reviewer_panel_node" else None)
+        cfg = arm_config(node, model, papers=papers, repeats=args.repeats, threshold=args.threshold,
+                         personas=PERSONAS if node == "reviewer_panel_node" else None,
+                         reasoning_effort=effort)
         arm_record = {
             "record_type": "arm",
             "timestamp": datetime.now(timezone.utc).isoformat(),

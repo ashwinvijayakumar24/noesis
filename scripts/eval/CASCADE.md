@@ -207,25 +207,54 @@ scoring** — `$0.4260` of confirmation calls on `gpt-5.2` against `$0.2001` of
 `reviewer_panel` node spend. Scoring, not sweeping, is the expensive half of
 this harness.
 
+### Spend for the §6b re-run
+
+Budget `$2.50`. Ground truth from `NOESIS_LLM_USAGE_LOG`:
+
+| | amount |
+|---|---:|
+| `meta_reviewer_node` calls (36 replays) | $0.1905 |
+| `match:confirm` — the confirmation judge | ~$1.69 |
+| `match:embed` | $0.0004 |
+| **total ledgered** | **$1.8883** |
+| unrecorded failed calls | **$0.0000** |
+| **true total** | **$1.8883** |
+
+**Ledgered equals true this time, and that is itself the finding.** The §5
+defect only bites when calls fail on the length limit; the re-run had **zero**
+API failures, so there was nothing to under-report. The gap between ledgered and
+true spend is a direct proxy for how broken an arm is — $0.1300 across the
+twelve original arms, $0.0000 across the two fixed ones.
+
+The confirmation judge was **85%** of this run's spend ($0.9561 of $1.1215 in
+the first invocation alone). That is why the re-run covered one node rather than
+three: at ~$1 per scored arm, `$2.50` buys two scored arms, and two scored arms
+at n=9 on the promising node beat six at n=2.
+
 ---
 
 ## 6. Routing recommendation
 
-**Ship nothing. No node tolerates a downgrade as the pipeline is configured
-today.** Not one of the four expensive nodes can be moved to `gpt-5-mini` or
-`gpt-5-nano` without breaking it.
+> **Superseded in part by §6b for `meta_reviewer_node`.** The verdicts below are
+> what the model tiers do *at the production completion budget with no
+> `reasoning_effort` set*. §6b removes that constraint on one node and the
+> verdict there flips. The other three verdicts stand.
+
+**As configured today, no node tolerates a downgrade.** Not one of the four
+expensive nodes can be moved to `gpt-5-mini` or `gpt-5-nano` as-is.
 
 | node | share of spend | verdict |
 |---|---:|---|
-| `reviewer_panel_node` | 51.9% | **stays on 5.2** — mini and nano both fail 9/9 |
+| `reviewer_panel_node` | 51.9% | **stays on 5.2** — mini and nano both fail 9/9; **untested at `reasoning_effort=low`** |
 | `extract_claims` | 23.1% | **stays on 5.2** — mini is clean and 60% cheaper, but its quality is *unmeasured* |
-| `structural_checks` | 12.0% | **stays on 5.2** — mini and nano both fail 3/3 |
-| `meta_reviewer_node` | 10.0% | **stays on 5.2** — mini fails 1/3 |
+| `structural_checks` | 12.0% | **stays on 5.2** — mini and nano both fail 3/3; **untested at `reasoning_effort=low`** |
+| `meta_reviewer_node` | 10.0% | **→ see §6b**: `gpt-5-mini@low` is 9/9 clean, 5.4× cheaper, no detectable quality loss at n=9 |
 
 **The honest headline: this sweep did not measure a quality cliff, because the
 cheap models never got far enough to have their quality judged.** Nine of the
 twelve cheap-tier arms failed at the API boundary with zero output. "The cheap
 model is worse" is *not* what was observed; "the cheap model never answered" is.
+§6b then gets one of them to answer, and it answers well.
 
 ### The blocker is a config value, not a model
 
@@ -235,7 +264,7 @@ reasoning tokens and emits nothing. That is a property of the node's cap
 question "where is the quality cliff" is still open**, and this measurement
 cannot close it.
 
-### The follow-up that would close it
+### The follow-up — run, see §6b
 
 Not run here — it needs a second override (completion budget / `reasoning_effort`)
 and is a separate change from model routing:
@@ -257,6 +286,137 @@ is exactly what is not yet known** — the pipeline would fall to roughly
 `$0.03`/run, a ~**80%** saving. That number is the *upside being tested*, not a
 result. The only measured saving available today is `$0.0000`, because every arm
 that was cheaper was also broken.
+
+---
+
+## 6b. Unblocking the experiment: `reasoning_effort`
+
+Nine of twelve arms above produced no data. That is a **blocked experiment, not
+a negative result**, so the sweep was re-run with the binding constraint removed.
+
+### Which lever, and why
+
+Two were available. They are not equivalent:
+
+* **Raise `max_completion_tokens`.** Papers over the mechanism with headroom,
+  and it changes the arm's cost basis — a cost delta against a control at the
+  old cap is no longer like-for-like, so either the control has to move too or
+  the comparison has to be declared confounded.
+* **Set `reasoning_effort`.** Targets the actual mechanism — reasoning consuming
+  the budget — and leaves the cap identical on both sides.
+
+**`reasoning_effort` was used.** `max_completion_tokens` is unchanged everywhere:
+control and arm run the same cap, the same prompt and the same node. The only
+difference is that the arm is told not to spend that shared budget on reasoning,
+so **the cost comparison stays like-for-like** and no confound has to be
+declared.
+
+Verified live before committing to it (2026-08-01), on the 1,500-token cap that
+had failed 3/3:
+
+| model | `reasoning_effort` | reasoning/total tokens | parsed |
+|---|---|---:|---|
+| `gpt-5-mini` | *(none)* | **448**/708 | 5 checks |
+| `gpt-5-mini` | `low` | **64**/258 | 4 checks |
+| `gpt-5-mini` | `minimal` | **0**/203 | 5 checks |
+| `gpt-5-nano` | *(none)* | **896**/1086 | 5 checks |
+| `gpt-5-nano` | `low` | **128**/278 | 4 checks |
+| `gpt-5.2-chat-latest` | `low` | **400 — unsupported** | — |
+
+`low` was chosen over `minimal`: it leaves real reasoning capability intact, so
+a subsequent failure cannot be dismissed as having crippled the model. The
+control **rejects the parameter outright**, which is what settles "same basis" —
+it cannot be applied symmetrically, so it is applied to neither the cap nor the
+control, only to how the arm spends its own budget.
+
+### Where it lives
+
+Injected at the SDK boundary by the harness, scoped by model name.
+**Zero further production edits.** `reasoning_effort` is an experimental lever,
+not a routing decision; wiring it through five call sites for an experiment
+would leave a half-configured parameter in production if the answer is "don't
+ship it". Shipping it later is a deliberate, separate change.
+
+### Result
+
+**The lever works. The blocked experiment is unblocked, and `meta_reviewer` now
+has a real `n`.**
+
+Scope was cut deliberately. The confirmation judge costs ~5.8× what the nodes it
+scores cost (§6b, spend), so the `$2.50` re-run budget bought **one node at a
+defensible `n`** rather than three at `n=2`. `reviewer_panel` and
+`structural_checks` were **not re-run** — see "what is still blocked" below.
+
+`meta_reviewer_node`, **n=9 replays per arm** (3 papers × 3 repeats), threshold
+0.44, identical `max_completion_tokens=2000` on both sides:
+
+| | control (`gpt-5.2-chat-latest`) | `gpt-5-mini` @ `reasoning_effort=low` |
+|---|---|---|
+| replays OK | 9/9 | **9/9** |
+| structurally broken | no | **no** |
+| findings/run | 15.78 | 16.44 |
+| units of **76** addressable | **24 ± 3** | **35 ± 4** |
+| units of **212** | **61 ± 7** | **70 ± 7** |
+| $/run | 0.01520 | **0.00280** |
+| tokens/run | 5,009 | 5,485 |
+
+**Structurally: fixed.** `gpt-5-mini` went from **1/3 calls failing** at this
+node to **0/9**. `reasoning_effort=low` was the whole difference — the cap never
+moved. That confirms the §3.2 diagnosis: the failure was reasoning consuming the
+completion budget, not the model being unable to do the task.
+
+**On cost: `gpt-5-mini` is 5.4× cheaper** at this node, like-for-like (same cap,
+same prompt, same node, same `n`).
+
+### On quality — read this before quoting the numbers
+
+The arm scored **higher** than the control, and the bands do not overlap on the
+addressable denominator (24+3 = 27 vs 35−4 = 31). **Do not read that as "the
+cheap model is better."** The pooled metric counts *distinct units matched
+across 9 replays*, which rewards cross-run **diversity**, and the arm was more
+diverse from a near-identical number of raw findings:
+
+| | unique texts pooled | raw findings | candidate pairs |
+|---|---:|---:|---:|
+| control | 132 | 142 (93% unique) | 549 |
+| `gpt-5-mini@low` | **147** | 148 (**99% unique**) | **713** |
+
+The control repeats itself across replays; the arm does not. More distinct
+texts means more shots on goal, so **part of the 24 → 35 gap is diversity, not
+per-finding quality**, and this design cannot separate the two. Normalising by
+unique text, the all-212 denominator is close to flat (0.462 vs 0.476) while
+the addressable-76 still favours the arm (0.182 vs 0.238) — a sanity check, not
+a validated metric.
+
+**What is supportable:** at n=9, `gpt-5-mini` with `reasoning_effort=low` shows
+**no detectable quality loss** on `meta_reviewer` against either denominator, at
+5.4× lower cost and with zero structural failures. **What is not supportable:**
+that it is better. Separating quality from diversity needs a per-run metric this
+harness does not have.
+
+### The §4 hypothesis: killed and replaced
+
+The earlier encouraging row — 17 ± 2 vs 19 ± 2 on **n=2 completed papers** — was
+a hypothesis built on the arm's *surviving* calls. At a real `n` with the
+failures removed it does not merely survive, it strengthens: the concern that
+mini was quietly weaker at this node is **not supported**.
+
+### What is still blocked
+
+`reviewer_panel` (51.9% of spend) and `structural_checks` (12.0%) **remain
+untested at `reasoning_effort=low`**. They failed 9/9 and 3/3 in §4 for the same
+reason `meta_reviewer` failed 1/3, and that reason is now demonstrably
+removable — but demonstrated *on one node only*. Nothing here licenses a claim
+about the other two. They are the obvious next spend, and `reviewer_panel` is
+where the money actually is.
+
+### A note on the sink
+
+Hash `839c47b55c04` appears **twice**: the first attempt spent its budget on the
+control's scoring and was blocked before it could score the arm (`score_error`
+set, `score` null); the second re-measured the same config and scored it. Same
+config, two measurements, distinguishable by `score_error` — which is the
+append-only sink behaving correctly, not a collision.
 
 ---
 

@@ -97,6 +97,95 @@ def test_assert_hashes_distinct_passes_on_real_arms():
 
 
 # ---------------------------------------------------------------------------
+# reasoning_effort: the lever for the re-run
+# ---------------------------------------------------------------------------
+
+def test_parse_arm_splits_model_and_effort():
+    assert ca.parse_arm("gpt-5-mini@low") == ("gpt-5-mini", "low")
+    assert ca.parse_arm("gpt-5-mini") == ("gpt-5-mini", None)
+    assert ca.parse_arm("control") == ("control", None)
+    assert ca.parse_arm("gpt-5-mini@") == ("gpt-5-mini", None)
+
+
+def test_effort_is_part_of_the_identity():
+    """The same model at a different effort is a different arm."""
+    a = ca.config_hash(_cfg(model="gpt-5-mini", reasoning_effort=None))
+    b = ca.config_hash(_cfg(model="gpt-5-mini", reasoning_effort="low"))
+    c = ca.config_hash(_cfg(model="gpt-5-mini", reasoning_effort="minimal"))
+    assert len({a, b, c}) == 3
+
+
+def _fake_sdk(monkeypatch, seen):
+    from openai.resources.chat.completions import completions as c
+
+    def fake(self, **kw):
+        seen.append(kw)
+        raise RuntimeError("stop here")
+
+    monkeypatch.setattr(c.Completions, "parse", fake)
+    return c
+
+
+def test_injection_adds_effort_only_to_the_arm_model(monkeypatch):
+    seen: list[dict] = []
+    c = _fake_sdk(monkeypatch, seen)
+    with ca.reasoning_effort_injection("gpt-5-mini", "low"):
+        for model in ("gpt-5-mini", "gpt-5.2-chat-latest"):
+            with pytest.raises(RuntimeError):
+                c.Completions.parse(object(), model=model)
+    assert seen[0]["reasoning_effort"] == "low"
+    # The control must not receive it -- gpt-5.2-chat-latest 400s on this param.
+    assert "reasoning_effort" not in seen[1]
+
+
+def test_injection_never_touches_max_completion_tokens(monkeypatch):
+    """Cost basis stays like-for-like: only reasoning share changes, not the cap."""
+    seen: list[dict] = []
+    c = _fake_sdk(monkeypatch, seen)
+    with ca.reasoning_effort_injection("gpt-5-mini", "low"):
+        with pytest.raises(RuntimeError):
+            c.Completions.parse(object(), model="gpt-5-mini", max_completion_tokens=1500)
+    assert seen[0]["max_completion_tokens"] == 1500
+
+
+def test_injection_is_a_noop_without_an_effort(monkeypatch):
+    seen: list[dict] = []
+    c = _fake_sdk(monkeypatch, seen)
+    with ca.reasoning_effort_injection("gpt-5-mini", None):
+        with pytest.raises(RuntimeError):
+            c.Completions.parse(object(), model="gpt-5-mini")
+    assert "reasoning_effort" not in seen[0]
+
+
+def test_injection_restores_the_sdk_methods():
+    from openai.resources.chat.completions import completions as c
+
+    before_sync, before_async = c.Completions.parse, c.AsyncCompletions.parse
+    with ca.reasoning_effort_injection("gpt-5-mini", "low"):
+        assert c.Completions.parse is not before_sync
+    assert c.Completions.parse is before_sync
+    assert c.AsyncCompletions.parse is before_async
+
+
+def test_run_arm_passes_the_effort_through(monkeypatch):
+    from openai.resources.chat.completions import completions as c
+
+    captured: dict = {}
+
+    def fake_replay(node, paper, node_func, **kw):
+        captured["patched"] = c.Completions.parse
+        return {"status": "ok", "usage": {}}
+
+    from scripts.eval import node_eval
+    monkeypatch.setattr(node_eval, "_node_registry", lambda: {"meta_reviewer_node": lambda s: {}})
+    before = c.Completions.parse
+    ca.run_arm("meta_reviewer_node", "gpt-5-mini", papers=("p1",), repeats=1,
+               replay=fake_replay, reasoning_effort="low")
+    assert captured["patched"] is not before
+    assert c.Completions.parse is before
+
+
+# ---------------------------------------------------------------------------
 # Routing seam
 # ---------------------------------------------------------------------------
 
