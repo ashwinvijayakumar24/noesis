@@ -167,6 +167,31 @@ def test_injection_restores_the_sdk_methods():
     assert c.AsyncCompletions.parse is before_async
 
 
+def test_the_effort_actually_reaches_the_sdk_through_run_arm(monkeypatch):
+    """The panel negative rests on this. Layering is subtle enough that a first
+    hand-written probe got it wrong (spy installed over the injection instead of
+    under it), so the nesting is pinned here: whatever run_arm's innermost SDK
+    call receives IS what the experiment applied."""
+    from openai.resources.chat.completions import completions as c
+
+    seen: list[str | None] = []
+    monkeypatch.setattr(c.Completions, "parse",
+                        lambda self, **kw: seen.append(kw.get("reasoning_effort")))
+
+    def fake_replay(node, paper, node_func, **kw):
+        c.Completions.parse(object(), model="gpt-5-mini")
+        c.Completions.parse(object(), model="gpt-5.2-chat-latest")
+        return {"status": "ok", "usage": {}}
+
+    from scripts.eval import node_eval
+    monkeypatch.setattr(node_eval, "_node_registry", lambda: {"meta_reviewer_node": lambda s: {}})
+    ca.run_arm("meta_reviewer_node", "gpt-5-mini", papers=("p",), repeats=1,
+               replay=fake_replay, reasoning_effort="low")
+
+    # The arm's model gets it; anything else (i.e. the control) must not.
+    assert seen == ["low", None]
+
+
 def test_run_arm_passes_the_effort_through(monkeypatch):
     from openai.resources.chat.completions import completions as c
 
@@ -393,6 +418,66 @@ def test_score_arm_reports_both_denominators(monkeypatch, fake_units, tmp_path):
     assert out["units_matched_addressable_76"]["display"] == "1 ± 1"
     assert out["units_matched_all_212"]["display"] == "1 ± 1"
     assert out["threshold"] == 0.44
+
+
+def test_score_arm_reports_the_diversity_confound(monkeypatch, fake_units, tmp_path):
+    """Raw vs unique counts must be first-class, not reconstructed after the fact."""
+    monkeypatch.setattr(ca, "EVAL_DIR", tmp_path)
+    (tmp_path / "ceiling").mkdir()
+    (tmp_path / "ceiling" / "hand_labels.json").write_text(
+        json.dumps({"labels": [{"unit_id": "u1", "category": "defect_addressable"}]})
+    )
+    from scripts.eval import match as match_mod
+    monkeypatch.setattr(match_mod, "match", lambda items, targets, stats=None, **kw: [])
+    findings = [{"text": "a"}, {"text": "a"}, {"text": "a"}, {"text": "b"}]
+    out = ca.score_arm({"p1": findings}, 0.44, units=fake_units)
+    assert out["raw_findings"] == 4
+    assert out["unique_texts"] == 2
+    assert out["repetition_rate"] == 0.5
+
+
+def test_score_arm_attributes_matched_units_to_personas(monkeypatch, fake_units, tmp_path):
+    monkeypatch.setattr(ca, "EVAL_DIR", tmp_path)
+    (tmp_path / "ceiling").mkdir()
+    (tmp_path / "ceiling" / "hand_labels.json").write_text(
+        json.dumps({"labels": [{"unit_id": "u1", "category": "defect_addressable"}]})
+    )
+    from scripts.eval import match as match_mod
+    monkeypatch.setattr(
+        match_mod, "match",
+        lambda items, targets, stats=None, **kw: [
+            {"unit_id": "u1", "noesis_id": items[0]["id"], "confirmed": True}
+        ],
+    )
+    # "no ablation" is produced by methodology only; sorted() puts it first.
+    findings = [{"text": "no ablation", "persona": "methodology"},
+                {"text": "zzz unclear", "persona": "clarity"}]
+    out = ca.score_arm({"p1": findings}, 0.44, units=fake_units)
+    assert out["units_matched_by_persona"]["methodology"]["value"] == 1
+    assert "clarity" not in out["units_matched_by_persona"]
+
+
+def test_score_arm_credits_a_shared_text_to_every_persona_that_found_it(
+    monkeypatch, fake_units, tmp_path
+):
+    monkeypatch.setattr(ca, "EVAL_DIR", tmp_path)
+    (tmp_path / "ceiling").mkdir()
+    (tmp_path / "ceiling" / "hand_labels.json").write_text(
+        json.dumps({"labels": [{"unit_id": "u1", "category": "defect_addressable"}]})
+    )
+    from scripts.eval import match as match_mod
+    monkeypatch.setattr(
+        match_mod, "match",
+        lambda items, targets, stats=None, **kw: [
+            {"unit_id": "u1", "noesis_id": items[0]["id"], "confirmed": True}
+        ],
+    )
+    findings = [{"text": "same issue", "persona": "methodology"},
+                {"text": "same issue", "persona": "clarity"}]
+    out = ca.score_arm({"p1": findings}, 0.44, units=fake_units)
+    assert out["units_matched_by_persona"]["methodology"]["value"] == 1
+    assert out["units_matched_by_persona"]["clarity"]["value"] == 1
+    assert out["unique_texts"] == 1 and out["raw_findings"] == 2
 
 
 def test_score_arm_dedupes_finding_texts_before_matching(monkeypatch, fake_units, tmp_path):

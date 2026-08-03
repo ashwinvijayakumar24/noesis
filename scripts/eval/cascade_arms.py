@@ -478,6 +478,12 @@ def score_arm(
     addressable = {uid for uid, r in labels.items() if r["category"] in ADDRESSABLE}
 
     matched: set[str] = set()
+    # unit_id -> the personas that reached it. A pooled count cannot say whether
+    # three personas each found different things or one persona carried the arm;
+    # this can.
+    matched_by_persona: dict[str, set[str]] = collections.defaultdict(set)
+    raw_findings = 0
+    unique_texts = 0
     original = match_mod.COS_THRESHOLD
     match_mod.COS_THRESHOLD = threshold
     stats_total: collections.Counter = collections.Counter()
@@ -486,15 +492,30 @@ def score_arm(
             targets = [u for u in units if u["draft_id"] == paper]
             if not findings or not targets:
                 continue
-            texts = sorted({(f.get("text") or "").strip() for f in findings if (f.get("text") or "").strip()})
-            items = [{"id": f"{paper}-{i:04d}", "text": t} for i, t in enumerate(texts)]
+            # Dedupe by text, keeping the personas that produced each text, so
+            # the diversity confound (§ CASCADE.md) is measurable rather than
+            # merely acknowledged.
+            by_text: dict[str, set[str]] = {}
+            for f in findings:
+                text = (f.get("text") or "").strip()
+                if text:
+                    by_text.setdefault(text, set()).add(f.get("persona") or "unknown")
+            raw_findings += sum(1 for f in findings if (f.get("text") or "").strip())
+            unique_texts += len(by_text)
+            items = [{"id": f"{paper}-{i:04d}", "text": t} for i, t in enumerate(sorted(by_text))]
+            id_to_text = {it["id"]: it["text"] for it in items}
             stats: dict[str, int] = {}
             kwargs = dict(match_kwargs or {})
             if cache_dir is not None:
                 kwargs["cache_dir"] = cache_dir
             for m in match_mod.match(items, targets, stats=stats, **kwargs):
-                if m.get("confirmed"):
-                    matched.add(str(m["unit_id"]))
+                if not m.get("confirmed"):
+                    continue
+                unit_id = str(m["unit_id"])
+                matched.add(unit_id)
+                # The matcher names the finding side ``noesis_id``.
+                for persona in by_text.get(id_to_text.get(str(m.get("noesis_id")), ""), ()):
+                    matched_by_persona[persona].add(unit_id)
             stats_total.update({k: v for k, v in stats.items() if isinstance(v, int)})
     finally:
         match_mod.COS_THRESHOLD = original
@@ -510,6 +531,19 @@ def score_arm(
         "n_units_addressable": len(addressable),
         "units_matched_all_212": banded(len(matched)),
         "units_matched_addressable_76": banded(len(addr_hits)),
+        # The diversity confound, made measurable. A pooled distinct-unit count
+        # rewards an arm that repeats itself less, independently of whether any
+        # individual finding is better. Reported beside the headline, not below
+        # it: three personas generating independently are more diverse than one
+        # synthesiser by construction.
+        "raw_findings": raw_findings,
+        "unique_texts": unique_texts,
+        "repetition_rate": (
+            round(1 - unique_texts / raw_findings, 4) if raw_findings else None
+        ),
+        "units_matched_by_persona": {
+            p: banded(len(ids & addressable)) for p, ids in sorted(matched_by_persona.items())
+        },
         "recall_all_212": round(len(matched) / len(units), 4) if units else None,
         "recall_addressable": round(len(addr_hits) / len(addressable), 4) if addressable else None,
         "severity_recall_all_212": round(_weight(matched) / total_weight, 4) if total_weight else None,
