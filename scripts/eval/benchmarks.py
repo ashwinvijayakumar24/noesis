@@ -77,6 +77,14 @@ SRC_HISTORY = "results/history.jsonl"
 SRC_OPENREVIEW = "results/openreview_history.jsonl"
 SRC_SWEEP = "gate_calibration/sweep_results.jsonl"
 SRC_ANN = "results/ann_sweep.jsonl"
+#: Arms added after the measurement overhaul. Each has a companion writeup that
+#: carries the analysis; the board's job for these is to record that they exist,
+#: how many records they hold, and that nothing was silently skipped. Listing a
+#: sink here without a renderer is deliberate -- a board that omits a whole
+#: measurement family is worse than one that names it and points elsewhere.
+SRC_PANEL = "results/panel_arms.jsonl"
+SRC_EMBED = "results/embedding_arms.jsonl"
+SRC_CASCADE = "results/cascade_arms.jsonl"
 
 SOURCES = (
     SRC_RETRIEVAL,
@@ -87,6 +95,9 @@ SOURCES = (
     SRC_OPENREVIEW,
     SRC_SWEEP,
     SRC_ANN,
+    SRC_PANEL,
+    SRC_EMBED,
+    SRC_CASCADE,
 )
 
 # ---------------------------------------------------------------------------

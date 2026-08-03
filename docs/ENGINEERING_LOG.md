@@ -28,6 +28,104 @@ Re-baselined on the ceiling corpus (201 findings, 212 units, 3 manuscripts, `cei
 
 **The pipeline did not change. Only the measurement did.** Bands are `ceil(10%)` of the count and come from judge run-to-run variance, not sampling error: four judgements of the same 80 pairs gave 10/13/13/10 positives, κ(judge, judge) = 0.75–0.85 against κ(judge, hand) = 0.647. **No unit count downstream of the confirmer should be quoted to the integer.** Both denominators are published together deliberately — `212` includes 27 segmentation fragments no system can match (`CEILING.md` §2) and 76 is the defect-addressable subset; quoting only one of them is denominator shopping.
 
+### ⚪ Three optimisation attempts, three nulls — and one that shipped (2026-08-02/03)
+
+Four builds aimed at improving the pipeline rather than measuring it. **One
+produced a shippable win; three did not, and the three are recorded here at the
+same weight as the one.**
+
+#### 🟢 Model cascade — one node moves · `scripts/eval/CASCADE.md`
+
+Nine of eleven LLM call sites ran `gpt-5.2-chat-latest`; only `editor_pass` used
+a cheaper model. Four nodes are **97.0%** of spend (`reviewer_panel` 51.9%,
+`extract_claims` 23.1%, `structural_checks` 12.0%, `meta_reviewer` 10.0%), so
+only those were swept.
+
+**`meta_reviewer_node` — synthesis — moves.** n=9 replays/arm, cap unchanged at
+2000 both sides:
+
+| | control (5.2) | `gpt-5-mini` @ `reasoning_effort=low` |
+|---|---|---|
+| replays clean | 9/9 | **9/9** |
+| units of 76 addressable | 24 ± 3 | 35 ± 4 |
+| $/run | 0.01520 | **0.00280** (5.4× cheaper) |
+
+**`reviewer_panel_node` — generation — does not.** 5 of 9 calls return nothing
+even at `reasoning_effort=low` (down from 9/9 without it), every failure at
+`reasoning_tokens = completion_tokens = 2500` on prompts of 14,325–16,725
+tokens. **Its quality row is void and must not be quoted** — with 5 of 9 calls
+empty, `10 ± 1` against `15 ± 2` measures how often the model answered, not how
+well. Per-persona, `literature_positioning` collapses to **0 ± 1** while
+`methodology` is flat within band; a pooled number would have hidden that.
+
+**Recommendation: one node, ~8.2% of pipeline cost.** Not the ~51% moving the
+panel would have bought. **The cascade has a shape: synthesis tolerates the cheap
+model, generation does not.**
+
+⚠️ **The 24 → 35 gain is not "the cheap model is better."** Pooled distinct-unit
+counts reward diversity, and the arm was more diverse (147 unique of 148, vs the
+control's 132 of 142). Supportable: *no detectable quality loss at n=9, 5.4×
+cheaper, zero structural failures.* Not supportable: *better.*
+
+#### ⚪ Per-reviewer section scoping — null, do not ship · `scripts/eval/PANEL_SCOPING.md`
+
+Hypothesis: a 24k head-truncation starves reviewers of the sections they own.
+**The premise was false** — `_reviewer_manuscript_text()` returns the full draft
+unless `DRAFT_REVIEWER_COMPACT_MANUSCRIPT` is set, and it is off, so nothing is
+truncated in production.
+
+Measured anyway, n=6/arm: units 22 ± 3 → 24 ± 3 of 76, **inside the bands and
+flipping sign with the denominator**. Input −44.7%, but **+2.7% $/run modelled
+cold** — the manuscript *was* the shared cache prefix, so scoping it forfeits a
+discount worth more than the tokens saved.
+
+**The mechanism check failed:** the gain was Reviewer B's (+7) while Reviewer A —
+the persona the hypothesis named — **lost 3**. Budget redistribution toward the
+largest lane, not context isolation. Flag stays default off.
+
+🔴 **Two test defects found in the process**, both worse than the null: a
+coverage assertion that checked each span's first 120 chars against a ≥400-char
+floor allocation — **it could never have failed on any input** — and, beneath it,
+that routing unclaimed spans to all three personas (the rule meant to *guarantee*
+coverage) is what destroys it, since that text is bought three times from three
+separate budgets. Real coverage on 7 of 15 manuscripts is 41–100%.
+
+#### ⚪ Full-width embeddings — null · `scripts/eval/retrieval/EMBEDDING.md`
+
+`rag_ingest.py` truncates `text-embedding-3-large` from 3072 to 1536 dims,
+commented *"Fixed at 1536 for pgvector index compatibility."* True for `vector`,
+false for `halfvec` — verified: `HNSW on vector(3072)` fails at the 2000-dim
+limit, `halfvec(3072)` and `halfvec(4000)` both index.
+
+Full width, n=338: recall@10 **+0.0030 ANN, +0.0020 exact**, and **separation
+does not move** (0.87σ → 0.88σ). Three of seven exact metrics moved the wrong
+way. **Null.** Full width lands between depth (0.0000) and chunking (+0.0013) —
+inside the two already-dead levers.
+
+Free from the same run: heap including TOAST **191.7 MB → 94.38 MB (0.49×)**, at
+1.4× p50 latency. Type and width are confounded; a `halfvec(1536)` arm would
+capture the halving **with no re-embedding at all** and was not run.
+
+#### 🔴 Four structural defects found while trying to optimise
+
+Each blocked a measurement before quality could be asked:
+
+1. **`gpt-5-mini` and `gpt-5-nano` reject `temperature=0` outright (400).** The
+   sanitizer stripped it only for `gpt-5.2*`, so every cheap call on
+   `reviewer_panel` and `meta_reviewer` would have 400'd — reading as *"the cheap
+   model is broken."*
+2. **A length-limit failure records no usage at all** — `record_response_usage`
+   is only reached on success, so broken arms bill full completion budgets while
+   the ledger reads `$0.0000`. **The under-report lands precisely on the arms
+   that look cheapest.** Measured: $0.13 unrecorded across the 12-arm sweep,
+   $0.00 on the clean arm. *A clean arm and an honest ledger are the same event.*
+3. **`record_usage` estimates tokens at `len//4`** while this corpus tokenizes at
+   ~3.4 chars/token, so **every embedding cost figure in this repo is a floor**.
+4. **ANN anchors need a cross-session band.** Within a session the pipeline is
+   bit-reproducible (75/75 cells). *Across* sessions the same corpus — chunk-id
+   digest unchanged — has read 0.2200 / 0.2199 / 0.2197. Exact-search anchors
+   keep their tight tolerance; nothing about those is approximate.
+
 ### 🟢 User-visible end-to-end latency — `scripts/eval/E2E_LATENCY.md` (2026-08-01)
 
 **This closes the standing "never measured, not once" gap below.** Stopwatch starts when the file reaches the upload route and stops when the analysis JSON is in the user's hand.
