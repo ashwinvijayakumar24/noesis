@@ -1,0 +1,36 @@
+{
+  "evidence": {
+    "duration_ms": 53060.362749994965,
+    "exception_message": "RetryError[<Future at 0x107c23b10 state=finished raised APITimeoutError>]",
+    "exception_type": "RetryError",
+    "status": "ERROR"
+  },
+  "fingerprint": "fd71ae974d7cc32d",
+  "identity": {
+    "draft_id": null,
+    "fixture": null,
+    "model": "gpt-5.2-chat-latest",
+    "node": "openai.chat",
+    "origin": "unknown",
+    "paper_id": null,
+    "reviewer_type": null,
+    "run_id": null
+  },
+  "replay": {
+    "note": "Span carries neither an eval fixture nor a draft id, so the case cannot be tied back to any input. Symptom record only.",
+    "replayable": "no"
+  },
+  "rule": "span_error",
+  "rule_doc": "The span itself failed: non-OK status, or an exception was recorded.",
+  "rules_version": "trace_rules_v1",
+  "source": {
+    "parent_span_id": "67d77cc8b13f4458adb94d9e985a1d08",
+    "span_id": "cdec4b2706b840f194cb8532fa85739d",
+    "span_kind": "llm_call",
+    "span_name": "openai.chat",
+    "start_time": 1785459854.6004329,
+    "trace_file": "scripts/eval/results/node_eval_spans.jsonl",
+    "trace_id": "e8e5e5c4abbb4670a3a1a7a9ab68d87c"
+  },
+  "why": "status=ERROR exception=RetryError"
+}

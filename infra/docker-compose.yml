@@ -193,6 +193,14 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
+      # Span sink — without it the tracer in the draft-analysis graph is a
+      # no-op. Set NOESIS_TRACING_BACKEND=noop to turn it back off.
+      # Append-only, nothing rotates it: `docker volume rm noesis_trace_logs`
+      # or truncate the file when it gets big.
+      NOESIS_TRACING_BACKEND: ${NOESIS_TRACING_BACKEND:-jsonl}
+      NOESIS_TRACING_FILE: /app/logs/noesis_traces_api.jsonl
+    volumes:
+      - trace_logs:/app/logs
     ports:
       - "8000:8000"
     depends_on:
@@ -224,6 +232,15 @@ services:
       GROBID_URL: http://grobid:8070
       DOCLING_URL: http://docling-serve:5001
       PDF_PARSER: ${PDF_PARSER:-docling}
+      # Draft analysis runs here, so this is the sink that actually fills up.
+      # Shares the trace_logs volume with backend but writes a DIFFERENT file:
+      # JsonlAdapter's lock is per-process, and a span line carrying a
+      # stacktrace exceeds PIPE_BUF, so two containers appending to one path
+      # could interleave mid-line. One file per process, glob both when mining.
+      NOESIS_TRACING_BACKEND: ${NOESIS_TRACING_BACKEND:-jsonl}
+      NOESIS_TRACING_FILE: /app/logs/noesis_traces_worker.jsonl
+    volumes:
+      - trace_logs:/app/logs
     command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=3,1 --queues=default,analysis,insights
     depends_on:
       redis:
@@ -265,3 +282,5 @@ services:
 volumes:
   redis-data:
   pgvector-data:
+  # Span JSONL sink for backend + celery-worker (see NOESIS_TRACING_FILE).
+  trace_logs:

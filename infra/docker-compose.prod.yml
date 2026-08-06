@@ -101,11 +101,20 @@ services:
       REDIS_DB: 0
       ENVIRONMENT: production
       LOG_LEVEL: INFO
+      # Span sink. Without this the tracer built into the draft-analysis graph
+      # is a no-op and no trace ever lands anywhere. File sits on the existing
+      # backend_logs volume so it survives a container restart.
+      # ROTATION: the jsonl adapter only ever appends — nothing truncates this
+      # file. Rotate it from the host (logrotate on the backend_logs volume, or
+      # a cron `mv`+restart) before it fills the disk. One draft analysis writes
+      # roughly 20-40 spans / ~15 KB.
+      NOESIS_TRACING_BACKEND: ${NOESIS_TRACING_BACKEND:-jsonl}
+      NOESIS_TRACING_FILE: /app/logs/noesis_traces.jsonl
 
     volumes:
       # Persistent storage for uploaded PDFs
       - pdf_storage:/app/pdfs
-      # Logs for debugging
+      # Logs for debugging + the span sink above
       - backend_logs:/app/logs
 
     deploy:
@@ -160,11 +169,16 @@ services:
       PDF_PARSER: ${PDF_PARSER:-docling}
       ENVIRONMENT: production
       LOG_LEVEL: INFO
+      # The worker is where draft analysis actually runs, so this is the sink
+      # that matters. Separate volume from the backend's, so separate file —
+      # two containers never append to one path. Same rotation caveat as above.
+      NOESIS_TRACING_BACKEND: ${NOESIS_TRACING_BACKEND:-jsonl}
+      NOESIS_TRACING_FILE: /app/logs/noesis_traces.jsonl
 
     command: celery -A app.celery_app worker --loglevel=info --pool=gevent --autoscale=3,1 --queues=default,analysis,insights
 
     volumes:
-      # Logs for debugging
+      # Logs for debugging + the span sink above
       - celery_logs:/app/logs
 
     deploy:

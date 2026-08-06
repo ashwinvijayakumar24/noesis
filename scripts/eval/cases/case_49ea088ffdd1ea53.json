@@ -1,0 +1,38 @@
+{
+  "evidence": {
+    "cached_input_tokens": 24448,
+    "input_tokens": 25323,
+    "output_tokens": 1510,
+    "threshold_tokens": 20000
+  },
+  "fingerprint": "49ea088ffdd1ea53",
+  "identity": {
+    "draft_id": null,
+    "fixture": "scripts/eval/cache/state/eUgS9Ig8JG/reviewer_panel_node__literature_positioning.json",
+    "model": "gpt-5.2-chat-latest",
+    "node": "reviewer_panel_node",
+    "origin": "eval",
+    "paper_id": "eUgS9Ig8JG",
+    "reviewer_type": "literature_positioning",
+    "run_id": null
+  },
+  "replay": {
+    "command": "python3 scripts/eval/node_eval.py --node reviewer_panel_node --paper eUgS9Ig8JG --reviewer-type literature_positioning",
+    "fixture": "scripts/eval/cache/state/eUgS9Ig8JG/reviewer_panel_node__literature_positioning.json",
+    "note": "Replay needs the node state fixture named below. It lives under scripts/eval/cache/state/, which is GITIGNORED -- a fresh clone does not have it and must regenerate it by running the pipeline with EVAL_STATE_DIR set. Spans carry no prompts or outputs, so nothing here can reconstruct the fixture.",
+    "replayable": "with_local_fixture"
+  },
+  "rule": "oversized_prompt",
+  "rule_doc": "An LLM call whose prompt is past a stated token bound (default 20k).",
+  "rules_version": "trace_rules_v1",
+  "source": {
+    "parent_span_id": "e1ee3b487c71445c9c052bb2592a90ab",
+    "span_id": "b9a2a8db83014e7cb5fd40ecf7ec761f",
+    "span_kind": "llm_call",
+    "span_name": "openai.chat",
+    "start_time": 1785543839.711702,
+    "trace_file": "scripts/eval/results/node_eval_spans.jsonl",
+    "trace_id": "118453994aed418b908d1c06eacf9b8f"
+  },
+  "why": "input_tokens 25323 >= 20000"
+}

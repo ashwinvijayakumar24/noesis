@@ -1,0 +1,36 @@
+{
+  "evidence": {
+    "duration_ms": 20162.657708016923,
+    "threshold_ms": 20000.0
+  },
+  "fingerprint": "47b2e8658064257a",
+  "identity": {
+    "draft_id": null,
+    "fixture": "scripts/eval/cache/state/10eQ4Cfh8p/reviewer_panel_node__literature_positioning.json",
+    "model": null,
+    "node": "reviewer_panel_node",
+    "origin": "eval",
+    "paper_id": "10eQ4Cfh8p",
+    "reviewer_type": "literature_positioning",
+    "run_id": null
+  },
+  "replay": {
+    "command": "python3 scripts/eval/node_eval.py --node reviewer_panel_node --paper 10eQ4Cfh8p --reviewer-type literature_positioning",
+    "fixture": "scripts/eval/cache/state/10eQ4Cfh8p/reviewer_panel_node__literature_positioning.json",
+    "note": "Replay needs the node state fixture named below. It lives under scripts/eval/cache/state/, which is GITIGNORED -- a fresh clone does not have it and must regenerate it by running the pipeline with EVAL_STATE_DIR set. Spans carry no prompts or outputs, so nothing here can reconstruct the fixture.",
+    "replayable": "with_local_fixture"
+  },
+  "rule": "slow_node",
+  "rule_doc": "A node whose wall time is past a stated bound (default 20 s).",
+  "rules_version": "trace_rules_v1",
+  "source": {
+    "parent_span_id": null,
+    "span_id": "cee71eed2a834f4ab9caf949f4748ca9",
+    "span_kind": "node",
+    "span_name": "reviewer_panel_node",
+    "start_time": 1785541238.909025,
+    "trace_file": "scripts/eval/results/node_eval_spans.jsonl",
+    "trace_id": "b1fc409fdf9c464e8bb53b0d33abcc44"
+  },
+  "why": "wall 20163 ms >= 20000 ms"
+}
