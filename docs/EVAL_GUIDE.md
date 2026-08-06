@@ -306,6 +306,7 @@ So the work is split in two, and the split is the whole design:
 |---|---|---|---|
 | `scripts/eval/ci_gate.py` | yes, blocking | no | no |
 | `benchmarks.py --check` (full) | no — skips, sinks are gitignored | no | no |
+| `trace_cases.py` | no — nightly only, its input is gitignored | no | no |
 | `run_eval.py` / `run_harness.py` | **never** | yes | yes |
 | `retrieval/run_retrieval_eval.py` | **never** | yes | yes |
 | `node_eval.py` replay | **never** | yes | no (needs gitignored fixtures) |
@@ -425,9 +426,10 @@ board is stale. A drifted board is a lying board. Fix: `make benchmarks`, commit
 both [BENCHMARKS.md](./BENCHMARKS.md) and `benchmarks.json`.
 
 **`board-regenerates`** — blocking where runnable, otherwise SKIP.
-The full `benchmarks.py --check`. Four of its eight sinks are gitignored
+The full `benchmarks.py --check`. Five of its eleven sinks are gitignored
 (`retrieval_eval.jsonl`, `node_eval_spans.jsonl`, `ingest_manifest.jsonl`,
-`ann_sweep.jsonl`), so on a clean checkout the board **cannot** be regenerated
+`ann_sweep.jsonl`, `cascade_arms.jsonl`), so on a clean checkout the board
+**cannot** be regenerated
 and this check SKIPs rather than failing on absent data. That is the honest
 answer, not a hole: `board-tracked-sources` still covers the tracked sinks in CI,
 and this check does the complete job on any machine that has the sinks. Run it
@@ -454,6 +456,60 @@ alongside a number, with no invalidation marker within three lines, fails.
 In CI the registry comes from the board alone, since the sinks are gitignored;
 locally it is a superset.
 
+**`metric-regression`** — blocking, runs everywhere.
+The other six checks gate the *integrity* of eval artefacts: is the board stale,
+was history rewritten, is an invalidated run being quoted. None of them notices a
+number getting worse. This one does, within the narrow band where it can be done
+for free on a PR runner.
+
+It reads only the **six sinks that are tracked in git**, because those are the
+only ones a clean checkout has: `results/history.jsonl`,
+`results/openreview_history.jsonl`, `results/node_eval.jsonl`,
+`gate_calibration/sweep_results.jsonl`, `results/panel_arms.jsonl`,
+`results/embedding_arms.jsonl`. The gitignored sinks — `retrieval_eval.jsonl`,
+`ann_sweep.jsonl`, `node_eval_spans.jsonl`, `cascade_arms.jsonl`,
+`ingest_manifest.jsonl` — are out of scope by construction, and adding one would
+break the free/offline contract at the top of this section.
+
+Four rules define it:
+
+1. **Like is compared with like.** Within a sink, the newest record is compared
+   against the most recent *earlier* record sharing its config identity —
+   `config_hash` for the arms sinks, a re-derived `config_key` for node replay,
+   the config JSON elsewhere. Metrics are never differenced across identities.
+   That rule already governs `benchmarks.py:_ceiling_for()` and
+   `report.Board.trend()`; this check inherits it rather than inventing a
+   second convention.
+2. **Direction is declared, never inferred.** Each gated metric names which way
+   is bad in `config.yaml`. Cost and latency rising is a regression; recall
+   falling is a regression. Nothing is deduced from the sign of a delta.
+3. **A skip is missing data, not a pass.** An absent sink, a new config identity
+   with no baseline, a metric absent from the baseline record, an unparseable
+   line — each is reported as NOT CHECKED and named individually. A violation
+   still outranks every note, so missing data can never mask a real regression.
+4. **It fires only on change.** A sink whose blob is identical to the base ref
+   is skipped entirely, so the check cannot block a PR that did not touch eval
+   results.
+
+Tolerances live in the `regression:` block of `config.yaml`, one line per
+metric, and are moved only with a line in the change log below — `threshold-note`
+watches that block too. Most of them are `0` or `0.005` because the observed
+run-to-run spread of the tracked sinks at a fixed config identity is **exactly
+zero**; two are explicit judgement calls, marked as such in the config, because
+their sink has no same-identity repeat yet to measure.
+
+Two honest limits, both worth knowing before trusting a green tick:
+
+- **`history.jsonl` does not exist on disk**, so the check reports it as NOT
+  CHECKED on every run. Its status is therefore SKIP rather than PASS until that
+  sink is created, even when other sinks compared cleanly. The compared count is
+  printed in the detail line so a real comparison is still visible.
+- **Two of the six sinks cannot fire yet.** `node_eval.jsonl` holds seven run
+  summaries with seven distinct config keys, and `panel_arms.jsonl`'s two records
+  are two different arms. Neither has a same-identity pair. They begin gating the
+  first time a configuration is re-run — which is the intended behaviour, not a
+  workaround.
+
 **`metric-without-n`** — warning.
 A headline metric (`recall@k`, `NDCG@k`, `MRR`, `precision@k`, `mean overall`)
 stated with a number and no sample size within two lines. It is a warning and not
@@ -473,15 +529,94 @@ that blocking would be wrong.
 ### Threshold change log
 
 Add a line here whenever `scripts/eval/config.yaml` thresholds move. Name the
-key, the old and new value, and why.
+key, the old and new value, and why. This covers both the `thresholds:` block
+read by `run_eval.py` and the `regression:` tolerances read by C7 — a tolerance
+quietly widened is a gate quietly switched off, and it should cost the same
+review attention as lowering a threshold.
 
-- (no changes recorded yet — `min_overall: 8.5`, `min_dim_score: 7.5`,
-  `max_mean_drop: 0.5` as of this file's creation)
+- (no changes recorded to `min_overall: 8.5`, `min_dim_score: 7.5`,
+  `max_mean_drop: 0.5` since this file's creation)
+
+**2026-08-06 — the `regression:` block was created.** Every tolerance below went
+`None -> <value>`, so all eighteen are first entries rather than movements. The
+justification column is the *observed* spread of that metric across the tracked
+sink at a fixed config identity; where no same-identity repeat exists yet, the
+number is a judgement call and is labelled one. Nothing here was chosen to make
+a current number pass — all eighteen are green on the tree they were written
+against, and two of the six sinks cannot fire at all yet.
+
+| setting | old | new | why this number |
+|---|---|---|---|
+| `regression.mean_overall` · `regression.mean_overall.direction` | none | `0.5` · `down_is_bad` | inherited deliberately from the existing `max_mean_drop: 0.5`; `history.jsonl` is absent so this is unmeasured |
+| `regression.total_hallucinations` · `regression.total_hallucinations.direction` | none | `0` · `up_is_bad` | 0 across all 17 openreview runs × 2 cells (34/34). Zero observed spread, so zero tolerance |
+| `regression.scored_cells` · `regression.scored_cells.direction` | none | `0` · `down_is_bad` | exactly 2 in all 17 runs |
+| `regression.failed_replays` · `regression.failed_replays.direction` | none | `0` · `up_is_bad` | 0 in all 7 node-replay run summaries. One failed replay is a real regression |
+| `regression.total_estimated_usd` · `regression.total_estimated_usd.direction` | none | `25%` · `up_is_bad` | **judgement.** All 7 summaries carry distinct config keys, so run-to-run cost spread is unobserved. Relative because cost spans $0.004–$0.153 across configs, and `cached_prompt_fraction` is 0.93 — cache-hit variation alone moves spend tens of percent |
+| `regression.precision` · `regression.precision.direction` | none | `0.005` · `down_is_bad` | identical to full float precision across all 3 gate-calibration sweeps at seed 0 |
+| `regression.recall` · `regression.recall.direction` | none | `0.005` · `down_is_bad` | identical across all 3 sweeps |
+| `regression.f1` · `regression.f1.direction` | none | `0.005` · `down_is_bad` | identical across all 3 sweeps |
+| `regression.best_f1` · `regression.best_f1.direction` | none | `0.005` · `down_is_bad` | 0.8 in all 3. One cell of 76 is 0.013, so this sits below the smallest meaningful move and above float noise |
+| `regression.recall_addressable` · `regression.recall_addressable.direction` | none | `0.03` · `down_is_bad` | `n_units_addressable = 76`, so one unit ≈ 0.013; fires past ~2 lost findings. Calibrated from unit size — the two panel records are different arms, so there is no same-hash repeat to measure |
+| `regression.unverified_quote_rate` · `regression.unverified_quote_rate.direction` | none | `0` · `up_is_bad` | 0.0 on both panel arms. One unverified quote is a real regression |
+| `regression.usd_per_verified_finding` · `regression.usd_per_verified_finding.direction` | none | `25%` · `up_is_bad` | **judgement**, same reasoning as `total_estimated_usd`; no same-hash repeat exists |
+| `regression.n_errors` · `regression.n_errors.direction` | none | `0` · `up_is_bad` | 0 on both arms |
+| `regression.map` · `regression.map.direction` | none | `0.005` · `down_is_bad` | the two embedding_arms records carry the same two config hashes and their metric blocks are byte-identical. Observed spread **0.0000**; 0.005 is ~1% relative and 50× the sink's 4-dp rounding |
+| `regression.mrr` · `regression.mrr.direction` | none | `0.005` · `down_is_bad` | spread 0.0000 at one config hash |
+| `regression.ndcg@10` · `regression.ndcg@10.direction` | none | `0.005` · `down_is_bad` | spread 0.0000 at one config hash (0.5196 / 0.5307 both times) |
+| `regression.recall@10` · `regression.recall@10.direction` | none | `0.005` · `down_is_bad` | spread 0.0000 at one config hash |
+| `regression.latency_p50_ms` · `regression.latency_p50_ms.direction` | none | `50%` · `up_is_bad` | p50 moved 2.851→2.881 (+1%) and 4.018→4.586 (+14%) at fixed config; 50% clears the larger by 3.5× |
+
+> **Why mean latency is not gated at all.** Over the same identical-config pair,
+> mean latency moved 7.900 → 3.725 ms and 16.947 → 7.121 ms — −53% and −58%
+> with nothing changed. No tolerance survives that and still means anything, so
+> p50 is gated and the mean is left ungated rather than gated meaninglessly.
 
 > Standing note, not a change: `min_overall: 8.5` has been violated by the
 > measured `mean_overall 6.97` since 2026-06-20. The gate is correct and the
 > product is below it. Lowering the threshold to make it green would be exactly
 > the move this log exists to make visible.
+
+### The feedback loop, and how much of it is actually closed
+
+The reason a regression gate is worth building is that it is the last step of a
+loop, not a standalone lint. The loop is: **production trace → selection rule →
+eval case → suite → gate blocks the merge that would regress it.** Written out
+so the gaps are visible rather than implied:
+
+| step | what does it | state |
+|---|---|---|
+| 1. emit traces | `app/core/tracing.py`, wired into `workflows/draft_analysis/graph.py:95` | **on** — `NOESIS_TRACING_BACKEND=jsonl` is now set in both compose files, writing to `/app/logs`. It defaulted to `noop` before, so the spans existed and went nowhere |
+| 2. select the failures | `scripts/eval/trace_cases.py`, six named rules | **built** — free, offline, deterministic, $0.00 |
+| 3. turn them into cases | `scripts/eval/cases/` — append-only `manifest.jsonl` + one JSON per case | **built** — deduped by a stable fingerprint |
+| 4. replay a case | — | **not built.** See below |
+| 5. gate on regression | `ci_gate.py` C7 `metric-regression` | **built**, blocking |
+
+**Step 4 is the honest gap and it should stay visible.** Spans carry metadata —
+node, model, timings, token counts, status — and no prompts, no state, no model
+output. So a case is a *class* of failure with enough identity to find it again,
+not a runnable test:
+
+- Eval-harness cases (12 of the first 14 mined) record the exact
+  `node_eval.py --node X --paper Y` command, but the state fixture they need
+  lives under `scripts/eval/cache/state/`, which is gitignored. A fresh clone
+  must regenerate it.
+- Production cases would record `replayable: "no"` — the draft is in Supabase
+  behind auth and the span carries only its id. Triage record and regression
+  target, not a test.
+- 2 of the 14 mined cases are `replayable: "no"` for a third reason: the errored
+  LLM span is itself an orphan, so there is no parent node span to inherit paper
+  identity from. That is the loop's own blind spot, recorded rather than hidden.
+
+**A growing `cases/` directory is not a growing regression suite**, and nothing
+in this repo should be read as claiming otherwise. What is closed is detection
+and selection; what is open is reproduction. The same sentence is in the module
+docstring and in every emitted case's `replay.note`.
+
+Rotation is deliberately not configured. The jsonl adapter only appends —
+roughly 20–40 spans / ~15 KB per draft analysis, and nothing truncates it. The
+mitigation (host-side `logrotate` on the `backend_logs` / `celery_logs` volume)
+is documented inline in the compose files; it is a host decision and does not
+belong in compose.
 
 ### Known open findings
 

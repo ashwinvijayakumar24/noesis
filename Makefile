@@ -90,6 +90,22 @@ benchmarks:
 benchmarks-check:
 	python3 $(EVAL)/benchmarks.py --check
 
+# The blocking eval gate, exactly as CI runs it. Free, offline, no credentials.
+eval-gate:
+	python3 $(EVAL)/ci_gate.py
+
+# Same gate, but warnings are failures — this is what the nightly runs.
+eval-gate-strict:
+	python3 $(EVAL)/ci_gate.py --base HEAD~1 --strict
+
+# Mine trace spans into eval case stubs. Free, offline, deterministic, $0.00.
+# Its input is gitignored, so this is a local/nightly target, never a PR check.
+trace-cases:
+	python3 $(EVAL)/trace_cases.py --traces '$(EVAL)/results/node_eval_spans.jsonl'
+
+trace-cases-dry:
+	python3 $(EVAL)/trace_cases.py --traces '$(EVAL)/results/node_eval_spans.jsonl' --dry-run
+
 # Pull results back from container after a manual docker exec run
 eval-pull-results:
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
@@ -98,4 +114,5 @@ eval-pull-results:
 .PHONY: eval eval-quick eval-stability eval-sync eval-openreview eval-run eval-run-corpus \
         eval-judge eval-bootstrap-gold eval-pull-results \
         eval-build-corpus eval-build-all-corpora eval-heldout-check \
-        benchmarks benchmarks-check
+        benchmarks benchmarks-check eval-gate eval-gate-strict \
+        trace-cases trace-cases-dry

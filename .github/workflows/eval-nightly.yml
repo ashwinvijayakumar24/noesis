@@ -153,12 +153,29 @@ jobs:
         continue-on-error: true
         run: python scripts/eval/benchmarks.py
 
+      - name: Mine the replay's traces into eval cases
+        if: steps.fixtures.outputs.present == 'true'
+        # Free, offline, deterministic, $0.00 — it only reads the span jsonl the
+        # replay above just wrote. Deliberately NOT a PR check: its input
+        # (results/node_eval_spans.jsonl) is gitignored, so on a PR runner it
+        # would have nothing to read and would report a skip forever.
+        #
+        # The emitted cases are uploaded, never committed from CI. A case is a
+        # triage record, not yet a runnable test — see the feedback-loop section
+        # of docs/EVAL_GUIDE.md for exactly how much of the loop is closed.
+        continue-on-error: true
+        run: |
+          python scripts/eval/trace_cases.py \
+            --traces 'scripts/eval/results/node_eval_spans.jsonl' \
+            --json
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: node-replay-sinks
           path: |
             scripts/eval/results/*.jsonl
+            scripts/eval/cases/
             docs/BENCHMARKS.md
             docs/benchmarks.json
           if-no-files-found: warn
@@ -194,7 +211,19 @@ jobs:
         # Requires a pgvector database that already holds the ingested eval
         # corpus. An empty database produces a run recorded `valid: false`, which
         # the integrity gate then refuses to let anyone quote.
-        run: python scripts/eval/retrieval/run_retrieval_eval.py --retriever hybrid
+        #
+        # `--retriever dense` because dense IS the shipped arm: production
+        # retrieval goes through `match_document_chunks`, and `hybrid_search()`
+        # is not on that path (docs/MEASUREMENTS.md, FIRSTSTAGE.md §2.3).
+        #
+        # This said `--retriever hybrid` until 2026-08-06, which was wrong twice
+        # over. Hybrid is not shipped, and docs/MEASUREMENTS.md §5 measured it
+        # LOSING to dense on every recall level (recall@10 0.2042 vs 0.2195,
+        # n=338). Worse, the job never set `KEYWORD_SEARCH_V2=1`, so the lexical
+        # leg was v1 `plainto_tsquery` — which ANDs every lemma and returns zero
+        # rows for 321 of 338 queries (recall@10 0.0022). The nightly was
+        # tracking an arm nobody ships, fused with a leg that returns nothing.
+        run: python scripts/eval/retrieval/run_retrieval_eval.py --retriever dense
 
       - uses: actions/upload-artifact@v4
         if: always()
