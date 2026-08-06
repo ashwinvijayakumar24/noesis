@@ -85,11 +85,19 @@ Everything under `scripts/eval/`. It is the most active part of the repo.
 - `ann_sweep/` — HNSW `ef_search` / `m` sweeps and planner probes
 - `judge.py`, `judge_openreview.py`, `atomize_reviews.py` — scoring against gold critiques and atomized ICLR reviews
 - `benchmarks.py` — regenerates the tracked benchmark board from every local measurement sink
+- `ci_gate.py` — the blocking eval gate: artefact integrity plus a metric-regression check over the sinks tracked in git
+- `trace_cases.py` — mines trace spans into eval case stubs, so the suite grows from real behaviour rather than imagination
 
 ```bash
 make benchmarks         # regenerate BENCHMARKS.md + benchmarks.json
 make benchmarks-check   # fail if the tracked board is stale against local sinks
+make eval-gate          # the blocking gate, exactly as CI runs it
+make trace-cases        # mine spans into scripts/eval/cases/ (append-only)
 ```
+
+The gate is free, offline and credential-free by construction — everything that costs money or needs a database lives in `eval-nightly.yml` and can never block a merge. It compares a metric only against an earlier run at the *same* config identity, declares which direction is a regression rather than inferring it, and reports missing data as a skip rather than a pass. The tolerances and the evidence behind each one are in [`docs/EVAL_GUIDE.md`](docs/EVAL_GUIDE.md).
+
+`trace_cases.py` closes the detection half of the production-trace → eval-case loop. It does not close the replay half: spans carry metadata, not prompts or state, so a case is a triage record with enough identity to find the failure again, not yet a runnable test. That limit is written into the tool, into every case it emits, and into the guide.
 
 The board is deliberately timestamp-free, so an unchanged rerun produces an empty diff. Do not hand-edit it.
 

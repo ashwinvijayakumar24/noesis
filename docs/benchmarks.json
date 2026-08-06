@@ -8123,6 +8123,30 @@
       "records": 89,
       "skip_reasons": [],
       "skipped_lines": 0
+    },
+    {
+      "lines": 2,
+      "path": "results/panel_arms.jsonl",
+      "present": true,
+      "records": 2,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 2,
+      "path": "results/embedding_arms.jsonl",
+      "present": true,
+      "records": 2,
+      "skip_reasons": [],
+      "skipped_lines": 0
+    },
+    {
+      "lines": 140,
+      "path": "results/cascade_arms.jsonl",
+      "present": true,
+      "records": 140,
+      "skip_reasons": [],
+      "skipped_lines": 0
     }
   ],
   "spans": {

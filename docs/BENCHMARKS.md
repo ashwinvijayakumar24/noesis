@@ -46,6 +46,9 @@ interrupted write shows up here.
 | `results/openreview_history.jsonl` | present | 17 | 17 | 0 |
 | `gate_calibration/sweep_results.jsonl` | present | 3 | 3 | 0 |
 | `results/ann_sweep.jsonl` | present | 89 | 89 | 0 |
+| `results/panel_arms.jsonl` | present | 2 | 2 | 0 |
+| `results/embedding_arms.jsonl` | present | 2 | 2 | 0 |
+| `results/cascade_arms.jsonl` | present | 140 | 140 | 0 |
 
 ## Cost — every figure in this project is a lower bound
 

@@ -1,0 +1,34 @@
+{
+  "evidence": {
+    "missing_parent_span_id": "67d77cc8b13f4458adb94d9e985a1d08",
+    "trace_id": "e8e5e5c4abbb4670a3a1a7a9ab68d87c"
+  },
+  "fingerprint": "5d4241f962415a56",
+  "identity": {
+    "draft_id": null,
+    "fixture": null,
+    "model": "gpt-5.2-chat-latest",
+    "node": "openai.chat",
+    "origin": "unknown",
+    "paper_id": null,
+    "reviewer_type": null,
+    "run_id": null
+  },
+  "replay": {
+    "note": "Span carries neither an eval fixture nor a draft id, so the case cannot be tied back to any input. Symptom record only.",
+    "replayable": "no"
+  },
+  "rule": "incomplete_trace",
+  "rule_doc": "A span naming a parent that is not in the data: the trace is truncated.",
+  "rules_version": "trace_rules_v1",
+  "source": {
+    "parent_span_id": "67d77cc8b13f4458adb94d9e985a1d08",
+    "span_id": "cdec4b2706b840f194cb8532fa85739d",
+    "span_kind": "llm_call",
+    "span_name": "openai.chat",
+    "start_time": 1785459854.6004329,
+    "trace_file": "scripts/eval/results/node_eval_spans.jsonl",
+    "trace_id": "e8e5e5c4abbb4670a3a1a7a9ab68d87c"
+  },
+  "why": "parent span 67d77cc8b13f4458adb94d9e985a1d08 absent -- enclosing span never completed"
+}

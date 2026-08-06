@@ -19,6 +19,7 @@ from app.core.openai_client import get_openai_client, get_completion_params
 from app.core.logging_config import get_logger
 from app.services.retry_utils import parse_chat_completion_with_retries_sync
 from app.workflows.draft_analysis.schemas import StructuralChecksOutput
+from app.workflows.draft_analysis.model_routing import model_for
 
 logger = get_logger(__name__)
 client = None
@@ -92,7 +93,7 @@ async def run_structural_checks(draft_text: str) -> List[Dict[str, Any]]:
 
         response = parse_chat_completion_with_retries_sync(
             _get_client(),
-            model="gpt-5.2-chat-latest",
+            model=model_for("structural_checks", "gpt-5.2-chat-latest"),
             messages=[
                 {"role": "system", "content": STRUCTURAL_CHECKS_PROMPT},
                 {"role": "user", "content": f"Research draft to analyze:\n\n{truncated}"}

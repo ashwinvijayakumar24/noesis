@@ -29,6 +29,7 @@ from app.core.openai_client import get_async_openai_client, get_completion_param
 from app.core.supabase_client import supabase
 from app.services.progress_publisher import publish_progress
 from app.services.retry_utils import parse_chat_completion_with_retries
+from app.workflows.draft_analysis.model_routing import model_for
 
 logger = get_logger(__name__)
 client = None
@@ -405,6 +406,391 @@ def _reviewer_manuscript_text(draft_content: str) -> str:
     return _section_excerpts(draft_content or "")[:REVIEWER_MANUSCRIPT_MAX_CHARS]
 
 
+# ---------------------------------------------------------------------------
+# Per-reviewer section scoping  —  DRAFT_REVIEWER_SCOPED_PANEL
+#
+# Today all three personas read one manuscript block, and when compaction is on
+# that block is a head-first truncation at REVIEWER_MANUSCRIPT_MAX_CHARS. A
+# head-first cut removes the *tail* of the paper — which is exactly where the
+# discussion and conclusion sit, and those are Reviewer A's declared lane. The
+# scoped path spends the same per-persona budget on the sections that persona is
+# accountable for instead of on the first 24k chars of the document.
+#
+# Two properties this must not break:
+#   * COVERAGE. Every span of the manuscript must reach at least one persona.
+#     A section nobody sees is a regression, not a saving. Sections claimed by
+#     no persona therefore go to *every* persona; sections claimed by several
+#     are shared.
+#
+#     THIS PROPERTY DOES NOT HOLD AT THE CURRENT BUDGET, AND THE FLAG IS OFF
+#     PARTLY BECAUSE OF IT. Routing unclaimed spans to all three personas is
+#     what was supposed to guarantee coverage, and it is the very thing that
+#     breaks it: that text is bought three times out of three separate 24k
+#     budgets, so distinct capacity collapses toward 24k instead of growing to
+#     72k. Measured on the eval corpus, 7 of 15 manuscripts lose text; coverage
+#     runs 41%-100% and the median loser sits near 65%. `scoped_coverage_report`
+#     computes this exactly and `log_scoped_coverage` records it per run, so the
+#     shortfall is never silent. Anyone reviving this needs a rule that does not
+#     triple-count unclaimed text — not a larger budget, which would only change
+#     the experiment.
+#   * CACHEABLE PREFIX. Scoping makes the manuscript block differ per persona,
+#     which is the one thing the cross-persona prompt cache cannot tolerate. So
+#     the manuscript block is pushed as late as it can go: the system preamble,
+#     the draft metadata and the profile block stay byte-identical and remain
+#     cacheable, and only the manuscript block onwards diverges.
+# ---------------------------------------------------------------------------
+
+SCOPED_PANEL_ENV = "DRAFT_REVIEWER_SCOPED_PANEL"
+
+#: Never let a span that a persona is given collapse to nothing — a 0-char span
+#: is an uncovered span.
+SCOPED_MIN_SPAN_CHARS = 400
+
+#: Fraction of the budget held back for spans no persona claims, used only when
+#: a persona's *own* claimed lane already exceeds the whole budget.
+SCOPED_UNCLAIMED_RESERVE_DIVISOR = 10
+
+
+def scoped_panel_enabled() -> bool:
+    """True when each persona should be shown its own lane's sections.
+
+    OFF by default. Read at call time (not at import) so it can be toggled per
+    process and per test, matching ``CHUNK_CEILING_GEOMETRY`` and
+    ``DRAFT_VALIDATION_CHEAP_PARSE``.
+    """
+    return (os.getenv(SCOPED_PANEL_ENV) or "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+#: Canonical lane -> the personas that declared it in their own prompt text.
+#:
+#: Derived from ``REVIEWER_PERSONAS`` above, not invented here:
+#:   A/literature_positioning — "YOUR LANE ONLY: introduction, related work,
+#:     discussion", plus the abstract, where the contribution statement it is
+#:     graded on actually lives.
+#:   B/methodology — "YOUR LANE ONLY: methods, results interpretation,
+#:     statistical and study-design validity".
+#:   D/clarity — "YOUR LANE ONLY: exposition, argument structure, reporting
+#:     completeness". Only two lanes are *sections* for D: the abstract ("Is the
+#:     abstract an accurate summary... does it oversell?") and limitations ("Are
+#:     limitations and caveats honestly discussed?"). D's remaining duties are
+#:     cross-cutting rather than sectional, so D is carried mostly by the
+#:     unclaimed-goes-to-everybody rule below.
+SECTION_LANE_OWNERS: dict[str, frozenset[str]] = {
+    "abstract": frozenset({"literature_positioning", "clarity"}),
+    "introduction": frozenset({"literature_positioning"}),
+    "related_work": frozenset({"literature_positioning"}),
+    "methods": frozenset({"methodology"}),
+    "results": frozenset({"methodology"}),
+    "discussion": frozenset({"literature_positioning"}),
+    "conclusion": frozenset({"literature_positioning"}),
+    "limitations": frozenset({"methodology", "clarity"}),
+    "references": frozenset({"literature_positioning"}),
+}
+
+#: A span whose lane no persona claims is shown to all of them. This is what
+#: makes union coverage total by construction.
+UNCLAIMED_LANE_OWNERS = frozenset(REVIEWER_PERSONAS)
+
+#: Section *titles* classify far more reliably than ``structure.sections[].type``
+#: does. On the eval corpus the parser types only ~4 of 15 sections usefully and
+#: labels the rest ``other`` — "3 GENERALIZATION-IMPROVING MODEL", "4 ALGORITHM
+#: AND TRAINING", "5.3 ABLATION EXPERIMENT" all arrive as ``other``. So title
+#: patterns are tried first and ``type`` is only the fallback. Order matters:
+#: the first pattern that matches wins.
+_LANE_TITLE_PATTERNS: tuple[tuple[re.Pattern, str], ...] = tuple(
+    (re.compile(pattern, re.IGNORECASE), lane)
+    for pattern, lane in (
+        (r"limitation|threats?\s+to\s+validity", "limitations"),
+        (r"related\s+work|prior\s+work|literature\s+review", "related_work"),
+        (r"\babstract\b", "abstract"),
+        (r"\bintroduction\b|\bmotivation\b", "introduction"),
+        (r"\bbackground\b|\bpreliminar", "introduction"),
+        (
+            r"method|experimental\s+set|\bsetup\b|implementation|training|"
+            r"algorithm|architecture|model\s+structure|materials|"
+            r"search\s+strategy|protocol|dataset|data\s+collection|study\s+design",
+            "methods",
+        ),
+        (r"result|experiment|evaluation|ablation|comparison|finding|performance", "results"),
+        (r"discussion", "discussion"),
+        (r"conclusion|concluding|future\s+work", "conclusion"),
+        (r"reference|bibliograph", "references"),
+    )
+)
+
+#: Fallback classifier for parsers that do emit a usable ``type``.
+_TYPE_TO_LANE: dict[str, str] = {
+    "abstract": "abstract",
+    "introduction": "introduction",
+    "related_work": "related_work",
+    "methods": "methods",
+    "results": "results",
+    "discussion": "discussion",
+    "conclusion": "conclusion",
+    "references": "references",
+}
+
+
+def section_lane(title: str, section_type: str | None = None) -> str | None:
+    """Canonical lane for one section, or None when no persona claims it."""
+    for pattern, lane in _LANE_TITLE_PATTERNS:
+        if pattern.search(title or ""):
+            return lane
+    return _TYPE_TO_LANE.get((section_type or "").strip().lower())
+
+
+def manuscript_spans(state: DraftAnalysisState) -> list[dict]:
+    """Partition ``draft_content`` into labelled spans, losing not one byte.
+
+    Section *text* is deliberately taken from ``draft_content`` rather than from
+    ``structure.sections[].content``: ``core.privacy.sanitize_draft_structure``
+    strips ``content`` (and ``paragraphs``) before the structure is stored, so a
+    DB-restored structure carries titles and types but no text. Titles, though,
+    survive that strip and are locatable in ``draft_content`` — on the eval
+    corpus 94-99% of section titles appear verbatim in the draft, against 55-100%
+    for ``content``. So the structure supplies the *labels* and the draft
+    supplies the *text*.
+
+    Spans tile the document end to end: everything before the first located
+    title is one unlabelled span, then each title runs to the next one. The
+    concatenation of the spans is ``draft_content`` exactly, which is what makes
+    the coverage invariant checkable rather than approximate.
+
+    Returns [] when the structure is unusable, which is the caller's signal to
+    fall back to today's unscoped behaviour.
+    """
+    draft = state.get("draft_content") or ""
+    sections = (state.get("structure") or {}).get("sections") or []
+    if not draft or not sections:
+        return []
+
+    # Titles are matched in document order with a monotonic cursor. That both
+    # keeps the spans well ordered and silently drops the duplicate section rows
+    # some parsers emit (docling repeats the abstract under two ids).
+    marks: list[tuple[int, str, str | None]] = []
+    cursor = 0
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        title = (section.get("title") or "").strip()
+        if len(title) < 3:
+            continue
+        index = draft.find(title, cursor)
+        if index < 0:
+            continue
+        marks.append((index, title, section.get("type")))
+        cursor = index + len(title)
+
+    if len(marks) < 2:
+        return []
+
+    spans: list[dict] = []
+    if marks[0][0] > 0:
+        spans.append({
+            "title": "",
+            "lane": None,
+            "owners": UNCLAIMED_LANE_OWNERS,
+            "text": draft[: marks[0][0]],
+        })
+    for i, (start, title, section_type) in enumerate(marks):
+        end = marks[i + 1][0] if i + 1 < len(marks) else len(draft)
+        lane = section_lane(title, section_type)
+        spans.append({
+            "title": title,
+            "lane": lane,
+            "owners": SECTION_LANE_OWNERS.get(lane) if lane else UNCLAIMED_LANE_OWNERS,
+            "text": draft[start:end],
+        })
+    return spans
+
+
+def _allocate_span_budget(lengths: list[int], budget: int) -> list[int]:
+    """Split ``budget`` over spans by size, never zeroing a span.
+
+    Each span first gets a floor (or its full length if shorter), then the
+    remainder is shared out in proportion to what each span still wants. This is
+    the whole point of the change: a head-first ``[:budget]`` spends everything
+    on whatever happens to come first, so the tail is dropped entirely.
+    """
+    if budget <= 0 or not lengths:
+        return [0] * len(lengths)
+    if sum(lengths) <= budget:
+        return list(lengths)
+
+    floor = min(SCOPED_MIN_SPAN_CHARS, budget // len(lengths))
+    base = [min(length, floor) for length in lengths]
+    remaining = budget - sum(base)
+    residual = [length - b for length, b in zip(lengths, base)]
+    residual_total = sum(residual)
+    if remaining <= 0 or residual_total <= 0:
+        return base
+    return [
+        b + int(remaining * r / residual_total)
+        for b, r in zip(base, residual)
+    ]
+
+
+def persona_demand(spans: list[dict], reviewer_type: str) -> int:
+    """Chars this persona would need to see every span assigned to it."""
+    return sum(len(s["text"]) for s in spans if reviewer_type in s["owners"])
+
+
+def persona_allowance(spans: list[dict], reviewer_type: str) -> dict[int, int] | None:
+    """Chars of each span (by index) this persona is budgeted, or None if none.
+
+    Budget is the same ``REVIEWER_MANUSCRIPT_MAX_CHARS`` every persona gets
+    today; it is spent on this persona's lane rather than on the head of the
+    document. Claimed spans are funded before unclaimed ones, so a reviewer's
+    own lane is never cut in order to show it text outside that lane.
+
+    Truncation is always a prefix cut, so an allowance of *n* means the first
+    *n* chars of the span reach this persona. That is what makes union coverage
+    exactly computable — see ``scoped_coverage_report``.
+    """
+    mine = [i for i, s in enumerate(spans) if reviewer_type in s["owners"]]
+    if not mine:
+        return None
+
+    budget = REVIEWER_MANUSCRIPT_MAX_CHARS
+    claimed = [i for i in mine if spans[i]["lane"] is not None]
+    unclaimed = [i for i in mine if spans[i]["lane"] is None]
+    claimed_total = sum(len(spans[i]["text"]) for i in claimed)
+
+    if claimed_total >= budget:
+        reserve = min(
+            sum(len(spans[i]["text"]) for i in unclaimed),
+            budget // SCOPED_UNCLAIMED_RESERVE_DIVISOR,
+        )
+        claimed_budget = budget - reserve
+    else:
+        reserve = budget - claimed_total
+        claimed_budget = claimed_total
+
+    allowance: dict[int, int] = {}
+    for group, group_budget in ((claimed, claimed_budget), (unclaimed, reserve)):
+        sizes = _allocate_span_budget(
+            [len(spans[i]["text"]) for i in group], group_budget
+        )
+        for index, size in zip(group, sizes):
+            allowance[index] = size
+    return allowance
+
+
+def scoped_coverage_report(state: DraftAnalysisState) -> dict | None:
+    """How much of the manuscript the whole panel actually sees. None if unscoped.
+
+    THE BUDGET DOES NOT ADD UP, AND THIS IS WHERE THAT BECOMES VISIBLE.
+    Three personas x 24k is 72k of *slots*, not 72k of distinct manuscript: a
+    span claimed by two personas is paid for twice, and a span claimed by nobody
+    goes to all three and is paid for three times. Since the unclaimed-goes-to-
+    everybody rule is exactly what most manuscripts trigger most often (the
+    parser labels the majority of real sections ``other``), distinct capacity
+    collapses toward a single 24k budget rather than expanding to 72k. On the
+    eval corpus, 7 of 15 manuscripts lose text, the worst covering 41% of its
+    141k chars.
+
+    That is a property of the design, not a bug in the arithmetic, and the fix
+    is not a bigger budget — it is a scoping rule that does not triple-count the
+    text nobody claims. Until then this report exists so the loss is recorded
+    rather than silently absorbed into a plausible-looking review.
+
+    Because truncation is always a prefix cut, the union across personas of what
+    is seen of a span is just the largest single allowance for it, so
+    ``covered_chars`` is exact, not an estimate.
+    """
+    spans = manuscript_spans(state)
+    if not spans:
+        return None
+
+    best: list[int] = [0] * len(spans)
+    for reviewer_type in REVIEWER_PERSONAS:
+        allowance = persona_allowance(spans, reviewer_type)
+        if not allowance:
+            continue
+        for index, size in allowance.items():
+            best[index] = max(best[index], min(size, len(spans[index]["text"])))
+
+    dropped = [
+        {
+            "title": spans[i]["title"],
+            "lane": spans[i]["lane"],
+            "dropped_chars": len(spans[i]["text"]) - best[i],
+        }
+        for i in range(len(spans))
+        if best[i] < len(spans[i]["text"])
+    ]
+    manuscript_chars = sum(len(s["text"]) for s in spans)
+    covered_chars = sum(best)
+    return {
+        "manuscript_chars": manuscript_chars,
+        "covered_chars": covered_chars,
+        "dropped_chars": manuscript_chars - covered_chars,
+        "coverage_ratio": (covered_chars / manuscript_chars) if manuscript_chars else 1.0,
+        "spans": len(spans),
+        "dropped_spans": dropped,
+    }
+
+
+def log_scoped_coverage(state: DraftAnalysisState, reviewer_type: str) -> dict | None:
+    """Record any manuscript text the scoped panel drops. Never silent.
+
+    Text vanishing between the parser and the reviewer is the same class of
+    defect as a swallowed exception: the run still produces a confident-looking
+    review, from an input nobody was told was incomplete.
+    """
+    report = scoped_coverage_report(state)
+    if not report:
+        return None
+    if report["dropped_chars"] <= 0:
+        logger.info(
+            "[ReviewerPanel] scoped coverage complete: %s spans, %s chars, reviewer=%s",
+            report["spans"], report["manuscript_chars"], reviewer_type,
+        )
+        return report
+    worst = sorted(
+        report["dropped_spans"], key=lambda d: d["dropped_chars"], reverse=True
+    )[:5]
+    logger.warning(
+        "[ReviewerPanel] SCOPED COVERAGE SHORTFALL reviewer=%s: %.1f%% of the "
+        "manuscript reaches the panel (%s of %s chars); %s of %s spans truncated "
+        "for every reviewer. Largest losses: %s",
+        reviewer_type,
+        100 * report["coverage_ratio"],
+        report["covered_chars"],
+        report["manuscript_chars"],
+        len(report["dropped_spans"]),
+        report["spans"],
+        ", ".join(
+            f"{d['title'][:40]!r}[{d['lane']}] -{d['dropped_chars']}c" for d in worst
+        ),
+    )
+    return report
+
+
+def scoped_manuscript_text(
+    state: DraftAnalysisState, reviewer_type: str
+) -> str | None:
+    """This persona's manuscript block, or None when scoping cannot apply."""
+    spans = manuscript_spans(state)
+    if not spans:
+        return None
+    allowance = persona_allowance(spans, reviewer_type)
+    if allowance is None:
+        return None
+
+    parts: list[str] = []
+    for index in sorted(allowance):  # document order
+        size = allowance[index]
+        text = spans[index]["text"]
+        if size >= len(text):
+            parts.append(text)
+        elif size > 0:
+            parts.append(f"{text[:size]}\n[... section truncated ...]")
+    return "".join(parts)
+
+
 def _profile_context(state: DraftAnalysisState) -> str:
     profile = state.get("manuscript_profile") or {}
     diagnostics = state.get("diagnostic_findings") or []
@@ -430,11 +816,12 @@ def _profile_context(state: DraftAnalysisState) -> str:
     return "\n".join(lines)
 
 
-def build_shared_reviewer_prefix(state: DraftAnalysisState) -> str:
-    """The part of the user message that is identical for all three personas.
+def build_cacheable_reviewer_head(state: DraftAnalysisState) -> str:
+    """Everything before the manuscript block: metadata and profile.
 
-    Must stay free of anything that varies per call or per run — it is the
-    cacheable prefix the three panel calls share.
+    Byte-identical for all three personas under either flag setting — this is
+    the part of the prefix the cross-persona prompt cache keeps even when
+    scoping is on. Must stay free of anything that varies per call or per run.
     """
     structure = state.get("structure") or {}
     sections = structure.get("sections") or []
@@ -447,9 +834,54 @@ def build_shared_reviewer_prefix(state: DraftAnalysisState) -> str:
 
 {_profile_context(state)}
 
-FULL MANUSCRIPT TEXT (search this entire text before claiming anything is missing):
-{_reviewer_manuscript_text(state.get('draft_content', '') or '')}
 """
+
+
+#: Header for the unscoped manuscript block. Byte-for-byte what it has always
+#: been — the flag-off path must reproduce today's message exactly.
+_FULL_MANUSCRIPT_HEADER = (
+    "FULL MANUSCRIPT TEXT (search this entire text before claiming anything is missing):\n"
+)
+
+#: Header for a scoped block. The system preamble's GROUNDING RULE still says
+#: "the FULL manuscript text is provided below", and it cannot be edited without
+#: breaking the byte-identical system message the cache keys on — so the caveat
+#: is stated here instead, on the persona-specific side of the boundary, where
+#: it costs no shared prefix.
+_SCOPED_MANUSCRIPT_HEADER = (
+    "MANUSCRIPT TEXT — THE SECTIONS ASSIGNED TO YOUR LANE (the remaining sections\n"
+    "are assigned to the other reviewers on this panel; do NOT report something as\n"
+    "missing from the manuscript merely because it is not in the text below):\n"
+)
+
+
+def build_manuscript_block(
+    state: DraftAnalysisState, reviewer_type: str | None = None
+) -> str:
+    """The manuscript block. Scoped to this persona's lane only when enabled.
+
+    Falls back to the shared unscoped block whenever scoping cannot apply —
+    no reviewer_type, flag off, or a structure that yields no usable spans.
+    """
+    if reviewer_type is not None and scoped_panel_enabled():
+        scoped = scoped_manuscript_text(state, reviewer_type)
+        if scoped is not None:
+            return f"{_SCOPED_MANUSCRIPT_HEADER}{scoped}\n"
+    manuscript = _reviewer_manuscript_text(state.get("draft_content", "") or "")
+    return f"{_FULL_MANUSCRIPT_HEADER}{manuscript}\n"
+
+
+def build_shared_reviewer_prefix(
+    state: DraftAnalysisState, reviewer_type: str | None = None
+) -> str:
+    """Cacheable head plus the manuscript block.
+
+    With ``reviewer_type`` omitted, or with ``DRAFT_REVIEWER_SCOPED_PANEL`` off,
+    this returns exactly the string it always has.
+    """
+    return build_cacheable_reviewer_head(state) + build_manuscript_block(
+        state, reviewer_type
+    )
 
 
 _CONTEXT_BUILDERS = {
@@ -461,7 +893,7 @@ _CONTEXT_BUILDERS = {
 
 def build_reviewer_context(state: DraftAnalysisState, reviewer_type: str) -> str:
     """Shared prefix first, then this reviewer's tailored context slice."""
-    return build_shared_reviewer_prefix(state) + _CONTEXT_BUILDERS[reviewer_type](state)
+    return build_shared_reviewer_prefix(state, reviewer_type) + _CONTEXT_BUILDERS[reviewer_type](state)
 
 
 def build_reviewer_messages(
@@ -472,6 +904,11 @@ def build_reviewer_messages(
     Everything before ``YOUR REVIEWER ASSIGNMENT`` — the system preamble, the
     draft metadata, the profile block and the manuscript — is byte-identical for
     all three personas, so calls 2 and 3 hit the prompt cache for it.
+
+    With ``DRAFT_REVIEWER_SCOPED_PANEL`` on the manuscript block varies per
+    persona, so the cacheable boundary moves back to the end of the profile
+    block (``build_cacheable_reviewer_head``). Everything before that is still
+    byte-identical; the traded-away discount is exactly the manuscript.
     """
     return [
         {"role": "system", "content": SHARED_REVIEWER_PREAMBLE},
@@ -716,7 +1153,7 @@ async def audit_domain_triggers(
     try:
         response = await parse_chat_completion_with_retries(
             _get_client(),
-            model="gpt-5.2-chat-latest",
+            model=model_for("reviewer_panel", "gpt-5.2-chat-latest"),
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -815,11 +1252,22 @@ async def reviewer_panel_node(state: DraftAnalysisState) -> dict:
     # above REVIEWER_PERSONAS.
     messages = build_reviewer_messages(state, reviewer_type)
 
+    # Scoping can drop manuscript text that reaches no reviewer at all. Record
+    # it before the call so a shortfall is on the record next to the review it
+    # produced, rather than inferred later from a suspiciously thin report.
+    if scoped_panel_enabled():
+        try:
+            log_scoped_coverage(state, reviewer_type)
+        except Exception as _coverage_exc:  # never block the panel on telemetry
+            logger.warning(
+                "[ReviewerPanel] scoped coverage accounting failed: %s", _coverage_exc
+            )
+
     try:
         response = await asyncio.wait_for(
             parse_chat_completion_with_retries(
                 _get_client(),
-                model="gpt-5.2-chat-latest",
+                model=model_for("reviewer_panel", "gpt-5.2-chat-latest"),
                 messages=messages,
                 max_completion_tokens=2500,
                 temperature=0,

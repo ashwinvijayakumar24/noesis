@@ -43,10 +43,27 @@ def _sanitize_structured_completion_kwargs(kwargs: dict[str, Any]) -> dict[str, 
     `temperature=0` and only accepts the default temperature. Most draft-analysis
     nodes route through this helper, so strip that unsupported no-op at the
     boundary instead of duplicating model-specific conditionals in every node.
+
+    `gpt-5-mini` and `gpt-5-nano` reject it identically -- verified live on
+    2026-08-01, both returning `400 Unsupported value: 'temperature' does not
+    support 0 with this model`. That mattered the moment per-node model routing
+    existed (`draft_analysis.model_routing`): the two sites that pass
+    `temperature=0`, `reviewer_panel` and `meta_reviewer`, would 400 on every
+    call the instant either was pointed at a cheaper tier, which reads as "the
+    cheap model is broken" rather than "this helper only knew about one family".
+
+    Deliberately a prefix allow-list rather than "strip for any gpt-5*":
+    `gpt-5.1` *does* accept `temperature=0`, so stripping it there would
+    silently move that model off greedy decoding. Every model named here is one
+    observed to reject the parameter, so this cannot change the behaviour of any
+    call that works today.
     """
     sanitized = dict(kwargs)
     model = str(sanitized.get("model") or "")
-    if model.startswith("gpt-5.2") and sanitized.get("temperature") == 0:
+    rejects_explicit_temperature = model.startswith(
+        ("gpt-5.2", "gpt-5-mini", "gpt-5-nano")
+    )
+    if rejects_explicit_temperature and sanitized.get("temperature") == 0:
         sanitized.pop("temperature", None)
     return sanitized
 

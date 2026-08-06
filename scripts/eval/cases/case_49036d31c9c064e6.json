@@ -1,0 +1,36 @@
+{
+  "evidence": {
+    "duration_ms": 27725.09804100264,
+    "threshold_ms": 20000.0
+  },
+  "fingerprint": "49036d31c9c064e6",
+  "identity": {
+    "draft_id": null,
+    "fixture": "scripts/eval/cache/state/jx6njBKH8E/structural_checks.json",
+    "model": null,
+    "node": "structural_checks",
+    "origin": "eval",
+    "paper_id": "jx6njBKH8E",
+    "reviewer_type": null,
+    "run_id": null
+  },
+  "replay": {
+    "command": "python3 scripts/eval/node_eval.py --node structural_checks --paper jx6njBKH8E",
+    "fixture": "scripts/eval/cache/state/jx6njBKH8E/structural_checks.json",
+    "note": "Replay needs the node state fixture named below. It lives under scripts/eval/cache/state/, which is GITIGNORED -- a fresh clone does not have it and must regenerate it by running the pipeline with EVAL_STATE_DIR set. Spans carry no prompts or outputs, so nothing here can reconstruct the fixture.",
+    "replayable": "with_local_fixture"
+  },
+  "rule": "slow_node",
+  "rule_doc": "A node whose wall time is past a stated bound (default 20 s).",
+  "rules_version": "trace_rules_v1",
+  "source": {
+    "parent_span_id": null,
+    "span_id": "13fdf4bccb0249a4a9d51aa775e812e7",
+    "span_kind": "node",
+    "span_name": "structural_checks",
+    "start_time": 1785543872.5154219,
+    "trace_file": "scripts/eval/results/node_eval_spans.jsonl",
+    "trace_id": "9ef6d555d59542279210ed5da00fce0c"
+  },
+  "why": "wall 27725 ms >= 20000 ms"
+}
