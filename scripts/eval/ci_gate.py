@@ -15,6 +15,15 @@ WHAT IT GATES (blocking, runs on any checkout):
                          scoreboard.json.
   invalid-run-quoted     no tracked markdown quotes a metric from a run that was
                          recorded `valid: false`.
+  metric-regression      a metric in a *tracked* eval sink moved the wrong way,
+                         beyond the tolerance declared in the `regression:`
+                         block of scripts/eval/config.yaml. Only sinks that
+                         changed in this diff are looked at, and a record is
+                         only ever compared against an earlier record carrying
+                         the same config identity -- two identities are two
+                         different measurements and are never differenced. A
+                         new identity, an absent sink or an unparseable record
+                         SKIPs; none of them pass.
 
 WHAT IT GATES ONLY WHERE THE SINKS EXIST (skips on a clean CI checkout):
   board-regenerates      full `benchmarks.py --check`. Four of the eight sinks
@@ -57,7 +66,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 EVAL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = EVAL_DIR.parent.parent
@@ -548,6 +557,76 @@ def _parse_thresholds(text: str) -> dict[str, str]:
     return out
 
 
+#: A declared tolerance: `<metric>: <amount>[%] <direction>`. Metric names carry
+#: `.` and `@` (`ndcg@10`), so the key charset is wider than in `thresholds:`.
+_REGRESSION_LINE_RE = re.compile(
+    r"^\s+([A-Za-z0-9_.@]+)\s*:\s*(\d+(?:\.\d+)?)(%?)\s+(up_is_bad|down_is_bad)\s*$"
+)
+
+UP_IS_BAD, DOWN_IS_BAD = "up_is_bad", "down_is_bad"
+
+
+@dataclass(frozen=True)
+class Tolerance:
+    """How far a metric may move, and which way counts as a regression.
+
+    ``relative`` tolerances are a fraction of the baseline; cost varies with
+    prompt-token counts, so an absolute dollar figure is either meaninglessly
+    tight on a cheap config or useless on an expensive one.
+    """
+
+    amount: float
+    relative: bool
+    direction: str
+
+    def allowance(self, baseline: float) -> float:
+        return abs(baseline) * self.amount if self.relative else self.amount
+
+    def rendered(self) -> str:
+        return f"{self.amount * 100:g}%" if self.relative else f"{self.amount:g}"
+
+
+def _parse_regression_config(text: str) -> dict[str, Tolerance]:
+    """Read the `regression:` block without importing yaml (not a CI dependency).
+
+    Same shape as :func:`_parse_thresholds`, and for the same reason: the PR
+    runner installs pytest and nothing else.
+    """
+    out: dict[str, Tolerance] = {}
+    in_block = False
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        if re.match(r"^regression\s*:", line):
+            in_block = True
+            continue
+        if in_block:
+            if not line.startswith((" ", "\t")):
+                break
+            m = _REGRESSION_LINE_RE.match(line)
+            if m:
+                out[m.group(1)] = Tolerance(
+                    amount=float(m.group(2)) / (100.0 if m.group(3) else 1.0),
+                    relative=bool(m.group(3)),
+                    direction=m.group(4),
+                )
+    return out
+
+
+def _gated_settings(text: str) -> dict[str, str]:
+    """Every config value whose movement needs a documented line (C6).
+
+    Both the `thresholds:` block and the per-metric regression tolerances: a
+    tolerance quietly widened is a gate quietly switched off.
+    """
+    out = dict(_parse_thresholds(text))
+    for metric, tol in _parse_regression_config(text).items():
+        out[f"regression.{metric}"] = tol.rendered()
+        out[f"regression.{metric}.direction"] = tol.direction
+    return out
+
+
 def check_threshold_note(repo: Path, base_ref: str) -> CheckResult:
     name = "threshold-note"
     remedy = (
@@ -561,15 +640,15 @@ def check_threshold_note(repo: Path, base_ref: str) -> CheckResult:
     if base_text is None or now_text is None:
         return CheckResult(name, SKIP, f"{CONFIG_YAML} absent at {base_ref} or here", remedy)
 
-    before = _parse_thresholds(base_text)
-    after = _parse_thresholds(now_text)
+    before = _gated_settings(base_text)
+    after = _gated_settings(now_text)
     changed = {
         k: (before.get(k), after.get(k))
         for k in set(before) | set(after)
         if before.get(k) != after.get(k)
     }
     if not changed:
-        return CheckResult(name, PASS, "thresholds unchanged")
+        return CheckResult(name, PASS, "thresholds and regression tolerances unchanged")
 
     note_text = current_content(repo, CI_DOC) or ""
     undocumented = [
@@ -581,14 +660,351 @@ def check_threshold_note(repo: Path, base_ref: str) -> CheckResult:
         return CheckResult(
             name,
             WARN,
-            f"{CONFIG_YAML} thresholds moved with no note in {CI_DOC}",
+            f"{CONFIG_YAML} thresholds/tolerances moved with no note in {CI_DOC}",
             remedy,
             undocumented,
         )
     return CheckResult(
         name,
         PASS,
-        f"{len(changed)} threshold change(s), all noted in {CI_DOC}",
+        f"{len(changed)} threshold/tolerance change(s), all noted in {CI_DOC}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# C7 -- a tracked metric moved the wrong way
+# ---------------------------------------------------------------------------
+
+#: One measurement pulled out of one sink record: what was measured (identity)
+#: and what came out (metrics). A single record can carry several -- an
+#: embedding_arms record holds one entry per arm, each with its own config hash.
+Entry = tuple[str, dict[str, float]]
+
+
+def _num(value: Any) -> float | None:
+    """A metric value, or None. Bools are not metrics; NaN is not a number."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    value = float(value)
+    return None if value != value else value
+
+
+def _dig(record: Any, *path: str) -> Any:
+    for key in path:
+        if not isinstance(record, dict):
+            return None
+        record = record.get(key)
+    return record
+
+
+def _identity(*parts: Any) -> str:
+    return "|".join("" if p is None else str(p) for p in parts)
+
+
+def _entries_history(record: dict) -> list[Entry]:
+    """results/history.jsonl -- the run_eval scoreboard log."""
+    config = record.get("config")
+    if not isinstance(config, dict):
+        return []
+    agg = record.get("aggregates") or {}
+    metrics = {
+        k: v
+        for k, v in (
+            ("mean_overall", _num(agg.get("mean_overall"))),
+            ("total_hallucinations", _num(agg.get("total_hallucinations"))),
+            ("scored_cells", _num(agg.get("scored_cells"))),
+        )
+        if v is not None
+    }
+    return [(json.dumps(config, sort_keys=True), metrics)] if metrics else []
+
+
+def _entries_openreview(record: dict) -> list[Entry]:
+    """results/openreview_history.jsonl -- same log, OpenReview track.
+
+    Its aggregates block carries only a paper count, so the metrics are rolled
+    up from the cells: how many were scored, and how many hallucinations the
+    judge found across them.
+    """
+    config = record.get("config")
+    cells = record.get("cells")
+    if not isinstance(config, dict) or not isinstance(cells, list):
+        return []
+    hallucinations = sum(
+        _num(c.get("hallucinations")) or 0.0 for c in cells if isinstance(c, dict)
+    )
+    metrics = {
+        "scored_cells": float(len(cells)),
+        "total_hallucinations": hallucinations,
+    }
+    return [(json.dumps(config, sort_keys=True), metrics)]
+
+
+def _entries_node_eval(record: dict) -> list[Entry]:
+    """results/node_eval.jsonl -- only the run summaries carry totals.
+
+    node_eval writes no config hash, so the identity is derived from the fields
+    that decide comparability. This mirrors ``_node_config_key`` in
+    benchmarks.py deliberately rather than importing it: the gate must stay a
+    standalone stdlib module, and benchmarks.py is only ever subprocessed.
+    ``state_dir`` is excluded on purpose -- it is an absolute path and would
+    make every machine its own identity.
+    """
+    if record.get("record_type") != "run_summary":
+        return []
+    config = record.get("config") or {}
+    identity = _identity(
+        ",".join(sorted(str(n) for n in (config.get("nodes") or []))),
+        ",".join(sorted(str(p) for p in (config.get("papers") or []))),
+        config.get("reviewer_type"),
+        config.get("repeat"),
+        config.get("with_metric"),
+    )
+    metrics = {
+        k: v
+        for k, v in (
+            ("total_estimated_usd", _num(record.get("total_estimated_usd"))),
+            ("failed_replays", _num(record.get("failed_replays"))),
+        )
+        if v is not None
+    }
+    return [(identity, metrics)] if metrics else []
+
+
+def _entries_sweep(record: dict) -> list[Entry]:
+    """gate_calibration/sweep_results.jsonl -- publish-gate calibration.
+
+    Identity is the schema, the seed and the labelled set the sweep ran over;
+    a sweep over a different label set is a different measurement.
+    """
+    dataset = record.get("dataset")
+    shipped = record.get("gate_as_shipped")
+    if not isinstance(dataset, dict) or not isinstance(shipped, dict):
+        return []
+    identity = _identity(
+        record.get("schema_version"),
+        record.get("seed"),
+        dataset.get("n_scoreable"),
+        dataset.get("base_rate"),
+    )
+    metrics = {
+        k: v
+        for k, v in (
+            ("precision", _num(shipped.get("precision"))),
+            ("recall", _num(shipped.get("recall"))),
+            ("f1", _num(shipped.get("f1"))),
+            ("best_f1", _num(_dig(record, "joint", "best_f1", "f1"))),
+        )
+        if v is not None
+    }
+    return [(identity, metrics)] if metrics else []
+
+
+def _entries_panel_arms(record: dict) -> list[Entry]:
+    """results/panel_arms.jsonl -- one arm of the reviewer-panel experiment."""
+    identity = record.get("config_hash")
+    if not identity:
+        return []
+    metrics = {
+        k: v
+        for k, v in (
+            ("recall_addressable", _num(_dig(record, "score", "recall_addressable"))),
+            ("usd_per_verified_finding", _num(record.get("usd_per_verified_finding"))),
+            ("unverified_quote_rate", _num(_dig(record, "unverified_quotes", "rate"))),
+            ("n_errors", _num(record.get("n_errors"))),
+        )
+        if v is not None
+    }
+    return [(str(identity), metrics)] if metrics else []
+
+
+def _entries_embedding_arms(record: dict) -> list[Entry]:
+    """results/embedding_arms.jsonl -- one record, several arms, one hash each."""
+    out: list[Entry] = []
+    for arm in record.get("arms") or []:
+        if not isinstance(arm, dict) or not arm.get("config_hash"):
+            continue
+        raw = arm.get("metrics") or {}
+        metrics = {
+            k: v
+            for k, v in (
+                ("map", _num(raw.get("map"))),
+                ("mrr", _num(raw.get("mrr"))),
+                ("ndcg@10", _num(raw.get("ndcg@10"))),
+                ("recall@10", _num(raw.get("recall@10"))),
+                ("latency_p50_ms", _num(_dig(arm, "latency_ms", "p50"))),
+            )
+            if v is not None
+        }
+        if metrics:
+            out.append((str(arm["config_hash"]), metrics))
+    return out
+
+
+#: The sinks this check may look at: tracked in git, therefore present on a
+#: clean PR runner, therefore gate-able. Everything else this project measures
+#: -- retrieval_eval, ann_sweep, node_eval_spans, the ingest manifest,
+#: cascade_arms -- is gitignored, costs money or needs a live vector database,
+#: and is not gated here. See the module docstring.
+REGRESSION_SINKS: tuple[tuple[str, Callable[[dict], list[Entry]]], ...] = (
+    ("scripts/eval/results/history.jsonl", _entries_history),
+    ("scripts/eval/results/openreview_history.jsonl", _entries_openreview),
+    ("scripts/eval/results/node_eval.jsonl", _entries_node_eval),
+    ("scripts/eval/gate_calibration/sweep_results.jsonl", _entries_sweep),
+    ("scripts/eval/results/panel_arms.jsonl", _entries_panel_arms),
+    ("scripts/eval/results/embedding_arms.jsonl", _entries_embedding_arms),
+)
+
+
+def _violates(tol: Tolerance, baseline: float, new: float) -> bool:
+    delta = new - baseline
+    allowed = tol.allowance(baseline)
+    if tol.direction == UP_IS_BAD:
+        return delta > allowed
+    return -delta > allowed
+
+
+def _short(identity: str, width: int = 60) -> str:
+    return identity if len(identity) <= width else identity[: width - 3] + "..."
+
+
+def check_metric_regression(repo: Path, base_ref: str) -> CheckResult:
+    name = "metric-regression"
+    remedy = (
+        "either the change is a real regression and belongs in the diff no "
+        "further, or the movement is understood -- in which case say so in the "
+        f"run's own notes and, if the bar itself has moved, widen the metric's "
+        f"line in the `regression:` block of {CONFIG_YAML} (which needs its own "
+        f"note in {CI_DOC}). Reproduce with: "
+        f"python3 scripts/eval/ci_gate.py --base {base_ref}"
+    )
+    if not git_ok(repo, "rev-parse", "--verify", f"{base_ref}^{{commit}}"):
+        return CheckResult(
+            name,
+            SKIP,
+            f"base ref '{base_ref}' is not resolvable in this checkout "
+            "(shallow clone? set fetch-depth: 0)",
+            remedy,
+        )
+
+    config_text = current_content(repo, CONFIG_YAML)
+    if config_text is None:
+        return CheckResult(name, SKIP, f"{CONFIG_YAML} is absent; no tolerances to read", remedy)
+    tolerances = _parse_regression_config(config_text)
+    if not tolerances:
+        return CheckResult(
+            name,
+            SKIP,
+            f"{CONFIG_YAML} declares no `regression:` block, so nothing is gated",
+            remedy,
+        )
+
+    violations: list[str] = []
+    notes: list[str] = []
+    compared = 0
+    changed_sinks = 0
+
+    for rel, extract in REGRESSION_SINKS:
+        now_text = current_content(repo, rel)
+        if now_text is None:
+            notes.append(f"{rel}: absent from this checkout -- NOT CHECKED, not passed")
+            continue
+        base_text = blob_at(repo, base_ref, rel)
+        if base_text is not None and base_text == now_text:
+            continue  # untouched by this diff; nothing to regress
+        changed_sinks += 1
+
+        lines = [ln for ln in now_text.splitlines() if ln.strip()]
+        if not lines:
+            notes.append(f"{rel}: changed but holds no records -- NOT CHECKED")
+            continue
+
+        records: list[dict | None] = []
+        for i, line in enumerate(lines):
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                notes.append(
+                    f"{rel}:{i + 1}: unparseable JSON (truncated tail? hand edit?) "
+                    "-- NOT CHECKED, not passed"
+                )
+                records.append(None)
+                continue
+            records.append(rec if isinstance(rec, dict) else None)
+
+        if records[-1] is None:
+            notes.append(f"{rel}: the newest record is unreadable -- NOT CHECKED, not passed")
+            continue
+
+        history: dict[str, dict[str, float]] = {}
+        for rec in records[:-1]:
+            if rec is None:
+                continue
+            for identity, metrics in extract(rec):
+                history[identity] = metrics
+
+        newest = extract(records[-1])
+        if not newest:
+            notes.append(
+                f"{rel}: the newest record carries no gate-able measurement "
+                "-- NOT CHECKED, not passed"
+            )
+            continue
+
+        for identity, metrics in newest:
+            baseline = history.get(identity)
+            if baseline is None:
+                notes.append(
+                    f"{rel}: newest record is a NEW config identity "
+                    f"'{_short(identity)}' with no earlier run to compare against "
+                    "-- NOT CHECKED, not passed"
+                )
+                continue
+            for metric, new_value in sorted(metrics.items()):
+                tol = tolerances.get(metric)
+                if tol is None:
+                    continue  # not declared in config.yaml, so not gated
+                old_value = baseline.get(metric)
+                if old_value is None:
+                    notes.append(
+                        f"{rel}: '{metric}' is absent from the baseline record for "
+                        f"'{_short(identity)}' -- NOT CHECKED, not passed"
+                    )
+                    continue
+                compared += 1
+                if _violates(tol, old_value, new_value):
+                    violations.append(
+                        f"{rel}: {metric}  {old_value:g} -> {new_value:g}  "
+                        f"(tolerance {tol.rendered()} {tol.direction})  "
+                        f"[{_short(identity)}]"
+                    )
+
+    if violations:
+        return CheckResult(
+            name,
+            FAIL,
+            f"{len(violations)} metric(s) in a tracked eval sink moved the wrong "
+            "way by more than the declared tolerance",
+            remedy,
+            violations,
+        )
+    if notes:
+        return CheckResult(
+            name,
+            SKIP,
+            f"{compared} metric(s) compared cleanly, but {len(notes)} record(s) "
+            "or sink(s) could not be compared at all -- a skip is missing data, "
+            "not a pass",
+            remedy,
+            notes,
+        )
+    if changed_sinks == 0:
+        return CheckResult(name, PASS, "no tracked eval sink changed in this diff")
+    return CheckResult(
+        name,
+        PASS,
+        f"{compared} metric(s) across {changed_sinks} changed sink(s) are within "
+        "tolerance of their same-config baseline",
     )
 
 
@@ -603,6 +1019,7 @@ def run_checks(repo: Path, base_ref: str) -> list[CheckResult]:
         check_board_regenerates(repo),
         check_append_only(repo, base_ref),
         check_invalid_run_quoted(repo),
+        check_metric_regression(repo, base_ref),
         check_metric_without_n(repo),
         check_threshold_note(repo, base_ref),
     ]

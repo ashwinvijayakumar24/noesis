@@ -308,6 +308,227 @@ def test_threshold_parser_ignores_comments_and_other_blocks():
 
 
 # ---------------------------------------------------------------------------
+# metric-regression
+# ---------------------------------------------------------------------------
+
+#: A cut-down `regression:` block. Real tolerances live in scripts/eval/config.yaml
+#: and are justified there from the observed spread; these only have to exercise
+#: both directions and both tolerance kinds.
+_REGRESSION_BLOCK = (
+    "\nregression:\n"
+    "  total_hallucinations:  0     up_is_bad\n"
+    "  scored_cells:          0     down_is_bad\n"
+    "  ndcg@10:               0.005 down_is_bad\n"
+    "  total_estimated_usd:   25%   up_is_bad\n"
+)
+
+_OR_CONFIG = {"limit": 1, "paper_ids": "b,c", "venue": "ICLR.cc/2024/Conference"}
+
+
+def _openreview(run_id: str, hallucinations=(0, 0), config: dict | None = None) -> str:
+    return json.dumps({
+        "run_id": run_id,
+        "config": config if config is not None else _OR_CONFIG,
+        "aggregates": {"papers": len(hallucinations)},
+        "cells": [
+            {"cell_key": str(i), "hallucinations": h}
+            for i, h in enumerate(hallucinations)
+        ],
+    }) + "\n"
+
+
+def _node_summary(run_id: str, usd: float, failed: int = 0) -> str:
+    return json.dumps({
+        "record_type": "run_summary",
+        "run_id": run_id,
+        "config": {"nodes": ["editor_pass_node"], "papers": ["p1"],
+                   "reviewer_type": None, "repeat": 1, "with_metric": False,
+                   "state_dir": "/machine/specific/path"},
+        "failed_replays": failed,
+        "total_estimated_usd": usd,
+    }) + "\n"
+
+
+def _embedding(ndcg: float, config_hash: str = "f20b55d4") -> str:
+    return json.dumps({
+        "n": 338,
+        "arms": [{
+            "arm": "control_1536_vector",
+            "config_hash": config_hash,
+            "metrics": {"map": 0.232, "mrr": 0.7335, "ndcg@10": ndcg,
+                        "recall@10": 0.2199},
+        }],
+    }) + "\n"
+
+
+@pytest.fixture()
+def sinks(repo: Path) -> Path:
+    """The `repo` fixture plus every sink C7 knows about, with one baseline each.
+
+    All six are present so no test picks up an incidental "sink absent" note --
+    absence is its own test.
+    """
+    _write(repo, "scripts/eval/config.yaml",
+           "drafts:\n  - a.pdf\n\nthresholds:\n  min_overall: 8.5\n"
+           "  min_dim_score: 7.5\n" + _REGRESSION_BLOCK)
+    _write(repo, "scripts/eval/results/openreview_history.jsonl", _openreview("r1"))
+    _write(repo, "scripts/eval/results/node_eval.jsonl", _node_summary("n1", 0.10))
+    _write(repo, "scripts/eval/results/embedding_arms.jsonl", _embedding(0.5196))
+    _write(repo, "scripts/eval/results/panel_arms.jsonl",
+           json.dumps({"config_hash": "155353393c1d", "n_errors": 0,
+                       "score": {"recall_addressable": 0.2895},
+                       "unverified_quotes": {"rate": 0.0},
+                       "usd_per_verified_finding": 0.0198}) + "\n")
+    _write(repo, "scripts/eval/gate_calibration/sweep_results.jsonl",
+           json.dumps({"schema_version": 1, "seed": 0,
+                       "dataset": {"n_scoreable": 76, "base_rate": 0.039},
+                       "gate_as_shipped": {"precision": 0.16, "recall": 0.66, "f1": 0.26},
+                       "joint": {"best_f1": {"f1": 0.8}}}) + "\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "regression baseline")
+    return repo
+
+
+def _head(repo: Path) -> str:
+    return ci_gate.git(repo, "rev-parse", "HEAD").strip()
+
+
+def _regression(repo: Path, base: str):
+    return _run(repo, base)["metric-regression"]
+
+
+def test_unchanged_sinks_are_not_a_failure(sinks: Path):
+    res = _regression(sinks, _head(sinks))
+    assert res.status == ci_gate.PASS, res.items
+    assert "no tracked eval sink changed" in res.detail
+
+
+def test_quality_regression_beyond_tolerance_fails(sinks: Path):
+    base = _head(sinks)
+    with (sinks / "scripts/eval/results/openreview_history.jsonl").open("a") as fh:
+        fh.write(_openreview("r2", hallucinations=(0, 3)))
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.FAIL, res.detail
+    joined = " ".join(res.items)
+    assert "openreview_history.jsonl: total_hallucinations  0 -> 3" in joined
+    assert "tolerance 0 up_is_bad" in joined
+
+
+def test_quality_regression_within_tolerance_passes(sinks: Path):
+    base = _head(sinks)
+    # 0.5196 -> 0.5160 is a drop of 0.0036, inside the 0.005 tolerance.
+    with (sinks / "scripts/eval/results/embedding_arms.jsonl").open("a") as fh:
+        fh.write(_embedding(0.5160))
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.PASS, res.items
+    assert "within tolerance" in res.detail
+
+
+def test_cost_rising_beyond_tolerance_fails(sinks: Path):
+    """Direction is declared, not inferred: cost going *up* is the regression."""
+    base = _head(sinks)
+    with (sinks / "scripts/eval/results/node_eval.jsonl").open("a") as fh:
+        fh.write(_node_summary("n2", 0.20))  # +100% against a 25% tolerance
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.FAIL, res.detail
+    joined = " ".join(res.items)
+    assert "node_eval.jsonl: total_estimated_usd  0.1 -> 0.2" in joined
+    assert "tolerance 25% up_is_bad" in joined
+
+
+def test_cost_falling_is_never_a_regression(sinks: Path):
+    base = _head(sinks)
+    with (sinks / "scripts/eval/results/node_eval.jsonl").open("a") as fh:
+        fh.write(_node_summary("n2", 0.001))
+    assert _regression(sinks, base).status == ci_gate.PASS
+
+
+def test_improvement_passes_regardless_of_magnitude(sinks: Path):
+    base = _head(sinks)
+    with (sinks / "scripts/eval/results/embedding_arms.jsonl").open("a") as fh:
+        fh.write(_embedding(0.9000))  # +0.38, far outside tolerance, but the good way
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.PASS, res.items
+
+
+def test_new_config_identity_skips_rather_than_passes(sinks: Path):
+    base = _head(sinks)
+    other = dict(_OR_CONFIG, venue="NeurIPS.cc/2025/Conference")
+    with (sinks / "scripts/eval/results/openreview_history.jsonl").open("a") as fh:
+        fh.write(_openreview("r2", hallucinations=(9, 9), config=other))
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.SKIP, res.detail
+    joined = " ".join(res.items)
+    assert "NEW config identity" in joined
+    assert "not passed" in joined
+
+
+def test_absent_sink_skips_rather_than_passes(sinks: Path):
+    base = _head(sinks)
+    (sinks / "scripts/eval/results/panel_arms.jsonl").unlink()
+    _git(sinks, "rm", "-q", "--cached", "scripts/eval/results/panel_arms.jsonl")
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.SKIP, res.detail
+    assert "panel_arms.jsonl: absent from this checkout" in " ".join(res.items)
+    assert "not passed" in " ".join(res.items)
+
+
+def test_malformed_record_never_crashes_and_never_silently_passes(sinks: Path):
+    base = _head(sinks)
+    with (sinks / "scripts/eval/results/openreview_history.jsonl").open("a") as fh:
+        fh.write('{"run_id": "r2", "cells": [{"halluc\n')  # killed mid-write
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.SKIP, res.detail
+    assert "unparseable JSON" in " ".join(res.items)
+
+
+def test_a_regression_in_one_sink_outranks_a_skip_in_another(sinks: Path):
+    base = _head(sinks)
+    (sinks / "scripts/eval/results/panel_arms.jsonl").unlink()
+    _git(sinks, "rm", "-q", "--cached", "scripts/eval/results/panel_arms.jsonl")
+    with (sinks / "scripts/eval/results/openreview_history.jsonl").open("a") as fh:
+        fh.write(_openreview("r2", hallucinations=(0, 3)))
+    res = _regression(sinks, base)
+    assert res.status == ci_gate.FAIL
+    assert ci_gate.exit_code(ci_gate.run_checks(sinks, base), strict=False) == ci_gate.EXIT_FAIL
+
+
+def test_regression_check_skips_when_no_tolerances_are_declared(repo: Path):
+    """The stock fixture has no `regression:` block at all."""
+    res = _regression(repo, _head(repo))
+    assert res.status == ci_gate.SKIP
+    assert "no `regression:` block" in res.detail
+
+
+def test_regression_config_parser_reads_both_tolerance_kinds():
+    parsed = ci_gate._parse_regression_config(
+        "thresholds:\n  min_overall: 8.5\n"
+        "regression:\n"
+        "  ndcg@10:              0.005 down_is_bad   # spread 0.0000\n"
+        "  total_estimated_usd:  25%   up_is_bad\n"
+        "other:\n  ndcg@10: 9 down_is_bad\n"
+    )
+    assert set(parsed) == {"ndcg@10", "total_estimated_usd"}
+    assert parsed["ndcg@10"] == ci_gate.Tolerance(0.005, False, ci_gate.DOWN_IS_BAD)
+    assert parsed["total_estimated_usd"].relative
+    assert parsed["total_estimated_usd"].allowance(0.10) == pytest.approx(0.025)
+
+
+def test_moving_a_regression_tolerance_needs_a_note_too(sinks: Path):
+    """C6 watches the tolerances as well: a widened tolerance is a lowered bar."""
+    base = _head(sinks)
+    _write(sinks, "scripts/eval/config.yaml",
+           (sinks / "scripts/eval/config.yaml").read_text(encoding="utf-8")
+           .replace("ndcg@10:               0.005", "ndcg@10:               0.500"))
+    results = ci_gate.run_checks(sinks, base)
+    res = {r.name: r for r in results}["threshold-note"]
+    assert res.status == ci_gate.WARN
+    assert "regression.ndcg@10: 0.005 -> 0.5" in " ".join(res.items)
+    # C6 stays a warning; widening a tolerance is not itself a blocking event.
+    assert res.status != ci_gate.FAIL
+
+
+# ---------------------------------------------------------------------------
 # Exit codes / CLI
 # ---------------------------------------------------------------------------
 
@@ -351,7 +572,8 @@ def test_cli_json_report(repo: Path, capsys):
     names = {c["check"] for c in payload["checks"]}
     assert names == {
         "board-tracked-sources", "board-regenerates", "append-only",
-        "invalid-run-quoted", "metric-without-n", "threshold-note",
+        "invalid-run-quoted", "metric-regression", "metric-without-n",
+        "threshold-note",
     }
 
 

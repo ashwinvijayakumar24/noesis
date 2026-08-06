@@ -30,3 +30,48 @@ thresholds:
   min_overall: 8.5       # mean overall across all scored cells must be >= 8.5
   min_dim_score: 7.5     # no individual dimension mean may fall below 7.5
   max_mean_drop: 0.5     # alert if mean drops >0.5 vs previous scoreboard
+
+# Per-metric tolerances for the blocking regression check in
+# scripts/eval/ci_gate.py (C7, `metric-regression`). One line per metric:
+#
+#     <metric>: <tolerance> <direction>
+#
+# <tolerance> is absolute in the metric's own units, or relative to the
+# baseline when it ends in `%`. <direction> names which way is a regression;
+# it is declared here and never inferred from the sign of the delta. A metric
+# that does not appear below is not gated at all.
+#
+# The numbers come from the observed run-to-run spread of the sinks that are
+# tracked in git -- the only ones a PR runner can see. Where a sink has no
+# same-identity repeat yet, the tolerance is an explicit judgement call and is
+# marked as such, because a tolerance invented without data is worthless.
+#
+# Deliberately absent: mean latency. Across the two embedding_arms records at
+# one config_hash it moved 7.900 -> 3.725 ms (control) and 16.947 -> 7.121 ms
+# (native). No tolerance survives that and still means anything. The p50 over
+# the same pair moved 2.851 -> 2.881 and 4.018 -> 4.586, so p50 is gated
+# instead, at a tolerance well clear of the larger of those.
+regression:
+  # run_eval scoreboard history (results/history.jsonl).
+  mean_overall:              0.5    down_is_bad   # matches max_mean_drop above
+  total_hallucinations:      0      up_is_bad     # observed 0 over 17 runs x 2 cells
+  scored_cells:              0      down_is_bad   # observed exactly 2 in all 17 runs
+  # node replay (results/node_eval.jsonl).
+  failed_replays:            0      up_is_bad     # observed 0 in all 7 run summaries
+  total_estimated_usd:       25%    up_is_bad     # JUDGEMENT: no same-key repeat exists
+  # publish-gate calibration sweep (gate_calibration/sweep_results.jsonl).
+  precision:                 0.005  down_is_bad   # identical across all 3 sweeps (seed 0)
+  recall:                    0.005  down_is_bad   # identical across all 3 sweeps
+  f1:                        0.005  down_is_bad   # identical across all 3 sweeps
+  best_f1:                   0.005  down_is_bad   # 0.8 in all 3; one cell of 76 is 0.013
+  # panel arms (results/panel_arms.jsonl).
+  recall_addressable:        0.03   down_is_bad   # ~2 of 76 addressable units
+  unverified_quote_rate:     0      up_is_bad     # observed 0.0 on both arms
+  usd_per_verified_finding:  25%    up_is_bad     # JUDGEMENT: no same-hash repeat exists
+  n_errors:                  0      up_is_bad     # observed 0 on both arms
+  # embedding arms (results/embedding_arms.jsonl).
+  map:                       0.005  down_is_bad   # spread 0.0000 at one config_hash
+  mrr:                       0.005  down_is_bad   # spread 0.0000 at one config_hash
+  ndcg@10:                   0.005  down_is_bad   # spread 0.0000 at one config_hash
+  recall@10:                 0.005  down_is_bad   # spread 0.0000 at one config_hash
+  latency_p50_ms:            50%    up_is_bad     # largest observed move was +14%
