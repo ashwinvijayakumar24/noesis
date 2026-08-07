@@ -1,0 +1,124 @@
+# Celery worker.
+#
+# NO SERVICE, ON PURPOSE. A Service exists to give inbound traffic a stable
+# address. Nothing ever dials a Celery worker: the worker OPENS a connection to
+# Redis and pulls tasks off the queue. The traffic direction is outbound-only,
+# so a Service (and an Ingress, and a port) would be dead config. The common
+# misconception is that "every Deployment needs a Service" — it does not; only
+# workloads that are dialled do.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noesis-worker
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: noesis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: noesis
+      app.kubernetes.io/component: worker
+  strategy:
+    # Recreate, not RollingUpdate: with task_acks_late=True a rolling update
+    # would briefly run old and new workers against the same queues, which is
+    # safe but makes "which build ran this task" unanswerable. One worker,
+    # replaced cleanly. Nothing is serving traffic, so the gap costs nothing
+    # but queue latency.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: noesis
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: noesis
+    spec:
+      # Celery treats SIGTERM as a warm shutdown: stop consuming, finish
+      # in-flight tasks, then exit. Draft analysis tasks are minutes long in
+      # the worst case; 120s is a compromise that lets short tasks finish
+      # instead of being SIGKILLed. task_reject_on_worker_lost=True means a
+      # killed task is requeued rather than lost, so this is a latency
+      # trade-off, not a correctness one.
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: worker
+          image: noesis-backend:dev
+          imagePullPolicy: IfNotPresent
+          # Copied verbatim from the celery-worker `command:` in
+          # infra/docker-compose.yml. gevent pool because the work is
+          # OpenAI-API-bound, not CPU-bound; autoscale 3,1 keeps 1 greenlet warm
+          # and bursts to 3; the three queues match task_queues in
+          # services/backend/app/celery_app.py.
+          command:
+            - celery
+            - -A
+            - app.celery_app
+            - worker
+            - --loglevel=info
+            - --pool=gevent
+            - --autoscale=3,1
+            - --queues=default,analysis,insights
+          envFrom:
+            - configMapRef:
+                name: noesis-config
+            - secretRef:
+                name: noesis-secrets
+          env:
+            # Draft analysis runs here, so this is the sink that actually
+            # fills. Different path from the API's — one JSONL writer per file.
+            - name: NOESIS_TRACING_FILE
+              value: /app/logs/noesis_traces_worker.jsonl
+
+          # ---- Probes -------------------------------------------------------
+          # NO readinessProbe. Readiness has exactly one effect: it adds or
+          # removes the pod from a Service's Endpoints. This Deployment has no
+          # Service, so a readiness probe would gate nothing — it would burn a
+          # celery inspect round-trip every few seconds to change a field
+          # nothing reads. (It would matter if a rollout needed to wait on it,
+          # but strategy: Recreate does not.) Backpressure is Redis's job: an
+          # unready worker just stops draining the queue.
+          livenessProbe:
+            # `inspect ping` is a broadcast over the broker with a reply
+            # timeout, so it also proves broker connectivity — a worker that
+            # has silently lost Redis fails this and gets restarted.
+            # -d pins it to THIS worker; without -d the command succeeds as
+            # long as ANY worker in the cluster replies, which would make the
+            # probe useless the moment replicas > 1.
+            # Timeouts are generous because a saturated gevent pool answers
+            # slowly: 10s reply window, 15s probe timeout, 3 x 60s = ~3 minutes
+            # before a restart. Restarting a worker mid-task is expensive.
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A app.celery_app inspect ping -d "celery@$(hostname)" --timeout 10
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 3
+
+          # ---- QoS ----------------------------------------------------------
+          # Burstable (requests < limits), deliberately unlike the API's
+          # Guaranteed. Worker load is spiky — idle between jobs, then a burst
+          # of concurrent LLM calls and PDF handling — so requests reflect the
+          # idle floor it needs to be scheduled and limits give it room to
+          # burst. The price is eviction order: under node memory pressure the
+          # kubelet reaps Burstable pods before Guaranteed ones, i.e. this
+          # worker dies before the user-facing API does. That is the correct
+          # trade: a killed task is requeued, a killed request is a 5xx.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1536Mi
+
+          volumeMounts:
+            - name: trace-logs
+              mountPath: /app/logs
+      volumes:
+        - name: trace-logs
+          emptyDir: {}

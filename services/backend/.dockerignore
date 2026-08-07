@@ -1,0 +1,21 @@
+# Secrets must never enter an image layer. The Dockerfile does `COPY . /app`,
+# so without this file .env (OPENAI_API_KEY, SUPABASE_SERVICE_ROLE_KEY) is
+# baked in permanently — layer history retains it even if a later step deletes
+# the file. Config is injected at runtime instead: env_file in compose, and a
+# Secret + ConfigMap in Kubernetes (infra/k8s/).
+.env
+.env.*
+!.env.example
+
+# Build/test noise. Excluding these also stops a host-built __pycache__ (macOS
+# arm64) from shadowing the container's own bytecode.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+.coverage
+htmlcov/

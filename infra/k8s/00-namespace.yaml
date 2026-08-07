@@ -1,0 +1,9 @@
+# Everything Noesis lives in one namespace so `kubectl delete ns noesis` is a
+# complete teardown and RBAC/quota can later be scoped in one place.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/part-of: noesis

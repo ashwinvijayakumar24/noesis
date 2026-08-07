@@ -1,0 +1,53 @@
+# Non-secret runtime config, mirroring the `environment:` blocks of the
+# backend and celery-worker services in infra/docker-compose.yml.
+# Anything that would be a credential belongs in 02-secret.yaml instead.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: noesis-config
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/part-of: noesis
+data:
+  # Celery builds redis://$REDIS_HOST:$REDIS_PORT/$REDIS_DB itself
+  # (services/backend/app/celery_app.py), so the host is the Service name, not
+  # a URL. The headless Service resolves to the pod IP of noesis-redis-0.
+  REDIS_HOST: "noesis-redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  # The codebase has TWO Redis config paths, and setting only the trio above
+  # silently breaks the second one. celery_app.py:18 builds its broker URL from
+  # REDIS_HOST/PORT/DB, but config.py:32 exposes a separate `REDIS_URL` that
+  # defaults to the COMPOSE service name (redis://redis:6379/0) — a hostname
+  # that does not resolve in this cluster. progress_tracking.py and the
+  # readiness probe both read that one, so without this line the API pods come
+  # up, answer /healthz/live fine, and fail readiness with ConnectionError.
+  # Found the hard way: the first apply had both API pods stuck 0/1 with
+  # {"failed":["redis"],"checks":{"supabase":{"status":"ok"}}} — which is
+  # exactly the misconfiguration a `return {"status":"ok"}` health check would
+  # have hidden while the pods served traffic that 500s on every queue op.
+  REDIS_URL: "redis://noesis-redis:6379/0"
+
+  # Compose defaults to docling; docling is not deployed here (see below), and
+  # the parser falls back to GROBID, which is also absent. Uploads that need a
+  # PDF body parse WILL fail in this cluster — that is expected and scoped:
+  # this build is about the runtime, not the parsing sidecars.
+  PDF_PARSER: "docling"
+
+  # GROBID and Docling are deliberately NOT deployed: multi-GB images running
+  # under amd64 emulation on Apple Silicon would OOM an 8 GB Docker.
+  # 127.0.0.1:9 (the discard port) is chosen so the connection is REFUSED
+  # immediately in-pod — no DNS lookup, no 30s TCP timeout, no retry storm.
+  # The worker treats a parser error as a degraded path, not a crash.
+  GROBID_URL: "http://127.0.0.1:9"
+  DOCLING_URL: "http://127.0.0.1:9"
+
+  # Span sink. `jsonl` matches compose; the file path is set per-Deployment
+  # (api vs worker) because JsonlAdapter's lock is per-process and two writers
+  # on one path can interleave mid-line.
+  NOESIS_TRACING_BACKEND: "jsonl"
+
+  ENVIRONMENT: "development"
+  LOG_LEVEL: "INFO"

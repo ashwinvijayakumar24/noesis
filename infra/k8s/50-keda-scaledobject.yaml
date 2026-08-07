@@ -1,0 +1,124 @@
+# KEDA autoscaling for the Celery worker, driven by queue depth.
+#
+# Requires KEDA in the cluster (CRDs + operator):
+#   kubectl apply --server-side -f \
+#     https://github.com/kedacore/keda/releases/download/v2.14.0/keda-2.14.0.yaml
+# Without the CRD, `kubectl apply` of this file fails with "no matches for kind
+# ScaledObject" — that is a missing operator, not a broken manifest.
+#
+# Demo: scripts/k8s/queue_depth_demo.sh
+#
+# =============================================================================
+# WHY QUEUE DEPTH AND NOT CPU
+# =============================================================================
+# noesis-worker runs `--pool=gevent` (infra/docker-compose.yml:244) and every
+# task it runs is blocked on a network socket — OpenAI, Supabase, GROBID — not
+# on a core. A worker holding 40 queued analyses is 40 greenlets parked in
+# epoll: near-zero CPU, maximum backlog.
+#
+# A CPU-based HPA reads that as idle. It does not merely fail to scale up — it
+# scales DOWN precisely when the backlog is worst, because a worker waiting on
+# I/O burns less CPU than one doing nothing. The signal is not weak, it is
+# inverted. Queue depth is the only metric here that moves in the same
+# direction as the pain.
+# =============================================================================
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: noesis-worker
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis-worker
+    app.kubernetes.io/part-of: noesis
+spec:
+  scaleTargetRef:
+    # apiVersion/kind default to apps/v1 Deployment.
+    name: noesis-worker
+
+  # 1, not 0. Scale-to-zero is available and deliberately not used: a cold
+  # worker pays a full Python + LangGraph import on every wake, and the
+  # `default` and `insights` queues this worker also serves are not what the
+  # trigger below watches, so a zero floor could strand work that generates no
+  # `analysis` depth at all.
+  minReplicaCount: 1
+
+  # 5, not higher. The ceiling here is not the cluster, it is the OpenAI
+  # account: draft analysis is rate-limited to 30/min in Celery's
+  # task_annotations (app/celery_app.py). More workers past this point queue
+  # against that limit instead of the broker.
+  maxReplicaCount: 5
+
+  pollingInterval: 15    # seconds between LLEN reads
+  # INERT IN THIS CONFIGURATION, and named here so nobody reaches for it as the
+  # scale-down knob. cooldownPeriod applies ONLY to the scale-to-zero and
+  # scale-from-zero transitions. minReplicaCount is 1 above, so there is no
+  # zero to go to and this value never fires. Every scaling decision above zero
+  # belongs to the generated HPA (see behavior.scaleDown below).
+  # Kept at 300 so it stays consistent if minReplicaCount is ever dropped to 0.
+  cooldownPeriod: 300
+
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          # THIS is what actually governs scale-down here. The HPA takes the
+          # maximum recommendation over this trailing window, so the timer
+          # effectively restarts on any sample that still wants more replicas.
+          # Measured: with the queue DELeted, 5 replicas held for ~271-306 s and
+          # then dropped straight to 1 — that is this window, not cooldownPeriod.
+          #
+          # 300 s on purpose (and it is also the Kubernetes default, so removing
+          # this line would not speed anything up). Celery's task_acks_late
+          # means an evicted in-flight task is redelivered rather than lost, but
+          # redelivery costs another ~215 s and another ~$0.20 of OpenAI spend,
+          # so the cheapest correct policy is to not evict eagerly. Shorten this
+          # — or add a Pods/Percent policy alongside it — if faster scale-down
+          # is ever wanted.
+          stabilizationWindowSeconds: 300
+
+  triggers:
+    - type: redis
+      metadata:
+        # Same Service the app uses: infra/k8s/01-configmap.yaml sets
+        # REDIS_HOST=noesis-redis, REDIS_PORT=6379, REDIS_DB=0.
+        address: noesis-redis.noesis.svc.cluster.local:6379
+        databaseIndex: "0"
+        enableTLS: "false"
+
+        # THE KEY — verified in kombu's source, not assumed.
+        #   kombu/transport/redis.py:1039  client.lpush(self._q_for_pri(queue, pri), ...)
+        #   kombu/transport/redis.py:1024  _q_for_pri returns the BARE queue
+        #                                  name when pri is 0, else
+        #                                  f"{queue}\x06\x16{pri}"
+        # So for the default Redis transport the broker key is literally the
+        # queue name. services/backend/app/celery_app.py:39-41 declares
+        # Queue("default"), Queue("analysis"), Queue("insights") and sets no
+        # broker_transport_options at all — no `global_keyprefix`, no
+        # priorities — so the list key is exactly `analysis`.
+        #
+        # Two ways that could stop being true, both worth watching for:
+        #   - a `global_keyprefix` in broker_transport_options prefixes every
+        #     key (kombu/transport/redis.py:230), and this trigger would read
+        #     an empty list forever while the backlog grew;
+        #   - enabling message priorities shards the list into `analysis`,
+        #     `analysis\x06\x163`, `\x06\x166`, `\x06\x169`, and this trigger
+        #     would see only the priority-0 shard.
+        # Neither is configured today.
+        listName: analysis
+
+        # Target depth per replica: KEDA asks for ceil(LLEN / listLength).
+        # 10 queued analyses is ~35 minutes of work for one worker at the
+        # measured ~215 s/analysis — already a bad experience, and the point
+        # at which a second worker earns its memory. Depth 50 therefore asks
+        # for 5 replicas, which is exactly maxReplicaCount.
+        listLength: "10"
+
+        # Any depth at all counts as active. With minReplicaCount 1 there is
+        # no idle state to protect, so there is no reason to add a second
+        # threshold that can disagree with the first.
+        activationListLength: "0"
+
+      # No auth: the Redis StatefulSet in this cluster runs without a password,
+      # mirroring infra/docker-compose.yml. If auth is ever added, this needs a
+      # TriggerAuthentication with passwordFromEnv/secretTargetRef — KEDA will
+      # NOT inherit the worker's Secret.

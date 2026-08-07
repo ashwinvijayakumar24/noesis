@@ -1,0 +1,30 @@
+# Host-based ingress for the API. Reachable from the host because the kind
+# config publishes :80/:443 on the control-plane container and ingress-nginx
+# binds them via hostPort.
+# Requires an /etc/hosts entry: 127.0.0.1 noesis.local  (see README).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: noesis-api
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: noesis
+spec:
+  # ingressClassName, not the deprecated kubernetes.io/ingress.class annotation.
+  # ingress-nginx's kind manifest installs an IngressClass named "nginx".
+  ingressClassName: nginx
+  rules:
+    - host: noesis.local
+      http:
+        paths:
+          - path: /
+            # Prefix, not Exact: every route under / (including /healthz/*)
+            # must reach the backend, not just the literal path "/".
+            pathType: Prefix
+            backend:
+              service:
+                name: noesis-api
+                port:
+                  number: 8000

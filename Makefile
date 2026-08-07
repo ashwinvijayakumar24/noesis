@@ -106,6 +106,45 @@ trace-cases:
 trace-cases-dry:
 	python3 $(EVAL)/trace_cases.py --traces '$(EVAL)/results/node_eval_spans.jsonl' --dry-run
 
+# ---------------------------------------------------------------------------
+# Local Kubernetes (kind). Raw manifests, no Helm — see infra/k8s/README.md.
+# ---------------------------------------------------------------------------
+K8S = infra/k8s
+KIND_CLUSTER = noesis
+K8S_NS = noesis
+
+# Build the backend image and load it into the kind node's containerd.
+# kind nodes cannot see your local Docker daemon's images without this.
+k8s-load-image:
+	docker build -t noesis-backend:dev services/backend
+	kind load docker-image noesis-backend:dev --name $(KIND_CLUSTER)
+
+# Apply everything in dependency order. Assumes the cluster, ingress-nginx and
+# the noesis-secrets Secret already exist (steps 1-5 of infra/k8s/README.md).
+k8s-up:
+	kubectl apply -f $(K8S)/00-namespace.yaml
+	kubectl apply -f $(K8S)/01-configmap.yaml
+	kubectl apply -f $(K8S)/10-redis-statefulset.yaml
+	kubectl apply -f $(K8S)/20-api-deployment.yaml
+	kubectl apply -f $(K8S)/21-worker-deployment.yaml
+	kubectl apply -f $(K8S)/30-ingress.yaml
+	kubectl apply -f $(K8S)/40-pdb.yaml
+	kubectl -n $(K8S_NS) rollout status deploy/noesis-api --timeout=180s
+	@echo "[k8s] ✓ up — curl http://noesis.local/healthz/ready"
+
+# Deletes the workloads, not the cluster. The PVC goes with the namespace.
+k8s-down:
+	kubectl delete namespace $(K8S_NS) --ignore-not-found
+	@echo "[k8s] namespace dropped. Full teardown: kind delete cluster --name $(KIND_CLUSTER)"
+
+k8s-status:
+	kubectl -n $(K8S_NS) get pods,svc,statefulset,pvc,ingress,pdb -o wide
+
+# Tail both app workloads. Usage: make k8s-logs [COMPONENT=api|worker]
+COMPONENT ?= api
+k8s-logs:
+	kubectl -n $(K8S_NS) logs -f -l app.kubernetes.io/component=$(COMPONENT) --tail=100 --max-log-requests=5
+
 # Pull results back from container after a manual docker exec run
 eval-pull-results:
 	docker cp $(BACKEND):/app/scripts/eval/results ./scripts/eval/
@@ -115,4 +154,5 @@ eval-pull-results:
         eval-judge eval-bootstrap-gold eval-pull-results \
         eval-build-corpus eval-build-all-corpora eval-heldout-check \
         benchmarks benchmarks-check eval-gate eval-gate-strict \
-        trace-cases trace-cases-dry
+        trace-cases trace-cases-dry \
+        k8s-up k8s-down k8s-load-image k8s-logs k8s-status

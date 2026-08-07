@@ -1,0 +1,180 @@
+# FastAPI backend. This is the only workload that receives inbound traffic, so
+# it is the one that needs a Service, an Ingress, probes, a PDB and a graceful
+# shutdown story.
+apiVersion: v1
+kind: Service
+metadata:
+  name: noesis-api
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: noesis
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8000
+      # Named target port: the Deployment can move the container port without
+      # editing this file.
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noesis-api
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: noesis
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: noesis
+      app.kubernetes.io/component: api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # maxUnavailable: 0 — never drop below 2 serving pods during a roll, so
+      # the rollout itself can never cause a capacity dip. maxSurge: 1 — bring
+      # up one extra pod, wait for it to pass readiness, then retire an old
+      # one. Cost is one pod's worth of headroom; benefit is a zero-gap roll,
+      # which is what Phase 3's disruption measurement is looking for.
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: noesis
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: noesis
+    spec:
+      # See the preStop comment below: this must exceed preStop sleep + the
+      # app's own drain time, or the kubelet SIGKILLs mid-drain.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: noesis-backend:dev
+          # kind has no registry credentials and the tag is local-only (loaded
+          # with `kind load docker-image`). IfNotPresent stops the kubelet from
+          # trying — and failing — to pull it from Docker Hub.
+          imagePullPolicy: IfNotPresent
+          # Overrides the dev Dockerfile's CMD, which ends in --reload.
+          # --reload starts a filesystem watcher and a supervisor process: it
+          # doubles memory, it makes SIGTERM handling ambiguous (the reloader,
+          # not the app, owns the signal), and there is no source to reload in
+          # an immutable image. Explicit command, no watcher.
+          command:
+            - uvicorn
+            - app.main:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+            - --workers
+            - "1"
+            - --proxy-headers
+            # The Ingress terminates the client connection, so the pod only
+            # ever sees the ingress controller's IP. Trusting its X-Forwarded-*
+            # headers is what keeps client IPs and scheme correct in logs.
+            - --forwarded-allow-ips
+            - "*"
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: noesis-config
+            - secretRef:
+                name: noesis-secrets
+          env:
+            # Per-process span file — the worker writes a different path. One
+            # writer per file; JsonlAdapter's lock does not span processes.
+            - name: NOESIS_TRACING_FILE
+              value: /app/logs/noesis_traces_api.jsonl
+
+          # ---- Probes -------------------------------------------------------
+          # Three probes, three different jobs. Endpoints are the Phase-1
+          # /healthz/* handlers.
+          startupProbe:
+            # Holds liveness and readiness off entirely until the app has booted
+            # once. Without it, a slow first boot (imports + Supabase client +
+            # model config) trips liveness and the pod crash-loops forever
+            # without ever having been given a chance to start.
+            # 30 x 5s = up to 150s of boot budget, then the pod is declared bad.
+            httpGet:
+              path: /healthz/startup
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            # Gates Service endpoints only — failing it removes the pod from
+            # load balancing but does NOT restart it. Checks dependencies
+            # (Redis, Supabase), so it is allowed to flap; that is the point.
+            # Short period so a recovering pod rejoins quickly.
+            httpGet:
+              path: /healthz/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          livenessProbe:
+            # Kills and restarts the container, so it must ONLY answer "is this
+            # process wedged", never "is Redis up" — otherwise one Redis blip
+            # restarts every API pod at once. Long period, high threshold:
+            # 5 x 15s = ~75s of unresponsiveness before a restart.
+            httpGet:
+              path: /healthz/live
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          # ---- QoS ----------------------------------------------------------
+          # Kubernetes assigns each pod one of three QoS classes:
+          #   Guaranteed  — every container sets requests == limits for BOTH
+          #                 cpu and memory. Evicted LAST under node pressure.
+          #   Burstable   — requests set but below limits (or only one set).
+          #                 Evicted after BestEffort, before Guaranteed.
+          #   BestEffort  — nothing set at all. Evicted FIRST.
+          # This pod is deliberately Guaranteed: it is the user-facing path, so
+          # when the node runs out of memory the kubelet should reap the worker
+          # (Burstable, see 21-worker-deployment.yaml) before it touches the API.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+
+          # ---- Graceful shutdown --------------------------------------------
+          # THE RACE: on pod delete, the kubelet sends SIGTERM and the endpoint
+          # controller removes the pod from Endpoints AT THE SAME TIME, and the
+          # endpoint removal then has to propagate to every node's kube-proxy /
+          # ingress controller. Without a delay, uvicorn begins shutting down
+          # while some data planes still route to it → connection refused on
+          # in-flight requests. The preStop sleep runs BEFORE SIGTERM is sent,
+          # so the process stays fully healthy while the removal propagates.
+          # 5s covers kind comfortably; grace period (30s) must be larger.
+          # Phase 3 measures exactly this: delete a pod under load, count 5xx.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+
+          volumeMounts:
+            - name: trace-logs
+              mountPath: /app/logs
+      volumes:
+        # emptyDir, not a PVC: traces here are throwaway debug output and the
+        # API's spans are not the ones worth keeping. Dies with the pod.
+        - name: trace-logs
+          emptyDir: {}

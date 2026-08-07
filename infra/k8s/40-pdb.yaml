@@ -1,0 +1,32 @@
+# PodDisruptionBudget for the API.
+#
+# VOLUNTARY vs INVOLUNTARY DISRUPTION — a PDB only constrains the first:
+#   Voluntary   — an operator or controller CHOOSING to remove a pod:
+#                 `kubectl drain` for a node upgrade, cluster autoscaler
+#                 scale-down, a node being cordoned. These go through the
+#                 Eviction API, which is what checks this budget and refuses
+#                 the eviction if honouring it would breach minAvailable.
+#   Involuntary — the pod dying for reasons nobody asked for: node kernel
+#                 panic, hardware failure, OOM kill, the process crashing.
+#                 The Eviction API is never consulted, so a PDB CANNOT stop
+#                 these. Replica count and spreading are the defence there.
+# So this guarantees: a drain of one node can never take the API to zero.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: noesis-api
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: noesis
+spec:
+  # minAvailable, not maxUnavailable: with 2 replicas both express the same
+  # thing, but minAvailable stays correct if the count is later reduced to 1
+  # (it would simply block all voluntary eviction rather than silently
+  # allowing the last pod to go).
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: noesis
+      app.kubernetes.io/component: api

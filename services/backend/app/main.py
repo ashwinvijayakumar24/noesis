@@ -12,6 +12,8 @@ from app.api.routes import (
     # Zotero integration
     zotero,
 )
+# Kubernetes probes (aliased: `health` is taken by the legacy /health handler)
+from app.api.routes import health as health_probes
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -166,6 +168,17 @@ app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
 
 # Zotero Integration
 app.include_router(zotero.router, prefix="/api", tags=["Zotero"])
+
+# Kubernetes probes (/healthz/live, /healthz/ready, /healthz/startup).
+# The legacy /health below stays as-is: Docker Compose healthchecks and AWS
+# target groups point at it.
+app.include_router(health_probes.router, prefix="/healthz", tags=["Health"])
+
+
+@app.on_event("startup")
+async def _mark_startup_complete():
+    health_probes.mark_startup_complete()
+
 
 @app.get("/health")
 async def health():

@@ -1,0 +1,132 @@
+# Redis — the real Celery broker and result backend.
+#
+# WHY A STATEFULSET, NOT A DEPLOYMENT:
+#   1. Stable network identity. StatefulSet pods get an ordinal name
+#      (noesis-redis-0) and a DNS record through the headless Service, so
+#      clients can address a specific replica. Deployment pods get a random
+#      suffix that changes on every roll.
+#   2. Per-replica storage. volumeClaimTemplates mints ONE PVC per pod and
+#      re-attaches that same PVC when the pod is rescheduled. A Deployment's
+#      pods are interchangeable and all mount the same PVC — with
+#      ReadWriteOnce that means the new pod cannot start until the old one
+#      releases the volume, and with more than one replica they would fight
+#      over a single disk and corrupt the RDB.
+# Broker state (queued tasks, results) is the thing we do not want to lose on a
+# reschedule, which is exactly what the PVC buys.
+apiVersion: v1
+kind: Service
+metadata:
+  name: noesis-redis
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: noesis
+spec:
+  # Headless: no cluster IP, no kube-proxy load balancing. DNS returns the pod
+  # IPs directly, which is what gives noesis-redis-0 a stable A record. This is
+  # the Service a StatefulSet's serviceName points at.
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: noesis-redis
+  namespace: noesis
+  labels:
+    app.kubernetes.io/name: noesis
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: noesis
+spec:
+  # Must name the headless Service above — this is what builds the per-pod DNS.
+  serviceName: noesis-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: noesis
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: noesis
+        app.kubernetes.io/component: redis
+        app.kubernetes.io/part-of: noesis
+    spec:
+      # Redis closes connections quickly; no need for the 30s default.
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+          # Same probe command compose used for its healthcheck, but split into
+          # two probes with different consequences.
+          readinessProbe:
+            # Gates traffic only. Tight and impatient: if Redis is busy we want
+            # it out of DNS fast so clients fail rather than hang.
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            # Kills the pod. Deliberately far more forgiving — a liveness
+            # failure destroys the process and every in-flight queue operation,
+            # so it must only fire on a genuine hang. 6 x 20s = ~2 minutes of
+            # sustained unresponsiveness before we restart. A busy BGSAVE or a
+            # long blocking command must not trip this.
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          # Guaranteed QoS: requests == limits on BOTH cpu and memory. This was
+          # originally Burstable (requests 50m/64Mi, limits 250m/256Mi), which
+          # got the eviction order exactly backwards and was only caught by
+          # reading `kubectl get pods -o custom-columns=QOS:.status.qosClass`
+          # off the live cluster:
+          #
+          #   noesis-api-*    Guaranteed   <- 2 fungible replicas behind a Service
+          #   noesis-redis-0  Burstable    <- the singleton everything depends on
+          #
+          # Under node memory pressure the kubelet evicts Burstable before
+          # Guaranteed, so the pod it would have reaped first is the broker.
+          # Losing it fails the API's readiness probe on every replica AND
+          # stops the worker, while the "protected" API pods are the cheap,
+          # rescheduleable ones. A singleton with a PVC that two other
+          # workloads depend on is the thing that must be evicted LAST.
+          #
+          # Cost of the fix is the reservation: 250m/256Mi is now held whether
+          # used or not. That is the price of the guarantee, and on this
+          # 2-node cluster it is affordable.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+        # No storageClassName: kind's default provisioner (rancher local-path)
+        # handles it. Naming a class here would break on any other cluster.

@@ -51,6 +51,10 @@ dist-ssr/
 backups/
 infra/.env
 
+# Kubernetes Secret with real credentials. Only the placeholder template
+# infra/k8s/02-secret.example.yaml is tracked.
+infra/k8s/02-secret.yaml
+
 # Logs
 *.log
 logs/

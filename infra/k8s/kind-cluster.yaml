@@ -1,0 +1,33 @@
+# kind cluster for the Noesis backend + worker + Redis.
+#   kind create cluster --config infra/k8s/kind-cluster.yaml
+#
+# Two nodes on purpose: one control-plane (which also hosts the ingress
+# controller) and one worker. That is enough to see the API's 2 replicas land
+# on different nodes and to make the PodDisruptionBudget mean something,
+# without paying for a third kubelet on an 8 GB Docker.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: noesis
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      # ingress-nginx's kind manifest schedules its controller with a
+      # nodeSelector on ingress-ready=true. Without this label the controller
+      # pod stays Pending forever.
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # kind nodes are Docker containers, so host traffic cannot reach a
+      # NodePort unless the port is published on the container. These two map
+      # host :80/:443 onto the ingress controller's hostPorts, which is what
+      # makes http://noesis.local work from the browser.
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+  - role: worker
