@@ -54,7 +54,8 @@ IMPORTANT: Do NOT comment on section metadata anomalies (duplicate entries, 'oth
 placeholders, running-header echoes) in your notes — these are parser extraction
 artifacts, not manuscript flaws. Only comment on content visible in the draft text.
 
-Return a structured assessment."""
+Return a compact structured assessment. Keep notes under 30 words and list only
+fatal flaws that independently justify desk rejection."""
 
 
 async def editor_pass_node(state: DraftAnalysisState) -> dict:
@@ -70,7 +71,7 @@ async def editor_pass_node(state: DraftAnalysisState) -> dict:
     editing_feedback = (state.get("analysis") or {}).get("editing_feedback") or {}
     profile = state.get("manuscript_profile") or {}
 
-    # Build context — only first 2000 chars (abstract + intro) needed
+    # Build context — only the opening is needed for a fast desk screen.
     sections_present = [s.get("type", "?") for s in structure.get("sections", []) if s.get("type") != "other"]
     word_count = structure.get("word_count", 0)
     section_count = len(structure.get("sections", []))
@@ -85,8 +86,8 @@ STAGE 1 ISSUES (mechanical):
 Grammar issues: {len(editing_feedback.get('grammar_issues', []))}
 Structural notes: {editing_feedback.get('structural_notes', [])}
 
-DRAFT CONTENT (first 2000 chars):
-{draft_content[:2000]}
+DRAFT CONTENT (first 1200 chars):
+{draft_content[:1200]}
 """
 
     try:
@@ -97,7 +98,7 @@ DRAFT CONTENT (first 2000 chars):
                 {"role": "system", "content": EDITOR_PASS_PROMPT},
                 {"role": "user", "content": context},
             ],
-            max_completion_tokens=1500,
+            max_completion_tokens=2500,
             response_format=EditorPassOutput,
             **get_completion_params(),
         )

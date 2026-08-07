@@ -1366,21 +1366,23 @@ def get_draft_analysis(
             )
             analysis_metadata = analysis_data.get("analysis_metadata") or {}
             analysis_payload = analysis_data.get("analysis") or {}
-            reviewer_panel = []
-            if debug:
-                try:
-                    panel_query = supabase.table("reviewer_panel_outputs").select("*").eq("draft_id", draft_id)
-                    panel_res = active_run_filter(panel_query, active_run_id).execute()
-                    reviewer_panel = panel_res.data or []
-                    assert_active_run_rows(
-                        table="reviewer_panel_outputs",
-                        draft_id=draft_id,
-                        active_run_id=active_run_id,
-                        rows=reviewer_panel,
-                        require_active_run=status == "analyzed",
-                    )
-                except Exception:
-                    reviewer_panel = []
+            try:
+                panel_select = "*" if debug else (
+                    "draft_id,analysis_run_id,is_published,reviewer_id,summary,strengths,"
+                    "weaknesses,questions_to_authors,limitations_to_address,rating,confidence,recommendation"
+                )
+                panel_query = supabase.table("reviewer_panel_outputs").select(panel_select).eq("draft_id", draft_id)
+                panel_res = active_run_filter(panel_query, active_run_id).execute()
+                reviewer_panel = panel_res.data or []
+                assert_active_run_rows(
+                    table="reviewer_panel_outputs",
+                    draft_id=draft_id,
+                    active_run_id=active_run_id,
+                    rows=reviewer_panel,
+                    require_active_run=status == "analyzed",
+                )
+            except Exception:
+                reviewer_panel = []
 
             # Fetch meta review (Phase 3)
             try:
@@ -1421,6 +1423,7 @@ def get_draft_analysis(
                 # Phase 3 peer review panel
                 "editor_decision": analysis_metadata.get("editor_decision"),
                 "meta_review": meta_review,
+                "reviewer_panel": reviewer_panel,
                 "manuscript_profile": analysis_metadata.get("manuscript_profile"),
                 "revision_tasks": revision_tasks,
                 "revision_metadata": revision_metadata,
@@ -1428,7 +1431,6 @@ def get_draft_analysis(
             if debug:
                 response.update({
                     "analysis": analysis_data,
-                    "reviewer_panel": reviewer_panel,
                     "citation_judge": analysis_metadata.get("citation_judge"),
                     "reviewer_judge": analysis_metadata.get("reviewer_judge"),
                     "diagnostic_findings": analysis_metadata.get("diagnostic_findings", []),
@@ -1886,7 +1888,7 @@ async def get_all_feedback(
         # Fetch readiness_score and verdict from draft_analysis
         analysis_response = active_run_filter(
             supabase.table("draft_analysis")
-            .select("analysis_metadata")
+            .select("draft_id,analysis_run_id,is_published,analysis_metadata")
             .eq("draft_id", draft_id),
             active_run_id,
         ).execute()

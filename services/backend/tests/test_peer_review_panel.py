@@ -62,6 +62,89 @@ class TestPhase34Schemas:
                 recommendation="accept",
             )
 
+    def test_absence_verifier_drops_issue_contradicted_later_in_manuscript(self):
+        from app.workflows.draft_analysis.nodes.reviewer_panel import _filter_contradicted_absence_issues
+        from app.workflows.draft_analysis.schemas import ReviewerIssue
+
+        draft = (
+            "Introduction. " + ("filler " * 5000) +
+            "Appendix B. Hyperparameters. We use Adam with learning rate 1e-4, "
+            "batch size 32, weight decay 0.01, and train for 20 epochs."
+        )
+        issue = ReviewerIssue(
+            issue_type="reproducibility",
+            section_reference="Methods",
+            anchor_text="",
+            problem="The manuscript lacks concrete hyperparameters for training.",
+            why_it_matters="Reviewers cannot reproduce the experiments.",
+            suggested_action="Specify learning rate, batch size, optimizer, and epochs.",
+            confidence=0.8,
+        )
+
+        assert _filter_contradicted_absence_issues([issue], draft) == []
+
+    def test_absence_verifier_drops_consolidated_definition_false_absence(self):
+        from app.workflows.draft_analysis.nodes.reviewer_panel import _filter_contradicted_absence_issues
+        from app.workflows.draft_analysis.schemas import ReviewerIssue
+
+        draft = (
+            "Methods. Step-1 introduces the model. Step-4. The formal complete "
+            "description of how the final model implements the retrieval module is as follows: "
+            "z = R(E(x), K, V), y = P(z)."
+        )
+        issue = ReviewerIssue(
+            issue_type="clarity",
+            section_reference="Architecture",
+            anchor_text="",
+            problem="There is no single consolidated definition or full forward-pass equation of the final model.",
+            why_it_matters="The architecture is scattered across incremental steps.",
+            suggested_action="Add a consolidated algorithm box or complete model definition.",
+            confidence=0.8,
+        )
+
+        assert _filter_contradicted_absence_issues([issue], draft) == []
+
+    def test_absence_verifier_drops_related_work_false_absence(self):
+        from app.workflows.draft_analysis.nodes.reviewer_panel import _filter_contradicted_absence_issues
+        from app.workflows.draft_analysis.schemas import ReviewerIssue
+
+        draft = (
+            "Related Work. Classic neighbor-based and kernel methods are retrieval-based "
+            "tabular models. kNN is the simplest example of local learning. We also discuss "
+            "deep kernel learning and DNNR as close conceptual neighbors."
+        )
+        issue = ReviewerIssue(
+            issue_type="positioning",
+            section_reference="Related Work",
+            anchor_text="",
+            problem="The related work gives limited discussion of classical kernel regression and learned metric kNN as conceptual neighbors.",
+            why_it_matters="The novelty may be overstated without these comparisons.",
+            suggested_action="Discuss kernel regression, kNN, and related neighbor-based methods.",
+            confidence=0.8,
+        )
+
+        assert _filter_contradicted_absence_issues([issue], draft) == []
+
+    def test_absence_verifier_drops_seed_uncertainty_false_absence(self):
+        from app.workflows.draft_analysis.nodes.reviewer_panel import _filter_contradicted_absence_issues
+        from app.workflows.draft_analysis.schemas import ReviewerIssue
+
+        draft = (
+            "Results. All main-text metrics are averaged over 15 seeds. "
+            "Appendix E reports standard deviations for each benchmark and ablation."
+        )
+        issue = ReviewerIssue(
+            issue_type="methodology",
+            section_reference="Ablations",
+            anchor_text="",
+            problem="The ablation is discussed without reporting uncertainty across seeds.",
+            why_it_matters="The importance of the component may be overstated without variability estimates.",
+            suggested_action="Report mean and standard deviation across random seeds.",
+            confidence=0.8,
+        )
+
+        assert _filter_contradicted_absence_issues([issue], draft) == []
+
     def test_citation_judge_output_defaults(self):
         from app.workflows.draft_analysis.schemas import CitationJudgeOutput
         out = CitationJudgeOutput()
@@ -75,6 +158,40 @@ class TestPhase34Schemas:
         out = ReviewerJudgeOutput(reviewer_scores=[score])
         assert out.retry_reviewer_ids == []
         assert out.panel_quality == "medium"
+
+    def test_eval_can_disable_pre_reviewer_halt(self, monkeypatch):
+        from app.workflows.draft_analysis.graph import route_to_reviewer_panel
+
+        state = {
+            "editor_decision": {"proceed_to_review": True},
+            "claims_with_citations": [{"claim": {"claim_text": "x"}}],
+            "parser_quality": {"parser_quality_score": 0.4},
+        }
+
+        assert route_to_reviewer_panel(state) == "synthesize_report"
+
+        monkeypatch.setenv("EVAL_DISABLE_PRE_REVIEWER_HALT", "1")
+        routed = route_to_reviewer_panel(state)
+
+        assert isinstance(routed, list)
+        assert len(routed) == 3
+
+    def test_methodology_context_includes_empirical_diagnostics(self):
+        from app.workflows.draft_analysis.nodes.reviewer_panel import _build_methodology_context
+
+        context = _build_methodology_context({
+            "claims_with_citations": [],
+            "structural_feedback": [],
+            "diagnostic_findings": [{
+                "finding_type": "methodology",
+                "severity": "major",
+                "section_reference": "Evaluation",
+                "problem": "The evaluation depends on prompt sensitivity over generated datasets.",
+            }],
+        })
+
+        assert "PROFILE-AWARE DIAGNOSTICS" in context
+        assert "prompt sensitivity" in context
 
     def test_state_has_judge_fields(self):
         from app.workflows.draft_analysis.state import DraftAnalysisState
@@ -123,6 +240,8 @@ class TestEditorPassNode:
         assert result["editor_decision"]["proceed_to_review"] is True
         assert result["editor_decision"]["writing_quality"] == "needs_revision"
         assert result["progress_percentage"] == 80
+        _, kwargs = mock_client.beta.chat.completions.parse.call_args
+        assert kwargs["max_completion_tokens"] == 2500
 
     @pytest.mark.unit
     @patch("app.workflows.draft_analysis.nodes.editor_pass.client")

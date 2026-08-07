@@ -1092,6 +1092,98 @@ def _is_manufacturer_protocol_nitpick(
     return True
 
 
+_ABSENCE_IMPLEMENTATION_DETAIL_RE = re.compile(
+    r"\b(?:missing|not (?:fully |clearly )?specified|not reported|not provided|lacks?|under[- ]specif)"
+    r"[\w\s,;:/().+-]{0,180}\b(?:implementation details?|hyperparameters?|learning rates?|"
+    r"network sizes?|replay buffer|reward scaling|random seeds?|number of trees|iterations?|"
+    r"temperature|top[- ]?p|dataset splits?|stopping criteria|optimizer|batch sizes?|max depth)\b"
+    r"|"
+    r"\b(?:implementation details?|hyperparameters?|learning rates?|network sizes?|replay buffer|"
+    r"reward scaling|random seeds?|number of trees|iterations?|temperature|top[- ]?p|dataset splits?|"
+    r"stopping criteria|optimizer|batch sizes?|max depth)\b[\w\s,;:/().+-]{0,180}"
+    r"\b(?:missing|not (?:fully |clearly )?specified|not reported|not provided|lacks?|under[- ]specif)\b",
+    re.IGNORECASE,
+)
+
+
+_CONCRETE_SETTING_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(?:learning rate|lr|optimizer|adam|adamw|batch size|hidden size|embedding dimension|network|mlp|gat)\b", re.IGNORECASE),
+    re.compile(r"\b(?:replay|buffer|reward|discount|gamma|epsilon|seed|episode|training iterations?)\b", re.IGNORECASE),
+    re.compile(r"\b(?:temperature|top[- ]?p|number of trees|iterations?|max depth|stopping|leaf|score range)\b", re.IGNORECASE),
+    re.compile(r"\b[a-z][a-z0-9_-]{0,16}\s*=\s*[0-9]", re.IGNORECASE),
+    re.compile(r"\[[0-9][0-9\s.,;+-]*\]"),
+    re.compile(r"\b\d+(?:\.\d+)?\s*(?:epochs?|episodes?|iterations?|layers?|heads?|trees?)\b", re.IGNORECASE),
+)
+
+
+_UNANCHORED_ABSENCE_RE = re.compile(
+    r"\b(?:does not include|does not discuss|do not discuss|missing|not (?:fully |clearly )?specified|"
+    r"not reported|not provided|lacks?|no (?:discussion|analysis|ablation|comparison|evidence|limitations?))\b",
+    re.IGNORECASE,
+)
+
+
+_CONCLUSION_ONLY_CLAIM_RE = re.compile(
+    r"\b(?:is\s+)?(?:introduced|appears?|mentioned)\s+(?:only\s+)?in\s+(?:the\s+)?(?:conclusion|future work)"
+    r"|\bwithout any groundwork in the main body\b"
+    r"|\bnot introduced in the main body\b",
+    re.IGNORECASE,
+)
+
+
+_TECHNICAL_GROUNDING_TERMS = {
+    "structure",
+    "structural",
+    "simplicial",
+    "complex",
+    "complexes",
+    "equivariance",
+    "equivariant",
+    "orientation",
+    "oriented",
+    "operator",
+    "operators",
+    "algorithm",
+    "model",
+    "models",
+    "feature",
+    "features",
+}
+
+
+def _contradicted_conclusion_only_claim(problem: str, suggested_action: str, evidence_text: str) -> bool:
+    claim = f"{problem} {suggested_action}"
+    if not _CONCLUSION_ONLY_CLAIM_RE.search(claim):
+        return False
+    evidence_terms = set(re.findall(r"[a-z][a-z0-9_-]{3,}", (evidence_text or "").lower()))
+    if len(evidence_terms & _TECHNICAL_GROUNDING_TERMS) < 3:
+        return False
+    claim_terms = set(re.findall(r"[a-z][a-z0-9_-]{3,}", claim.lower()))
+    return bool((claim_terms & evidence_terms) & _TECHNICAL_GROUNDING_TERMS)
+
+
+def _contradicted_implementation_absence_claim(
+    problem: str,
+    suggested_action: str,
+    evidence_text: str,
+) -> bool:
+    """Drop broad "implementation details missing" tasks contradicted by their own anchor.
+
+    This is intentionally narrower than a general absence verifier: it only targets
+    implementation-detail/hyperparameter absence claims, and only when the evidence
+    snippet contains multiple concrete settings. It avoids accepting a task just because
+    the model anchored it to a paragraph that actually proves several named details exist.
+    """
+    claim = f"{problem} {suggested_action}"
+    if not _ABSENCE_IMPLEMENTATION_DETAIL_RE.search(claim):
+        return False
+    evidence = evidence_text or ""
+    if len(evidence.strip()) < 40:
+        return False
+    hits = sum(1 for pattern in _CONCRETE_SETTING_PATTERNS if pattern.search(evidence))
+    return hits >= 2
+
+
 def _base_task(
     *,
     source_type: str,
@@ -1145,6 +1237,20 @@ def _base_task(
             return None
 
     source = source or {}
+    absence_evidence = " ".join(
+        t for t in (
+            anchor_text,
+            source.get("text_snippet"),
+            source.get("anchor_text"),
+        ) if t
+    )
+    if _contradicted_implementation_absence_claim(problem, suggested_action, absence_evidence):
+        return None
+    if _contradicted_conclusion_only_claim(problem, suggested_action, absence_evidence):
+        return None
+    if source_type in {"diagnostic", "structural"} and not absence_evidence.strip():
+        if _UNANCHORED_ABSENCE_RE.search(f"{problem} {suggested_action}"):
+            return None
     severity = (severity or "major").lower()
     anchor_source = anchor_text or source.get("text_snippet") or source.get("anchor_text") or section or problem
     dedupe_category = _dedupe_category(problem, suggested_action, task_type)
@@ -1197,8 +1303,15 @@ def _must_address_covering_task(
     must_norm = _norm(must_item)
     if not must_tokens:
         return tasks[0] if tasks else None
+    must_lower = must_item.lower()
     for task in tasks:
         task_text = _task_merge_text(task)
+        task_lower = task_text.lower()
+        if (
+            re.search(r"\b(compute|model calls?|token usage|wall[- ]clock|budget|cost)\b", must_lower)
+            and re.search(r"\b(compute|resource budgets?|sampling counts?|model calls?|tokens?|budget|cost)\b", task_lower)
+        ):
+            return task
         task_tokens = _token_set(task_text)
         task_norm = _norm(task_text)
         if task_tokens:
@@ -1209,11 +1322,6 @@ def _must_address_covering_task(
             if SequenceMatcher(None, must_norm, task_norm).ratio() >= 0.55:
                 return task
     return None
-
-
-def _must_address_covered_fallback(must_item: str, tasks: list[dict[str, Any]]) -> bool:
-    """Bool wrapper around _must_address_covering_task (kept for existing callers)."""
-    return _must_address_covering_task(must_item, tasks) is not None
 
 
 def ensure_must_address_coverage(

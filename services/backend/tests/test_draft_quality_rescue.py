@@ -2725,6 +2725,30 @@ class TestMetaMustAddressCoverage:
         assert len(promoted) == 0, "Covered item must not be re-promoted"
 
     @pytest.mark.unit
+    def test_compute_budget_must_address_covered_by_resource_budget_task(self):
+        from app.workflows.draft_analysis.revision_tasks import ensure_must_address_coverage
+
+        existing_tasks = [
+            self._make_task(
+                "The SOTA framing does not acknowledge different resource budgets and sampling counts.",
+                "Delimit claims by model settings and computational budget.",
+                task_type="literature_positioning",
+            )
+        ]
+        must_address = [
+            "Provide compute-matched comparisons: report model calls, token usage, and wall-clock cost."
+        ]
+
+        result = ensure_must_address_coverage(
+            existing_tasks,
+            must_address,
+            reviewer_outputs=[],
+        )
+
+        assert len(result) == len(existing_tasks)
+        assert not [t for t in result if t.get("source_type") == "meta_must_address"]
+
+    @pytest.mark.unit
     def test_meta_review_none_is_noop(self):
         """build_revision_tasks with meta_review=None or empty must_address must be
         a complete no-op — task count and content unchanged."""
@@ -3473,6 +3497,107 @@ class TestManufacturerProtocolGuard:
             "Specify the exact incubation time and buffer volume.",
             "Cells were transfected and processed for downstream analysis.",
         ) is False
+
+
+class TestImplementationAbsenceGuard:
+    @pytest.mark.unit
+    def test_base_task_drops_contradicted_hyperparameter_absence_claim(self):
+        from app.workflows.draft_analysis.revision_tasks import _base_task
+
+        out = _base_task(
+            source_type="diagnostic",
+            task_type="reproducibility",
+            severity="major",
+            section="Experiments",
+            anchor_text=(
+                "Experimental settings. We use Adam with learning rate = 1e-4, batch size = 1024, "
+                "replay buffer capacity = 5000, discount gamma = 0.99, four GAT layers, "
+                "and train for 200000 episodes."
+            ),
+            problem=(
+                "Key implementation details such as hyperparameters, learning rate, network sizes, "
+                "replay buffer size, and reward scaling are not specified."
+            ),
+            why_it_matters="Reviewers need implementation details to assess reproducibility.",
+            suggested_action="Specify the missing implementation details.",
+        )
+
+        assert out is None
+
+    @pytest.mark.unit
+    def test_base_task_keeps_partial_missing_detail_claim(self):
+        from app.workflows.draft_analysis.revision_tasks import _base_task
+
+        out = _base_task(
+            source_type="diagnostic",
+            task_type="reproducibility",
+            severity="major",
+            section="Experiments",
+            anchor_text="We train the model with Adam.",
+            problem="Random seed settings and dataset splits are not specified.",
+            why_it_matters="Seed and split details affect reproducibility.",
+            suggested_action="Report the random seed policy and dataset split procedure.",
+        )
+
+        assert out is not None
+        assert out["problem"] == "Random seed settings and dataset splits are not specified."
+
+    @pytest.mark.unit
+    def test_base_task_drops_unanchored_structural_absence_claim(self):
+        from app.workflows.draft_analysis.revision_tasks import _base_task
+
+        out = _base_task(
+            source_type="structural",
+            task_type="reproducibility",
+            severity="major",
+            section="Methods",
+            anchor_text="",
+            problem="Key implementation details such as number of trees and stopping criteria are not specified.",
+            why_it_matters="Reproducibility requires concrete settings.",
+            suggested_action="Provide the missing implementation details.",
+        )
+
+        assert out is None
+
+    @pytest.mark.unit
+    def test_base_task_drops_contradicted_conclusion_only_claim(self):
+        from app.workflows.draft_analysis.revision_tasks import _base_task
+
+        out = _base_task(
+            source_type="diagnostic",
+            task_type="clarity",
+            severity="major",
+            section="Conclusion/Future Work",
+            anchor_text=(
+                "We show through numerical experiments that SaNN models are computationally "
+                "inexpensive and well-capture the structure of the simplicial complexes."
+            ),
+            problem=(
+                '"well-capture the structure of" is introduced in the Conclusion/Future Work '
+                "without any groundwork in the main body."
+            ),
+            why_it_matters="Introducing a major technical concept only in the conclusion leaves it unsupported.",
+            suggested_action="Integrate the structure claim into the relevant main-body section or remove it.",
+        )
+
+        assert out is None
+
+    @pytest.mark.unit
+    def test_base_task_keeps_conclusion_only_claim_without_grounding_terms(self):
+        from app.workflows.draft_analysis.revision_tasks import _base_task
+
+        out = _base_task(
+            source_type="diagnostic",
+            task_type="clarity",
+            severity="major",
+            section="Conclusion/Future Work",
+            anchor_text="Future work will explore clinical adoption in rural hospitals.",
+            problem="A new deployment concept is introduced only in the Conclusion/Future Work.",
+            why_it_matters="New framing in the conclusion can be unsupported.",
+            suggested_action="Define the deployment concept earlier or remove it.",
+        )
+
+        assert out is not None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
